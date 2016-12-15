@@ -3,16 +3,16 @@ w
     = [ \t\n] / "\r\n"
 
 argname
-    = [A-Za-z_][A-Za-z_0-9]*
+    = [a-z][a-z0-9_]*
 
 typename
-	= [A-Z][A-Za-z]*
+	= [A-Z][A-Za-z0-9_]*
 
 methodname
-	= [A-Z][A-Za-z]*
+	= [A-Z][A-Za-z0-9_]*
 
 interfacename
-	= [a-z]+([.][a-z]+)+
+	= [a-z]+([.][a-z0-9][a-z0-9\-]*)+
 
 vtype
     = "bool" 

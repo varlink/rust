@@ -47,6 +47,11 @@ org.varlink.service {
 }
 
 #[test]
+fn test_domainnames() {
+    assert!(interfaces("org.varlink.service{F()->()}").is_ok());
+}
+
+#[test]
 fn test_no_method() {
     assert!(interfaces("
 org.varlink.service {

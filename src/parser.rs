@@ -48,7 +48,11 @@ org.varlink.service {
 
 #[test]
 fn test_domainnames() {
-    assert!(interfaces("org.varlink.service{F()->()}").is_ok());
+    assert!(interfaces("org.varlink.service {F()->()}").is_ok());
+    assert!(interfaces("de.0pointer {F()->()}").is_ok());
+    assert!(interfaces("org.example-dash {F()->()}").is_ok());
+    assert!(interfaces("org.-example-leadinghyphen {F()->()}").is_err());
+    assert!(interfaces("org.example-danglinghyphen- {F()->()}").is_err());
 }
 
 #[test]

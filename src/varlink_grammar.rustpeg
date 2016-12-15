@@ -11,8 +11,8 @@ typename
 methodname
 	= [A-Z][A-Za-z0-9_]*
 
-interfacename
-	= [a-z]+([.][a-z0-9][a-z0-9\-]*)+
+reversedomainname /* no hyphen at begin and end */
+	= [a-z]*<2,6> ( "." [a-z0-9]+ ([-] [a-z0-9]+)* )+
 
 vtype
     = "bool" 
@@ -57,7 +57,7 @@ interface_body /* At least one method */
 	= vtypedef* method ( method / vtypedef )*
 	
 interface
-	= w* interfacename w* "{" w* interface_body w* "}" w*
+	= w* reversedomainname w* "{" w* interface_body w* "}" w*
 	
 #[export]
 interfaces

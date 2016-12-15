@@ -22,11 +22,8 @@ vtype
     / typename
     / vstruct           /* really? */
 
-arraynum
-    = [0-9]+
-
 array
-    = '[' arraynum? ']'
+    = '[' w* [0-9]* w* ']'
     
 nullable
     = '?'

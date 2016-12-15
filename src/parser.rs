@@ -80,6 +80,15 @@ fn test_type_one_arg() {
     assert!(interfaces("foo.bar{ type I (b:bool) F()->() }").is_ok());
 }
 
+#[test]
+fn test_type_one_array() {
+    assert!(interfaces("foo.bar{ type I (b:bool[]) F()->() }").is_ok());
+    assert!(interfaces("foo.bar{ type I (b:bool[ ]) F()->() }").is_ok());
+    assert!(interfaces("foo.bar{ type I (b:bool[1]) F()->() }").is_ok());
+    assert!(interfaces("foo.bar{ type I (b:bool[ 1 ]) F()->() }").is_ok());
+    assert!(interfaces("foo.bar{ type I (b:bool[ 1 1 ]) F()->() }").is_err());
+}
+
 // REALLY???
 #[test]
 fn test_method_struct_optional() {

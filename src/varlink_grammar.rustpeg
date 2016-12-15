@@ -12,7 +12,7 @@ methodname
 	= [A-Z][A-Za-z0-9_]*
 
 reversedomainname /* no hyphen at begin and end */
-	= [a-z]*<2,6> ( "." [a-z0-9]+ ([-] [a-z0-9]+)* )+
+	= [a-z]*<2,6> ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+
 
 vtype
     = "bool" 
@@ -25,27 +25,27 @@ arraynum
     = [0-9]+
 
 array
-    = "[" arraynum? "]"
+    = '[' arraynum? ']'
     
 nullable
-    = "?" 
+    = '?'
 
 vtype_maybe_array
     = vtype array? nullable?
 
 /* maybe multiple vtype_maybe_array separated by | */
 vtype_maybe_enum
-    = vtype_maybe_array ** "|"
+    = vtype_maybe_array ** '|'
    
 arg
-    = w* argname w* ":" w* vtype_maybe_enum
+    = w* argname w* ':' w* vtype_maybe_enum
 
 /* maybe multiple arg separated by , */ 
 arguments
-    = arg ** ","
+    = arg ** ','
     
 vstruct
-    = "(" arguments w* ")"
+    = '(' arguments w* ')'
 
 vtypedef
     = w* "type" w+ typename w* vstruct w*
@@ -57,7 +57,7 @@ interface_body /* At least one method */
 	= vtypedef* method ( method / vtypedef )*
 	
 interface
-	= w* reversedomainname w* "{" w* interface_body w* "}" w*
+	= w* reversedomainname w* '{' w* interface_body w* '}' w*
 	
 #[export]
 interfaces

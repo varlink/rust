@@ -51,7 +51,7 @@ vtypedef
     = w* "type" w+ typename w* vstruct w*
 
 method
-    = w* methodname w* vstruct w* "->" w* vstruct *w 
+    = w* methodname w* vstruct w* "->" w* vstruct w*
 
 interface_body /* At least one method */
 	= vtypedef* method ( method / vtypedef )*

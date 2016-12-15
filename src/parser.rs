@@ -67,3 +67,24 @@ org.varlink.service {
 ")
         .is_ok());
 }
+
+// REALLY???
+#[test]
+fn test_method_struct_array_optional() {
+    assert!(interfaces("
+org.varlink.service {
+  Foo(foo: (i: int64, b: bool)[]?) -> ()
+}
+")
+        .is_ok());
+}
+
+#[test]
+fn test_method_struct_array_optional_wrong() {
+    assert!(interfaces("
+org.varlink.service {
+  Foo(foo: (i: int64, b: bool)?[]) -> ()
+}
+")
+        .is_err());
+}

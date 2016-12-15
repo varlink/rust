@@ -12,7 +12,8 @@ methodname
 	= [A-Z][A-Za-z0-9_]*
 
 reversedomainname /* no hyphen at begin and end */
-	= [a-z]*<2,6> ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+
+	= [a-z]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+
+	  / "xn--" [a-z0-9]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+
 
 vtype
     = "bool" 

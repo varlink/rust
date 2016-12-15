@@ -49,10 +49,14 @@ org.varlink.service {
 #[test]
 fn test_domainnames() {
     assert!(interfaces("org.varlink.service {F()->()}").is_ok());
-    assert!(interfaces("de.0pointer {F()->()}").is_ok());
-    assert!(interfaces("org.example-dash {F()->()}").is_ok());
-    assert!(interfaces("org.-example-leadinghyphen {F()->()}").is_err());
-    assert!(interfaces("org.example-danglinghyphen- {F()->()}").is_err());
+    assert!(interfaces("com.example.0example {F()->()}").is_ok());
+    assert!(interfaces("com.example.example-dash {F()->()}").is_ok());
+    assert!(interfaces("xn--lgbbat1ad8j.example.algeria {F()->()}").is_ok());
+    assert!(interfaces("com.-example.leadinghyphen {F()->()}").is_err());
+    assert!(interfaces("com.example-.danglinghyphen- {F()->()}").is_err());
+    assert!(interfaces("Com.example.uppercase-toplevel {F()->()}").is_err());
+    assert!(interfaces("Co9.exmaple.number-toplevel {F()->()}").is_err());
+    assert!(interfaces("com.Example {F()->()}").is_err());
 }
 
 #[test]

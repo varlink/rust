@@ -34,9 +34,9 @@ nullable
 vtype_maybe_array
     = vtype array? nullable?
 
-/* maybe multiple vtype_maybe_array separated by | */
+/* at least one and maybe multiple vtype_maybe_array separated by | */
 vtype_maybe_enum
-    = vtype_maybe_array ** '|'
+    = vtype_maybe_array ++ '|'
    
 arg
     = w* argname w* ':' w* vtype_maybe_enum

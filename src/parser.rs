@@ -42,6 +42,11 @@ fn test_one_method() {
 }
 
 #[test]
+fn test_one_method_no_type() {
+    assert!(interfaces("foo.bar{ Foo()->(b:) }").is_err());
+}
+
+#[test]
 fn test_domainnames() {
     assert!(interfaces("org.varlink.service {F()->()}").is_ok());
     assert!(interfaces("com.example.0example {F()->()}").is_ok());

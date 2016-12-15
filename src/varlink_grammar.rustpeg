@@ -1,0 +1,64 @@
+/* whitespace */
+w
+    = [ \t\n\r]
+
+argname
+    = [A-Za-z_][A-Za-z_0-9]*
+
+typename
+	= [A-Z][A-Za-z]*
+
+methodname
+	= [A-Z][A-Za-z]*
+
+interfacename
+	= [a-z]+([.][a-z]+)+
+
+vtype
+    = "bool" 
+    / "int8" / "uint8" / "int16" / "uint16" / "int32" / "uint32"
+    / "int64" / "uint64" / "float32" / "float64" / "string"
+    / typename
+    / vstruct           /* really? */
+
+arraynum
+    = [0-9]+
+
+array
+    = "[" arraynum? "]"
+
+vtype_or_array_or_enum
+    = vtype array
+    / vtype ** "|"
+    
+nullable
+    = "?" 
+   
+arg
+    = w* argname w* ":" w* vtype_or_array_or_enum nullable?
+
+arguments
+    = arg ** ","
+    
+vstruct
+    = "(" arguments w* ")"
+
+vtypedef
+    = w* "type" w+ typename w* vstruct w*
+
+method
+    = w* methodname w* vstruct w* "->" w* vstruct *w 
+
+method_or_vtypedef
+    = method
+    / vtypedef
+
+interface_body /* At least one method */
+	= vtypedef* method method_or_vtypedef* 
+	
+interface
+	= w* interfacename w* "{" w* interface_body w* "}" w*
+	
+#[export]
+interfaces
+    = interface+

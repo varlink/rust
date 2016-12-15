@@ -1,0 +1,10 @@
+[package]
+name = "varlink"
+version = "0.1.0"
+authors = ["Harald Hoyer <harald@redhat.com>"]
+build = "build.rs"
+
+[dependencies]
+
+[build-dependencies]
+peg = "0.4.0"

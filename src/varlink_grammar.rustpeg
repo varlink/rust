@@ -26,16 +26,18 @@ arraynum
 
 array
     = "[" arraynum? "]"
-
-vtype_or_array_or_enum
-    = vtype array
-    / vtype ** "|"
     
 nullable
     = "?" 
+
+vtype_maybe_array
+    = vtype array? nullable?
+
+vtype_maybe_enum
+    = vtype_maybe_array ** "|"
    
 arg
-    = w* argname w* ":" w* vtype_or_array_or_enum nullable?
+    = w* argname w* ":" w* vtype_maybe_enum
 
 arguments
     = arg ** ","
@@ -49,12 +51,8 @@ vtypedef
 method
     = w* methodname w* vstruct w* "->" w* vstruct *w 
 
-method_or_vtypedef
-    = method
-    / vtypedef
-
 interface_body /* At least one method */
-	= vtypedef* method method_or_vtypedef* 
+	= vtypedef* method ( method / vtypedef )*
 	
 interface
 	= w* interfacename w* "{" w* interface_body w* "}" w*

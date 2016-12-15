@@ -10,6 +10,11 @@ use self::varlink_grammar::*;
 #[test]
 fn test_standard() {
     assert!(interfaces("
+/**
+ * The Varlink Service Interface is added to every varlink service. It provides
+ * the Introspect method to be called by a client to retrieve the bootstrap
+ * information from a service.
+ */
 org.varlink.service {
   type Type (name: string, typestring: string)
   type Method (
@@ -26,6 +31,15 @@ org.varlink.service {
     methods: string[]
   )
 
+  /**
+   * Returns the machine readable information about a service. It contains the service
+   * name, all available interfaces with their defined method calls and types.
+   */
+  Introspect(version: uint64) -> (name: string, interfaces: Interface[])
+
+  /**
+   * Returns the human readable description of a service.
+   */
   Help() -> (
     description: string,
     properties: Property[],
@@ -38,7 +52,7 @@ org.varlink.service {
 
 #[test]
 fn test_one_method() {
-    assert!(interfaces("foo.bar{ Foo()->() }").is_ok());
+    assert!(interfaces("/* comment */ foo.bar{ Foo()->() }").is_ok());
 }
 
 #[test]
@@ -72,7 +86,7 @@ org.varlink.service {
 
 #[test]
 fn test_type_no_args() {
-    assert!(interfaces("foo.bar{ type I () F()->() }").is_err());
+    assert!(interfaces("foo.bar{ type I () F()->() }").is_ok());
 }
 
 #[test]
@@ -83,9 +97,9 @@ fn test_type_one_arg() {
 #[test]
 fn test_type_one_array() {
     assert!(interfaces("foo.bar{ type I (b:bool[]) F()->() }").is_ok());
-    assert!(interfaces("foo.bar{ type I (b:bool[ ]) F()->() }").is_ok());
+    assert!(interfaces("foo.bar{ type I (b:bool[ ]) F()->() }").is_err());
     assert!(interfaces("foo.bar{ type I (b:bool[1]) F()->() }").is_ok());
-    assert!(interfaces("foo.bar{ type I (b:bool[ 1 ]) F()->() }").is_ok());
+    assert!(interfaces("foo.bar{ type I (b:bool[ 1 ]) F()->() }").is_err());
     assert!(interfaces("foo.bar{ type I (b:bool[ 1 1 ]) F()->() }").is_err());
 }
 

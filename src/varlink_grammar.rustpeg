@@ -1,9 +1,18 @@
 /* whitespace */
-w
+whitespace
     = [ \t\n] / "\r\n"
 
+comment
+    = whitespace* "/*" ( [^*] / ([*]+ [^*/] ) )* [*]+ '/' whitespace*
+
+docstring
+    = whitespace* "/**" ( [^*] / ([*]+ [^*/] ) )* [*]+ '/' whitespace*
+
+w
+    = docstring / comment / whitespace
+
 argname
-    = [a-z][a-z0-9_]*
+    = [a-z_][A-Za-z0-9_]*
 
 typename
 	= [A-Z][A-Za-z0-9_]*
@@ -20,10 +29,10 @@ vtype
     / "int8" / "uint8" / "int16" / "uint16" / "int32" / "uint32"
     / "int64" / "uint64" / "float32" / "float64" / "string"
     / typename
-    / vstruct           /* really? */
+    / vstruct
 
 array
-    = '[' w* [0-9]* w* ']'
+    = '[' [0-9]* ']'
     
 nullable
     = '?'
@@ -32,25 +41,21 @@ vtype_maybe_array
     = vtype array? nullable?
 
 /* at least one and maybe multiple vtype_maybe_array separated by | */
-vtype_maybe_enum
+vtype_maybe_union
     = vtype_maybe_array ++ '|'
    
 arg
-    = w* argname w* ':' w* vtype_maybe_enum
+    = w* argname w* ':' w* vtype_maybe_union
 
 /* maybe multiple arg separated by , */ 
 argumentsopt
     = arg ** ','
 
-/* at least one arg and maybe multiple arg separated by , */
-arguments
-    = arg ++ ','
-
 vstruct
-    = '(' arguments w* ')'
+    = '(' argumentsopt w* ')'
 
 vtypedef
-    = w* "type" w+ typename w* '(' arguments w* ')' w*
+    = w* "type" w+ typename w* '(' argumentsopt w* ')' w*
 
 method
     = w* methodname w* '(' argumentsopt w* ')' w* "->" w* '(' argumentsopt w* ')' w*
@@ -59,7 +64,7 @@ interface_body /* At least one method */
 	= vtypedef* method ( method / vtypedef )*
 	
 interface
-	= w* reversedomainname w* '{' w* interface_body w* '}' w*
+	= w* reversedomainname w* '{' interface_body w* '}' w*
 	
 #[export]
 interfaces

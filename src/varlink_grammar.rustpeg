@@ -42,17 +42,21 @@ arg
     = w* argname w* ':' w* vtype_maybe_enum
 
 /* maybe multiple arg separated by , */ 
-arguments
+argumentsopt
     = arg ** ','
-    
+
+/* at least one arg and maybe multiple arg separated by , */
+arguments
+    = arg ++ ','
+
 vstruct
     = '(' arguments w* ')'
 
 vtypedef
-    = w* "type" w+ typename w* vstruct w*
+    = w* "type" w+ typename w* '(' arguments w* ')' w*
 
 method
-    = w* methodname w* vstruct w* "->" w* vstruct w*
+    = w* methodname w* '(' argumentsopt w* ')' w* "->" w* '(' argumentsopt w* ')' w*
 
 interface_body /* At least one method */
 	= vtypedef* method ( method / vtypedef )*

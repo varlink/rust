@@ -38,12 +38,7 @@ org.varlink.service {
 
 #[test]
 fn test_one_method() {
-    assert!(interfaces("
-org.varlink.service {
-  Foo() -> (bar : uint64)
-}
-")
-        .is_ok());
+    assert!(interfaces("foo.bar{ Foo()->() }").is_ok());
 }
 
 #[test]
@@ -70,34 +65,29 @@ org.varlink.service {
         .is_err());
 }
 
+#[test]
+fn test_type_no_args() {
+    assert!(interfaces("foo.bar{ type I () F()->() }").is_err());
+}
+
+#[test]
+fn test_type_one_arg() {
+    assert!(interfaces("foo.bar{ type I (b:bool) F()->() }").is_ok());
+}
+
 // REALLY???
 #[test]
 fn test_method_struct_optional() {
-    assert!(interfaces("
-org.varlink.service {
-  Foo(foo: (i: int64, b: bool)?) -> ()
-}
-")
-        .is_ok());
+    assert!(interfaces("foo.bar{ Foo(foo: (i: int64, b: bool)? )->()}").is_ok());
 }
 
 // REALLY???
 #[test]
 fn test_method_struct_array_optional() {
-    assert!(interfaces("
-org.varlink.service {
-  Foo(foo: (i: int64, b: bool)[]?) -> ()
-}
-")
-        .is_ok());
+    assert!(interfaces("foo.bar{ Foo(foo: (i: int64, b: bool)[]? )->()}").is_ok());
 }
 
 #[test]
 fn test_method_struct_array_optional_wrong() {
-    assert!(interfaces("
-org.varlink.service {
-  Foo(foo: (i: int64, b: bool)?[]) -> ()
-}
-")
-        .is_err());
+    assert!(interfaces("foo.bar{ Foo(foo: (i: int64, b: bool)?[]) -> ()}").is_err());
 }

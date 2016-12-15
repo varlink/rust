@@ -55,5 +55,15 @@ org.varlink.service {
 }
 ")
         .is_err());
+}
 
+// REALLY???
+#[test]
+fn test_method_struct_optional() {
+    assert!(interfaces("
+org.varlink.service {
+  Foo(foo: (i: int64, b: bool)?) -> ()
+}
+")
+        .is_ok());
 }

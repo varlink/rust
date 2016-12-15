@@ -1,6 +1,6 @@
 /* whitespace */
 w
-    = [ \t\n\r]
+    = [ \t\n] / "\r\n"
 
 argname
     = [A-Za-z_][A-Za-z_0-9]*

@@ -103,13 +103,11 @@ fn test_type_one_array() {
     assert!(interfaces("foo.bar{ type I (b:bool[ 1 1 ]) F()->() }").is_err());
 }
 
-// REALLY???
 #[test]
 fn test_method_struct_optional() {
     assert!(interfaces("foo.bar{ Foo(foo: (i: int64, b: bool)? )->()}").is_ok());
 }
 
-// REALLY???
 #[test]
 fn test_method_struct_array_optional() {
     assert!(interfaces("foo.bar{ Foo(foo: (i: int64, b: bool)[]? )->()}").is_ok());

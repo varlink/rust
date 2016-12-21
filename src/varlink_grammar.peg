@@ -1,10 +1,9 @@
-/* whitespace */
 whitespace
     = [ \t\n] / "\r\n"
 
 comment
-    = "/*" ( [^*] / ([*]+ [^*/] ) )* [*]+ '/'
-
+    = "/*" ( [^*] / ([*]+ [^*/] ) )* [*]+ '/' 
+    
 docstring
     = "/**" ( [^*] / ([*]+ [^*/] ) )* [*]+ '/'
 
@@ -44,28 +43,24 @@ vtype_maybe_array
 vtype_maybe_union
     = vtype_maybe_array ++ '|'
    
-arg
+argument
     = w* argname w* ':' w* vtype_maybe_union
 
-/* maybe multiple arg separated by , */ 
-argumentsopt
-    = arg ** ','
-
 vstruct
-    = '(' argumentsopt w* ')'
+    = '(' argument ** ',' w* ')'
 
 vtypedef
-    = w* "type" w+ typename w* '(' argumentsopt w* ')' w*
+    = w* "type" (comment / docstring)* whitespace w* typename w* vstruct w*
 
 method
-    = w* methodname w* '(' argumentsopt w* ')' w* "->" w* '(' argumentsopt w* ')' w*
+    = w* methodname w* vstruct w* "->" w* vstruct w*
 
 interface_body /* At least one method */
 	= vtypedef* method ( method / vtypedef )*
 	
 interface
 	= w* reversedomainname w* '{' interface_body w* '}' w*
-	
+
 #[export]
 interfaces
     = interface+

@@ -1,6 +1,46 @@
 #![allow(dead_code)]
 
 mod varlink_grammar {
+    pub struct Typedef<'a> {
+        pub name: &'a str,
+    }
+
+    pub struct Method<'a> {
+        pub name: &'a str,
+    }
+
+    enum MethodOrTypedef<'a> {
+        Typedef(Typedef<'a>),
+        Method(Method<'a>),
+    }
+
+    pub struct Interface<'a> {
+        pub name: &'a str,
+        pub methods: Vec<Method<'a>>,
+        pub typedefs: Vec<Typedef<'a>>,
+    }
+
+    impl<'a> Interface<'a> {
+        fn from_token(n: &'a str, ts: Vec<Typedef<'a>>, m: Method<'a>, mt: Vec<MethodOrTypedef<'a>>) -> Interface<'a> {
+            let mut i = Interface { name: n, methods: Vec::new(), typedefs: Vec::new() };
+
+            i.methods.push(m);
+
+            for o in mt {
+                match o {
+                    MethodOrTypedef::Method(m) => i.methods.push(m),
+                    MethodOrTypedef::Typedef(t) => i.typedefs.push(t)
+                };
+            }
+
+            for t in ts {
+                i.typedefs.push(t);
+            }
+
+            return i;
+        }
+    }
+
     include!(concat!(env!("OUT_DIR"), "/varlink_grammar.rs"));
 }
 
@@ -9,7 +49,7 @@ use self::varlink_grammar::*;
 
 #[test]
 fn test_standard() {
-    assert!(interfaces("
+    let ifaces = interfaces("
 /**
  * The Varlink Service Interface is added to every varlink service. It provides
  * the Introspect method to be called by a client to retrieve the bootstrap
@@ -47,7 +87,8 @@ org.varlink.service {
   )
 }
 ")
-        .is_ok());
+        .unwrap();
+    assert_eq!(ifaces[0].name, "org.varlink.service");
 }
 
 #[test]

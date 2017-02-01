@@ -1,14 +1,23 @@
+
+/* Modeled after ECMA-262, 5th ed., 7.2. */
 whitespace
-    = [ \t\n\r]
+  = [ \t\u{00A0}\u{FEFF}\u{1680}\u{180E}\u{2000}-\u{200A}\u{202F}\u{205F}\u{3000}] // \v\f removed
+
+/* Modeled after ECMA-262, 5th ed., 7.3. */
+eol
+  = "\n"
+  / "\r\n"
+  / "\r"
+  / "\u{2028}"
+  / "\u{2029}"
 
 comment
-    = "/*" ( [^*] / ([*]+ [^*/] ) )* [*]+ '/' 
-    
+    = "/*" ( [^*] / ([*]+ [^*/] ) )* [*]+ '/'
+
 docstring
     = "/**" ( [^*] / ([*]+ [^*/] ) )* [*]+ '/'
 
-w
-    = docstring / comment / whitespace
+__ = (whitespace / eol / comment / docstring )*
 
 argname
     = [a-z_][A-Za-z0-9_]*
@@ -19,12 +28,12 @@ typename
 methodname
 	= [A-Z][A-Za-z0-9_]*
 
-reversedomainname /* no hyphen at begin and end */
-	= [a-z]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+
-	  / "xn--" [a-z0-9]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+
+reversedomainname -> &'input str /* no hyphen at begin and end */
+	= $( [a-z]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+ )
+	  / $( "xn--" [a-z0-9]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+ )
 
 vtype
-    = "bool" 
+    = "bool"
     / "int8" / "uint8" / "int16" / "uint16" / "int32" / "uint32"
     / "int64" / "uint64" / "float32" / "float64" / "string"
     / typename
@@ -32,7 +41,7 @@ vtype
 
 array
     = '[' [0-9]* ']'
-    
+
 nullable
     = '?'
 
@@ -42,25 +51,27 @@ vtype_maybe_array
 /* at least one and maybe multiple vtype_maybe_array separated by | */
 vtype_maybe_union
     = vtype_maybe_array ++ '|'
-   
+
 argument
-    = w* argname w* ':' w* vtype_maybe_union
+    = __ argname __ ':' __ vtype_maybe_union
 
 vstruct
-    = '(' argument ** ',' w* ')'
+    = '(' argument ** ',' __ ')'
 
-vtypedef
-    = w* "type" (comment / docstring)* whitespace w* typename w* vstruct w*
+vtypedef -> Typedef<'input>
+    = __ "type" (comment / docstring)* whitespace __ n:$(typename) __ vstruct __ { Typedef{name: n} }
 
-method
-    = w* methodname w* vstruct w* "->" w* vstruct w*
+method -> Method<'input>
+    = __ n:$(methodname) __ vstruct __ "->" __ vstruct __ { Method{name: n} }
 
-interface_body /* At least one method */
-	= vtypedef* method ( method / vtypedef )*
-	
-interface
-	= w* reversedomainname w* '{' interface_body w* '}' w*
+methord_or_vtypedef -> MethodOrTypedef<'input>
+    = m:method { MethodOrTypedef::Method(m) }
+    / t:vtypedef { MethodOrTypedef::Typedef(t) }
+
+interface -> Interface<'input>
+	= __ n:$reversedomainname __ '{' ts:(vtypedef*) m:method mt:(methord_or_vtypedef*) __ '}' __ { Interface::from_token(n, ts, m, mt) }
 
 #[export]
-interfaces
+interfaces -> Vec<Interface<'input>>
     = interface+
+

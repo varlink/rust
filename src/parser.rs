@@ -105,7 +105,7 @@ mod varlink_grammar {
                 if let Some(fst) = iter.next() {
                     write!(f, "{}: {}", self.name, fst)?;
                     for elt in iter {
-                        write!(f, "| {}", elt)?;
+                        write!(f, " | {}", elt)?;
                     }
                 }
             }
@@ -301,11 +301,11 @@ fn test_format() {
 }
 
 #[test]
-fn test_box() {
-    let i = interfaces("foo.bar{ F()->(s: (a: bool)) }").unwrap();
+fn test_union() {
+    let i = interfaces("foo.bar{ F()->(s: (a: bool, b: int64), u: bool|int64) }").unwrap();
     println!("{}", i[0]);
     assert_eq!(i[0].to_string(), "foo.bar {
-  F() -> (s: (a: bool));
+  F() -> (s: (a: bool, b: int64), u: bool | int64);
 }
 ");
 }

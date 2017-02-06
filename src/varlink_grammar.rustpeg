@@ -32,37 +32,42 @@ reversedomainname -> &'input str /* no hyphen at begin and end */
 	= $( [a-z]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+ )
 	  / $( "xn--" [a-z0-9]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+ )
 
-vtype
-    = "bool"
-    / "int8" / "uint8" / "int16" / "uint16" / "int32" / "uint32"
-    / "int64" / "uint64" / "float32" / "float64" / "string"
-    / typename
-    / vstruct
+vtype -> VType<'input>
+    = "bool"     { VType::Bool }
+    / "int8"     { VType::Int8 }
+    / "uint8"    { VType::UInt8 }
+    / "int16"    { VType::Int16 }
+    / "uint16"   { VType::UInt16 }
+    / "int32"    { VType::Int32 }
+    / "uint32"   { VType::UInt32 }
+    / "int64"    { VType::Int64 }
+    / "uint64"   { VType::UInt64 }
+    / "float32"  { VType::Float32 }
+    / "float64"  { VType::Float64 }
+    / "string"   { VType::VString }
+    / n:$(typename)   { VType::VTypename(n) }
+    / v:vstruct    { VType::VStruct(Box::new(v)) }
 
-array
-    = '[' [0-9]* ']'
+array -> Option<usize>
+    = '[' n:$([0-9]*) ']' { if n.len() == 0 { None } else { Some(str::parse::<usize>(n).unwrap()) }}
 
 nullable
     = '?'
 
-vtype_maybe_array
-    = vtype array? nullable?
+vtype_maybe_array -> VTypeExt<'input>
+    = v:vtype a:array? n:nullable? { VTypeExt { vtype: v, nullable: { match n { Some(_) => true, None => false } }, isarray: a }}
 
-/* at least one and maybe multiple vtype_maybe_array separated by | */
-vtype_maybe_union
-    = vtype_maybe_array ++ '|'
+argument -> Argument<'input>
+    = __ n:$(argname) __ ':' __ v:(vtype_maybe_array ++ '|') { Argument { name : n, vtypes : v } }
 
-argument
-    = __ argname __ ':' __ vtype_maybe_union
-
-vstruct
-    = '(' argument ** ',' __ ')'
+vstruct -> VStruct<'input>
+    = '(' e:argument ** ',' __ ')' { e }
 
 vtypedef -> Typedef<'input>
-    = __ "type" (comment / docstring)* whitespace __ n:$(typename) __ vstruct __ { Typedef{name: n} }
+    = __ "type" (comment / docstring)* whitespace __ n:$(typename) __ v:vstruct __ { Typedef{name: n, vstruct: v} }
 
 method -> Method<'input>
-    = __ n:$(methodname) __ vstruct __ "->" __ vstruct __ { Method{name: n} }
+    = __ n:$(methodname) __ i:vstruct __ "->" __ o:vstruct __ { Method{name: n, input: i, output: o} }
 
 methord_or_vtypedef -> MethodOrTypedef<'input>
     = m:method { MethodOrTypedef::Method(m) }

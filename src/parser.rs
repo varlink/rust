@@ -1,12 +1,46 @@
 #![allow(dead_code)]
 
 mod varlink_grammar {
+
+    pub enum VType<'a> {
+        Bool,
+        Int8,
+        UInt8,
+        Int16,
+        UInt16,
+        Int32,
+        UInt32,
+        Int64,
+        UInt64,
+        Float32,
+        Float64,
+        VString,
+        VTypename(&'a str),
+        VStruct(Box<VStruct<'a>>),
+    }
+
+    pub struct VTypeExt<'a> {
+        vtype: VType<'a>,
+        nullable: bool,
+        isarray: Option<Option<usize>>,
+    }
+
+    pub struct Argument<'a> {
+        pub name: &'a str,
+        pub vtypes : Vec<VTypeExt<'a>>,
+    }
+
+    type VStruct<'a> = Vec<Argument<'a>>;
+
     pub struct Typedef<'a> {
         pub name: &'a str,
+        pub vstruct : VStruct<'a>,
     }
 
     pub struct Method<'a> {
         pub name: &'a str,
+        pub input : VStruct<'a>,
+        pub output : VStruct<'a>,
     }
 
     enum MethodOrTypedef<'a> {

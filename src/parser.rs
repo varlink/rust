@@ -302,10 +302,10 @@ fn test_format() {
 
 #[test]
 fn test_union() {
-    let i = interfaces("foo.bar{ F()->(s: (a: bool, b: int64), u: bool|int64) }").unwrap();
+    let i = interfaces("foo.bar{ F()->(s: (a: bool, b: int64), u: bool|int64|(foo: bool, bar: bool)) }").unwrap();
     println!("{}", i[0]);
     assert_eq!(i[0].to_string(), "foo.bar {
-  F() -> (s: (a: bool, b: int64), u: bool | int64);
+  F() -> (s: (a: bool, b: int64), u: bool | int64 | (foo: bool, bar: bool));
 }
 ");
 }

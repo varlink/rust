@@ -61,7 +61,7 @@ argument -> Argument<'input>
     = __ n:$(argname) __ ':' __ v:(vtype_maybe_array ++ '|') { Argument { name : n, vtypes : v } }
 
 vstruct -> VStruct<'input>
-    = '(' e:argument ** ',' __ ')' { e }
+    = '(' e:argument ** ',' __ ')' { VStruct{ elts: e} }
 
 vtypedef -> Typedef<'input>
     = __ "type" (comment / docstring)* whitespace __ n:$(typename) __ v:vstruct __ { Typedef{name: n, vstruct: v} }
@@ -79,4 +79,3 @@ interface -> Interface<'input>
 #[export]
 interfaces -> Vec<Interface<'input>>
     = interface+
-

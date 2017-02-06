@@ -30,7 +30,9 @@ mod varlink_grammar {
         pub vtypes : Vec<VTypeExt<'a>>,
     }
 
-    type VStruct<'a> = Vec<Argument<'a>>;
+    pub struct VStruct<'a> {
+        pub elts: Vec<Argument<'a>>,
+    }
 
     pub struct Typedef<'a> {
         pub name: &'a str,
@@ -52,6 +54,90 @@ mod varlink_grammar {
         pub name: &'a str,
         pub methods: Vec<Method<'a>>,
         pub typedefs: Vec<Typedef<'a>>,
+    }
+
+    use std::fmt;
+
+    impl<'a> fmt::Display for VType<'a> {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            match *self {
+                VType::Bool => write!(f, "Bool"),
+                VType::Int8 => write!(f, "Int8"),
+                VType::UInt8 => write!(f, "UInt8"),
+                VType::Int16 => write!(f, "Int16"),
+                VType::UInt16 => write!(f, "UInt16"),
+                VType::Int32 => write!(f, "Int32"),
+                VType::UInt32 => write!(f, "UInt32"),
+                VType::Int64 => write!(f, "Int64"),
+                VType::UInt64 => write!(f, "UInt64"),
+                VType::Float32 => write!(f, "Float32"),
+                VType::Float64 => write!(f, "Float64"),
+                VType::VString => write!(f, "String"),
+                VType::VTypename(ref s) => write!(f, "{}", s),
+                VType::VStruct(ref v) => write!(f, "{}", v),
+            }
+        }
+    }
+
+    impl<'a> fmt::Display for VTypeExt<'a> {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "{}", self.vtype)?;
+            if let Some(t) = self.isarray {
+                match t {
+                    Some(v) => write!(f, "[{}]", v)?,
+                    None    => write!(f, "[]")?,
+                }
+            }
+            if self.nullable {
+                write!(f, "?")
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    impl<'a> fmt::Display for Argument<'a> {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            if self.vtypes.len() == 1 {
+                write!(f, "{}: {}", self.name, self.vtypes[0])?;
+            } else {
+                let mut iter = self.vtypes.iter();
+                if let Some(fst) = iter.next() {
+                    write!(f, "{}: {}", self.name, fst)?;
+                    for elt in iter {
+                        write!(f, "| {}", elt)?;
+                    }
+                }
+            }
+            Ok(())
+        }
+    }
+
+    impl<'a> fmt::Display for VStruct<'a> {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "(")?;
+            let mut iter = self.elts.iter();
+            if let Some(fst) = iter.next() {
+                write!(f, "{}", fst)?;
+                for elt in iter {
+                    write!(f, ", {}", elt)?;
+                }
+            }
+            write!(f, ")")
+        }
+    }
+
+    impl<'a> fmt::Display for Interface<'a> {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "{} {{\n", self.name)?;
+            for t in &self.typedefs {
+                write!(f, "  type {} {};\n", t.name, t.vstruct)?;
+            }
+            for m in &self.methods {
+                write!(f, "  {}{} -> {};\n", m.name, m.input, m.output)?;
+            }
+            write!(f, "}}\n")
+        }
     }
 
     impl<'a> Interface<'a> {
@@ -123,6 +209,17 @@ org.varlink.service {
 ")
         .unwrap();
     assert_eq!(ifaces[0].name, "org.varlink.service");
+    assert_eq!(ifaces[0].to_string(), "org.varlink.service {
+  type Type (name: String, typestring: String);
+  type Method (name: String, monitor: Bool, type_in: String, type_out: String);
+  type Interface (name: String, types: Type[], methods: Method[]);
+  type Property (key: String, value: String);
+  type InterfaceDescription (description: String, types: String[], methods: String[]);
+  Introspect(version: UInt64) -> (name: String, interfaces: Interface[]);
+  Help() -> (description: String, properties: Property[], interfaces: InterfaceDescription[]);
+}
+");
+
 }
 
 #[test]
@@ -191,4 +288,14 @@ fn test_method_struct_array_optional() {
 #[test]
 fn test_method_struct_array_optional_wrong() {
     assert!(interfaces("foo.bar{ Foo(foo: (i: int64, b: bool)?[]) -> ()}").is_err());
+}
+
+#[test]
+fn test_format() {
+    let i = interfaces("foo.bar{ type I (b:bool[1]) F()->() }").unwrap();
+    assert_eq!(i[0].to_string(), "foo.bar {
+  type I (b: Bool[1]);
+  F() -> ();
+}
+");
 }

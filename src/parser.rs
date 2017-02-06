@@ -61,18 +61,18 @@ mod varlink_grammar {
     impl<'a> fmt::Display for VType<'a> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             match *self {
-                VType::Bool => write!(f, "Bool"),
-                VType::Int8 => write!(f, "Int8"),
-                VType::UInt8 => write!(f, "UInt8"),
-                VType::Int16 => write!(f, "Int16"),
-                VType::UInt16 => write!(f, "UInt16"),
-                VType::Int32 => write!(f, "Int32"),
-                VType::UInt32 => write!(f, "UInt32"),
-                VType::Int64 => write!(f, "Int64"),
-                VType::UInt64 => write!(f, "UInt64"),
-                VType::Float32 => write!(f, "Float32"),
-                VType::Float64 => write!(f, "Float64"),
-                VType::VString => write!(f, "String"),
+                VType::Bool => write!(f, "bool"),
+                VType::Int8 => write!(f, "int8"),
+                VType::UInt8 => write!(f, "uint8"),
+                VType::Int16 => write!(f, "int16"),
+                VType::UInt16 => write!(f, "uint16"),
+                VType::Int32 => write!(f, "int32"),
+                VType::UInt32 => write!(f, "uint32"),
+                VType::Int64 => write!(f, "int64"),
+                VType::UInt64 => write!(f, "uint64"),
+                VType::Float32 => write!(f, "float32"),
+                VType::Float64 => write!(f, "float64"),
+                VType::VString => write!(f, "string"),
                 VType::VTypename(ref s) => write!(f, "{}", s),
                 VType::VStruct(ref v) => write!(f, "{}", v),
             }
@@ -210,13 +210,13 @@ org.varlink.service {
         .unwrap();
     assert_eq!(ifaces[0].name, "org.varlink.service");
     assert_eq!(ifaces[0].to_string(), "org.varlink.service {
-  type Type (name: String, typestring: String);
-  type Method (name: String, monitor: Bool, type_in: String, type_out: String);
-  type Interface (name: String, types: Type[], methods: Method[]);
-  type Property (key: String, value: String);
-  type InterfaceDescription (description: String, types: String[], methods: String[]);
-  Introspect(version: UInt64) -> (name: String, interfaces: Interface[]);
-  Help() -> (description: String, properties: Property[], interfaces: InterfaceDescription[]);
+  type Type (name: string, typestring: string);
+  type Method (name: string, monitor: bool, type_in: string, type_out: string);
+  type Interface (name: string, types: Type[], methods: Method[]);
+  type Property (key: string, value: string);
+  type InterfaceDescription (description: string, types: string[], methods: string[]);
+  Introspect(version: uint64) -> (name: string, interfaces: Interface[]);
+  Help() -> (description: string, properties: Property[], interfaces: InterfaceDescription[]);
 }
 ");
 
@@ -294,8 +294,18 @@ fn test_method_struct_array_optional_wrong() {
 fn test_format() {
     let i = interfaces("foo.bar{ type I (b:bool[1]) F()->() }").unwrap();
     assert_eq!(i[0].to_string(), "foo.bar {
-  type I (b: Bool[1]);
+  type I (b: bool[1]);
   F() -> ();
+}
+");
+}
+
+#[test]
+fn test_box() {
+    let i = interfaces("foo.bar{ F()->(s: (a: bool)) }").unwrap();
+    println!("{}", i[0]);
+    assert_eq!(i[0].to_string(), "foo.bar {
+  F() -> (s: (a: bool));
 }
 ");
 }

@@ -81,7 +81,7 @@ methord_or_vtypedef -> MethodOrTypedef<'input>
     / t:vtypedef { MethodOrTypedef::Typedef(t) }
 
 interface -> Interface<'input>
-	= __ n:$reversedomainname __ '{' ts:(vtypedef*) m:method mt:(methord_or_vtypedef*) __ '}' __  { Interface::from_token(n, ts, m, mt) }
+	= __ n:$reversedomainname __ '{' ts:(vtypedef*) m:method mt:(methord_or_vtypedef*) __ '}' __  {? Interface::from_token(n, ts, m, mt) }
 
 pub Interfaces -> Vec<Interface<'input>>
     = interface+

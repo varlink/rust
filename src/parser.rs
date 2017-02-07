@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 mod varlink_grammar {
+    use std::collections::BTreeMap;
 
     pub enum VType<'a> {
         Bool,
@@ -53,8 +54,8 @@ mod varlink_grammar {
 
     pub struct Interface<'a> {
         pub name: &'a str,
-        pub methods: Vec<Method<'a>>,
-        pub typedefs: Vec<Typedef<'a>>,
+        pub methods: BTreeMap<&'a str, Method<'a>>,
+        pub typedefs: BTreeMap<&'a str, Typedef<'a>>,
     }
 
     use std::fmt;
@@ -131,10 +132,12 @@ mod varlink_grammar {
     impl<'a> fmt::Display for Interface<'a> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             write!(f, "{} {{\n", self.name)?;
-            for t in &self.typedefs {
+
+            for t in self.typedefs.values() {
                 write!(f, "  type {} {};\n", t.name, t.vstruct)?;
             }
-            for m in &self.methods {
+
+            for m in self.methods.values() {
                 write!(f, "  {}{} -> {};\n", m.name, m.input, m.output)?;
             }
             write!(f, "}}\n")
@@ -146,37 +149,74 @@ mod varlink_grammar {
                       ts: Vec<Typedef<'a>>,
                       m: Method<'a>,
                       mt: Vec<MethodOrTypedef<'a>>)
-                      -> Interface<'a> {
+                      -> Result<Interface<'a>, &'static str> {
             let mut i = Interface {
                 name: n,
-                methods: Vec::new(),
-                typedefs: Vec::new(),
+                methods: BTreeMap::new(),
+                typedefs: BTreeMap::new(),
             };
 
-            i.methods.push(m);
+            i.methods.insert(m.name, m);
 
             for o in mt {
                 match o {
-                    MethodOrTypedef::Method(m) => i.methods.push(m),
-                    MethodOrTypedef::Typedef(t) => i.typedefs.push(t),
+                    MethodOrTypedef::Method(m) => {
+                        if let Some(_) = i.methods.insert(m.name, m) {
+                            return Err("Duplicate method definition");
+                        };
+                    }
+                    MethodOrTypedef::Typedef(t) => {
+                        if let Some(_) = i.typedefs.insert(t.name, t) {
+                            return Err("Duplicate type definition");
+                        };
+                    }
                 };
             }
 
             for t in ts {
-                i.typedefs.push(t);
+                i.typedefs.insert(t.name, t);
             }
-
-            return i;
+            return Ok(i);
         }
     }
 
     include!(concat!(env!("OUT_DIR"), "/varlink_grammar.rs"));
 
+    pub struct Varlink<'a> {
+        string: &'a str,
+        pub interfaces: BTreeMap<String, Interface<'a>>,
+    }
+
+    impl<'a> Varlink<'a> {
+        pub fn from_string(s: &'a str) -> Result<Varlink, String> {
+            let mut v = Varlink {
+                string: s,
+                interfaces: BTreeMap::new(),
+            };
+            let ifaces = match Interfaces(v.string) {
+                Ok(v) => v,
+                Err(e) => {
+                    return Err(e.to_string());
+                }
+            };
+
+            for i in ifaces {
+                if let Some(t) = v.interfaces.insert(i.name.to_string(), i) {
+                    return Err(format!("Duplicate interface definition for {}!", t.name)
+                        .to_string());
+                }
+            }
+            Ok(v)
+        }
+    }
 }
 
-pub use self::varlink_grammar::Interfaces;
+pub use self::varlink_grammar::Varlink;
+
 
 #[cfg(test)]
+use self::varlink_grammar::Interfaces;
+
 #[test]
 fn test_standard() {
     let ifaces = Interfaces("
@@ -222,13 +262,13 @@ org.varlink.service {
     assert_eq!(ifaces[0].to_string(),
                "\
 org.varlink.service {
-  type Type (name: string, typestring: string);
-  type Method (name: string, monitor: bool, type_in: string, type_out: string);
   type Interface (name: string, types: Type[], methods: Method[]);
-  type Property (key: string, value: string);
   type InterfaceDescription (description: string, types: string[], methods: string[]);
-  Introspect(version: uint64) -> (name: string, interfaces: Interface[]);
+  type Method (name: string, monitor: bool, type_in: string, type_out: string);
+  type Property (key: string, value: string);
+  type Type (name: string, typestring: string);
   Help() -> (description: string, properties: Property[], interfaces: InterfaceDescription[]);
+  Introspect(version: uint64) -> (name: string, interfaces: Interface[]);
 }
 ");
 
@@ -237,18 +277,18 @@ org.varlink.service {
 #[test]
 fn test_one_method() {
     let ifaces = Interfaces("/* comment */ foo.bar{ Foo()->() }").unwrap();
-    assert!(ifaces[0].methods[0].stream == false);
-}
-
-#[test]
-fn test_one_method_no_type() {
-    assert!(Interfaces("foo.bar{ Foo()->(b:) }").is_err());
+    assert!(ifaces[0].methods.get("Foo").unwrap().stream == false);
 }
 
 #[test]
 fn test_one_method_stream() {
     let ifaces = Interfaces("foo.bar{ Foo()=>() }").unwrap();
-    assert!(ifaces[0].methods[0].stream);
+    assert!(ifaces[0].methods.get("Foo").unwrap().stream);
+}
+
+#[test]
+fn test_one_method_no_type() {
+    assert!(Interfaces("foo.bar{ Foo()->(b:) }").is_err());
 }
 
 #[test]

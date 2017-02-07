@@ -27,7 +27,7 @@ mod varlink_grammar {
 
     pub struct Argument<'a> {
         pub name: &'a str,
-        pub vtypes : Vec<VTypeExt<'a>>,
+        pub vtypes: Vec<VTypeExt<'a>>,
     }
 
     pub struct VStruct<'a> {
@@ -36,13 +36,13 @@ mod varlink_grammar {
 
     pub struct Typedef<'a> {
         pub name: &'a str,
-        pub vstruct : VStruct<'a>,
+        pub vstruct: VStruct<'a>,
     }
 
     pub struct Method<'a> {
         pub name: &'a str,
-        pub input : VStruct<'a>,
-        pub output : VStruct<'a>,
+        pub input: VStruct<'a>,
+        pub output: VStruct<'a>,
     }
 
     enum MethodOrTypedef<'a> {
@@ -85,7 +85,7 @@ mod varlink_grammar {
             if let Some(t) = self.isarray {
                 match t {
                     Some(v) => write!(f, "[{}]", v)?,
-                    None    => write!(f, "[]")?,
+                    None => write!(f, "[]")?,
                 }
             }
             if self.nullable {
@@ -141,15 +141,23 @@ mod varlink_grammar {
     }
 
     impl<'a> Interface<'a> {
-        fn from_token(n: &'a str, ts: Vec<Typedef<'a>>, m: Method<'a>, mt: Vec<MethodOrTypedef<'a>>) -> Interface<'a> {
-            let mut i = Interface { name: n, methods: Vec::new(), typedefs: Vec::new() };
+        fn from_token(n: &'a str,
+                      ts: Vec<Typedef<'a>>,
+                      m: Method<'a>,
+                      mt: Vec<MethodOrTypedef<'a>>)
+                      -> Interface<'a> {
+            let mut i = Interface {
+                name: n,
+                methods: Vec::new(),
+                typedefs: Vec::new(),
+            };
 
             i.methods.push(m);
 
             for o in mt {
                 match o {
                     MethodOrTypedef::Method(m) => i.methods.push(m),
-                    MethodOrTypedef::Typedef(t) => i.typedefs.push(t)
+                    MethodOrTypedef::Typedef(t) => i.typedefs.push(t),
                 };
             }
 
@@ -209,14 +217,21 @@ org.varlink.service {
 ")
         .unwrap();
     assert_eq!(ifaces[0].name, "org.varlink.service");
-    assert_eq!(ifaces[0].to_string(), "org.varlink.service {
+    assert_eq!(ifaces[0].to_string(),
+               "org.varlink.service {
   type Type (name: string, typestring: string);
-  type Method (name: string, monitor: bool, type_in: string, type_out: string);
-  type Interface (name: string, types: Type[], methods: Method[]);
-  type Property (key: string, value: string);
-  type InterfaceDescription (description: string, types: string[], methods: string[]);
-  Introspect(version: uint64) -> (name: string, interfaces: Interface[]);
-  Help() -> (description: string, properties: Property[], interfaces: InterfaceDescription[]);
+  type \
+                Method (name: string, monitor: bool, type_in: string, type_out: string);
+  type \
+                Interface (name: string, types: Type[], methods: Method[]);
+  type Property \
+                (key: string, value: string);
+  type InterfaceDescription (description: string, \
+                types: string[], methods: string[]);
+  Introspect(version: uint64) -> (name: \
+                string, interfaces: Interface[]);
+  Help() -> (description: string, properties: \
+                Property[], interfaces: InterfaceDescription[]);
 }
 ");
 
@@ -293,7 +308,8 @@ fn test_method_struct_array_optional_wrong() {
 #[test]
 fn test_format() {
     let i = interfaces("foo.bar{ type I (b:bool[1]) F()->() }").unwrap();
-    assert_eq!(i[0].to_string(), "foo.bar {
+    assert_eq!(i[0].to_string(),
+               "foo.bar {
   type I (b: bool[1]);
   F() -> ();
 }
@@ -302,10 +318,14 @@ fn test_format() {
 
 #[test]
 fn test_union() {
-    let i = interfaces("foo.bar{ F()->(s: (a: bool, b: int64), u: bool|int64|(foo: bool, bar: bool)) }").unwrap();
+    let i = interfaces("foo.bar{ F()->(s: (a: bool, b: int64), u: bool|int64|(foo: bool, bar: \
+                        bool)) }")
+        .unwrap();
     println!("{}", i[0]);
-    assert_eq!(i[0].to_string(), "foo.bar {
-  F() -> (s: (a: bool, b: int64), u: bool | int64 | (foo: bool, bar: bool));
+    assert_eq!(i[0].to_string(),
+               "foo.bar {
+  F() -> (s: (a: bool, b: int64), u: bool | int64 | (foo: bool, bar: \
+                bool));
 }
 ");
 }

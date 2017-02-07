@@ -171,14 +171,15 @@ mod varlink_grammar {
     }
 
     include!(concat!(env!("OUT_DIR"), "/varlink_grammar.rs"));
+
 }
 
-#[cfg(test)]
-use self::varlink_grammar::*;
+pub use self::varlink_grammar::Interfaces;
 
+#[cfg(test)]
 #[test]
 fn test_standard() {
-    let ifaces = interfaces("
+    let ifaces = Interfaces("
 /**
  * The Varlink Service Interface is added to every varlink service. It provides
  * the Introspect method to be called by a client to retrieve the bootstrap
@@ -219,20 +220,15 @@ org.varlink.service {
         .unwrap();
     assert_eq!(ifaces[0].name, "org.varlink.service");
     assert_eq!(ifaces[0].to_string(),
-               "org.varlink.service {
+               "\
+org.varlink.service {
   type Type (name: string, typestring: string);
-  type \
-                Method (name: string, monitor: bool, type_in: string, type_out: string);
-  type \
-                Interface (name: string, types: Type[], methods: Method[]);
-  type Property \
-                (key: string, value: string);
-  type InterfaceDescription (description: string, \
-                types: string[], methods: string[]);
-  Introspect(version: uint64) -> (name: \
-                string, interfaces: Interface[]);
-  Help() -> (description: string, properties: \
-                Property[], interfaces: InterfaceDescription[]);
+  type Method (name: string, monitor: bool, type_in: string, type_out: string);
+  type Interface (name: string, types: Type[], methods: Method[]);
+  type Property (key: string, value: string);
+  type InterfaceDescription (description: string, types: string[], methods: string[]);
+  Introspect(version: uint64) -> (name: string, interfaces: Interface[]);
+  Help() -> (description: string, properties: Property[], interfaces: InterfaceDescription[]);
 }
 ");
 
@@ -240,37 +236,38 @@ org.varlink.service {
 
 #[test]
 fn test_one_method() {
-    let ifaces = interfaces("/* comment */ foo.bar{ Foo()->() }").unwrap();
+    let ifaces = Interfaces("/* comment */ foo.bar{ Foo()->() }").unwrap();
     assert!(ifaces[0].methods[0].stream == false);
 }
 
 #[test]
 fn test_one_method_no_type() {
-    assert!(interfaces("foo.bar{ Foo()->(b:) }").is_err());
+    assert!(Interfaces("foo.bar{ Foo()->(b:) }").is_err());
 }
 
 #[test]
 fn test_one_method_stream() {
-    let ifaces = interfaces("foo.bar{ Foo()=>() }").unwrap();
+    let ifaces = Interfaces("foo.bar{ Foo()=>() }").unwrap();
     assert!(ifaces[0].methods[0].stream);
 }
 
 #[test]
 fn test_domainnames() {
-    assert!(interfaces("org.varlink.service {F()->()}").is_ok());
-    assert!(interfaces("com.example.0example {F()->()}").is_ok());
-    assert!(interfaces("com.example.example-dash {F()->()}").is_ok());
-    assert!(interfaces("xn--lgbbat1ad8j.example.algeria {F()->()}").is_ok());
-    assert!(interfaces("com.-example.leadinghyphen {F()->()}").is_err());
-    assert!(interfaces("com.example-.danglinghyphen- {F()->()}").is_err());
-    assert!(interfaces("Com.example.uppercase-toplevel {F()->()}").is_err());
-    assert!(interfaces("Co9.exmaple.number-toplevel {F()->()}").is_err());
-    assert!(interfaces("com.Example {F()->()}").is_err());
+    assert!(Interfaces("org.varlink.service {F()->()}").is_ok());
+    assert!(Interfaces("com.example.0example {F()->()}").is_ok());
+    assert!(Interfaces("com.example.example-dash {F()->()}").is_ok());
+    assert!(Interfaces("xn--lgbbat1ad8j.example.algeria {F()->()}").is_ok());
+    assert!(Interfaces("com.-example.leadinghyphen {F()->()}").is_err());
+    assert!(Interfaces("com.example-.danglinghyphen- {F()->()}").is_err());
+    assert!(Interfaces("Com.example.uppercase-toplevel {F()->()}").is_err());
+    assert!(Interfaces("Co9.example.number-toplevel {F()->()}").is_err());
+    assert!(Interfaces("1om.example.number-toplevel {F()->()}").is_err());
+    assert!(Interfaces("com.Example {F()->()}").is_err());
 }
 
 #[test]
 fn test_no_method() {
-    assert!(interfaces("
+    assert!(Interfaces("
 org.varlink.service {
   type Interface (name: string, types: Type[], methods: Method[])
   type Property (key: string, value: string)
@@ -281,46 +278,47 @@ org.varlink.service {
 
 #[test]
 fn test_type_no_args() {
-    assert!(interfaces("foo.bar{ type I () F()->() }").is_ok());
+    assert!(Interfaces("foo.bar{ type I () F()->() }").is_ok());
 }
 
 #[test]
 fn test_type_one_arg() {
-    assert!(interfaces("foo.bar{ type I (b:bool) F()->() }").is_ok());
+    assert!(Interfaces("foo.bar{ type I (b:bool) F()->() }").is_ok());
 }
 
 #[test]
 fn test_type_one_array() {
-    assert!(interfaces("foo.bar{ type I (b:bool[]) F()->() }").is_ok());
-    assert!(interfaces("foo.bar{ type I (b:bool[ ]) F()->() }").is_err());
-    let ifaces = interfaces("foo.bar{ type I (b:bool[ ]) F()->() }");
+    assert!(Interfaces("foo.bar{ type I (b:bool[]) F()->() }").is_ok());
+    assert!(Interfaces("foo.bar{ type I (b:bool[ ]) F()->() }").is_err());
+    let ifaces = Interfaces("foo.bar{ type I (b:bool[ ]) F()->() }");
     assert_eq!(ifaces.err().unwrap().to_string(),
                "error at 1:25: expected `[0-9]`");
-    assert!(interfaces("foo.bar{ type I (b:bool[1]) F()->() }").is_ok());
-    assert!(interfaces("foo.bar{ type I (b:bool[ 1 ]) F()->() }").is_err());
-    assert!(interfaces("foo.bar{ type I (b:bool[ 1 1 ]) F()->() }").is_err());
+    assert!(Interfaces("foo.bar{ type I (b:bool[1]) F()->() }").is_ok());
+    assert!(Interfaces("foo.bar{ type I (b:bool[ 1 ]) F()->() }").is_err());
+    assert!(Interfaces("foo.bar{ type I (b:bool[ 1 1 ]) F()->() }").is_err());
 }
 
 #[test]
 fn test_method_struct_optional() {
-    assert!(interfaces("foo.bar{ Foo(foo: (i: int64, b: bool)? )->()}").is_ok());
+    assert!(Interfaces("foo.bar{ Foo(foo: (i: int64, b: bool)? )->()}").is_ok());
 }
 
 #[test]
 fn test_method_struct_array_optional() {
-    assert!(interfaces("foo.bar{ Foo(foo: (i: int64, b: bool)[]? )->()}").is_ok());
+    assert!(Interfaces("foo.bar{ Foo(foo: (i: int64, b: bool)[]? )->()}").is_ok());
 }
 
 #[test]
 fn test_method_struct_array_optional_wrong() {
-    assert!(interfaces("foo.bar{ Foo(foo: (i: int64, b: bool)?[]) -> ()}").is_err());
+    assert!(Interfaces("foo.bar{ Foo(foo: (i: int64, b: bool)?[]) -> ()}").is_err());
 }
 
 #[test]
 fn test_format() {
-    let i = interfaces("foo.bar{ type I (b:bool[18446744073709551615]) F()->() }").unwrap();
+    let i = Interfaces("foo.bar{ type I (b:bool[18446744073709551615]) F()->()}").unwrap();
     assert_eq!(i[0].to_string(),
-               "foo.bar {
+               "\
+foo.bar {
   type I (b: bool[18446744073709551615]);
   F() -> ();
 }
@@ -329,20 +327,14 @@ fn test_format() {
 
 #[test]
 fn test_union() {
-    let i = interfaces("foo.bar{ F()->(s: (a: bool, b: int64), u: bool|int64|(foo: bool, bar: \
-                        bool)) }")
+    let i = Interfaces("
+    foo.bar{ F()->(s: (a: bool, b: int64), u: bool|int64|(foo: bool, bar: bool))}")
         .unwrap();
     assert_eq!(i[0].to_string(),
-               "foo.bar {
+               "\
+foo.bar {
   F() -> (s: (a: bool, b: int64), u: bool | int64 | (foo: bool, bar: \
                 bool));
 }
 ");
-}
-
-#[test]
-fn print_size() {
-    use std::mem::size_of;
-    assert_eq!(size_of::<VType>(), 24);
-    assert_eq!(usize::max_value(), 18446744073709551615);
 }

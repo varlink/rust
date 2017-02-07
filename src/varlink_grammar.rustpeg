@@ -1,23 +1,28 @@
 
 /* Modeled after ECMA-262, 5th ed., 7.2. */
 whitespace
-  = [ \t\u{00A0}\u{FEFF}\u{1680}\u{180E}\u{2000}-\u{200A}\u{202F}\u{205F}\u{3000}] // \v\f removed
+  = #quiet<[ \t\u{00A0}\u{FEFF}\u{1680}\u{180E}\u{2000}-\u{200A}\u{202F}\u{205F}\u{3000}]> // \v\f removed
+  / #expected("whitespace")
 
 /* Modeled after ECMA-262, 5th ed., 7.3. */
-eol
+eol_r
   = "\n"
   / "\r\n"
   / "\r"
   / "\u{2028}"
   / "\u{2029}"
 
+eol
+    = #quiet<(whitespace / comment / docstring )* eol_r>
+    / #expected("<newline>")
+
 comment
-    = "/*" ( [^*] / ([*]+ [^*/] ) )* [*]+ '/'
+    = #quiet<"/*" ( [^*] / ([*]+ [^*/] ) )* [*]+ '/'>
 
 docstring
-    = "/**" ( [^*] / ([*]+ [^*/] ) )* [*]+ '/'
+    = #quiet<"/**" ( [^*] / ([*]+ [^*/] ) )* [*]+ '/'>
 
-__ = (whitespace / eol / comment / docstring )*
+__ = #quiet<(whitespace / eol_r / comment / docstring )*>
 
 argname
     = [a-z_][A-Za-z0-9_]*
@@ -29,8 +34,9 @@ methodname
 	= [A-Z][A-Za-z0-9_]*
 
 reversedomainname -> &'input str /* no hyphen at begin and end */
-	= $( [a-z]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+ )
-	  / $( "xn--" [a-z0-9]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+ )
+	= #quiet<$( [a-z]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+ )>
+	  / #quiet<$( "xn--" [a-z0-9]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+ )>
+	  / #expected("<reverse domain name>")
 
 vtype -> VType<'input>
     = "bool"     { VType::Bool }
@@ -65,7 +71,7 @@ vstruct -> VStruct<'input>
     = '(' e:argument ** ',' __ ')' { VStruct{ elts: e} }
 
 vtypedef -> Typedef<'input>
-    = __ "type" (comment / docstring)* whitespace __ n:$(typename) __ v:vstruct __ { Typedef{name: n, vstruct: v} }
+    = __ "type" (whitespace/eol)+ __ n:$(typename) __ v:vstruct __ { Typedef{name: n, vstruct: v} }
 
 method -> Method<'input>
     = __ n:$(methodname) __ i:vstruct __ s:("-" { false } / "=" { true }) ">" __ o:vstruct __ { Method{name: n, input: i, output: o, stream: s} }
@@ -75,8 +81,7 @@ methord_or_vtypedef -> MethodOrTypedef<'input>
     / t:vtypedef { MethodOrTypedef::Typedef(t) }
 
 interface -> Interface<'input>
-	= __ n:$reversedomainname __ '{' ts:(vtypedef*) m:method mt:(methord_or_vtypedef*) __ '}' __ { Interface::from_token(n, ts, m, mt) }
+	= __ n:$reversedomainname __ '{' ts:(vtypedef*) m:method mt:(methord_or_vtypedef*) __ '}' __  { Interface::from_token(n, ts, m, mt) }
 
-#[export]
-interfaces -> Vec<Interface<'input>>
+pub Interfaces -> Vec<Interface<'input>>
     = interface+

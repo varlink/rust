@@ -2,4 +2,4 @@
 
 #![crate_name = "varlink"]
 
-mod parser;
+pub mod parser;

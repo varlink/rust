@@ -293,6 +293,8 @@ fn test_type_one_arg() {
 fn test_type_one_array() {
     assert!(interfaces("foo.bar{ type I (b:bool[]) F()->() }").is_ok());
     assert!(interfaces("foo.bar{ type I (b:bool[ ]) F()->() }").is_err());
+    let ifaces = interfaces("foo.bar{ type I (b:bool[ ]) F()->() }");
+    println!("{}", ifaces.err().unwrap());
     assert!(interfaces("foo.bar{ type I (b:bool[1]) F()->() }").is_ok());
     assert!(interfaces("foo.bar{ type I (b:bool[ 1 ]) F()->() }").is_err());
     assert!(interfaces("foo.bar{ type I (b:bool[ 1 1 ]) F()->() }").is_err());

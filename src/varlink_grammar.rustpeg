@@ -48,14 +48,15 @@ vtype -> VType<'input>
     / n:$(typename)   { VType::VTypename(n) }
     / v:vstruct    { VType::VStruct(Box::new(v)) }
 
-array -> Option<usize>
-    = '[' n:$([0-9]*) ']' { if n.len() == 0 { None } else { Some(str::parse::<usize>(n).unwrap()) }}
+array -> usize
+    = "[]" { 0 }
+    / '[' n:$([0-9]+) ']' { str::parse::<usize>(n).unwrap() }
 
 nullable
     = '?'
 
 vtype_maybe_array -> VTypeExt<'input>
-    = v:vtype a:array? n:nullable? { VTypeExt { vtype: v, nullable: { match n { Some(_) => true, None => false } }, isarray: a }}
+    = v:vtype a:array? n:nullable? { VTypeExt { vtype: v, nullable: n.is_some(), isarray: a }}
 
 argument -> Argument<'input>
     = __ n:$(argname) __ ':' __ v:(vtype_maybe_array ++ '|') { Argument { name : n, vtypes : v } }

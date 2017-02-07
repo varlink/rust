@@ -22,7 +22,7 @@ mod varlink_grammar {
     pub struct VTypeExt<'a> {
         vtype: VType<'a>,
         nullable: bool,
-        isarray: Option<Option<usize>>,
+        isarray: Option<usize>,
     }
 
     pub struct Argument<'a> {
@@ -85,8 +85,8 @@ mod varlink_grammar {
             write!(f, "{}", self.vtype)?;
             if let Some(t) = self.isarray {
                 match t {
-                    Some(v) => write!(f, "[{}]", v)?,
-                    None => write!(f, "[]")?,
+                    0 => write!(f, "[]")?,
+                    _ => write!(f, "[{}]", t)?,
                 }
             }
             if self.nullable {

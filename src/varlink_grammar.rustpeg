@@ -67,7 +67,7 @@ vtypedef -> Typedef<'input>
     = __ "type" (comment / docstring)* whitespace __ n:$(typename) __ v:vstruct __ { Typedef{name: n, vstruct: v} }
 
 method -> Method<'input>
-    = __ n:$(methodname) __ i:vstruct __ "->" __ o:vstruct __ { Method{name: n, input: i, output: o} }
+    = __ n:$(methodname) __ i:vstruct __ s:("-" { false } / "=" { true }) ">" __ o:vstruct __ { Method{name: n, input: i, output: o, stream: s} }
 
 methord_or_vtypedef -> MethodOrTypedef<'input>
     = m:method { MethodOrTypedef::Method(m) }

@@ -43,6 +43,7 @@ mod varlink_grammar {
         pub name: &'a str,
         pub input: VStruct<'a>,
         pub output: VStruct<'a>,
+        pub stream: bool,
     }
 
     enum MethodOrTypedef<'a> {
@@ -239,12 +240,19 @@ org.varlink.service {
 
 #[test]
 fn test_one_method() {
-    assert!(interfaces("/* comment */ foo.bar{ Foo()->() }").is_ok());
+    let ifaces = interfaces("/* comment */ foo.bar{ Foo()->() }").unwrap();
+    assert!(ifaces[0].methods[0].stream == false);
 }
 
 #[test]
 fn test_one_method_no_type() {
     assert!(interfaces("foo.bar{ Foo()->(b:) }").is_err());
+}
+
+#[test]
+fn test_one_method_stream() {
+    let ifaces = interfaces("foo.bar{ Foo()=>() }").unwrap();
+    assert!(ifaces[0].methods[0].stream);
 }
 
 #[test]
@@ -328,4 +336,10 @@ fn test_union() {
                 bool));
 }
 ");
+}
+
+#[test]
+fn print_size() {
+    use std::mem::size_of;
+    println!("Sizeof enum VType {}", size_of::<VType>());
 }

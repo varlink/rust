@@ -294,7 +294,8 @@ fn test_type_one_array() {
     assert!(interfaces("foo.bar{ type I (b:bool[]) F()->() }").is_ok());
     assert!(interfaces("foo.bar{ type I (b:bool[ ]) F()->() }").is_err());
     let ifaces = interfaces("foo.bar{ type I (b:bool[ ]) F()->() }");
-    println!("{}", ifaces.err().unwrap());
+    assert_eq!(ifaces.err().unwrap().to_string(),
+               "error at 1:25: expected `[0-9]`");
     assert!(interfaces("foo.bar{ type I (b:bool[1]) F()->() }").is_ok());
     assert!(interfaces("foo.bar{ type I (b:bool[ 1 ]) F()->() }").is_err());
     assert!(interfaces("foo.bar{ type I (b:bool[ 1 1 ]) F()->() }").is_err());
@@ -331,7 +332,6 @@ fn test_union() {
     let i = interfaces("foo.bar{ F()->(s: (a: bool, b: int64), u: bool|int64|(foo: bool, bar: \
                         bool)) }")
         .unwrap();
-    println!("{}", i[0]);
     assert_eq!(i[0].to_string(),
                "foo.bar {
   F() -> (s: (a: bool, b: int64), u: bool | int64 | (foo: bool, bar: \
@@ -343,6 +343,6 @@ fn test_union() {
 #[test]
 fn print_size() {
     use std::mem::size_of;
-    println!("Sizeof enum VType {}", size_of::<VType>());
-    println!("usize max {}", usize::max_value());
+    assert_eq!(size_of::<VType>(), 24);
+    assert_eq!(usize::max_value(), 18446744073709551615);
 }

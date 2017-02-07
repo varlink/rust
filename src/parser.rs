@@ -315,10 +315,10 @@ fn test_method_struct_array_optional_wrong() {
 
 #[test]
 fn test_format() {
-    let i = interfaces("foo.bar{ type I (b:bool[1]) F()->() }").unwrap();
+    let i = interfaces("foo.bar{ type I (b:bool[18446744073709551615]) F()->() }").unwrap();
     assert_eq!(i[0].to_string(),
                "foo.bar {
-  type I (b: bool[1]);
+  type I (b: bool[18446744073709551615]);
   F() -> ();
 }
 ");
@@ -342,4 +342,5 @@ fn test_union() {
 fn print_size() {
     use std::mem::size_of;
     println!("Sizeof enum VType {}", size_of::<VType>());
+    println!("usize max {}", usize::max_value());
 }

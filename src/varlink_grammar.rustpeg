@@ -50,7 +50,7 @@ vtype -> VType<'input>
 
 array -> usize
     = "[]" { 0 }
-    / '[' n:$([0-9]+) ']' { str::parse::<usize>(n).unwrap() }
+    / '[' n:$([0-9]+) ']' { n.parse().unwrap() }
 
 nullable
     = '?'

@@ -58,11 +58,12 @@ array -> usize
     = "[]" { 0 }
     / '[' n:$([0-9]+) ']' { n.parse().unwrap() }
 
-nullable
-    = '?'
+nullable -> bool
+    = '?' {true}
+    / ""  {false}
 
 vtype_maybe_array -> VTypeExt<'input>
-    = v:vtype a:array? n:nullable? { VTypeExt { vtype: v, nullable: n.is_some(), isarray: a }}
+    = v:vtype a:array? n:nullable { VTypeExt { vtype: v, nullable: n, isarray: a }}
 
 argument -> Argument<'input>
     = __ n:$(argname) __ ':' __ v:(vtype_maybe_array ++ '|') { Argument { name : n, vtypes : v } }
@@ -81,7 +82,7 @@ methord_or_vtypedef -> MethodOrTypedef<'input>
     / t:vtypedef { MethodOrTypedef::Typedef(t) }
 
 interface -> Interface<'input>
-	= __ n:$reversedomainname __ '{' ts:(vtypedef*) m:method mt:(methord_or_vtypedef*) __ '}' __  {? Interface::from_token(n, ts, m, mt) }
+	= __ n:$reversedomainname __ '{' ts:(vtypedef*) m:method mt:(methord_or_vtypedef*) __ '}' __  { Interface::from_token(n, ts, m, mt) }
 
 pub Interfaces -> Vec<Interface<'input>>
     = interface+

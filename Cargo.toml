@@ -9,8 +9,5 @@ build = "build.rs"
 [build-dependencies]
 peg = "0.5.1"
 
-[replace]
-"peg:0.5.1" = { git = 'https://github.com/haraldh/rust-peg.git' }
-
 [[example]]
 name = "validate"

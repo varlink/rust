@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 mod varlink_grammar {
 
     use std::collections::BTreeMap;
@@ -58,6 +56,7 @@ mod varlink_grammar {
         pub name: &'a str,
         pub methods: BTreeMap<&'a str, Method<'a>>,
         pub typedefs: BTreeMap<&'a str, Typedef<'a>>,
+        pub error: ::std::collections::HashSet<Cow<'static, str>>,
     }
 
     use std::fmt;
@@ -151,26 +150,36 @@ mod varlink_grammar {
                       ts: Vec<Typedef<'a>>,
                       m: Method<'a>,
                       mt: Vec<MethodOrTypedef<'a>>)
-                      -> Result<Interface<'a>, Cow<'static, str>> {
+                      -> Interface<'a> {
             let mut i = Interface {
                 name: n,
                 methods: BTreeMap::new(),
                 typedefs: BTreeMap::new(),
+                error: ::std::collections::HashSet::new(),
             };
 
             i.methods.insert(m.name, m);
+
             for o in mt {
                 match o {
                     MethodOrTypedef::Method(m) => {
                         if let Some(d) = i.methods.insert(m.name, m) {
-                            return Err(format!("Duplicate definition(s) for method `{}`!", d.name)
-                                .into());
+                            i.error
+                                .insert(format!("Interface `{}´: multiple definitions of type \
+                                                 `{}´!",
+                                                i.name,
+                                                d.name)
+                                    .into());
                         };
                     }
                     MethodOrTypedef::Typedef(t) => {
                         if let Some(d) = i.typedefs.insert(t.name, t) {
-                            return Err(format!("Duplicate definition(s) for type `{}`!", d.name)
-                                .into());
+                            i.error
+                                .insert(format!("Interface `{}´: multiple definitions of type \
+                                                 `{}´!",
+                                                i.name,
+                                                d.name)
+                                    .into());
                         };
                     }
                 };
@@ -178,10 +187,14 @@ mod varlink_grammar {
 
             for t in ts {
                 if let Some(d) = i.typedefs.insert(t.name, t) {
-                    return Err(format!("Duplicate definition(s) for type `{}`!", d.name).into());
+                    i.error
+                        .insert(format!("Interface `{}´: multiple definitions of type `{}´!",
+                                        i.name,
+                                        d.name)
+                            .into());
                 };
             }
-            return Ok(i);
+            i
         }
     }
 
@@ -205,12 +218,29 @@ mod varlink_grammar {
                 }
             };
 
+            let mut log: Vec<String> = Vec::new();
+
             for i in ifaces {
-                if let Some(t) = v.interfaces.insert(i.name.to_string(), i) {
-                    return Err(format!("Duplicate interface definition for {}!", t.name).into());
+
+                if v.interfaces.contains_key(i.name.into()) {
+                    log.push(format!("Multiple definitions of interface `{}´!", i.name));
                 }
+
+                if i.error.len() != 0 {
+                    for e in &i.error {
+                        log.push(e.to_string());
+                    }
+                }
+                v.interfaces.insert(i.name.into(), i);
             }
-            Ok(v)
+
+            if log.len() != 0 {
+                log.sort();
+                log.dedup();
+                Err(log.join("\n"))
+            } else {
+                Ok(v)
+            }
         }
     }
 }
@@ -381,4 +411,43 @@ foo.bar {
                 bool));
 }
 ");
+}
+
+#[test]
+fn test_duplicate() {
+    let e = Varlink::from_string("
+foo.example {
+	type Device()
+	type Device()
+	type T()
+	type T()
+	F() -> ()
+}
+
+foo.example {
+    F() -> ()
+    F() -> ()
+	type T()
+	type T()
+}
+
+foo.example {
+    E() -> ()
+}
+
+bar.example {
+    F() -> ()
+    F() -> ()
+}
+
+")
+        .err()
+        .unwrap();
+    assert_eq!(e,
+               "\
+Interface `bar.example´: multiple definitions of type `F´!
+Interface `foo.example´: multiple definitions of type `Device´!
+Interface `foo.example´: multiple definitions of type `F´!
+Interface `foo.example´: multiple definitions of type `T´!
+Multiple definitions of interface `foo.example´!");
 }

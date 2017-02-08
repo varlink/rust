@@ -1,7 +1,9 @@
 #![allow(dead_code)]
 
 mod varlink_grammar {
+
     use std::collections::BTreeMap;
+    use std::borrow::Cow;
 
     pub enum VType<'a> {
         Bool,
@@ -149,7 +151,7 @@ mod varlink_grammar {
                       ts: Vec<Typedef<'a>>,
                       m: Method<'a>,
                       mt: Vec<MethodOrTypedef<'a>>)
-                      -> Result<Interface<'a>, &'static str> {
+                      -> Result<Interface<'a>, Cow<'static, str>> {
             let mut i = Interface {
                 name: n,
                 methods: BTreeMap::new(),
@@ -157,24 +159,27 @@ mod varlink_grammar {
             };
 
             i.methods.insert(m.name, m);
-
             for o in mt {
                 match o {
                     MethodOrTypedef::Method(m) => {
-                        if let Some(_) = i.methods.insert(m.name, m) {
-                            return Err("Duplicate method definition");
+                        if let Some(d) = i.methods.insert(m.name, m) {
+                            return Err(format!("Duplicate definition(s) for method `{}`!", d.name)
+                                .into());
                         };
                     }
                     MethodOrTypedef::Typedef(t) => {
-                        if let Some(_) = i.typedefs.insert(t.name, t) {
-                            return Err("Duplicate type definition");
+                        if let Some(d) = i.typedefs.insert(t.name, t) {
+                            return Err(format!("Duplicate definition(s) for type `{}`!", d.name)
+                                .into());
                         };
                     }
                 };
             }
 
             for t in ts {
-                i.typedefs.insert(t.name, t);
+                if let Some(d) = i.typedefs.insert(t.name, t) {
+                    return Err(format!("Duplicate definition(s) for type `{}`!", d.name).into());
+                };
             }
             return Ok(i);
         }
@@ -202,8 +207,7 @@ mod varlink_grammar {
 
             for i in ifaces {
                 if let Some(t) = v.interfaces.insert(i.name.to_string(), i) {
-                    return Err(format!("Duplicate interface definition for {}!", t.name)
-                        .to_string());
+                    return Err(format!("Duplicate interface definition for {}!", t.name).into());
                 }
             }
             Ok(v)

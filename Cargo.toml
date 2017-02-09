@@ -5,6 +5,7 @@ authors = ["Harald Hoyer <harald@redhat.com>"]
 build = "build.rs"
 
 [dependencies]
+itertools = "0.5.9"
 
 [build-dependencies]
 peg = "0.5.1"

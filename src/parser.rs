@@ -1,7 +1,11 @@
+
+
 mod varlink_grammar {
 
     use std::collections::BTreeMap;
     use std::borrow::Cow;
+    use std::collections::HashSet;
+    use itertools::Itertools;
 
     pub enum VType<'a> {
         Bool,
@@ -56,7 +60,7 @@ mod varlink_grammar {
         pub name: &'a str,
         pub methods: BTreeMap<&'a str, Method<'a>>,
         pub typedefs: BTreeMap<&'a str, Typedef<'a>>,
-        pub error: ::std::collections::HashSet<Cow<'static, str>>,
+        pub error: HashSet<Cow<'static, str>>,
     }
 
     use std::fmt;
@@ -139,26 +143,28 @@ mod varlink_grammar {
             }
 
             for m in self.methods.values() {
-                write!(f, "  {}{} -> {};\n", m.name, m.input, m.output)?;
+                write!(f,
+                       "  {}{} {}> {};\n",
+                       m.name,
+                       m.input,
+                       match m.stream {
+                           true => '=',
+                           false => '-',
+                       },
+                       m.output)?;
             }
             write!(f, "}}\n")
         }
     }
 
     impl<'a> Interface<'a> {
-        fn from_token(n: &'a str,
-                      ts: Vec<Typedef<'a>>,
-                      m: Method<'a>,
-                      mt: Vec<MethodOrTypedef<'a>>)
-                      -> Interface<'a> {
+        fn from_token(n: &'a str, mt: Vec<MethodOrTypedef<'a>>) -> Interface<'a> {
             let mut i = Interface {
                 name: n,
                 methods: BTreeMap::new(),
                 typedefs: BTreeMap::new(),
-                error: ::std::collections::HashSet::new(),
+                error: HashSet::new(),
             };
-
-            i.methods.insert(m.name, m);
 
             for o in mt {
                 match o {
@@ -184,16 +190,10 @@ mod varlink_grammar {
                     }
                 };
             }
-
-            for t in ts {
-                if let Some(d) = i.typedefs.insert(t.name, t) {
-                    i.error
-                        .insert(format!("Interface `{}´: multiple definitions of type `{}´!",
-                                        i.name,
-                                        d.name)
-                            .into());
-                };
+            if i.methods.len() == 0 {
+                i.error.insert(format!("Interface `{}´: no method defined!", i.name).into());
             }
+
             i
         }
     }
@@ -207,10 +207,12 @@ mod varlink_grammar {
 
     impl<'a> Varlink<'a> {
         pub fn from_string(s: &'a str) -> Result<Varlink, String> {
+
             let mut v = Varlink {
                 string: s,
                 interfaces: BTreeMap::new(),
             };
+
             let ifaces = match Interfaces(v.string) {
                 Ok(v) => v,
                 Err(e) => {
@@ -218,26 +220,20 @@ mod varlink_grammar {
                 }
             };
 
-            let mut log: Vec<String> = Vec::new();
+            let mut log: HashSet<Cow<'static, str>> = HashSet::new();
 
             for i in ifaces {
 
                 if v.interfaces.contains_key(i.name.into()) {
-                    log.push(format!("Multiple definitions of interface `{}´!", i.name));
+                    log.insert(format!("Multiple definitions of interface `{}´!", i.name).into());
                 }
 
-                if i.error.len() != 0 {
-                    for e in &i.error {
-                        log.push(e.to_string());
-                    }
-                }
+                log.extend(i.error.clone().into_iter());
                 v.interfaces.insert(i.name.into(), i);
             }
 
             if log.len() != 0 {
-                log.sort();
-                log.dedup();
-                Err(log.join("\n"))
+                Err(log.into_iter().sorted().join("\n"))
             } else {
                 Ok(v)
             }
@@ -253,7 +249,7 @@ use self::varlink_grammar::Interfaces;
 
 #[test]
 fn test_standard() {
-    let ifaces = Interfaces("
+    let v = Varlink::from_string("
 /**
  * The Varlink Service Interface is added to every varlink service. It provides
  * the Introspect method to be called by a client to retrieve the bootstrap
@@ -292,8 +288,8 @@ org.varlink.service {
 }
 ")
         .unwrap();
-    assert_eq!(ifaces[0].name, "org.varlink.service");
-    assert_eq!(ifaces[0].to_string(),
+    assert!(v.interfaces.contains_key("org.varlink.service"));
+    assert_eq!(v.interfaces.get("org.varlink.service").unwrap().to_string(),
                "\
 org.varlink.service {
   type Interface (name: string, types: Type[], methods: Method[]);
@@ -310,14 +306,14 @@ org.varlink.service {
 
 #[test]
 fn test_one_method() {
-    let ifaces = Interfaces("/* comment */ foo.bar{ Foo()->() }").unwrap();
-    assert!(ifaces[0].methods.get("Foo").unwrap().stream == false);
+    let v = Varlink::from_string("/* comment */ foo.bar{ Foo()->() }").unwrap();
+    assert!(v.interfaces.get("foo.bar").unwrap().methods.get("Foo").unwrap().stream == false);
 }
 
 #[test]
 fn test_one_method_stream() {
-    let ifaces = Interfaces("foo.bar{ Foo()=>() }").unwrap();
-    assert!(ifaces[0].methods.get("Foo").unwrap().stream);
+    let v = Varlink::from_string("foo.bar{ Foo()=>() }").unwrap();
+    assert!(v.interfaces.get("foo.bar").unwrap().methods.get("Foo").unwrap().stream);
 }
 
 #[test]
@@ -327,21 +323,21 @@ fn test_one_method_no_type() {
 
 #[test]
 fn test_domainnames() {
-    assert!(Interfaces("org.varlink.service {F()->()}").is_ok());
-    assert!(Interfaces("com.example.0example {F()->()}").is_ok());
-    assert!(Interfaces("com.example.example-dash {F()->()}").is_ok());
-    assert!(Interfaces("xn--lgbbat1ad8j.example.algeria {F()->()}").is_ok());
-    assert!(Interfaces("com.-example.leadinghyphen {F()->()}").is_err());
-    assert!(Interfaces("com.example-.danglinghyphen- {F()->()}").is_err());
-    assert!(Interfaces("Com.example.uppercase-toplevel {F()->()}").is_err());
-    assert!(Interfaces("Co9.example.number-toplevel {F()->()}").is_err());
-    assert!(Interfaces("1om.example.number-toplevel {F()->()}").is_err());
-    assert!(Interfaces("com.Example {F()->()}").is_err());
+    assert!(Varlink::from_string("org.varlink.service {F()->()}").is_ok());
+    assert!(Varlink::from_string("com.example.0example {F()->()}").is_ok());
+    assert!(Varlink::from_string("com.example.example-dash {F()->()}").is_ok());
+    assert!(Varlink::from_string("xn--lgbbat1ad8j.example.algeria {F()->()}").is_ok());
+    assert!(Varlink::from_string("com.-example.leadinghyphen {F()->()}").is_err());
+    assert!(Varlink::from_string("com.example-.danglinghyphen- {F()->()}").is_err());
+    assert!(Varlink::from_string("Com.example.uppercase-toplevel {F()->()}").is_err());
+    assert!(Varlink::from_string("Co9.example.number-toplevel {F()->()}").is_err());
+    assert!(Varlink::from_string("1om.example.number-toplevel {F()->()}").is_err());
+    assert!(Varlink::from_string("com.Example {F()->()}").is_err());
 }
 
 #[test]
 fn test_no_method() {
-    assert!(Interfaces("
+    assert!(Varlink::from_string("
 org.varlink.service {
   type Interface (name: string, types: Type[], methods: Method[])
   type Property (key: string, value: string)
@@ -352,45 +348,46 @@ org.varlink.service {
 
 #[test]
 fn test_type_no_args() {
-    assert!(Interfaces("foo.bar{ type I () F()->() }").is_ok());
+    assert!(Varlink::from_string("foo.bar{ type I () F()->() }").is_ok());
 }
 
 #[test]
 fn test_type_one_arg() {
-    assert!(Interfaces("foo.bar{ type I (b:bool) F()->() }").is_ok());
+    assert!(Varlink::from_string("foo.bar{ type I (b:bool) F()->() }").is_ok());
 }
 
 #[test]
 fn test_type_one_array() {
-    assert!(Interfaces("foo.bar{ type I (b:bool[]) F()->() }").is_ok());
-    assert!(Interfaces("foo.bar{ type I (b:bool[ ]) F()->() }").is_err());
-    let ifaces = Interfaces("foo.bar{ type I (b:bool[ ]) F()->() }");
+    assert!(Varlink::from_string("foo.bar{ type I (b:bool[]) F()->() }").is_ok());
+    assert!(Varlink::from_string("foo.bar{ type I (b:bool[ ]) F()->() }").is_err());
+    let ifaces = Varlink::from_string("foo.bar{ type I (b:bool[ ]) F()->() }");
     assert_eq!(ifaces.err().unwrap().to_string(),
                "error at 1:25: expected `[0-9]`");
-    assert!(Interfaces("foo.bar{ type I (b:bool[1]) F()->() }").is_ok());
-    assert!(Interfaces("foo.bar{ type I (b:bool[ 1 ]) F()->() }").is_err());
-    assert!(Interfaces("foo.bar{ type I (b:bool[ 1 1 ]) F()->() }").is_err());
+    assert!(Varlink::from_string("foo.bar{ type I (b:bool[1]) F()->() }").is_ok());
+    assert!(Varlink::from_string("foo.bar{ type I (b:bool[ 1 ]) F()->() }").is_err());
+    assert!(Varlink::from_string("foo.bar{ type I (b:bool[ 1 1 ]) F()->() }").is_err());
 }
 
 #[test]
 fn test_method_struct_optional() {
-    assert!(Interfaces("foo.bar{ Foo(foo: (i: int64, b: bool)? )->()}").is_ok());
+    assert!(Varlink::from_string("foo.bar{ Foo(foo: (i: int64, b: bool)? )->()}").is_ok());
 }
 
 #[test]
 fn test_method_struct_array_optional() {
-    assert!(Interfaces("foo.bar{ Foo(foo: (i: int64, b: bool)[]? )->()}").is_ok());
+    assert!(Varlink::from_string("foo.bar{ Foo(foo: (i: int64, b: bool)[]? )->()}").is_ok());
 }
 
 #[test]
 fn test_method_struct_array_optional_wrong() {
-    assert!(Interfaces("foo.bar{ Foo(foo: (i: int64, b: bool)?[]) -> ()}").is_err());
+    assert!(Varlink::from_string("foo.bar{ Foo(foo: (i: int64, b: bool)?[]) -> ()}").is_err());
 }
 
 #[test]
 fn test_format() {
-    let i = Interfaces("foo.bar{ type I (b:bool[18446744073709551615]) F()->()}").unwrap();
-    assert_eq!(i[0].to_string(),
+    let v = Varlink::from_string("foo.bar{ type I (b:bool[18446744073709551615]) F()->()}")
+        .unwrap();
+    assert_eq!(v.interfaces.get("foo.bar").unwrap().to_string(),
                "\
 foo.bar {
   type I (b: bool[18446744073709551615]);
@@ -401,10 +398,10 @@ foo.bar {
 
 #[test]
 fn test_union() {
-    let i = Interfaces("
+    let v = Varlink::from_string("
     foo.bar{ F()->(s: (a: bool, b: int64), u: bool|int64|(foo: bool, bar: bool))}")
         .unwrap();
-    assert_eq!(i[0].to_string(),
+    assert_eq!(v.interfaces.get("foo.bar").unwrap().to_string(),
                "\
 foo.bar {
   F() -> (s: (a: bool, b: int64), u: bool | int64 | (foo: bool, bar: \

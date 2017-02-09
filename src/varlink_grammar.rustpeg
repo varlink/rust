@@ -38,49 +38,57 @@ reversedomainname -> &'input str /* no hyphen at begin and end */
 	  / #quiet<$( "xn--" [a-z0-9]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+ )>
 	  / #expected("<reverse domain name>")
 
-vtype -> VType<'input>
-    = "bool"     { VType::Bool }
-    / "int8"     { VType::Int8 }
-    / "uint8"    { VType::UInt8 }
-    / "int16"    { VType::Int16 }
-    / "uint16"   { VType::UInt16 }
-    / "int32"    { VType::Int32 }
-    / "uint32"   { VType::UInt32 }
-    / "int64"    { VType::Int64 }
-    / "uint64"   { VType::UInt64 }
-    / "float32"  { VType::Float32 }
-    / "float64"  { VType::Float64 }
-    / "string"   { VType::VString }
-    / n:$(typename)   { VType::VTypename(n) }
-    / v:vstruct    { VType::VStruct(Box::new(v)) }
-
 array -> usize
     = "[]" { 0 }
-    / '[' n:$([0-9]+) ']' { n.parse().unwrap() }
+    / '[' n:$([0-9]+) ']' {? let v = n.parse::<usize>(); match v { Ok(v) => Ok(v), Err(e) => Err("number 1..18446744073709551615") } }
 
 nullable -> bool
     = '?' {true}
     / ""  {false}
 
+use super::VType;
+use super::VTypeExt;
+
 vtype_maybe_array -> VTypeExt<'input>
-    = v:vtype a:array? n:nullable { VTypeExt { vtype: v, nullable: n, isarray: a }}
+    = "bool"       a:array? n:nullable { VTypeExt { vtype: VType::Bool(None), nullable: n, isarray: a }}
+    / "int8"       a:array? n:nullable { VTypeExt { vtype: VType::Int8(None), nullable: n, isarray: a }}
+    / "uint8"      a:array? n:nullable { VTypeExt { vtype: VType::UInt8(None), nullable: n, isarray: a }}
+    / "int16"      a:array? n:nullable { VTypeExt { vtype: VType::Int16(None), nullable: n, isarray: a }}
+    / "uint16"     a:array? n:nullable { VTypeExt { vtype: VType::UInt16(None), nullable: n, isarray: a }}
+    / "int32"      a:array? n:nullable { VTypeExt { vtype: VType::Int32(None), nullable: n, isarray: a }}
+    / "uint32"     a:array? n:nullable { VTypeExt { vtype: VType::UInt32(None), nullable: n, isarray: a }}
+    / "int64"      a:array? n:nullable { VTypeExt { vtype: VType::Int64(None), nullable: n, isarray: a }}
+    / "uint64"     a:array? n:nullable { VTypeExt { vtype: VType::UInt64(None), nullable: n, isarray: a }}
+    / "float32"    a:array? n:nullable { VTypeExt { vtype: VType::Float32(None), nullable: n, isarray: a }}
+    / "float64"    a:array? n:nullable { VTypeExt { vtype: VType::Float64(None), nullable: n, isarray: a }}
+    / "string"     a:array? n:nullable { VTypeExt { vtype: VType::VString(None), nullable: n, isarray: a }}
+    / t:$(typename)a:array? n:nullable { VTypeExt { vtype: VType::VTypename(t), nullable: n, isarray: a }}
+    / v:vstruct    a:array? n:nullable { VTypeExt { vtype: VType::VStruct(Box::new(v)), nullable: n, isarray: a }}
+
+
+use super::Argument;
 
 argument -> Argument<'input>
     = __ n:$(argname) __ ':' __ v:(vtype_maybe_array ++ '|') { Argument { name : n, vtypes : v } }
 
+use super::VStruct;
 vstruct -> VStruct<'input>
     = '(' e:argument ** ',' __ ')' { VStruct{ elts: e} }
 
+use super::Typedef;
 vtypedef -> Typedef<'input>
     = __ "type" (whitespace/eol)+ __ n:$(typename) __ v:vstruct __ { Typedef{name: n, vstruct: v} }
 
+use super::Method;
 method -> Method<'input>
     = __ n:$(methodname) __ i:vstruct __ s:("-" { false } / "=" { true }) ">" __ o:vstruct __ { Method{name: n, input: i, output: o, stream: s} }
 
+use super::MethodOrTypedef;
 methord_or_vtypedef -> MethodOrTypedef<'input>
     = m:method { MethodOrTypedef::Method(m) }
     / t:vtypedef { MethodOrTypedef::Typedef(t) }
 
+use super::Interface;
 interface -> Interface<'input>
 	= __ n:$reversedomainname __ '{' mt:(methord_or_vtypedef*) __ '}' __  { Interface::from_token(n, mt) }
 

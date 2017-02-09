@@ -1,251 +1,242 @@
-
-
 mod varlink_grammar {
-
-    use std::collections::BTreeMap;
-    use std::borrow::Cow;
-    use std::collections::HashSet;
-    use itertools::Itertools;
-
-    pub enum VType<'a> {
-        Bool,
-        Int8,
-        UInt8,
-        Int16,
-        UInt16,
-        Int32,
-        UInt32,
-        Int64,
-        UInt64,
-        Float32,
-        Float64,
-        VString,
-        VTypename(&'a str),
-        VStruct(Box<VStruct<'a>>),
-    }
-
-    pub struct VTypeExt<'a> {
-        vtype: VType<'a>,
-        nullable: bool,
-        isarray: Option<usize>,
-    }
-
-    pub struct Argument<'a> {
-        pub name: &'a str,
-        pub vtypes: Vec<VTypeExt<'a>>,
-    }
-
-    pub struct VStruct<'a> {
-        pub elts: Vec<Argument<'a>>,
-    }
-
-    pub struct Typedef<'a> {
-        pub name: &'a str,
-        pub vstruct: VStruct<'a>,
-    }
-
-    pub struct Method<'a> {
-        pub name: &'a str,
-        pub input: VStruct<'a>,
-        pub output: VStruct<'a>,
-        pub stream: bool,
-    }
-
-    enum MethodOrTypedef<'a> {
-        Typedef(Typedef<'a>),
-        Method(Method<'a>),
-    }
-
-    pub struct Interface<'a> {
-        pub name: &'a str,
-        pub methods: BTreeMap<&'a str, Method<'a>>,
-        pub typedefs: BTreeMap<&'a str, Typedef<'a>>,
-        pub error: HashSet<Cow<'static, str>>,
-    }
-
-    use std::fmt;
-
-    impl<'a> fmt::Display for VType<'a> {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            match *self {
-                VType::Bool => write!(f, "bool"),
-                VType::Int8 => write!(f, "int8"),
-                VType::UInt8 => write!(f, "uint8"),
-                VType::Int16 => write!(f, "int16"),
-                VType::UInt16 => write!(f, "uint16"),
-                VType::Int32 => write!(f, "int32"),
-                VType::UInt32 => write!(f, "uint32"),
-                VType::Int64 => write!(f, "int64"),
-                VType::UInt64 => write!(f, "uint64"),
-                VType::Float32 => write!(f, "float32"),
-                VType::Float64 => write!(f, "float64"),
-                VType::VString => write!(f, "string"),
-                VType::VTypename(ref s) => write!(f, "{}", s),
-                VType::VStruct(ref v) => write!(f, "{}", v),
-            }
-        }
-    }
-
-    impl<'a> fmt::Display for VTypeExt<'a> {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f, "{}", self.vtype)?;
-            if let Some(t) = self.isarray {
-                match t {
-                    0 => write!(f, "[]")?,
-                    _ => write!(f, "[{}]", t)?,
-                }
-            }
-            if self.nullable {
-                write!(f, "?")
-            } else {
-                Ok(())
-            }
-        }
-    }
-
-    impl<'a> fmt::Display for Argument<'a> {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            if self.vtypes.len() == 1 {
-                write!(f, "{}: {}", self.name, self.vtypes[0])?;
-            } else {
-                let mut iter = self.vtypes.iter();
-                if let Some(fst) = iter.next() {
-                    write!(f, "{}: {}", self.name, fst)?;
-                    for elt in iter {
-                        write!(f, " | {}", elt)?;
-                    }
-                }
-            }
-            Ok(())
-        }
-    }
-
-    impl<'a> fmt::Display for VStruct<'a> {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f, "(")?;
-            let mut iter = self.elts.iter();
-            if let Some(fst) = iter.next() {
-                write!(f, "{}", fst)?;
-                for elt in iter {
-                    write!(f, ", {}", elt)?;
-                }
-            }
-            write!(f, ")")
-        }
-    }
-
-    impl<'a> fmt::Display for Interface<'a> {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f, "{} {{\n", self.name)?;
-
-            for t in self.typedefs.values() {
-                write!(f, "  type {} {};\n", t.name, t.vstruct)?;
-            }
-
-            for m in self.methods.values() {
-                write!(f,
-                       "  {}{} {}> {};\n",
-                       m.name,
-                       m.input,
-                       match m.stream {
-                           true => '=',
-                           false => '-',
-                       },
-                       m.output)?;
-            }
-            write!(f, "}}\n")
-        }
-    }
-
-    impl<'a> Interface<'a> {
-        fn from_token(n: &'a str, mt: Vec<MethodOrTypedef<'a>>) -> Interface<'a> {
-            let mut i = Interface {
-                name: n,
-                methods: BTreeMap::new(),
-                typedefs: BTreeMap::new(),
-                error: HashSet::new(),
-            };
-
-            for o in mt {
-                match o {
-                    MethodOrTypedef::Method(m) => {
-                        if let Some(d) = i.methods.insert(m.name, m) {
-                            i.error
-                                .insert(format!("Interface `{}´: multiple definitions of type \
-                                                 `{}´!",
-                                                i.name,
-                                                d.name)
-                                    .into());
-                        };
-                    }
-                    MethodOrTypedef::Typedef(t) => {
-                        if let Some(d) = i.typedefs.insert(t.name, t) {
-                            i.error
-                                .insert(format!("Interface `{}´: multiple definitions of type \
-                                                 `{}´!",
-                                                i.name,
-                                                d.name)
-                                    .into());
-                        };
-                    }
-                };
-            }
-            if i.methods.len() == 0 {
-                i.error.insert(format!("Interface `{}´: no method defined!", i.name).into());
-            }
-
-            i
-        }
-    }
-
     include!(concat!(env!("OUT_DIR"), "/varlink_grammar.rs"));
+}
 
-    pub struct Varlink<'a> {
-        string: &'a str,
-        pub interfaces: BTreeMap<String, Interface<'a>>,
-    }
+use std::collections::BTreeMap;
+use std::borrow::Cow;
+use std::collections::HashSet;
+use itertools::Itertools;
+use self::varlink_grammar::Interfaces;
 
-    impl<'a> Varlink<'a> {
-        pub fn from_string(s: &'a str) -> Result<Varlink, String> {
+pub enum VType<'a> {
+    Bool(Option<bool>),
+    Int8(Option<i8>),
+    UInt8(Option<u8>),
+    Int16(Option<i16>),
+    UInt16(Option<u16>),
+    Int32(Option<i32>),
+    UInt32(Option<u32>),
+    Int64(Option<i64>),
+    UInt64(Option<u64>),
+    Float32(Option<f32>),
+    Float64(Option<f64>),
+    VString(Option<&'a str>),
+    VTypename(&'a str),
+    VStruct(Box<VStruct<'a>>),
+}
 
-            let mut v = Varlink {
-                string: s,
-                interfaces: BTreeMap::new(),
-            };
+pub struct VTypeExt<'a> {
+    vtype: VType<'a>,
+    nullable: bool,
+    isarray: Option<usize>,
+}
 
-            let ifaces = match Interfaces(v.string) {
-                Ok(v) => v,
-                Err(e) => {
-                    return Err(e.to_string());
-                }
-            };
+pub struct Argument<'a> {
+    pub name: &'a str,
+    pub vtypes: Vec<VTypeExt<'a>>,
+}
 
-            let mut log: HashSet<Cow<'static, str>> = HashSet::new();
+pub struct VStruct<'a> {
+    pub elts: Vec<Argument<'a>>,
+}
 
-            for i in ifaces {
+pub struct Typedef<'a> {
+    pub name: &'a str,
+    pub vstruct: VStruct<'a>,
+}
 
-                if v.interfaces.contains_key(i.name.into()) {
-                    log.insert(format!("Multiple definitions of interface `{}´!", i.name).into());
-                }
+pub struct Method<'a> {
+    pub name: &'a str,
+    pub input: VStruct<'a>,
+    pub output: VStruct<'a>,
+    pub stream: bool,
+}
 
-                log.extend(i.error.clone().into_iter());
-                v.interfaces.insert(i.name.into(), i);
-            }
+enum MethodOrTypedef<'a> {
+    Typedef(Typedef<'a>),
+    Method(Method<'a>),
+}
 
-            if log.len() != 0 {
-                Err(log.into_iter().sorted().join("\n"))
-            } else {
-                Ok(v)
-            }
+pub struct Interface<'a> {
+    pub name: &'a str,
+    pub methods: BTreeMap<&'a str, Method<'a>>,
+    pub typedefs: BTreeMap<&'a str, Typedef<'a>>,
+    pub error: HashSet<Cow<'static, str>>,
+}
+
+use std::fmt;
+
+impl<'a> fmt::Display for VType<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            VType::Bool(_) => write!(f, "bool"),
+            VType::Int8(_) => write!(f, "int8"),
+            VType::UInt8(_) => write!(f, "uint8"),
+            VType::Int16(_) => write!(f, "int16"),
+            VType::UInt16(_) => write!(f, "uint16"),
+            VType::Int32(_) => write!(f, "int32"),
+            VType::UInt32(_) => write!(f, "uint32"),
+            VType::Int64(_) => write!(f, "int64"),
+            VType::UInt64(_) => write!(f, "uint64"),
+            VType::Float32(_) => write!(f, "float32"),
+            VType::Float64(_) => write!(f, "float64"),
+            VType::VString(_) => write!(f, "string"),
+            VType::VTypename(ref s) => write!(f, "{}", s),
+            VType::VStruct(ref v) => write!(f, "{}", v),
         }
     }
 }
 
-pub use self::varlink_grammar::Varlink;
+impl<'a> fmt::Display for VTypeExt<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.vtype)?;
+        if let Some(t) = self.isarray {
+            match t {
+                0 => write!(f, "[]")?,
+                _ => write!(f, "[{}]", t)?,
+            }
+        }
+        if self.nullable {
+            write!(f, "?")
+        } else {
+            Ok(())
+        }
+    }
+}
 
+impl<'a> fmt::Display for Argument<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.vtypes.len() == 1 {
+            write!(f, "{}: {}", self.name, self.vtypes[0])?;
+        } else {
+            let mut iter = self.vtypes.iter();
+            if let Some(fst) = iter.next() {
+                write!(f, "{}: {}", self.name, fst)?;
+                for elt in iter {
+                    write!(f, " | {}", elt)?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
 
-#[cfg(test)]
-use self::varlink_grammar::Interfaces;
+impl<'a> fmt::Display for VStruct<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "(")?;
+        let mut iter = self.elts.iter();
+        if let Some(fst) = iter.next() {
+            write!(f, "{}", fst)?;
+            for elt in iter {
+                write!(f, ", {}", elt)?;
+            }
+        }
+        write!(f, ")")
+    }
+}
+
+impl<'a> fmt::Display for Interface<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} {{\n", self.name)?;
+
+        for t in self.typedefs.values() {
+            write!(f, "  type {} {};\n", t.name, t.vstruct)?;
+        }
+
+        for m in self.methods.values() {
+            write!(f,
+                   "  {}{} {}> {};\n",
+                   m.name,
+                   m.input,
+                   match m.stream {
+                       true => '=',
+                       false => '-',
+                   },
+                   m.output)?;
+        }
+        write!(f, "}}\n")
+    }
+}
+
+impl<'a> Interface<'a> {
+    fn from_token(n: &'a str, mt: Vec<MethodOrTypedef<'a>>) -> Interface<'a> {
+        let mut i = Interface {
+            name: n,
+            methods: BTreeMap::new(),
+            typedefs: BTreeMap::new(),
+            error: HashSet::new(),
+        };
+
+        for o in mt {
+            match o {
+                MethodOrTypedef::Method(m) => {
+                    if let Some(d) = i.methods.insert(m.name, m) {
+                        i.error
+                            .insert(format!("Interface `{}`: multiple definitions of type `{}`!",
+                                            i.name,
+                                            d.name)
+                                .into());
+                    };
+                }
+                MethodOrTypedef::Typedef(t) => {
+                    if let Some(d) = i.typedefs.insert(t.name, t) {
+                        i.error
+                            .insert(format!("Interface `{}`: multiple definitions of type `{}`!",
+                                            i.name,
+                                            d.name)
+                                .into());
+                    };
+                }
+            };
+        }
+        if i.methods.len() == 0 {
+            i.error.insert(format!("Interface `{}`: no method defined!", i.name).into());
+        }
+
+        i
+    }
+}
+
+pub struct Varlink<'a> {
+    string: &'a str,
+    pub interfaces: BTreeMap<String, Interface<'a>>,
+}
+
+impl<'a> Varlink<'a> {
+    pub fn from_string(s: &'a str) -> Result<Varlink, String> {
+
+        let mut v = Varlink {
+            string: s,
+            interfaces: BTreeMap::new(),
+        };
+
+        let ifaces = match Interfaces(v.string) {
+            Ok(v) => v,
+            Err(e) => {
+                return Err(e.to_string());
+            }
+        };
+
+        let mut log: HashSet<Cow<'static, str>> = HashSet::new();
+
+        for i in ifaces {
+
+            if v.interfaces.contains_key(i.name.into()) {
+                log.insert(format!("Multiple definitions of interface `{}`!", i.name).into());
+            }
+
+            log.extend(i.error.clone().into_iter());
+            v.interfaces.insert(i.name.into(), i);
+        }
+
+        if log.len() != 0 {
+            Err(log.into_iter().sorted().join("\n"))
+        } else {
+            Ok(v)
+        }
+    }
+}
+
 
 #[test]
 fn test_standard() {
@@ -397,6 +388,14 @@ foo.bar {
 }
 
 #[test]
+fn test_max_array_size() {
+    let v = Varlink::from_string("foo.bar{ type I (b:bool[18446744073709551616]) F()->()}");
+    assert!(v.is_err());
+    assert_eq!(v.err().unwrap(),
+               "error at 1:46: expected `number 1..18446744073709551615`");
+}
+
+#[test]
 fn test_union() {
     let v = Varlink::from_string("
     foo.bar{ F()->(s: (a: bool, b: int64), u: bool|int64|(foo: bool, bar: bool))}")
@@ -442,9 +441,9 @@ bar.example {
         .unwrap();
     assert_eq!(e,
                "\
-Interface `bar.example´: multiple definitions of type `F´!
-Interface `foo.example´: multiple definitions of type `Device´!
-Interface `foo.example´: multiple definitions of type `F´!
-Interface `foo.example´: multiple definitions of type `T´!
-Multiple definitions of interface `foo.example´!");
+Interface `bar.example`: multiple definitions of type `F`!
+Interface `foo.example`: multiple definitions of type `Device`!
+Interface `foo.example`: multiple definitions of type `F`!
+Interface `foo.example`: multiple definitions of type `T`!
+Multiple definitions of interface `foo.example`!");
 }

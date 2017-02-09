@@ -50,24 +50,34 @@ use super::VType;
 use super::VTypeExt;
 
 vtype_maybe_array -> VTypeExt<'input>
-    = "bool"       a:array? n:nullable { VTypeExt { vtype: VType::Bool(None), nullable: n, isarray: a }}
+    = "bool"       a:array? n:nullable __ "=" __ v:("true" {true} / "false" {false}) { VTypeExt { vtype: VType::Bool(Some(v)), nullable: n, isarray: a }}
+    / "bool"       a:array? n:nullable { VTypeExt { vtype: VType::Bool(None), nullable: n, isarray: a }}
+    / "int8"       a:array? n:nullable __ "=" __ v:$([\+\-0-9]+) {? match v.parse::<i8>(){Ok(v)=>Ok( VTypeExt{vtype: VType::Int8(Some(v)), nullable: n, isarray: a}),Err(e)=>Err("int8")}}
     / "int8"       a:array? n:nullable { VTypeExt { vtype: VType::Int8(None), nullable: n, isarray: a }}
+    / "uint8"      a:array? n:nullable __ "=" __ v:$([\+\-0-9]+) {? match v.parse::<u8>(){Ok(v)=>Ok( VTypeExt{vtype: VType::UInt8(Some(v)), nullable: n, isarray: a}),Err(e)=>Err("uint8")}}
     / "uint8"      a:array? n:nullable { VTypeExt { vtype: VType::UInt8(None), nullable: n, isarray: a }}
+    / "int16"      a:array? n:nullable __ "=" __ v:$([\+\-0-9]+) {? match v.parse::<i16>(){Ok(v)=>Ok( VTypeExt{vtype: VType::Int16(Some(v)), nullable: n, isarray: a}),Err(e)=>Err("int16")}}
     / "int16"      a:array? n:nullable { VTypeExt { vtype: VType::Int16(None), nullable: n, isarray: a }}
+    / "uint16"     a:array? n:nullable __ "=" __ v:$([\+\-0-9]+) {? match v.parse::<u16>(){Ok(v)=>Ok( VTypeExt{vtype: VType::UInt16(Some(v)), nullable: n, isarray: a}),Err(e)=>Err("uint16")}}
     / "uint16"     a:array? n:nullable { VTypeExt { vtype: VType::UInt16(None), nullable: n, isarray: a }}
+    / "int32"      a:array? n:nullable __ "=" __ v:$([\+\-0-9]+) {? match v.parse::<i32>(){Ok(v)=>Ok( VTypeExt{vtype: VType::Int32(Some(v)), nullable: n, isarray: a}),Err(e)=>Err("int32")}}
     / "int32"      a:array? n:nullable { VTypeExt { vtype: VType::Int32(None), nullable: n, isarray: a }}
+    / "uint32"     a:array? n:nullable __ "=" __ v:$([\+\-0-9]+) {? match v.parse::<u32>(){Ok(v)=>Ok( VTypeExt{vtype: VType::UInt32(Some(v)), nullable: n, isarray: a}),Err(e)=>Err("uint32")}}
     / "uint32"     a:array? n:nullable { VTypeExt { vtype: VType::UInt32(None), nullable: n, isarray: a }}
+    / "int64"      a:array? n:nullable __ "=" __ v:$([\+\-0-9]+) {? match v.parse::<i64>(){Ok(v)=>Ok( VTypeExt{vtype: VType::Int64(Some(v)), nullable: n, isarray: a}),Err(e)=>Err("int64")}}
     / "int64"      a:array? n:nullable { VTypeExt { vtype: VType::Int64(None), nullable: n, isarray: a }}
+    / "uint64"     a:array? n:nullable __ "=" __ v:$([\+\-0-9]+) {? match v.parse::<u64>(){Ok(v)=>Ok( VTypeExt{vtype: VType::UInt64(Some(v)), nullable: n, isarray: a}),Err(e)=>Err("uint64")}}
     / "uint64"     a:array? n:nullable { VTypeExt { vtype: VType::UInt64(None), nullable: n, isarray: a }}
+    / "float32"    a:array? n:nullable __ "=" __ v:$([\+\-0-9.,eE]+) {? match v.parse::<f32>(){Ok(v)=>Ok( VTypeExt{vtype: VType::Float32(Some(v)), nullable: n, isarray: a}),Err(e)=>Err("float32")}}
     / "float32"    a:array? n:nullable { VTypeExt { vtype: VType::Float32(None), nullable: n, isarray: a }}
+    / "float64"    a:array? n:nullable __ "=" __ v:$([\+\-0-9.,eE]+) {? match v.parse::<f64>(){Ok(v)=>Ok( VTypeExt{vtype: VType::Float64(Some(v)), nullable: n, isarray: a}),Err(e)=>Err("float64")}}
     / "float64"    a:array? n:nullable { VTypeExt { vtype: VType::Float64(None), nullable: n, isarray: a }}
+    / "string"     a:array? n:nullable __ "=" __ '"' v:$( ( '\\' '"' / '\\' / [^"\\] )+ ) '"' { VTypeExt{vtype: VType::VString(Some(v)), nullable: n, isarray: a} }
     / "string"     a:array? n:nullable { VTypeExt { vtype: VType::VString(None), nullable: n, isarray: a }}
     / t:$(typename)a:array? n:nullable { VTypeExt { vtype: VType::VTypename(t), nullable: n, isarray: a }}
     / v:vstruct    a:array? n:nullable { VTypeExt { vtype: VType::VStruct(Box::new(v)), nullable: n, isarray: a }}
 
-
 use super::Argument;
-
 argument -> Argument<'input>
     = __ n:$(argname) __ ':' __ v:(vtype_maybe_array ++ '|') { Argument { name : n, vtypes : v } }
 

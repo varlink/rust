@@ -65,42 +65,71 @@ pub struct Interface<'a> {
 }
 
 use std::fmt;
-
-impl<'a> fmt::Display for VType<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            VType::Bool(_) => write!(f, "bool"),
-            VType::Int8(_) => write!(f, "int8"),
-            VType::UInt8(_) => write!(f, "uint8"),
-            VType::Int16(_) => write!(f, "int16"),
-            VType::UInt16(_) => write!(f, "uint16"),
-            VType::Int32(_) => write!(f, "int32"),
-            VType::UInt32(_) => write!(f, "uint32"),
-            VType::Int64(_) => write!(f, "int64"),
-            VType::UInt64(_) => write!(f, "uint64"),
-            VType::Float32(_) => write!(f, "float32"),
-            VType::Float64(_) => write!(f, "float64"),
-            VType::VString(_) => write!(f, "string"),
-            VType::VTypename(ref s) => write!(f, "{}", s),
-            VType::VStruct(ref v) => write!(f, "{}", v),
-        }
-    }
+macro_rules! printVTypeExt {
+	($s:ident, $f:ident, $t:expr) => {{
+                write!($f, "{}", $t)?;
+                if let Some(t) = $s.isarray {
+                    match t {
+                        0 => write!($f, "[]")?,
+                        _ => write!($f, "[{}]", t)?,
+                    }
+                };
+                if $s.nullable {
+                    write!($f, "?")?
+                };
+	}};
+	($s:ident, $f:ident, $v:ident, $t:expr) => {{
+                write!($f, "{}", $t)?;
+                if let Some(t) = $s.isarray {
+                    match t {
+                        0 => write!($f, "[]")?,
+                        _ => write!($f, "[{}]", t)?,
+                    }
+                };
+                if $s.nullable {
+                    write!($f, "?")?
+                };
+                if let Some(val) = *$v {
+                    write!($f, " = {}", val)?;
+                }
+	}};
+	($s:ident, $f:ident, $v:ident, $t:expr, $k:expr) => {{
+                write!($f, "{}", $t)?;
+                if let Some(t) = $s.isarray {
+                    match t {
+                        0 => write!($f, "[]")?,
+                        _ => write!($f, "[{}]", t)?,
+                    }
+                };
+                if $s.nullable {
+                    write!($f, "?")?
+                };
+                if let Some(val) = *$v {
+                    write!($f, " = {s}{}{s}", val, s=$k)?;
+                }
+	}};
 }
 
 impl<'a> fmt::Display for VTypeExt<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.vtype)?;
-        if let Some(t) = self.isarray {
-            match t {
-                0 => write!(f, "[]")?,
-                _ => write!(f, "[{}]", t)?,
-            }
+        match self.vtype {
+            VType::Bool(ref v) => printVTypeExt!(self, f, v, "bool"),
+            VType::Int8(ref v) => printVTypeExt!(self, f, v, "int8"),
+            VType::UInt8(ref v) => printVTypeExt!(self, f, v, "uint8"),
+            VType::Int16(ref v) => printVTypeExt!(self, f, v, "int16"),
+            VType::UInt16(ref v) => printVTypeExt!(self, f, v, "uint16"),
+            VType::Int32(ref v) => printVTypeExt!(self, f, v, "int32"),
+            VType::UInt32(ref v) => printVTypeExt!(self, f, v, "uint32"),
+            VType::Int64(ref v) => printVTypeExt!(self, f, v, "int64"),
+            VType::UInt64(ref v) => printVTypeExt!(self, f, v, "uint64"),
+            VType::Float32(ref v) => printVTypeExt!(self, f, v, "float32"),
+            VType::Float64(ref v) => printVTypeExt!(self, f, v, "float64"),
+            VType::VString(ref v) => printVTypeExt!(self, f, v, "string", "\""),
+            VType::VTypename(ref v) => printVTypeExt!(self, f, v),
+            VType::VStruct(ref v) => printVTypeExt!(self, f, v),
         }
-        if self.nullable {
-            write!(f, "?")
-        } else {
-            Ok(())
-        }
+
+        Ok(())
     }
 }
 
@@ -280,6 +309,8 @@ org.varlink.service {
 ")
         .unwrap();
     assert!(v.interfaces.contains_key("org.varlink.service"));
+    println!("{}",
+             v.interfaces.get("org.varlink.service").unwrap().to_string());
     assert_eq!(v.interfaces.get("org.varlink.service").unwrap().to_string(),
                "\
 org.varlink.service {
@@ -345,6 +376,25 @@ fn test_type_no_args() {
 #[test]
 fn test_type_one_arg() {
     assert!(Varlink::from_string("foo.bar{ type I (b:bool) F()->() }").is_ok());
+}
+
+#[test]
+fn test_default_values() {
+    assert!(Varlink::from_string("foo.bar{ type I (b:bool = true) F()->() }").is_ok());
+    assert!(Varlink::from_string("foo.bar{ type I (b:int8 = 127) F()->() }").is_ok());
+    assert!(Varlink::from_string("foo.bar{ type I (b:int8 = -127) F()->() }").is_ok());
+    assert!(Varlink::from_string("foo.bar{ type I (b:int8 = 1-27) F()->() }").is_err());
+    assert!(Varlink::from_string("foo.bar{ type I (b:int8 = 128) F()->() }").is_err());
+    assert!(Varlink::from_string("foo.bar{ type I (b:uint8 = 255) F()->() }").is_ok());
+    assert!(Varlink::from_string("foo.bar{ type I (b:uint8 = 256) F()->() }").is_err());
+    assert!(Varlink::from_string("foo.bar{ type I (b:float32 = 1.0) F()->() }").is_ok());
+    assert!(Varlink::from_string("foo.bar{ type I (b:float32 = +1.0e10) F()->() }").is_ok());
+    assert!(Varlink::from_string("foo.bar{ type I (b:float32 = -1.0e10) F()->() }").is_ok());
+    assert!(Varlink::from_string("foo.bar{ type I (b:float64 = +1.0e10) F()->() }").is_ok());
+    assert!(Varlink::from_string("foo.bar{ type I (b:float64 = -1.0e10) F()->() }").is_ok());
+    assert!(Varlink::from_string("foo.bar{ type I (b:string = \"drgjdkhg\") F()->() }").is_ok());
+    assert!(Varlink::from_string("foo.bar{ type I (b:string = \"dr\\\"gj\\\"dkhg\") F()->() }")
+        .is_ok());
 }
 
 #[test]

@@ -309,9 +309,8 @@ org.varlink.service {
 ")
         .unwrap();
     assert!(v.interfaces.contains_key("org.varlink.service"));
-    println!("{}",
-             v.interfaces.get("org.varlink.service").unwrap().to_string());
-    assert_eq!(v.interfaces.get("org.varlink.service").unwrap().to_string(),
+    println!("{}", v.interfaces["org.varlink.service"].to_string());
+    assert_eq!(v.interfaces["org.varlink.service"].to_string(),
                "\
 org.varlink.service {
   type Interface (name: string, types: Type[], methods: Method[]);
@@ -329,13 +328,13 @@ org.varlink.service {
 #[test]
 fn test_one_method() {
     let v = Varlink::from_string("/* comment */ foo.bar{ Foo()->() }").unwrap();
-    assert!(v.interfaces.get("foo.bar").unwrap().methods.get("Foo").unwrap().stream == false);
+    assert!(v.interfaces["foo.bar"].methods["Foo"].stream == false);
 }
 
 #[test]
 fn test_one_method_stream() {
     let v = Varlink::from_string("foo.bar{ Foo()=>() }").unwrap();
-    assert!(v.interfaces.get("foo.bar").unwrap().methods.get("Foo").unwrap().stream);
+    assert!(v.interfaces["foo.bar"].methods["Foo"].stream);
 }
 
 #[test]
@@ -428,7 +427,7 @@ fn test_method_struct_array_optional_wrong() {
 fn test_format() {
     let v = Varlink::from_string("foo.bar{ type I (b:bool[18446744073709551615]) F()->()}")
         .unwrap();
-    assert_eq!(v.interfaces.get("foo.bar").unwrap().to_string(),
+    assert_eq!(v.interfaces["foo.bar"].to_string(),
                "\
 foo.bar {
   type I (b: bool[18446744073709551615]);
@@ -450,7 +449,7 @@ fn test_union() {
     let v = Varlink::from_string("
     foo.bar{ F()->(s: (a: bool, b: int64), u: bool|int64|(foo: bool, bar: bool))}")
         .unwrap();
-    assert_eq!(v.interfaces.get("foo.bar").unwrap().to_string(),
+    assert_eq!(v.interfaces["foo.bar"].to_string(),
                "\
 foo.bar {
   F() -> (s: (a: bool, b: int64), u: bool | int64 | (foo: bool, bar: \

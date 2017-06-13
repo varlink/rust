@@ -2,6 +2,7 @@ mod varlink_grammar {
     include!(concat!(env!("OUT_DIR"), "/varlink_grammar.rs"));
 }
 
+extern crate itertools;
 use std::collections::BTreeMap;
 use std::borrow::Cow;
 use std::collections::HashSet;

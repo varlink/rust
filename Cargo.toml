@@ -5,10 +5,10 @@ authors = ["Harald Hoyer <harald@redhat.com>"]
 build = "build.rs"
 
 [dependencies]
-itertools = "0.5.9"
+itertools = "0.6"
 
 [build-dependencies]
-peg = "0.5.1"
+peg = "0.5"
 
 [[example]]
 name = "validate"

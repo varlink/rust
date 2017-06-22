@@ -2,11 +2,10 @@ mod varlink_grammar {
     include!(concat!(env!("OUT_DIR"), "/varlink_grammar.rs"));
 }
 
-extern crate itertools;
+use itertools::Itertools;
 use std::collections::BTreeMap;
 use std::borrow::Cow;
 use std::collections::HashSet;
-use itertools::Itertools;
 use self::varlink_grammar::Interfaces;
 
 pub enum VType<'a> {
@@ -205,7 +204,7 @@ impl<'a> Interface<'a> {
                             .insert(format!("Interface `{}`: multiple definitions of type `{}`!",
                                             i.name,
                                             d.name)
-                                .into());
+                                        .into());
                     };
                 }
                 MethodOrTypedef::Typedef(t) => {
@@ -214,13 +213,14 @@ impl<'a> Interface<'a> {
                             .insert(format!("Interface `{}`: multiple definitions of type `{}`!",
                                             i.name,
                                             d.name)
-                                .into());
+                                        .into());
                     };
                 }
             };
         }
         if i.methods.len() == 0 {
-            i.error.insert(format!("Interface `{}`: no method defined!", i.name).into());
+            i.error
+                .insert(format!("Interface `{}`: no method defined!", i.name).into());
         }
 
         i
@@ -270,7 +270,8 @@ impl<'a> Varlink<'a> {
 
 #[test]
 fn test_standard() {
-    let v = Varlink::from_string("
+    let v = Varlink::from_string(
+        "
 /**
  * The Varlink Service Interface is added to every varlink service. It provides
  * the Introspect method to be called by a client to retrieve the bootstrap
@@ -307,12 +308,13 @@ org.varlink.service {
     interfaces: InterfaceDescription[]
   )
 }
-")
-        .unwrap();
+",
+    ).unwrap();
     assert!(v.interfaces.contains_key("org.varlink.service"));
     println!("{}", v.interfaces["org.varlink.service"].to_string());
-    assert_eq!(v.interfaces["org.varlink.service"].to_string(),
-               "\
+    assert_eq!(
+        v.interfaces["org.varlink.service"].to_string(),
+        "\
 org.varlink.service {
   type Interface (name: string, types: Type[], methods: Method[]);
   type InterfaceDescription (description: string, types: string[], methods: string[]);
@@ -322,7 +324,8 @@ org.varlink.service {
   Help() -> (description: string, properties: Property[], interfaces: InterfaceDescription[]);
   Introspect(version: uint64) -> (name: string, interfaces: Interface[]);
 }
-");
+"
+    );
 
 }
 
@@ -359,13 +362,16 @@ fn test_domainnames() {
 
 #[test]
 fn test_no_method() {
-    assert!(Varlink::from_string("
+    assert!(
+        Varlink::from_string(
+            "
 org.varlink.service {
   type Interface (name: string, types: Type[], methods: Method[])
   type Property (key: string, value: string)
 }
-")
-        .is_err());
+",
+        ).is_err()
+    );
 }
 
 #[test]
@@ -394,7 +400,7 @@ fn test_default_values() {
     assert!(Varlink::from_string("foo.bar{ type I (b:float64 = -1.0e10) F()->() }").is_ok());
     assert!(Varlink::from_string("foo.bar{ type I (b:string = \"drgjdkhg\") F()->() }").is_ok());
     assert!(Varlink::from_string("foo.bar{ type I (b:string = \"dr\\\"gj\\\"dkhg\") F()->() }")
-        .is_ok());
+                .is_ok());
 }
 
 #[test]
@@ -428,13 +434,15 @@ fn test_method_struct_array_optional_wrong() {
 fn test_format() {
     let v = Varlink::from_string("foo.bar{ type I (b:bool[18446744073709551615]) F()->()}")
         .unwrap();
-    assert_eq!(v.interfaces["foo.bar"].to_string(),
-               "\
+    assert_eq!(
+        v.interfaces["foo.bar"].to_string(),
+        "\
 foo.bar {
   type I (b: bool[18446744073709551615]);
   F() -> ();
 }
-");
+"
+    );
 }
 
 #[test]
@@ -447,21 +455,25 @@ fn test_max_array_size() {
 
 #[test]
 fn test_union() {
-    let v = Varlink::from_string("
-    foo.bar{ F()->(s: (a: bool, b: int64), u: bool|int64|(foo: bool, bar: bool))}")
-        .unwrap();
-    assert_eq!(v.interfaces["foo.bar"].to_string(),
-               "\
+    let v = Varlink::from_string(
+        "
+    foo.bar{ F()->(s: (a: bool, b: int64), u: bool|int64|(foo: bool, bar: bool))}",
+    ).unwrap();
+    assert_eq!(
+        v.interfaces["foo.bar"].to_string(),
+        "\
 foo.bar {
   F() -> (s: (a: bool, b: int64), u: bool | int64 | (foo: bool, bar: \
                 bool));
 }
-");
+"
+    );
 }
 
 #[test]
 fn test_duplicate() {
-    let e = Varlink::from_string("
+    let e = Varlink::from_string(
+        "
 foo.example {
 	type Device()
 	type Device()
@@ -486,14 +498,16 @@ bar.example {
     F() -> ()
 }
 
-")
-        .err()
+",
+    ).err()
         .unwrap();
-    assert_eq!(e,
-               "\
+    assert_eq!(
+        e,
+        "\
 Interface `bar.example`: multiple definitions of type `F`!
 Interface `foo.example`: multiple definitions of type `Device`!
 Interface `foo.example`: multiple definitions of type `F`!
 Interface `foo.example`: multiple definitions of type `T`!
-Multiple definitions of interface `foo.example`!");
+Multiple definitions of interface `foo.example`!"
+    );
 }

@@ -24,9 +24,7 @@ reversedomainname /* no hyphen at begin and end */
 	  / "xn--" [a-z0-9]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+
 
 vtype
-    = "bool" 
-    / "int8" / "uint8" / "int16" / "uint16" / "int32" / "uint32"
-    / "int64" / "uint64" / "float32" / "float64" / "string"
+    = "bool" / "int" / "float" / "string"
     / typename
     / vstruct
 

@@ -2,9 +2,9 @@ use std::result::Result;
 use std::convert::From;
 use std::borrow::Cow;
 
-use serde_json::{self, Value};
+use serde_json;
 
-use varlink::server::{Request, ErrorDetails};
+use varlink::server::ErrorDetails;
 use varlink::server::Interface as VarlinkInterface;
 use varlink::server::Error as VarlinkError;
 
@@ -13,30 +13,41 @@ pub trait Interface: VarlinkInterface {
     fn list(&self) -> Result<ListRet, Error>;
 }
 
-impl VarlinkInterface for Server {
+#[macro_export]
+macro_rules! IoSystemdNetwork {
+	(
+		()
+		$(pub)* struct $name:ident $($_tail:tt)*
+	) => {
+use varlink::server::{Request};
+use varlink::server::Interface as VarlinkInterface;
+use varlink::server::Error as VarlinkError;
+use serde_json::Value as SerdeValue;
+
+impl VarlinkInterface for $name {
     fn get_description(&self) -> &'static str {
         r#"
-	# Provides information about network state
-	interface io.systemd.network
+# Provides information about network state
+interface io.systemd.network
 
-	type NetdevInfo (
-	  ifindex: int,
-	  ifname: string
-	)
+type NetdevInfo (
+  ifindex: int,
+  ifname: string
+)
 
-	type Netdev (
-	  ifindex: int,
-	  ifname: string
-	)
+type Netdev (
+  ifindex: int,
+  ifname: string
+)
 
-	# Returns information about a network device
-	method Info(ifindex: int) -> (info: NetdevInfo)
+# Returns information about a network device
+method Info(ifindex: int) -> (info: NetdevInfo)
 
-	# Lists all network devices
-	method List() -> (netdevs: Netdev[])
+# Lists all network devices
+method List() -> (netdevs: Netdev[])
 
-	error UnknownNetworkDevice
-	error InvalidParameter
+error UnknownNetworkDevice
+error InvalidParameter
 	"#
     }
 
@@ -44,10 +55,10 @@ impl VarlinkInterface for Server {
         "io.systemd.network"
     }
 
-    fn call(&self, mc: Request) -> Result<Value, VarlinkError> {
-        match mc.method.as_ref() {
+    fn call(&self, req: Request) -> Result<SerdeValue, VarlinkError> {
+        match req.method.as_ref() {
             "Info" => {
-                if let Some(args) = mc.arguments {
+                if let Some(args) = req.arguments {
                     let infoargs: Result<InfoArgs, serde_json::Error> =
                         serde_json::from_value(args);
                     match infoargs {
@@ -62,6 +73,8 @@ impl VarlinkInterface for Server {
             _ => Err(Error::MethodNotFound.into()),
         }
     }
+}
+};
 }
 
 #[derive(Debug)]
@@ -122,7 +135,7 @@ pub struct Netdev {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct InfoArgs {
+pub struct InfoArgs {
     pub ifindex: i64,
 }
 

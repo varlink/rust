@@ -15,9 +15,7 @@ fn main() {
     match Varlink::from_string(&buffer) {
         Ok(v) => {
             println!("Syntax check passed!\n");
-            for k in v.interfaces.values() {
-                println!("{}", k);
-            }
+            println!("{}", v.interface);
             exit(0);
         }
         Err(e) => {

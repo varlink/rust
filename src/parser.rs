@@ -6,20 +6,12 @@ use itertools::Itertools;
 use std::collections::BTreeMap;
 use std::borrow::Cow;
 use std::collections::HashSet;
-use self::varlink_grammar::Interfaces;
+use self::varlink_grammar::VInterface;
 
 pub enum VType<'a> {
     Bool(Option<bool>),
-    Int8(Option<i8>),
-    UInt8(Option<u8>),
-    Int16(Option<i16>),
-    UInt16(Option<u16>),
-    Int32(Option<i32>),
-    UInt32(Option<u32>),
-    Int64(Option<i64>),
-    UInt64(Option<u64>),
-    Float32(Option<f32>),
-    Float64(Option<f64>),
+    Int(Option<i64>),
+    Float(Option<f64>),
     VString(Option<&'a str>),
     VTypename(&'a str),
     VStruct(Box<VStruct<'a>>),
@@ -27,7 +19,6 @@ pub enum VType<'a> {
 
 pub struct VTypeExt<'a> {
     vtype: VType<'a>,
-    nullable: bool,
     isarray: Option<usize>,
 }
 
@@ -38,6 +29,10 @@ pub struct Argument<'a> {
 
 pub struct VStruct<'a> {
     pub elts: Vec<Argument<'a>>,
+}
+
+pub struct VError<'a> {
+    pub name: &'a str,
 }
 
 pub struct Typedef<'a> {
@@ -52,7 +47,8 @@ pub struct Method<'a> {
     pub stream: bool,
 }
 
-enum MethodOrTypedef<'a> {
+enum MethodOrTypedefOrError<'a> {
+    Error(VError<'a>),
     Typedef(Typedef<'a>),
     Method(Method<'a>),
 }
@@ -61,6 +57,7 @@ pub struct Interface<'a> {
     pub name: &'a str,
     pub methods: BTreeMap<&'a str, Method<'a>>,
     pub typedefs: BTreeMap<&'a str, Typedef<'a>>,
+    pub errors: BTreeMap<&'a str, VError<'a>>,
     pub error: HashSet<Cow<'static, str>>,
 }
 
@@ -74,9 +71,6 @@ macro_rules! printVTypeExt {
                         _ => write!($f, "[{}]", t)?,
                     }
                 };
-                if $s.nullable {
-                    write!($f, "?")?
-                };
 	}};
 	($s:ident, $f:ident, $v:ident, $t:expr) => {{
                 write!($f, "{}", $t)?;
@@ -85,9 +79,6 @@ macro_rules! printVTypeExt {
                         0 => write!($f, "[]")?,
                         _ => write!($f, "[{}]", t)?,
                     }
-                };
-                if $s.nullable {
-                    write!($f, "?")?
                 };
                 if let Some(val) = *$v {
                     write!($f, " = {}", val)?;
@@ -101,9 +92,6 @@ macro_rules! printVTypeExt {
                         _ => write!($f, "[{}]", t)?,
                     }
                 };
-                if $s.nullable {
-                    write!($f, "?")?
-                };
                 if let Some(val) = *$v {
                     write!($f, " = {s}{}{s}", val, s=$k)?;
                 }
@@ -114,16 +102,8 @@ impl<'a> fmt::Display for VTypeExt<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.vtype {
             VType::Bool(ref v) => printVTypeExt!(self, f, v, "bool"),
-            VType::Int8(ref v) => printVTypeExt!(self, f, v, "int8"),
-            VType::UInt8(ref v) => printVTypeExt!(self, f, v, "uint8"),
-            VType::Int16(ref v) => printVTypeExt!(self, f, v, "int16"),
-            VType::UInt16(ref v) => printVTypeExt!(self, f, v, "uint16"),
-            VType::Int32(ref v) => printVTypeExt!(self, f, v, "int32"),
-            VType::UInt32(ref v) => printVTypeExt!(self, f, v, "uint32"),
-            VType::Int64(ref v) => printVTypeExt!(self, f, v, "int64"),
-            VType::UInt64(ref v) => printVTypeExt!(self, f, v, "uint64"),
-            VType::Float32(ref v) => printVTypeExt!(self, f, v, "float32"),
-            VType::Float64(ref v) => printVTypeExt!(self, f, v, "float64"),
+            VType::Int(ref v) => printVTypeExt!(self, f, v, "int"),
+            VType::Float(ref v) => printVTypeExt!(self, f, v, "float"),
             VType::VString(ref v) => printVTypeExt!(self, f, v, "string", "\""),
             VType::VTypename(ref v) => printVTypeExt!(self, f, v),
             VType::VStruct(ref v) => printVTypeExt!(self, f, v),
@@ -166,15 +146,15 @@ impl<'a> fmt::Display for VStruct<'a> {
 
 impl<'a> fmt::Display for Interface<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} {{\n", self.name)?;
+        write!(f, "interface {}\n", self.name)?;
 
         for t in self.typedefs.values() {
-            write!(f, "  type {} {};\n", t.name, t.vstruct)?;
+            write!(f, "type {} {}\n", t.name, t.vstruct)?;
         }
 
         for m in self.methods.values() {
             write!(f,
-                   "  {}{} {}> {};\n",
+                   "method {}{} {}> {}\n",
                    m.name,
                    m.input,
                    match m.stream {
@@ -183,22 +163,27 @@ impl<'a> fmt::Display for Interface<'a> {
                    },
                    m.output)?;
         }
-        write!(f, "}}\n")
+
+        for e in self.errors.values() {
+            write!(f, "error {}\n", e.name)?;
+        }
+        Ok(())
     }
 }
 
 impl<'a> Interface<'a> {
-    fn from_token(n: &'a str, mt: Vec<MethodOrTypedef<'a>>) -> Interface<'a> {
+    fn from_token(n: &'a str, mt: Vec<MethodOrTypedefOrError<'a>>) -> Interface<'a> {
         let mut i = Interface {
             name: n,
             methods: BTreeMap::new(),
             typedefs: BTreeMap::new(),
+            errors: BTreeMap::new(),
             error: HashSet::new(),
         };
 
         for o in mt {
             match o {
-                MethodOrTypedef::Method(m) => {
+                MethodOrTypedefOrError::Method(m) => {
                     if let Some(d) = i.methods.insert(m.name, m) {
                         i.error
                             .insert(format!("Interface `{}`: multiple definitions of type `{}`!",
@@ -207,10 +192,19 @@ impl<'a> Interface<'a> {
                                         .into());
                     };
                 }
-                MethodOrTypedef::Typedef(t) => {
+                MethodOrTypedefOrError::Typedef(t) => {
                     if let Some(d) = i.typedefs.insert(t.name, t) {
                         i.error
                             .insert(format!("Interface `{}`: multiple definitions of type `{}`!",
+                                            i.name,
+                                            d.name)
+                                        .into());
+                    };
+                }
+                MethodOrTypedefOrError::Error(e) => {
+                    if let Some(d) = i.errors.insert(e.name, e) {
+                        i.error
+                            .insert(format!("Interface `{}`: multiple definitions of error `{}`!",
                                             i.name,
                                             d.name)
                                         .into());
@@ -229,40 +223,26 @@ impl<'a> Interface<'a> {
 
 pub struct Varlink<'a> {
     string: &'a str,
-    pub interfaces: BTreeMap<String, Interface<'a>>,
+    pub interface: Interface<'a>,
 }
 
 impl<'a> Varlink<'a> {
     pub fn from_string(s: &'a str) -> Result<Varlink, String> {
 
-        let mut v = Varlink {
-            string: s,
-            interfaces: BTreeMap::new(),
-        };
-
-        let ifaces = match Interfaces(v.string) {
+        let iface = match VInterface(s) {
             Ok(v) => v,
             Err(e) => {
                 return Err(e.to_string());
             }
         };
 
-        let mut log: HashSet<Cow<'static, str>> = HashSet::new();
-
-        for i in ifaces {
-
-            if v.interfaces.contains_key(i.name.into()) {
-                log.insert(format!("Multiple definitions of interface `{}`!", i.name).into());
-            }
-
-            log.extend(i.error.clone().into_iter());
-            v.interfaces.insert(i.name.into(), i);
-        }
-
-        if log.len() != 0 {
-            Err(log.into_iter().sorted().join("\n"))
+        if iface.error.len() != 0 {
+            Err(iface.error.into_iter().sorted().join("\n"))
         } else {
-            Ok(v)
+            Ok(Varlink {
+                   string: s,
+                   interface: iface,
+               })
         }
     }
 }
@@ -272,92 +252,77 @@ impl<'a> Varlink<'a> {
 fn test_standard() {
     let v = Varlink::from_string(
         "
-/**
- * The Varlink Service Interface is added to every varlink service. It provides
- * the Introspect method to be called by a client to retrieve the bootstrap
- * information from a service.
- */
-org.varlink.service {
-  type Type (name: string, typestring: string)
-  type Method (
-    name: string,
-    monitor: bool,
-    type_in: string,
-    type_out: string
-  )
-  type Interface (name: string, types: Type[], methods: Method[])
-  type Property (key: string, value: string)
-  type InterfaceDescription (
-    description: string,
-    types: string[],
-    methods: string[]
-  )
+# The Varlink Service Interface is provided by every varlink service. It
+# describes the service and the interfaces it implements.
+interface org.varlink.service
 
-  /**
-   * Returns the machine readable information about a service. It contains the service
-   * name, all available interfaces with their defined method calls and types.
-   */
-  Introspect(version: uint64) -> (name: string, interfaces: Interface[])
+type Property (key: string, value: string)
 
-  /**
-   * Returns the human readable description of a service.
-   */
-  Help() -> (
-    description: string,
-    properties: Property[],
-    interfaces: InterfaceDescription[]
-  )
-}
-",
+# Returns information about a service. It contains the service name and the
+# names of all available interfaces.
+method GetInfo() -> (
+  name: string,
+  description: string,
+  properties: Property[],
+  interfaces: string[]
+)
+
+# Get the description of an interface that is implemented by this service.
+method GetInterface(name: string) -> (interfacestring: string)
+
+error BadRequest
+error InterfaceNotFound
+error MethodNotFound
+error MethodNotImplemented",
     ).unwrap();
-    assert!(v.interfaces.contains_key("org.varlink.service"));
-    println!("{}", v.interfaces["org.varlink.service"].to_string());
+    assert_eq!(v.interface.name, "org.varlink.service");
+    println!("{}", v.interface.to_string());
     assert_eq!(
-        v.interfaces["org.varlink.service"].to_string(),
-        "\
-org.varlink.service {
-  type Interface (name: string, types: Type[], methods: Method[]);
-  type InterfaceDescription (description: string, types: string[], methods: string[]);
-  type Method (name: string, monitor: bool, type_in: string, type_out: string);
-  type Property (key: string, value: string);
-  type Type (name: string, typestring: string);
-  Help() -> (description: string, properties: Property[], interfaces: InterfaceDescription[]);
-  Introspect(version: uint64) -> (name: string, interfaces: Interface[]);
-}
-"
+        v.interface.to_string(),
+        r#"interface org.varlink.service
+type Property (key: string, value: string)
+method GetInfo() -> (name: string, description: string, properties: Property[], interfaces: string[])
+method GetInterface(name: string) -> (interfacestring: string)
+error BadRequest
+error InterfaceNotFound
+error MethodNotFound
+error MethodNotImplemented
+"#
     );
-
 }
 
 #[test]
 fn test_one_method() {
-    let v = Varlink::from_string("/* comment */ foo.bar{ Foo()->() }").unwrap();
-    assert!(v.interfaces["foo.bar"].methods["Foo"].stream == false);
+    let v = Varlink::from_string("interface foo.bar\nmethod Foo()->()").unwrap();
+    assert!(v.interface.methods["Foo"].stream == false);
 }
 
 #[test]
 fn test_one_method_stream() {
-    let v = Varlink::from_string("foo.bar{ Foo()=>() }").unwrap();
-    assert!(v.interfaces["foo.bar"].methods["Foo"].stream);
+    let v = Varlink::from_string("interface foo.bar\nmethod Foo()=>()").unwrap();
+    assert!(v.interface.methods["Foo"].stream);
 }
 
 #[test]
 fn test_one_method_no_type() {
-    assert!(Interfaces("foo.bar{ Foo()->(b:) }").is_err());
+    assert!(VInterface("interface foo.bar\nmethod Foo()->(b:)").is_err());
 }
 
 #[test]
 fn test_domainnames() {
-    assert!(Varlink::from_string("org.varlink.service {F()->()}").is_ok());
-    assert!(Varlink::from_string("com.example.0example {F()->()}").is_ok());
-    assert!(Varlink::from_string("com.example.example-dash {F()->()}").is_ok());
-    assert!(Varlink::from_string("xn--lgbbat1ad8j.example.algeria {F()->()}").is_ok());
-    assert!(Varlink::from_string("com.-example.leadinghyphen {F()->()}").is_err());
-    assert!(Varlink::from_string("com.example-.danglinghyphen- {F()->()}").is_err());
-    assert!(Varlink::from_string("Com.example.uppercase-toplevel {F()->()}").is_err());
-    assert!(Varlink::from_string("Co9.example.number-toplevel {F()->()}").is_err());
-    assert!(Varlink::from_string("1om.example.number-toplevel {F()->()}").is_err());
-    assert!(Varlink::from_string("com.Example {F()->()}").is_err());
+    assert!(Varlink::from_string("interface org.varlink.service\nmethod F()->()").is_ok());
+    assert!(Varlink::from_string("interface com.example.0example\nmethod F()->()").is_ok());
+    assert!(Varlink::from_string("interface com.example.example-dash\nmethod F()->()").is_ok());
+    assert!(Varlink::from_string("interface xn--lgbbat1ad8j.example.algeria\nmethod F()->()")
+                .is_ok());
+    assert!(Varlink::from_string("interface com.-example.leadinghyphen\nmethod F()->()").is_err());
+    assert!(Varlink::from_string("interface com.example-.danglinghyphen-\nmethod F()->()")
+                .is_err());
+    assert!(Varlink::from_string("interface Com.example.uppercase-toplevel\nmethod F()->()")
+                .is_err());
+    assert!(Varlink::from_string("interface Co9.example.number-toplevel\nmethod F()->()").is_err());
+    assert!(Varlink::from_string("interface 1om.example.number-toplevel\nmethod F()->()").is_err());
+    assert!(Varlink::from_string("interface com.Example\nmethod F()->()").is_err());
 }
 
 #[test]
@@ -365,10 +330,9 @@ fn test_no_method() {
     assert!(
         Varlink::from_string(
             "
-org.varlink.service {
+interface org.varlink.service
   type Interface (name: string, types: Type[], methods: Method[])
   type Property (key: string, value: string)
-}
 ",
         ).is_err()
     );
@@ -376,96 +340,80 @@ org.varlink.service {
 
 #[test]
 fn test_type_no_args() {
-    assert!(Varlink::from_string("foo.bar{ type I () F()->() }").is_ok());
+    assert!(Varlink::from_string("interface foo.bar\n type I ()\nmethod F()->()").is_ok());
 }
 
 #[test]
 fn test_type_one_arg() {
-    assert!(Varlink::from_string("foo.bar{ type I (b:bool) F()->() }").is_ok());
+    assert!(Varlink::from_string("interface foo.bar\n type I (b:bool)\nmethod F()->()").is_ok());
 }
 
 #[test]
 fn test_default_values() {
-    assert!(Varlink::from_string("foo.bar{ type I (b:bool = true) F()->() }").is_ok());
-    assert!(Varlink::from_string("foo.bar{ type I (b:int8 = 127) F()->() }").is_ok());
-    assert!(Varlink::from_string("foo.bar{ type I (b:int8 = -127) F()->() }").is_ok());
-    assert!(Varlink::from_string("foo.bar{ type I (b:int8 = 1-27) F()->() }").is_err());
-    assert!(Varlink::from_string("foo.bar{ type I (b:int8 = 128) F()->() }").is_err());
-    assert!(Varlink::from_string("foo.bar{ type I (b:uint8 = 255) F()->() }").is_ok());
-    assert!(Varlink::from_string("foo.bar{ type I (b:uint8 = 256) F()->() }").is_err());
-    assert!(Varlink::from_string("foo.bar{ type I (b:float32 = 1.0) F()->() }").is_ok());
-    assert!(Varlink::from_string("foo.bar{ type I (b:float32 = +1.0e10) F()->() }").is_ok());
-    assert!(Varlink::from_string("foo.bar{ type I (b:float32 = -1.0e10) F()->() }").is_ok());
-    assert!(Varlink::from_string("foo.bar{ type I (b:float64 = +1.0e10) F()->() }").is_ok());
-    assert!(Varlink::from_string("foo.bar{ type I (b:float64 = -1.0e10) F()->() }").is_ok());
-    assert!(Varlink::from_string("foo.bar{ type I (b:string = \"drgjdkhg\") F()->() }").is_ok());
-    assert!(Varlink::from_string("foo.bar{ type I (b:string = \"dr\\\"gj\\\"dkhg\") F()->() }")
+    assert!(Varlink::from_string("interface foo.bar\n type I (b:bool = true)\nmethod  F()->()")
+                .is_ok());
+    assert!(Varlink::from_string("interface foo.bar\n type I (b:int = 127)\nmethod  F()->()")
+                .is_ok());
+    assert!(Varlink::from_string("interface foo.bar\n type I (b:float = +1.0e10)\nmethod  F()->()")
+                .is_ok());
+    assert!(Varlink::from_string("interface foo.bar\n type I (b:float = -1.0e10)\nmethod  F()->()")
+                .is_ok());
+    assert!(Varlink::from_string("interface foo.bar\n type I (b:string = \"drgjdkhg\")\nmethod  F()->()")
+                .is_ok());
+    assert!(Varlink::from_string("interface foo.bar\n type I (b:string = \"dr\\\"gj\\\"dkhg\")\nmethod  F()->()")
                 .is_ok());
 }
 
 #[test]
 fn test_type_one_array() {
-    assert!(Varlink::from_string("foo.bar{ type I (b:bool[]) F()->() }").is_ok());
-    assert!(Varlink::from_string("foo.bar{ type I (b:bool[ ]) F()->() }").is_err());
-    let ifaces = Varlink::from_string("foo.bar{ type I (b:bool[ ]) F()->() }");
+    assert!(Varlink::from_string("interface foo.bar\n type I (b:bool[])\nmethod  F()->()").is_ok());
+    assert!(Varlink::from_string("interface foo.bar\n type I (b:bool[ ])\nmethod  F()->()")
+                .is_err());
+    let ifaces = Varlink::from_string("interface foo.bar\n type I (b:bool[ ])\nmethod  F()->()");
     assert_eq!(ifaces.err().unwrap().to_string(),
-               "error at 1:25: expected `[0-9]`");
-    assert!(Varlink::from_string("foo.bar{ type I (b:bool[1]) F()->() }").is_ok());
-    assert!(Varlink::from_string("foo.bar{ type I (b:bool[ 1 ]) F()->() }").is_err());
-    assert!(Varlink::from_string("foo.bar{ type I (b:bool[ 1 1 ]) F()->() }").is_err());
-}
-
-#[test]
-fn test_method_struct_optional() {
-    assert!(Varlink::from_string("foo.bar{ Foo(foo: (i: int64, b: bool)? )->()}").is_ok());
-}
-
-#[test]
-fn test_method_struct_array_optional() {
-    assert!(Varlink::from_string("foo.bar{ Foo(foo: (i: int64, b: bool)[]? )->()}").is_ok());
-}
-
-#[test]
-fn test_method_struct_array_optional_wrong() {
-    assert!(Varlink::from_string("foo.bar{ Foo(foo: (i: int64, b: bool)?[]) -> ()}").is_err());
+               "error at 2:17: expected `[0-9]`");
+    assert!(Varlink::from_string("interface foo.bar\n type I (b:bool[1])\nmethod  F()->()")
+                .is_ok());
+    assert!(Varlink::from_string("interface foo.bar\n type I (b:bool[ 1 ])\nmethod  F()->()")
+                .is_err());
+    assert!(Varlink::from_string("interface foo.bar\n type I (b:bool[ 1 1 ])\nmethod  F()->()")
+                .is_err());
 }
 
 #[test]
 fn test_format() {
-    let v = Varlink::from_string("foo.bar{ type I (b:bool[18446744073709551615]) F()->()}")
+    let v = Varlink::from_string("interface foo.bar\ntype I (b:bool[18446744073709551615])\nmethod  F()->()")
         .unwrap();
     assert_eq!(
-        v.interfaces["foo.bar"].to_string(),
+        v.interface.to_string(),
         "\
-foo.bar {
-  type I (b: bool[18446744073709551615]);
-  F() -> ();
-}
+interface foo.bar
+type I (b: bool[18446744073709551615])
+method F() -> ()
 "
     );
 }
 
 #[test]
 fn test_max_array_size() {
-    let v = Varlink::from_string("foo.bar{ type I (b:bool[18446744073709551616]) F()->()}");
+    let v = Varlink::from_string("interface foo.bar\n type I (b:bool[18446744073709551616])\nmethod  F()->()");
     assert!(v.is_err());
     assert_eq!(v.err().unwrap(),
-               "error at 1:46: expected `number 1..18446744073709551615`");
+               "error at 2:38: expected `number 1..18446744073709551615`");
 }
 
 #[test]
 fn test_union() {
     let v = Varlink::from_string(
         "
-    foo.bar{ F()->(s: (a: bool, b: int64), u: bool|int64|(foo: bool, bar: bool))}",
+    interface foo.bar\nmethod F()->(s: (a: bool, b: int), u: bool|int|(foo: bool, bar: bool))",
     ).unwrap();
     assert_eq!(
-        v.interfaces["foo.bar"].to_string(),
+        v.interface.to_string(),
         "\
-foo.bar {
-  F() -> (s: (a: bool, b: int64), u: bool | int64 | (foo: bool, bar: \
-                bool));
-}
+interface foo.bar
+method F() -> (s: (a: bool, b: int), u: bool | int | (foo: bool, bar: \
+                bool))
 "
     );
 }
@@ -474,40 +422,21 @@ foo.bar {
 fn test_duplicate() {
     let e = Varlink::from_string(
         "
-foo.example {
+interface foo.example
 	type Device()
 	type Device()
 	type T()
 	type T()
-	F() -> ()
-}
-
-foo.example {
-    F() -> ()
-    F() -> ()
-	type T()
-	type T()
-}
-
-foo.example {
-    E() -> ()
-}
-
-bar.example {
-    F() -> ()
-    F() -> ()
-}
-
+	method F() -> ()
+	method F() -> ()
 ",
     ).err()
         .unwrap();
     assert_eq!(
         e,
         "\
-Interface `bar.example`: multiple definitions of type `F`!
 Interface `foo.example`: multiple definitions of type `Device`!
 Interface `foo.example`: multiple definitions of type `F`!
-Interface `foo.example`: multiple definitions of type `T`!
-Multiple definitions of interface `foo.example`!"
+Interface `foo.example`: multiple definitions of type `T`!"
     );
 }

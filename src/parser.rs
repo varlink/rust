@@ -19,8 +19,8 @@ pub enum VType<'a> {
 }
 
 pub struct VTypeExt<'a> {
-    vtype: VType<'a>,
-    isarray: Option<usize>,
+    pub vtype: VType<'a>,
+    pub isarray: Option<usize>,
 }
 
 pub struct Argument<'a> {
@@ -215,7 +215,7 @@ impl<'a> Interface<'a> {
 }
 
 pub struct Varlink<'a> {
-    string: &'a str,
+    pub string: &'a str,
     pub interface: Interface<'a>,
 }
 
@@ -399,8 +399,7 @@ fn test_union() {
         v.interface.to_string(),
         "\
 interface foo.bar
-method F() -> (s: (a: bool, b: int), u: bool , int , (foo: bool, bar: \
-                bool))
+method F() -> (s: (a: bool, b: int), u: bool , int , (foo: bool, bar: bool))
 "
     );
 }

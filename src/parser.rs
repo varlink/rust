@@ -13,6 +13,7 @@ pub enum VType<'a> {
     Int(Option<i64>),
     Float(Option<f64>),
     VString(Option<&'a str>),
+    VData(Option<&'a str>),
     VTypename(&'a str),
     VStruct(Box<VStruct<'a>>),
 }
@@ -44,7 +45,6 @@ pub struct Method<'a> {
     pub name: &'a str,
     pub input: VStruct<'a>,
     pub output: VStruct<'a>,
-    pub stream: bool,
 }
 
 enum MethodOrTypedefOrError<'a> {
@@ -105,6 +105,7 @@ impl<'a> fmt::Display for VTypeExt<'a> {
             VType::Int(ref v) => printVTypeExt!(self, f, v, "int"),
             VType::Float(ref v) => printVTypeExt!(self, f, v, "float"),
             VType::VString(ref v) => printVTypeExt!(self, f, v, "string", "\""),
+            VType::VData(ref v) => printVTypeExt!(self, f, v, "data", "\""),
             VType::VTypename(ref v) => printVTypeExt!(self, f, v),
             VType::VStruct(ref v) => printVTypeExt!(self, f, v),
         }
@@ -122,7 +123,7 @@ impl<'a> fmt::Display for Argument<'a> {
             if let Some(fst) = iter.next() {
                 write!(f, "{}: {}", self.name, fst)?;
                 for elt in iter {
-                    write!(f, " | {}", elt)?;
+                    write!(f, " , {}", elt)?;
                 }
             }
         }
@@ -153,15 +154,7 @@ impl<'a> fmt::Display for Interface<'a> {
         }
 
         for m in self.methods.values() {
-            write!(f,
-                   "method {}{} {}> {}\n",
-                   m.name,
-                   m.input,
-                   match m.stream {
-                       true => '=',
-                       false => '-',
-                   },
-                   m.output)?;
+            write!(f, "method {}{} -> {}\n", m.name, m.input, m.output)?;
         }
 
         for e in self.errors.values() {
@@ -293,14 +286,8 @@ error MethodNotImplemented
 
 #[test]
 fn test_one_method() {
-    let v = Varlink::from_string("interface foo.bar\nmethod Foo()->()").unwrap();
-    assert!(v.interface.methods["Foo"].stream == false);
-}
-
-#[test]
-fn test_one_method_stream() {
-    let v = Varlink::from_string("interface foo.bar\nmethod Foo()=>()").unwrap();
-    assert!(v.interface.methods["Foo"].stream);
+    let v = Varlink::from_string("interface foo.bar\nmethod Foo()->()");
+    assert!(v.is_ok());
 }
 
 #[test]
@@ -382,7 +369,7 @@ fn test_type_one_array() {
 
 #[test]
 fn test_format() {
-    let v = Varlink::from_string("interface foo.bar\ntype I (b:bool[18446744073709551615])\nmethod  F()->()")
+    let v = Varlink::from_string("interface foo.bar\ntype I(b:bool[18446744073709551615])\nmethod  F()->()")
         .unwrap();
     assert_eq!(
         v.interface.to_string(),
@@ -406,13 +393,13 @@ fn test_max_array_size() {
 fn test_union() {
     let v = Varlink::from_string(
         "
-    interface foo.bar\nmethod F()->(s: (a: bool, b: int), u: bool|int|(foo: bool, bar: bool))",
+    interface foo.bar\nmethod F()->(s: (a: bool, b: int), u: bool,int,(foo: bool, bar: bool))",
     ).unwrap();
     assert_eq!(
         v.interface.to_string(),
         "\
 interface foo.bar
-method F() -> (s: (a: bool, b: int), u: bool | int | (foo: bool, bar: \
+method F() -> (s: (a: bool, b: int), u: bool , int , (foo: bool, bar: \
                 bool))
 "
     );

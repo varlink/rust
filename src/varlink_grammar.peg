@@ -1,64 +1,71 @@
-whitespace
-    = [ \t\n\r]
+whitespace /* Modeled after ECMA-262, 5th ed., 7.2. */
+  = [ \t\u{00A0}\u{FEFF}\u{1680}\u{180E}\u{2000}-\u{200A}\u{202F}\u{205F}\u{3000}] // \v\f removed
+
+eol_r /* Modeled after ECMA-262, 5th ed., 7.3. */
+  = "\n"
+  / "\r\n"
+  / "\r"
+  / "\u{2028}"
+  / "\u{2029}"
 
 comment
-    = "/*" ( [^*] / ([*]+ [^*/] ) )* [*]+ '/' 
-    
-docstring
-    = "/**" ( [^*] / ([*]+ [^*/] ) )* [*]+ '/'
+    = "#" [^\n\r\u{2028}\u{2029}]* eol_r
 
-w
-    = docstring / comment / whitespace
+eol
+    = whitespace* eol_r
+    / comment
 
-argname
+_
+    = whitespace / comment / eol_r
+
+field_name
     = [a-z_][A-Za-z0-9_]*
 
-typename
+name
 	= [A-Z][A-Za-z0-9_]*
 
-methodname
-	= [A-Z][A-Za-z0-9_]*
-
-reversedomainname /* no hyphen at begin and end */
+interface_name /* no hyphen at begin and end */
 	= [a-z]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+
 	  / "xn--" [a-z0-9]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+
 
-vtype
-    = "bool" / "int" / "float" / "string"
-    / typename
-    / vstruct
-
 array
-    = '[' [0-9]* ']'
-    
-nullable
-    = '?'
+    = "[]"
+    / '[' [0-9]+ ']'
 
-vtype_maybe_array
-    = vtype array? nullable?
+type
+    = "bool"    array? _* "=" _* ("true" / "false")
+    / "bool"    array?
+    / "int"     array? _* "=" _* [\+\-0-9]+
+    / "int"     array?
+    / "float"   array? _* "=" _* [\+\-0-9.,eE]+
+    / "float"   array?
+    / "string"  array? _* "=" _* '"' ( '\\' '"' / '\\' / [^"\\] )+ '"'
+    / "string"  array?
+    / "data"    array? _* "=" _* '"' ( '\\' '"' / '\\' / [^"\\] )+ '"'
+    / "data"    array?
+    / name      array?
+    / v:vstruct array?
 
-/* at least one and maybe multiple vtype_maybe_array separated by | */
-vtype_maybe_union
-    = vtype_maybe_array ++ '|'
-   
 argument
-    = w* argname w* ':' w* vtype_maybe_union
+    = _* field_name _* ':' _* ( type ++ ',' )
 
 vstruct
-    = '(' argument ** ',' w* ')'
+    = '(' ( argument ** ',' ) _* ')'
 
 vtypedef
-    = w* "type" (comment / docstring)* whitespace w* typename w* vstruct w*
+    = "type" _+ name _* vstruct
+
+error
+    = "error" _+ name
 
 method
-    = w* methodname w* vstruct w* "->" w* vstruct w*
+    = "method" _+ name _* vstruct _* "->" _* vstruct
 
-interface_body /* At least one method */
-	= vtypedef* method ( method / vtypedef )*
-	
+member
+    = _* m:method
+    / _* t:vtypedef
+    / _* e:error
+
 interface
-	= w* reversedomainname w* '{' interface_body w* '}' w*
-
-#[export]
-interfaces
-    = interface+
+	= _* "interface" _+ interface_name eol ( member ++ eol ) _*
+	

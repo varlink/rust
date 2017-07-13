@@ -1,37 +1,36 @@
-
 /* Modeled after ECMA-262, 5th ed., 7.2. */
-whitespace
+whitespace -> ()
   = #quiet<[ \t\u{00A0}\u{FEFF}\u{1680}\u{180E}\u{2000}-\u{200A}\u{202F}\u{205F}\u{3000}]> // \v\f removed
   / #expected("whitespace")
 
 /* Modeled after ECMA-262, 5th ed., 7.3. */
-eol_r
+eol_r -> ()
   = "\n"
   / "\r\n"
   / "\r"
   / "\u{2028}"
   / "\u{2029}"
 
-comment
+comment -> ()
     = #quiet<"#" [^\n\r\u{2028}\u{2029}]* eol_r >
+    / #expected("<comment>")
 
-eol
+eol -> ()
     = #quiet<whitespace* eol_r>
     / #quiet<comment>
     / #expected("<newline>")
 
-__ = #quiet<(whitespace / eol_r / comment)*>
+_ -> ()
+    = #quiet<whitespace / comment / eol_r>
+    / #expected("<newline> <whitespace> or <comment>")
 
-argname
+field_name
     = [a-z_][A-Za-z0-9_]*
 
-typename
+name
 	= [A-Z][A-Za-z0-9_]*
 
-methodname
-	= [A-Z][A-Za-z0-9_]*
-
-reversedomainname -> &'input str /* no hyphen at begin and end */
+interface_name -> &'input str /* no hyphen at begin and end */
 	= #quiet<$( [a-z]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+ )>
 	  / #quiet<$( "xn--" [a-z0-9]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+ )>
 	  / #expected("<reverse domain name>")
@@ -44,44 +43,46 @@ array -> usize
 use super::VType;
 use super::VTypeExt;
 
-vtype_maybe_array -> VTypeExt<'input>
-    = "bool"       a:array? __ "=" __ v:("true" {true} / "false" {false}) { VTypeExt { vtype: VType::Bool(Some(v)), isarray: a }}
-    / "bool"       a:array? { VTypeExt { vtype: VType::Bool(None), isarray: a }}
-    / "int"       a:array? __ "=" __ v:$([\+\-0-9]+) {? match v.parse::<i64>(){Ok(v)=>Ok( VTypeExt{vtype: VType::Int(Some(v)), isarray: a}),Err(e)=>Err("int")}}
-    / "int"       a:array? { VTypeExt { vtype: VType::Int(None), isarray: a }}
-    / "float"    a:array? __ "=" __ v:$([\+\-0-9.,eE]+) {? match v.parse::<f64>(){Ok(v)=>Ok( VTypeExt{vtype: VType::Float(Some(v)), isarray: a}),Err(e)=>Err("float")}}
-    / "float"    a:array? { VTypeExt { vtype: VType::Float(None), isarray: a }}
-    / "string"     a:array? __ "=" __ '"' v:$( ( '\\' '"' / '\\' / [^"\\] )+ ) '"' { VTypeExt{vtype: VType::VString(Some(v)), isarray: a} }
-    / "string"     a:array? { VTypeExt { vtype: VType::VString(None),isarray: a }}
-    / t:$(typename)a:array? { VTypeExt { vtype: VType::VTypename(t), isarray: a }}
-    / v:vstruct    a:array? { VTypeExt { vtype: VType::VStruct(Box::new(v)), isarray: a }}
+type -> VTypeExt<'input>
+    = "bool"    a:array? _* "=" _* v:("true" {true} / "false" {false}) { VTypeExt { vtype: VType::Bool(Some(v)), isarray: a }}
+    / "bool"    a:array? { VTypeExt { vtype: VType::Bool(None), isarray: a }}
+    / "int"     a:array? _* "=" _* v:$([\+\-0-9]+) {? match v.parse::<i64>(){Ok(v)=>Ok( VTypeExt{vtype: VType::Int(Some(v)), isarray: a}),Err(e)=>Err("int")}}
+    / "int"     a:array? { VTypeExt { vtype: VType::Int(None), isarray: a }}
+    / "float"   a:array? _* "=" _* v:$([\+\-0-9.,eE]+) {? match v.parse::<f64>(){Ok(v)=>Ok( VTypeExt{vtype: VType::Float(Some(v)), isarray: a}),Err(e)=>Err("float")}}
+    / "float"   a:array? { VTypeExt { vtype: VType::Float(None), isarray: a }}
+    / "string"  a:array? _* "=" _* '"' v:$( ( '\\' '"' / '\\' / [^"\\] )+ ) '"' { VTypeExt{vtype: VType::VString(Some(v)), isarray: a} }
+    / "string"  a:array? { VTypeExt { vtype: VType::VString(None),isarray: a }}
+    / "data"    a:array? _* "=" _* '"' v:$( ( '\\' '"' / '\\' / [^"\\] )+ ) '"' { VTypeExt{vtype: VType::VData(Some(v)), isarray: a} }
+    / "data"    a:array? { VTypeExt { vtype: VType::VData(None),isarray: a }}
+    / t:$(name) a:array? { VTypeExt { vtype: VType::VTypename(t), isarray: a }}
+    / v:vstruct a:array? { VTypeExt { vtype: VType::VStruct(Box::new(v)), isarray: a }}
 
 use super::Argument;
 argument -> Argument<'input>
-    = __ n:$(argname) __ ':' __ v:(vtype_maybe_array ++ '|') { Argument { name : n, vtypes : v } }
+    = _* n:$(field_name) _* ':' _* v:(type ++ ',' ) { Argument { name : n, vtypes : v } }
 
 use super::VStruct;
 vstruct -> VStruct<'input>
-    = '(' e:argument ** ',' __ ')' { VStruct{ elts: e} }
+    = '(' e:argument ** ',' _* ')' { VStruct{ elts: e} }
 
 use super::Typedef;
 vtypedef -> Typedef<'input>
-    = __ "type" whitespace+ n:$(typename) __ v:vstruct __ { Typedef{name: n, vstruct: v} }
+    = "type" _+ n:$(name) _* v:vstruct { Typedef{name: n, vstruct: v} }
 
 use super::VError;
 error -> VError<'input>
-    = __ "error" whitespace+ n:$(typename) __ { VError{name: n} }
+    = "error" _+ n:$(name) { VError{name: n} }
 
 use super::Method;
 method -> Method<'input>
-    = __ "method" whitespace+ n:$(methodname) __ i:vstruct __ s:("-" { false } / "=" { true }) ">" __ o:vstruct __ { Method{name: n, input: i, output: o, stream: s} }
+    = "method" _+ n:$(name) _* i:vstruct _* "->" _* o:vstruct { Method{name: n, input: i, output: o} }
 
 use super::MethodOrTypedefOrError;
-method_or_vtypedef_or_error -> MethodOrTypedefOrError<'input>
-    = m:method { MethodOrTypedefOrError::Method(m) }
-    / t:vtypedef { MethodOrTypedefOrError::Typedef(t) }
-    / e:error { MethodOrTypedefOrError::Error(e) }
+member -> MethodOrTypedefOrError<'input>
+    = _* m:method { MethodOrTypedefOrError::Method(m) }
+    / _* t:vtypedef { MethodOrTypedefOrError::Typedef(t) }
+    / _* e:error { MethodOrTypedefOrError::Error(e) }
 
 use super::Interface;
 pub VInterface -> Interface<'input>
-	= __ "interface" whitespace+ n:$reversedomainname eol mt:(method_or_vtypedef_or_error*) __  { Interface::from_token(n, mt) }
+	= _* "interface" _+ n:$interface_name eol mt:(member++ eol) _*  { Interface::from_token(n, mt) }

@@ -9,8 +9,8 @@ use varlink::server::Interface as VarlinkInterface;
 use varlink::server::Error as VarlinkError;
 
 pub trait Interface: VarlinkInterface {
-    fn info(&self, i64) -> Result<InfoRet, Error>;
-    fn list(&self) -> Result<ListRet, Error>;
+    fn info(&self, i64) -> Result<InfoReply, Error>;
+    fn list(&self) -> Result<ListReply, Error>;
 }
 
 #[macro_export]
@@ -93,31 +93,17 @@ impl From<serde_json::Error> for Error {
 
 impl From<Error> for VarlinkError {
     fn from(e: Error) -> Self {
-        match e {
-            Error::UnknownNetworkDevice => {
-                VarlinkError {
-                    error: ErrorDetails {
-                        id: "UnknownNetworkDevice".into(),
-                        ..Default::default()
-                    },
-                }
-            }
-            Error::InvalidParameter => {
-                VarlinkError {
-                    error: ErrorDetails {
-                        id: "InvalidParameter".into(),
-                        ..Default::default()
-                    },
-                }
-            }
-            _ => {
-                VarlinkError {
-                    error: ErrorDetails {
-                        id: "UnknownError".into(),
-                        ..Default::default()
-                    },
-                }
-            }
+        VarlinkError {
+            error: ErrorDetails {
+                id: {
+                    match e {
+                        Error::UnknownNetworkDevice => "UnknownNetworkDevice".into(),
+                        Error::InvalidParameter => "InvalidParameter".into(),
+                        _ => "UnknownError".into(),
+                    }
+                },
+                ..Default::default()
+            },
         }
     }
 }
@@ -140,11 +126,11 @@ pub struct InfoArgs {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct InfoRet {
+pub struct InfoReply {
     pub info: NetdevInfo,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ListRet {
-    pub netdevs: Option<Vec<Netdev>>,
+pub struct ListReply {
+    pub netdevs: Vec<Netdev>,
 }

@@ -53,7 +53,7 @@ struct MyServer {
 }}
 
 impl Interface for MyServer {
-    fn info(&self, i: i64) -> Result<InfoRet, Error> {
+    fn info(&self, i: i64) -> Result<InfoReply, Error> {
         // State example
         {
             let mut number = self.state.write().unwrap();
@@ -65,7 +65,7 @@ impl Interface for MyServer {
 
         match i {
             1 => {
-                Ok(InfoRet {
+                Ok(InfoReply {
                        info: NetdevInfo {
                            ifindex: 1,
                            ifname: "lo".into(),
@@ -73,7 +73,7 @@ impl Interface for MyServer {
                    })
             }
             2 => {
-                Ok(InfoRet {
+                Ok(InfoReply {
                        info: NetdevInfo {
                            ifindex: 2,
                            ifname: "eth0".into(),
@@ -84,7 +84,7 @@ impl Interface for MyServer {
         }
     }
 
-    fn list(&self) -> Result<ListRet, Error> {
+    fn list(&self) -> Result<ListReply, Error> {
         // State example
         {
             let mut number = self.state.write().unwrap();

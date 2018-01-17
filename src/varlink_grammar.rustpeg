@@ -35,27 +35,20 @@ interface_name -> &'input str /* no hyphen at begin and end */
 	  / #quiet<$( "xn--" [a-z0-9]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+ )>
 	  / #expected("<reverse domain name>")
 
-array -> usize
-    = "[]" { 0 }
-    / '[' n:$([0-9]+) ']' {? let v = n.parse::<usize>(); match v { Ok(v) => Ok(v), Err(e) => Err("number 1..18446744073709551615") } }
-
+array -> ()
+    = "[]"
 
 use super::VType;
 use super::VTypeExt;
 
 type -> VTypeExt<'input>
-    = "bool"    a:array? _* "=" _* v:("true" {true} / "false" {false}) { VTypeExt { vtype: VType::Bool(Some(v)), isarray: a }}
-    / "bool"    a:array? { VTypeExt { vtype: VType::Bool(None), isarray: a }}
-    / "int"     a:array? _* "=" _* v:$([\+\-0-9]+) {? match v.parse::<i64>(){Ok(v)=>Ok( VTypeExt{vtype: VType::Int(Some(v)), isarray: a}),Err(e)=>Err("int")}}
-    / "int"     a:array? { VTypeExt { vtype: VType::Int(None), isarray: a }}
-    / "float"   a:array? _* "=" _* v:$([\+\-0-9.,eE]+) {? match v.parse::<f64>(){Ok(v)=>Ok( VTypeExt{vtype: VType::Float(Some(v)), isarray: a}),Err(e)=>Err("float")}}
-    / "float"   a:array? { VTypeExt { vtype: VType::Float(None), isarray: a }}
-    / "string"  a:array? _* "=" _* '"' v:$( ( '\\' '"' / '\\' / [^"\\] )+ ) '"' { VTypeExt{vtype: VType::VString(Some(v)), isarray: a} }
-    / "string"  a:array? { VTypeExt { vtype: VType::VString(None),isarray: a }}
-    / "data"    a:array? _* "=" _* '"' v:$( ( '\\' '"' / '\\' / [^"\\] )+ ) '"' { VTypeExt{vtype: VType::VData(Some(v)), isarray: a} }
-    / "data"    a:array? { VTypeExt { vtype: VType::VData(None),isarray: a }}
-    / t:$(name) a:array? { VTypeExt { vtype: VType::VTypename(t), isarray: a }}
-    / v:vstruct a:array? { VTypeExt { vtype: VType::VStruct(Box::new(v)), isarray: a }}
+    = "bool"    a:array? { VTypeExt { vtype: VType::Bool(None), isarray: a.is_some() }}
+    / "int"     a:array? { VTypeExt { vtype: VType::Int(None), isarray: a.is_some() }}
+    / "float"   a:array? { VTypeExt { vtype: VType::Float(None), isarray: a.is_some() }}
+    / "string"  a:array? { VTypeExt { vtype: VType::VString(None),isarray: a.is_some() }}
+    / "data"    a:array? { VTypeExt { vtype: VType::VData(None),isarray: a.is_some() }}
+    / t:$(name) a:array? { VTypeExt { vtype: VType::VTypename(t), isarray: a.is_some() }}
+    / v:vstruct a:array? { VTypeExt { vtype: VType::VStruct(Box::new(v)), isarray: a.is_some() }}
 
 use super::Argument;
 argument -> Argument<'input>

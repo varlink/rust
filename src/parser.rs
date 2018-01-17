@@ -20,7 +20,7 @@ pub enum VType<'a> {
 
 pub struct VTypeExt<'a> {
     pub vtype: VType<'a>,
-    pub isarray: Option<usize>,
+    pub isarray: bool,
 }
 
 pub struct Argument<'a> {
@@ -66,20 +66,14 @@ use std::fmt;
 macro_rules! printVTypeExt {
 	($s:ident, $f:ident, $t:expr) => {{
                 write!($f, "{}", $t)?;
-                if let Some(t) = $s.isarray {
-                    match t {
-                        0 => write!($f, "[]")?,
-                        _ => write!($f, "[{}]", t)?,
-                    }
+                if $s.isarray {
+					write!($f, "[]")?;
                 };
 	}};
 	($s:ident, $f:ident, $v:ident, $t:expr) => {{
                 write!($f, "{}", $t)?;
-                if let Some(t) = $s.isarray {
-                    match t {
-                        0 => write!($f, "[]")?,
-                        _ => write!($f, "[{}]", t)?,
-                    }
+                if $s.isarray {
+					write!($f, "[]")?;
                 };
                 if let Some(val) = *$v {
                     write!($f, " = {}", val)?;
@@ -87,11 +81,8 @@ macro_rules! printVTypeExt {
 	}};
 	($s:ident, $f:ident, $v:ident, $t:expr, $k:expr) => {{
                 write!($f, "{}", $t)?;
-                if let Some(t) = $s.isarray {
-                    match t {
-                        0 => write!($f, "[]")?,
-                        _ => write!($f, "[{}]", t)?,
-                    }
+                if $s.isarray {
+					write!($f, "[]")?;
                 };
                 if let Some(val) = *$v {
                     write!($f, " = {s}{}{s}", val, s=$k)?;
@@ -344,31 +335,12 @@ fn test_type_one_arg() {
 }
 
 #[test]
-fn test_default_values() {
-    assert!(Varlink::from_string("interface foo.bar\n type I (b:bool = true)\nmethod  F()->()")
-                .is_ok());
-    assert!(Varlink::from_string("interface foo.bar\n type I (b:int = 127)\nmethod  F()->()")
-                .is_ok());
-    assert!(Varlink::from_string("interface foo.bar\n type I (b:float = +1.0e10)\nmethod  F()->()")
-                .is_ok());
-    assert!(Varlink::from_string("interface foo.bar\n type I (b:float = -1.0e10)\nmethod  F()->()")
-                .is_ok());
-    assert!(Varlink::from_string("interface foo.bar\n type I (b:string = \"drgjdkhg\")\nmethod  F()->()")
-                .is_ok());
-    assert!(Varlink::from_string("interface foo.bar\n type I (b:string = \"dr\\\"gj\\\"dkhg\")\nmethod  F()->()")
-                .is_ok());
-}
-
-#[test]
 fn test_type_one_array() {
     assert!(Varlink::from_string("interface foo.bar\n type I (b:bool[])\nmethod  F()->()").is_ok());
     assert!(Varlink::from_string("interface foo.bar\n type I (b:bool[ ])\nmethod  F()->()")
                 .is_err());
-    let ifaces = Varlink::from_string("interface foo.bar\n type I (b:bool[ ])\nmethod  F()->()");
-    assert_eq!(ifaces.err().unwrap().to_string(),
-               "error at 2:17: expected `[0-9]`");
     assert!(Varlink::from_string("interface foo.bar\n type I (b:bool[1])\nmethod  F()->()")
-                .is_ok());
+                .is_err());
     assert!(Varlink::from_string("interface foo.bar\n type I (b:bool[ 1 ])\nmethod  F()->()")
                 .is_err());
     assert!(Varlink::from_string("interface foo.bar\n type I (b:bool[ 1 1 ])\nmethod  F()->()")
@@ -377,24 +349,15 @@ fn test_type_one_array() {
 
 #[test]
 fn test_format() {
-    let v = Varlink::from_string("interface foo.bar\ntype I(b:bool[18446744073709551615])\nmethod  F()->()")
-        .unwrap();
+    let v = Varlink::from_string("interface foo.bar\ntype I(b:bool[])\nmethod  F()->()").unwrap();
     assert_eq!(
         v.interface.to_string(),
         "\
 interface foo.bar
-type I (b: bool[18446744073709551615])
+type I (b: bool[])
 method F() -> ()
 "
     );
-}
-
-#[test]
-fn test_max_array_size() {
-    let v = Varlink::from_string("interface foo.bar\n type I (b:bool[18446744073709551616])\nmethod  F()->()");
-    assert!(v.is_err());
-    assert_eq!(v.err().unwrap(),
-               "error at 2:38: expected `number 1..18446744073709551615`");
 }
 
 #[test]

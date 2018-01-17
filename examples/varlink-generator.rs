@@ -88,14 +88,10 @@ impl<'a> ToRust for VTypeExt<'a> {
     fn to_rust(&self) -> Result<String, ToRustError> {
         let v = self.vtype.to_rust()?;
 
-        match self.isarray {
-            Some(n) => {
-                match n {
-                    0 => Ok(format!("Vec<{}>", v).into()),
-                    _ => Ok(format!("[{}; {}]", v, n).into()),
-                }
-            }
-            None => Ok(v.into()),
+        if self.isarray {
+            Ok(format!("Vec<{}>", v).into())
+        } else {
+            Ok(v.into())
         }
     }
 }

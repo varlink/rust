@@ -24,14 +24,13 @@ pub trait Interface {
 
 #[derive(Serialize, Deserialize)]
 pub struct Request {
-    pub interface: Cow<'static, str>,
     pub method: Cow<'static, str>,
-    pub arguments: Option<Value>,
+    pub parameters: Option<Value>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Reply {
-    pub reply: Value,
+    pub parameters: Option<Value>,
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -125,7 +124,7 @@ impl<T: AsyncRead + AsyncWrite + 'static> ServerProto<T> for Proto {
 
 #[derive(Deserialize)]
 struct GetInterfaceArgs {
-    name: Cow<'static, str>,
+    interface: Cow<'static, str>,
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -136,9 +135,10 @@ struct Property {
 
 #[derive(Serialize, Deserialize, Default)]
 struct ServiceInfo {
-    name: Cow<'static, str>,
-    description: Cow<'static, str>,
-    properties: Vec<Property>,
+    vendor: Cow<'static, str>,
+    product: Cow<'static, str>,
+    version: Cow<'static, str>,
+    url: Cow<'static, str>,
     interfaces: Vec<Cow<'static, str>>,
 }
 
@@ -148,8 +148,10 @@ pub struct VarlinkService {
 }
 
 impl VarlinkService {
-    pub fn new(name: Cow<'static, str>,
-               description: Cow<'static, str>,
+    pub fn new(vendor: Cow<'static, str>,
+               product: Cow<'static, str>,
+               version: Cow<'static, str>,
+               url: Cow<'static, str>,
                ifaces: Vec<Box<Interface>>)
                -> Self {
         let mut ifhashmap = HashMap::<Cow<'static, str>, Box<Interface>>::new();
@@ -163,8 +165,10 @@ impl VarlinkService {
                            .map(|i| Cow::<'static, str>::from(i.clone())));
         VarlinkService {
             info: ServiceInfo {
-                name: name,
-                description: description,
+                vendor: vendor,
+                product: product,
+                version: version,
+                url: url,
                 interfaces: ifnames,
                 ..Default::default()
             },
@@ -188,18 +192,34 @@ impl Service for VarlinkService {
     fn call(&self, req: Self::Request) -> Self::Future {
 
         println!("Request: {}", serde_json::to_string(&req).unwrap());
+        let n: usize = match req.method.rfind('.') {
+            None => {
+                return future::ok(Response::Err(Error {
+                                                    error: ErrorDetails {
+                                                        id: "InterfaceNotFound".into(),
+                                                        message: Some("Interface not found".into()),
+                                                        ..Default::default()
+                                                    },
+                                                })).boxed()
+            }
+            Some(x) => x,
+        };
+        let mut iface: String = req.method.clone().into();
+        let method = iface.split_off(n);
 
-        match req.interface.clone().as_ref() {
+        match iface.as_ref() {
             "org.varlink.service" => {
                 match self::Interface::call(self, req) {
-                    Ok(val) => future::ok(Response::Ok(Reply { reply: val })).boxed(), 
+                    Ok(val) => future::ok(Response::Ok(Reply { parameters: Some(val) })).boxed(), 
                     Err(e) => future::ok(Response::Err(e)).boxed(),
                 }
             }
             key => {
                 if self.ifaces.contains_key(key) {
                     match self.ifaces[key].call(req) {
-                        Ok(val) => future::ok(Response::Ok(Reply { reply: val })).boxed(),
+                        Ok(val) => {
+                            future::ok(Response::Ok(Reply { parameters: Some(val) })).boxed()
+                        }
                         Err(e) => future::ok(Response::Err(e)).boxed(),
                     }
                 } else {
@@ -224,26 +244,31 @@ impl Interface for VarlinkService {
 # describes the service and the interfaces it implements.
 interface org.varlink.service
 
-type Property (key: string, value: string)
-
-# Returns information about a service. It contains the service name and the
-# names of all available interfaces.
+# Get a list of all the interfaces a service provides and information
+# about the implementation.
 method GetInfo() -> (
-  name: string,
-  description: string,
-  properties: Property[],
+  vendor: string,
+  product: string,
+  version: string,
+  url: string,
   interfaces: string[]
 )
 
 # Get the description of an interface that is implemented by this service.
-method GetInterface(name: string) -> (interfacestring: string)
+method GetInterfaceDescription(interface: string) -> (description: string)
 
-error BadRequest
-error InterfaceNotFound
-error MethodNotFound
-error MethodNotImplemented
+# The requested interface was not found.
+error InterfaceNotFound (interface: string)
 
-error InternalError (errno: int)
+# The requested method was not found
+error MethodNotFound (method: string)
+
+# The interface defines the requested method, but the service does not
+# implement it.
+error MethodNotImplemented (method: string)
+
+# One of the passed parameters is invalid.
+error InvalidParameter (parameter: string)
 	"#
     }
 
@@ -253,11 +278,11 @@ error InternalError (errno: int)
 
     fn call(&self, req: Request) -> Result<Value, Error> {
         match req.method.as_ref() {
-            "GetInfo" => {
+            "org.varlink.service.GetInfo" => {
                 return Ok(serde_json::to_value(&self.info)?);
             }
-            "GetInterface" => {
-                if req.arguments == None {
+            "org.varlink.service.GetInterfaceDescription" => {
+                if req.parameters == None {
                     return Err(Error {
                                    error: ErrorDetails {
                                        id: "InvalidParameter".into(),
@@ -266,13 +291,13 @@ error InternalError (errno: int)
                                    },
                                });
                 }
-                let args: GetInterfaceArgs = serde_json::from_value(req.arguments.unwrap())
+                let args: GetInterfaceArgs = serde_json::from_value(req.parameters.unwrap())
                     .unwrap();
-                match args.name.as_ref() {
-                    "org.varlink.service" => Ok(json!({"interfacestring": self.get_description()})),
+                match args.interface.as_ref() {
+                    "org.varlink.service" => Ok(json!({"description": self.get_description()})),
                     key => {
                         if self.ifaces.contains_key(key) {
-                            Ok(json!({"interfacestring": self.ifaces[key].get_description()}))
+                            Ok(json!({"description": self.ifaces[key].get_description()}))
                         } else {
                             Err(Error {
                                     error: ErrorDetails {

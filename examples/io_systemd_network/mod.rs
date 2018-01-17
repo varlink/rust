@@ -57,8 +57,8 @@ error InvalidParameter (field: string)
 
     fn call(&self, req: Request) -> Result<SerdeValue, VarlinkError> {
         match req.method.as_ref() {
-            "Info" => {
-                if let Some(args) = req.arguments {
+            "io.systemd.network.Info" => {
+                if let Some(args) = req.parameters {
                     let infoargs: Result<InfoArgs, serde_json::Error> =
                         serde_json::from_value(args);
                     match infoargs {
@@ -69,7 +69,7 @@ error InvalidParameter (field: string)
                     Err(Error::InvalidParameter.into())
                 }
             }
-            "List" => Ok(serde_json::to_value(self.list()?)?),
+            "io.systemd.network.List" => Ok(serde_json::to_value(self.list()?)?),
             _ => Err(Error::MethodNotFound.into()),
         }
     }

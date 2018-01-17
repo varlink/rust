@@ -118,10 +118,12 @@ fn main() {
     // We provide a way to *instantiate* the service for each new
     // connection; here, we just immediately return a new instance.
     server.serve(move || {
-                     println!("New Server");
-                     let iosystemdnetwork = MyServer { state: state.clone() };
-                     Ok(VarlinkService::new(iosystemdnetwork.get_name().into(),
-                                            iosystemdnetwork.get_description().into(),
-                                            vec![Box::new(iosystemdnetwork)]))
-                 });
+        println!("New Server");
+        let iosystemdnetwork = MyServer { state: state.clone() };
+        Ok(VarlinkService::new("org.varlink".into(),
+                               "test service".into(),
+                               "0.1".into(),
+                               "http://varlink.org".into(),
+                               vec![Box::new(iosystemdnetwork)]))
+    });
 }

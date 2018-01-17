@@ -93,15 +93,15 @@ impl Interface for MyServer {
 
             println!("{}", *number);
         }
-        Ok(ListRet {
-               netdevs: Some(vec![Netdev {
-                                      ifindex: 1,
-                                      ifname: "lo".into(),
-                                  },
-                                  Netdev {
-                                      ifindex: 2,
-                                      ifname: "eth0".into(),
-                                  }]),
+        Ok(ListReply {
+               netdevs: vec![Netdev {
+                                 ifindex: 1,
+                                 ifname: "lo".into(),
+                             },
+                             Netdev {
+                                 ifindex: 2,
+                                 ifname: "eth0".into(),
+                             }],
            })
     }
 }

@@ -71,7 +71,7 @@ vtypedef -> Typedef<'input>
 
 use super::VError;
 error -> VError<'input>
-    = "error" _+ n:$(name) { VError{name: n} }
+    = "error" _+ n:$(name) _* p:vstruct { VError{name: n, parm: p} }
 
 use super::Method;
 method -> Method<'input>

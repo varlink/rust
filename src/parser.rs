@@ -34,6 +34,7 @@ pub struct VStruct<'a> {
 
 pub struct VError<'a> {
     pub name: &'a str,
+    pub parm: VStruct<'a>,
 }
 
 pub struct Typedef<'a> {
@@ -158,7 +159,7 @@ impl<'a> fmt::Display for Interface<'a> {
         }
 
         for e in self.errors.values() {
-            write!(f, "error {}\n", e.name)?;
+            write!(f, "error {} {}\n", e.name, e.parm)?;
         }
         Ok(())
     }
@@ -249,37 +250,44 @@ fn test_standard() {
 # describes the service and the interfaces it implements.
 interface org.varlink.service
 
-type Property (key: string, value: string)
-
-# Returns information about a service. It contains the service name and the
-# names of all available interfaces.
+# Get a list of all the interfaces a service provides and information
+# about the implementation.
 method GetInfo() -> (
-  name: string,
-  description: string,
-  properties: Property[],
+  vendor: string,
+  product: string,
+  version: string,
+  url: string,
   interfaces: string[]
 )
 
 # Get the description of an interface that is implemented by this service.
-method GetInterface(name: string) -> (interfacestring: string)
+method GetInterfaceDescription(interface: string) -> (description: string)
 
-error BadRequest
-error InterfaceNotFound
-error MethodNotFound
-error MethodNotImplemented",
+# The requested interface was not found.
+error InterfaceNotFound (interface: string)
+
+# The requested method was not found
+error MethodNotFound (method: string)
+
+# The interface defines the requested method, but the service does not
+# implement it.
+error MethodNotImplemented (method: string)
+
+# One of the passed parameters is invalid.
+error InvalidParameter (parameter: string)
+",
     ).unwrap();
     assert_eq!(v.interface.name, "org.varlink.service");
     println!("{}", v.interface.to_string());
     assert_eq!(
         v.interface.to_string(),
         r#"interface org.varlink.service
-type Property (key: string, value: string)
-method GetInfo() -> (name: string, description: string, properties: Property[], interfaces: string[])
-method GetInterface(name: string) -> (interfacestring: string)
-error BadRequest
-error InterfaceNotFound
-error MethodNotFound
-error MethodNotImplemented
+method GetInfo() -> (vendor: string, product: string, version: string, url: string, interfaces: string[])
+method GetInterfaceDescription(interface: string) -> (description: string)
+error InterfaceNotFound (interface: string)
+error InvalidParameter (parameter: string)
+error MethodNotFound (method: string)
+error MethodNotImplemented (method: string)
 "#
     );
 }

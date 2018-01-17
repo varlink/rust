@@ -142,7 +142,7 @@ fn do_main() -> Result<(), ToRustError> {
 
     let args: Vec<_> = env::args().collect();
     match args.len() {
-        0 => io::stdin().read_to_string(&mut buffer)?,
+        0 | 1 => io::stdin().read_to_string(&mut buffer)?,
         _ => {
             File::open(Path::new(&args[1]))?
                 .read_to_string(&mut buffer)?

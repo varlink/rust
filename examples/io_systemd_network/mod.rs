@@ -1,10 +1,9 @@
+use serde_json;
+
 use std::result::Result;
 use std::convert::From;
 use std::borrow::Cow;
 
-use serde_json;
-
-use varlink::server::ErrorDetails;
 use varlink::server::Interface as VarlinkInterface;
 use varlink::server::Error as VarlinkError;
 
@@ -70,7 +69,10 @@ error InvalidParameter (field: string)
                 }
             }
             "io.systemd.network.List" => Ok(serde_json::to_value(self.list()?)?),
-            _ => Err(Error::MethodNotFound.into()),
+            m => {
+                let method: String = m.clone().into();
+                Err(Error::MethodNotFound(Some(method.into())).into())
+            }
         }
     }
 }
@@ -81,7 +83,7 @@ error InvalidParameter (field: string)
 pub enum Error {
     UnknownNetworkDevice,
     InvalidParameter,
-    MethodNotFound,
+    MethodNotFound(Option<Cow<'static, str>>),
     UnknownError(Option<Cow<'static, str>>),
 }
 
@@ -94,15 +96,29 @@ impl From<serde_json::Error> for Error {
 impl From<Error> for VarlinkError {
     fn from(e: Error) -> Self {
         VarlinkError {
-            error: ErrorDetails {
-                id: {
-                    match e {
-                        Error::UnknownNetworkDevice => "UnknownNetworkDevice".into(),
-                        Error::InvalidParameter => "InvalidParameter".into(),
-                        _ => "UnknownError".into(),
+            error: match e {
+                Error::UnknownNetworkDevice => "io.systemd.network.UnknownNetworkDevice".into(),
+                Error::InvalidParameter => "org.varlink.service.InvalidParameter".into(),
+                Error::MethodNotFound(_) => "org.varlink.service.MethodNotFound".into(),
+                _ => "UnknownError".into(),
+            },
+            parameters: match e {
+                Error::MethodNotFound(m) => {
+                    match m {
+                        Some(me) => {
+                            let method: String = me.into();
+                            let n: usize = match method.rfind('.') {
+                                None => 0,
+                                Some(x) => x + 1,
+                            };
+                            let (_, method) = method.split_at(n);
+                            let s = format!("{{  \"method\" : \"{}\" }}", method);
+                            Some(serde_json::from_str(s.as_ref()).unwrap())
+                        }
+                        None => None,
                     }
-                },
-                ..Default::default()
+                }
+                _ => None,
             },
         }
     }

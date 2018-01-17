@@ -34,25 +34,16 @@ pub struct Reply {
 }
 
 #[derive(Serialize, Deserialize, Default)]
-pub struct ErrorDetails {
-    pub id: Cow<'static, str>,
-    pub message: Option<Cow<'static, str>>,
-    pub data: Option<Value>,
-}
-
-#[derive(Serialize, Deserialize, Default)]
 pub struct Error {
-    pub error: ErrorDetails,
+    pub error: Cow<'static, str>,
+    pub parameters: Option<Value>,
 }
 
 impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Self {
         Error {
-            error: ErrorDetails {
-                id: "UnknownError".into(),
-                message: Some(e.to_string().into()),
-                ..Default::default()
-            },
+            error: "UnknownError".into(),
+            ..Default::default()
         }
     }
 }
@@ -195,17 +186,15 @@ impl Service for VarlinkService {
         let n: usize = match req.method.rfind('.') {
             None => {
                 return future::ok(Response::Err(Error {
-                                                    error: ErrorDetails {
-                                                        id: "InterfaceNotFound".into(),
-                                                        message: Some("Interface not found".into()),
-                                                        ..Default::default()
-                                                    },
+                                                    error: "InterfaceNotFound".into(),
+                                                    parameters: Some(json!({"interface": req.method})),
+                                                    ..Default::default()
                                                 })).boxed()
             }
             Some(x) => x,
         };
-        let mut iface: String = req.method.clone().into();
-        let method = iface.split_off(n);
+        let method: String = req.method.clone().into();
+        let (iface, _) = method.split_at(n);
 
         match iface.as_ref() {
             "org.varlink.service" => {
@@ -224,11 +213,9 @@ impl Service for VarlinkService {
                     }
                 } else {
                     future::ok(Response::Err(Error {
-                                                 error: ErrorDetails {
-                                                     id: "InterfaceNotFound".into(),
-                                                     message: Some("Interface not found".into()),
-                                                     ..Default::default()
-                                                 },
+                                                 error: "InterfaceNotFound".into(),
+                                                 parameters: Some(json!({"interface": key})),
+                                                 ..Default::default()
                                              })).boxed()
                 }
             }
@@ -284,11 +271,8 @@ error InvalidParameter (parameter: string)
             "org.varlink.service.GetInterfaceDescription" => {
                 if req.parameters == None {
                     return Err(Error {
-                                   error: ErrorDetails {
-                                       id: "InvalidParameter".into(),
-                                       message: Some("Arguments empty".into()),
-                                       ..Default::default()
-                                   },
+                                   error: "InvalidParameter".into(),
+                                   ..Default::default()
                                });
                 }
                 let args: GetInterfaceArgs = serde_json::from_value(req.parameters.unwrap())
@@ -300,23 +284,26 @@ error InvalidParameter (parameter: string)
                             Ok(json!({"description": self.ifaces[key].get_description()}))
                         } else {
                             Err(Error {
-                                    error: ErrorDetails {
-                                        id: "InvalidParameter".into(),
-                                        message: Some("Interface in name not found".into()),
-                                        ..Default::default()
-                                    },
+                                    error: "InvalidParameter".into(),
+                                    parameters: Some(json!({"parameter": "interface"})),
+                                    ..Default::default()
                                 })
                         }
                     }
                 }
             }
-            _ => {
+            m => {
+                let method: String = m.into();
+                let n: usize = match method.rfind('.') {
+                    None => 0,
+                    Some(x) => x + 1,
+                };
+                let (_, method) = method.split_at(n);
+
                 Err(Error {
-                        error: ErrorDetails {
-                            id: "MethodNotFound".into(),
-                            message: Some("Method not found".into()),
-                            ..Default::default()
-                        },
+                        error: "MethodNotFound".into(),
+                        parameters: Some(json!({"method": method})),
+                        ..Default::default()
                     })
             }
         }

@@ -5,11 +5,8 @@
 //
 //***************************************************************************
 
-use serde_json;
-
 use std::result::Result;
 use std::convert::From;
-use std::borrow::Cow;
 
 use varlink;
 
@@ -24,7 +21,6 @@ macro_rules! IoSystemdNetwork {
 		()
 		$(pub)* struct $name:ident $($_tail:tt)*
 	) => {
-use serde_json::Value as SerdeValue;
 
 impl varlink::server::Interface for $name {
     fn get_description(&self) -> &'static str {
@@ -49,7 +45,7 @@ method Info(ifindex: int) -> (info: NetdevInfo)
 method List() -> (netdevs: Netdev[])
 
 error UnknownNetworkDevice ()
-error InvalidParameter (field: string)
+error UnknownError (text: string)
 	"#
     }
 
@@ -57,7 +53,7 @@ error InvalidParameter (field: string)
         "io.systemd.network"
     }
 
-    fn call(&self, req: varlink::server::Request) -> Result<SerdeValue, varlink::server::Error> {
+    fn call(&self, req: varlink::server::Request) -> Result<serde_json::Value, varlink::server::Error> {
         match req.method.as_ref() {
             "io.systemd.network.Info" => {
                 if let Some(args) = req.parameters {
@@ -65,16 +61,16 @@ error InvalidParameter (field: string)
                         serde_json::from_value(args);
                     match infoargs {
                         Ok(args) => Ok(serde_json::to_value(self.info(args.ifindex)?)?),
-                        Err(_) => Err(Error::InvalidParameter.into()),
+                        Err(e) => Err(varlink::server::VarlinkError::InvalidParameter(Some(e.to_string().into())).into())
                     }
                 } else {
-                    Err(Error::InvalidParameter.into())
+                    Err(varlink::server::VarlinkError::InvalidParameter(None).into())
                 }
             }
             "io.systemd.network.List" => Ok(serde_json::to_value(self.list()?)?),
             m => {
                 let method: String = m.clone().into();
-                Err(Error::MethodNotFound(Some(method.into())).into())
+                Err(varlink::server::VarlinkError::MethodNotFound(Some(method.into())).into())
             }
         }
     }
@@ -82,18 +78,10 @@ error InvalidParameter (field: string)
 };
 }
 
+
 #[derive(Debug)]
 pub enum Error {
     UnknownNetworkDevice,
-    InvalidParameter,
-    MethodNotFound(Option<Cow<'static, str>>),
-    UnknownError(Option<Cow<'static, str>>),
-}
-
-impl From<serde_json::Error> for Error {
-    fn from(e: serde_json::Error) -> Self {
-        Error::UnknownError(Some(e.to_string().into()))
-    }
 }
 
 impl From<Error> for varlink::server::Error {
@@ -101,26 +89,8 @@ impl From<Error> for varlink::server::Error {
         varlink::server::Error {
             error: match e {
                 Error::UnknownNetworkDevice => "io.systemd.network.UnknownNetworkDevice".into(),
-                Error::InvalidParameter => "org.varlink.service.InvalidParameter".into(),
-                Error::MethodNotFound(_) => "org.varlink.service.MethodNotFound".into(),
-                _ => "UnknownError".into(),
             },
             parameters: match e {
-                Error::MethodNotFound(m) => {
-                    match m {
-                        Some(me) => {
-                            let method: String = me.into();
-                            let n: usize = match method.rfind('.') {
-                                None => 0,
-                                Some(x) => x + 1,
-                            };
-                            let (_, method) = method.split_at(n);
-                            let s = format!("{{  \"method\" : \"{}\" }}", method);
-                            Some(serde_json::from_str(s.as_ref()).unwrap())
-                        }
-                        None => None,
-                    }
-                }
                 _ => None,
             },
         }

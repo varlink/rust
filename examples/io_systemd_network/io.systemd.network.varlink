@@ -18,4 +18,4 @@ method Info(ifindex: int) -> (info: NetdevInfo)
 method List() -> (netdevs: Netdev[])
 
 error UnknownNetworkDevice ()
-error InvalidParameter (field: string)
+error UnknownError (text: string)

@@ -39,6 +39,98 @@ pub struct Error {
     pub parameters: Option<Value>,
 }
 
+/*
+# The requested interface was not found.
+error InterfaceNotFound (interface: string)
+
+# The requested method was not found
+error MethodNotFound (method: string)
+
+# The interface defines the requested method, but the service does not
+# implement it.
+error MethodNotImplemented (method: string)
+
+# One of the passed parameters is invalid.
+error InvalidParameter (parameter: string)
+*/
+
+#[derive(Debug)]
+pub enum VarlinkError {
+    InterfaceNotFound(Option<Cow<'static, str>>),
+    MethodNotFound(Option<Cow<'static, str>>),
+    MethodNotImplemented(Option<Cow<'static, str>>),
+    InvalidParameter(Option<Cow<'static, str>>),
+}
+
+impl From<VarlinkError> for Error {
+    fn from(e: VarlinkError) -> Self {
+        Error {
+            error: match e {
+                VarlinkError::MethodNotFound(_) => "org.varlink.service.MethodNotFound".into(),
+                VarlinkError::InterfaceNotFound(_) => {
+                    "org.varlink.service.InterfaceNotFound".into()
+                }
+                VarlinkError::MethodNotImplemented(_) => {
+                    "org.varlink.service.MethodNotImplemented".into()
+                }
+                VarlinkError::InvalidParameter(_) => "org.varlink.service.InvalidParameter".into(),
+            },
+            parameters: match e {
+                VarlinkError::InterfaceNotFound(m) => {
+                    match m {
+                        Some(i) => {
+                            Some(serde_json::from_str(format!("{{ \"interface\" : \"{}\" }}", i)
+                                                          .as_ref())
+                                     .unwrap())
+                        }
+                        None => None,
+                    }
+                }
+                VarlinkError::MethodNotFound(m) => {
+                    match m {
+                        Some(me) => {
+                            let method: String = me.into();
+                            let n: usize = match method.rfind('.') {
+                                None => 0,
+                                Some(x) => x + 1,
+                            };
+                            let (_, method) = method.split_at(n);
+                            let s = format!("{{  \"method\" : \"{}\" }}", method);
+                            Some(serde_json::from_str(s.as_ref()).unwrap())
+                        }
+                        None => None,
+                    }
+                }
+                VarlinkError::MethodNotImplemented(m) => {
+                    match m {
+                        Some(me) => {
+                            let method: String = me.into();
+                            let n: usize = match method.rfind('.') {
+                                None => 0,
+                                Some(x) => x + 1,
+                            };
+                            let (_, method) = method.split_at(n);
+                            let s = format!("{{  \"method\" : \"{}\" }}", method);
+                            Some(serde_json::from_str(s.as_ref()).unwrap())
+                        }
+                        None => None,
+                    }
+                }
+                VarlinkError::InvalidParameter(m) => {
+                    match m {
+                        Some(i) => {
+                            Some(serde_json::from_str(format!("{{ \"parameter\" : \"{}\" }}", i)
+                                                          .as_ref())
+                                     .unwrap())
+                        }
+                        None => None,
+                    }
+                }
+            },
+        }
+    }
+}
+
 impl From<serde_json::Error> for Error {
     fn from(_e: serde_json::Error) -> Self {
         Error {
@@ -177,7 +269,7 @@ impl Service for VarlinkService {
     type Error = io::Error;
 
     // The future for computing the response; box it for simplicity.
-    type Future = Box<Future<Item=Self::Response, Error=Self::Error> + Send>;
+    type Future = Box<Future<Item = Self::Response, Error = Self::Error> + Send>;
 
     // Produce a future for computing a response from a request.
     fn call(&self, req: Self::Request) -> Self::Future {
@@ -185,38 +277,34 @@ impl Service for VarlinkService {
         println!("Request: {}", serde_json::to_string(&req).unwrap());
         let n: usize = match req.method.rfind('.') {
             None => {
-                return Box::new(future::ok(Response::Err(Error {
-                                                    error: "InterfaceNotFound".into(),
-                                                    parameters: Some(json!({"interface": req.method})),
-                                                    ..Default::default()
-                                                })))
+                return Box::new(future::ok(Response::Err(VarlinkError::InterfaceNotFound(Some(req.method.into()))
+                                                      .into())));
             }
             Some(x) => x,
         };
-        let method: String = req.method.clone().into();
-        let (iface, _) = method.split_at(n);
+        let iface = String::from(&req.method[..n]);
 
         match iface.as_ref() {
             "org.varlink.service" => {
                 match self::Interface::call(self, req) {
                     Ok(val) => Box::new(future::ok(Response::Ok(Reply { parameters: Some(val) }))),
-                    Err(e) => Box::new(future::ok(Response::Err(e)))
+                    Err(e) => Box::new(future::ok(Response::Err(e))),
                 }
             }
             key => {
                 if self.ifaces.contains_key(key) {
                     match self.ifaces[key].call(req) {
                         Ok(val) => {
-                            Box::new(future::ok(Response::Ok(Reply { parameters: Some(val) })))
+                            Box::new(future::ok(Response::Ok(Reply {
+                                                                 parameters: Some(val.clone()),
+                                                             })))
                         }
                         Err(e) => Box::new(future::ok(Response::Err(e))),
                     }
                 } else {
-                    Box::new(future::ok(Response::Err(Error {
-                                                 error: "InterfaceNotFound".into(),
-                                                 parameters: Some(json!({"interface": key})),
-                                                 ..Default::default()
-                                             })))
+                    Box::new(future::ok(Response::Err(VarlinkError::InterfaceNotFound(Some(iface.clone().into()))
+                                                          .into())
+                                            .into()))
                 }
             }
 
@@ -270,10 +358,7 @@ error InvalidParameter (parameter: string)
             }
             "org.varlink.service.GetInterfaceDescription" => {
                 if req.parameters == None {
-                    return Err(Error {
-                                   error: "InvalidParameter".into(),
-                                   ..Default::default()
-                               });
+                    return Err(VarlinkError::InvalidParameter(None).into());
                 }
                 let args: GetInterfaceArgs = serde_json::from_value(req.parameters.unwrap())
                     .unwrap();
@@ -283,28 +368,19 @@ error InvalidParameter (parameter: string)
                         if self.ifaces.contains_key(key) {
                             Ok(json!({"description": self.ifaces[key].get_description()}))
                         } else {
-                            Err(Error {
-                                    error: "InvalidParameter".into(),
-                                    parameters: Some(json!({"parameter": "interface"})),
-                                    ..Default::default()
-                                })
+                            Err(VarlinkError::InvalidParameter(Some("interface".into())).into())
                         }
                     }
                 }
             }
-            m => {
-                let method: String = m.into();
+            _ => {
+                let method: String = req.method.clone().into();
                 let n: usize = match method.rfind('.') {
                     None => 0,
                     Some(x) => x + 1,
                 };
-                let (_, method) = method.split_at(n);
-
-                Err(Error {
-                        error: "MethodNotFound".into(),
-                        parameters: Some(json!({"method": method})),
-                        ..Default::default()
-                    })
+                let m = String::from(&method[n..]);
+                Err(VarlinkError::MethodNotFound(Some(m.clone().into())).into())
             }
         }
     }

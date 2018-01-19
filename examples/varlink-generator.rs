@@ -102,8 +102,25 @@ impl<'a> ToRust for VTypeExt<'a> {
     }
 }
 
-impl<'a> ToRust for Interface<'a> {
-    fn to_rust(&self, _: &str, _: &mut EnumHash) -> Result<String, ToRustError> {
+fn dotted_to_camel_case(s: &str) -> String {
+    s.split('.')
+        .map(|piece| piece.chars())
+        .flat_map(|mut chars| {
+                      chars
+                          .nth(0)
+                          .expect("empty section between dots!")
+                          .to_uppercase()
+                          .chain(chars)
+                  })
+        .collect()
+}
+
+trait InterfaceToRust {
+    fn to_rust(&self, description: &String) -> Result<String, ToRustError>;
+}
+
+impl<'a> InterfaceToRust for Interface<'a> {
+    fn to_rust(&self, description: &String) -> Result<String, ToRustError> {
         let mut out: String = "".to_owned();
         let mut enumhash = EnumHash::new();
 
@@ -200,13 +217,68 @@ impl<'a> ToRust for Interface<'a> {
         }
         out += "}\n\n";
 
+        out += format!(
+            r####"
+#[macro_export]
+macro_rules! {} {{
+	(
+		()
+		$(pub)* struct $name:ident $($_tail:tt)*
+	) => {{
+
+impl varlink::server::Interface for $name {{
+    fn get_description(&self) -> &'static str {{
+        r#"
+{}
+"#
+    }}
+
+    fn get_name(&self) -> &'static str {{
+        "{}"
+    }}
+
+"####,
+            dotted_to_camel_case(self.name),
+            description,
+            self.name
+        ).as_ref();
+
+        out += r#"    fn call(&self, req: varlink::server::Request) -> Result<serde_json::Value, varlink::server::Error> {
+        match req.method.as_ref() {
+"#;
+        for t in self.methods.values() {
+            let mut inparms: String = "".to_owned();
+            if t.input.elts.len() > 0 {
+                for e in &t.input.elts {
+                    inparms += format!(", {} : {}",
+                                       e.name,
+                                       e.vtype.to_rust(self.name, &mut enumhash)?)
+                        .as_ref();
+                }
+            }
+            let mut c = t.name.chars();
+            let fname = match c.next() {
+                None => String::from(t.name),
+                Some(f) => f.to_lowercase().chain(c).collect(),
+            };
+
+            out += format!("            \"{}.{}\" => {{ self.{}(&self{}) }}\n",
+                           self.name,
+                           t.name,
+                           fname,
+                           inparms)
+                .as_ref();
+        }
+        out += "        }\n";
+        out += "    }\n";
+        out += "}\n}\n";
+
         Ok(out)
     }
 }
 
 fn do_main() -> Result<(), ToRustError> {
     let mut buffer = String::new();
-    let mut enumhash = EnumHash::new();
     let args: Vec<_> = env::args().collect();
     match args.len() {
         0 | 1 => io::stdin().read_to_string(&mut buffer)?,
@@ -225,14 +297,13 @@ fn do_main() -> Result<(), ToRustError> {
 
     println!(
         r#"
-use serde_json;
 use std::result::Result;
 use std::convert::From;
-use std::borrow::Cow;
+
 use varlink;
 
 {}"#,
-        vr.unwrap().interface.to_rust("", &mut enumhash)?
+        vr.unwrap().interface.to_rust(&buffer)?
     );
 
     Ok(())

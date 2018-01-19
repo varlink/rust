@@ -5,38 +5,37 @@ extern crate serde_derive;
 #[macro_use]
 extern crate macro_attr;
 
+extern crate varlink;
+
 use varlink::server::{Proto, VarlinkService};
 use tokio_proto::TcpServer;
 use std::sync::{Arc, RwLock};
-
-
-extern crate varlink;
 
 #[macro_use]
 mod io_systemd_network {
     /*
     varlink_server! (r#"
-    # Provides information about network state
-	interface io.systemd.network
+# Provides information about network state
+interface io.systemd.network
 
-	type NetdevInfo (
-	  ifindex: int,
-	  ifname: string
-	)
+type NetdevInfo (
+  ifindex: int,
+  ifname: string
+)
 
-	type Netdev (
-	  ifindex: int,
-	  ifname: string
-	)
+type Netdev (
+  ifindex: int,
+  ifname: string
+)
 
-	# Returns information about a network device
-	method Info(ifindex: int) -> (info: NetdevInfo)
+# Returns information about a network device
+method Info(ifindex: int) -> (info: NetdevInfo)
 
-	# Lists all network devices
-	method List() -> (netdevs: Netdev[])
+# Lists all network devices
+method List() -> (netdevs: Netdev[])
 
-	error UnknownNetworkDevice
-	error InvalidParameter
+error UnknownNetworkDevice ()
+error InvalidParameter (field: string)
     "#);
     */
 

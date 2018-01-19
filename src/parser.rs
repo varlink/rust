@@ -16,6 +16,7 @@ pub enum VType<'a> {
     VData(Option<&'a str>),
     VTypename(&'a str),
     VStruct(Box<VStruct<'a>>),
+    VEnum(Box<VEnum<'a>>),
 }
 
 pub struct VTypeExt<'a> {
@@ -25,11 +26,15 @@ pub struct VTypeExt<'a> {
 
 pub struct Argument<'a> {
     pub name: &'a str,
-    pub vtypes: Vec<VTypeExt<'a>>,
+    pub vtype: VTypeExt<'a>,
 }
 
 pub struct VStruct<'a> {
     pub elts: Vec<Argument<'a>>,
+}
+
+pub struct VEnum<'a> {
+    pub elts: Vec<&'a str>,
 }
 
 pub struct VError<'a> {
@@ -37,9 +42,14 @@ pub struct VError<'a> {
     pub parm: VStruct<'a>,
 }
 
+pub enum VStructOrEnum<'a> {
+    VStruct(Box<VStruct<'a>>),
+    VEnum(Box<VEnum<'a>>),
+}
+
 pub struct Typedef<'a> {
     pub name: &'a str,
-    pub vstruct: VStruct<'a>,
+    pub elt: VStructOrEnum<'a>,
 }
 
 pub struct Method<'a> {
@@ -100,6 +110,18 @@ impl<'a> fmt::Display for VTypeExt<'a> {
             VType::VData(ref v) => printVTypeExt!(self, f, v, "data", "\""),
             VType::VTypename(ref v) => printVTypeExt!(self, f, v),
             VType::VStruct(ref v) => printVTypeExt!(self, f, v),
+            VType::VEnum(ref v) => printVTypeExt!(self, f, v),
+        }
+
+        Ok(())
+    }
+}
+
+impl<'a> fmt::Display for VStructOrEnum<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            VStructOrEnum::VStruct(ref v) => write!(f, "{}", v)?,
+            VStructOrEnum::VEnum(ref v) => write!(f, "{}", v)?,
         }
 
         Ok(())
@@ -108,22 +130,25 @@ impl<'a> fmt::Display for VTypeExt<'a> {
 
 impl<'a> fmt::Display for Argument<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.vtypes.len() == 1 {
-            write!(f, "{}: {}", self.name, self.vtypes[0])?;
-        } else {
-            let mut iter = self.vtypes.iter();
-            if let Some(fst) = iter.next() {
-                write!(f, "{}: {}", self.name, fst)?;
-                for elt in iter {
-                    write!(f, " , {}", elt)?;
-                }
-            }
-        }
+        write!(f, "{}: {}", self.name, self.vtype)?;
         Ok(())
     }
 }
-
 impl<'a> fmt::Display for VStruct<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "(")?;
+        let mut iter = self.elts.iter();
+        if let Some(fst) = iter.next() {
+            write!(f, "{}", fst)?;
+            for elt in iter {
+                write!(f, ", {}", elt)?;
+            }
+        }
+        write!(f, ")")
+    }
+}
+
+impl<'a> fmt::Display for VEnum<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "(")?;
         let mut iter = self.elts.iter();
@@ -142,7 +167,7 @@ impl<'a> fmt::Display for Interface<'a> {
         write!(f, "interface {}\n", self.name)?;
 
         for t in self.typedefs.values() {
-            write!(f, "type {} {}\n", t.name, t.vstruct)?;
+            write!(f, "type {} {}\n", t.name, t.elt)?;
         }
 
         for m in self.methods.values() {

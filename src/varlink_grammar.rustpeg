@@ -24,11 +24,11 @@ _ -> ()
     = #quiet<whitespace / comment / eol_r>
     / #expected("<newline> <whitespace> or <comment>")
 
-field_name
-    = [a-z_][A-Za-z0-9_]*
+field_name -> &'input str
+    = $( [a-z_][A-Za-z0-9_]* )
 
-name
-	= [A-Z][A-Za-z0-9_]*
+name -> &'input str
+	= $( [A-Z][A-Za-z0-9_]* )
 
 interface_name -> &'input str /* no hyphen at begin and end */
 	= #quiet<$( [a-z]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+ )>
@@ -49,18 +49,25 @@ type -> VTypeExt<'input>
     / "data"    a:array? { VTypeExt { vtype: VType::VData(None),isarray: a.is_some() }}
     / t:$(name) a:array? { VTypeExt { vtype: VType::VTypename(t), isarray: a.is_some() }}
     / v:vstruct a:array? { VTypeExt { vtype: VType::VStruct(Box::new(v)), isarray: a.is_some() }}
+    / v:venum a:array? { VTypeExt { vtype: VType::VEnum(Box::new(v)), isarray: a.is_some() }}
 
 use super::Argument;
-argument -> Argument<'input>
-    = _* n:$(field_name) _* ':' _* v:(type ++ ',' ) { Argument { name : n, vtypes : v } }
+object_field -> Argument<'input>
+    = _* n:$(field_name) _* ':' _* v:type { Argument { name : n, vtype : v } }
 
 use super::VStruct;
 vstruct -> VStruct<'input>
-    = '(' e:argument ** ',' _* ')' { VStruct{ elts: e} }
+    = '(' e:object_field ** ',' _* ')' { VStruct{ elts: e} }
+
+use super::VEnum;
+venum -> VEnum<'input>
+    = '(' v:field_name ** ( ',' _* ) _*  ')' { VEnum { elts: v } }
 
 use super::Typedef;
+use super::VStructOrEnum;
 vtypedef -> Typedef<'input>
-    = "type" _+ n:$(name) _* v:vstruct { Typedef{name: n, vstruct: v} }
+    = "type" _+ n:$(name) _* v:vstruct { Typedef{name: n, elt: VStructOrEnum::VStruct(Box::new(v))} }
+    / "type" _+ n:$(name) _* v:venum { Typedef{name: n, elt: VStructOrEnum::VEnum(Box::new(v))} }
 
 use super::VError;
 error -> VError<'input>

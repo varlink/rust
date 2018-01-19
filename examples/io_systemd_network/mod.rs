@@ -4,10 +4,9 @@ use std::result::Result;
 use std::convert::From;
 use std::borrow::Cow;
 
-use varlink::server::Interface as VarlinkInterface;
-use varlink::server::Error as VarlinkError;
+use varlink;
 
-pub trait Interface: VarlinkInterface {
+pub trait Interface: varlink::server::Interface {
     fn info(&self, i64) -> Result<InfoReply, Error>;
     fn list(&self) -> Result<ListReply, Error>;
 }
@@ -18,12 +17,9 @@ macro_rules! IoSystemdNetwork {
 		()
 		$(pub)* struct $name:ident $($_tail:tt)*
 	) => {
-use varlink::server::{Request};
-use varlink::server::Interface as VarlinkInterface;
-use varlink::server::Error as VarlinkError;
 use serde_json::Value as SerdeValue;
 
-impl VarlinkInterface for $name {
+impl varlink::server::Interface for $name {
     fn get_description(&self) -> &'static str {
         r#"
 # Provides information about network state
@@ -54,7 +50,7 @@ error InvalidParameter (field: string)
         "io.systemd.network"
     }
 
-    fn call(&self, req: Request) -> Result<SerdeValue, VarlinkError> {
+    fn call(&self, req: varlink::server::Request) -> Result<SerdeValue, varlink::server::Error> {
         match req.method.as_ref() {
             "io.systemd.network.Info" => {
                 if let Some(args) = req.parameters {
@@ -93,9 +89,9 @@ impl From<serde_json::Error> for Error {
     }
 }
 
-impl From<Error> for VarlinkError {
+impl From<Error> for varlink::server::Error {
     fn from(e: Error) -> Self {
-        VarlinkError {
+        varlink::server::Error {
             error: match e {
                 Error::UnknownNetworkDevice => "io.systemd.network.UnknownNetworkDevice".into(),
                 Error::InvalidParameter => "org.varlink.service.InvalidParameter".into(),

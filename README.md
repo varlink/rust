@@ -1,5 +1,5 @@
 # rust-varlink
-WIP
+WIP.
 
 [![Build Status](https://travis-ci.org/fabiand/rust-varlink.svg?branch=travisci)](https://travis-ci.org/fabiand/rust-varlink)
 

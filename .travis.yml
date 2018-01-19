@@ -1,0 +1,9 @@
+language: rust
+rust:
+  - stable
+cache: cargo
+script:
+  - cargo build --verbose
+  - cargo test --verbose
+  - cargo run --example validate examples/io_systemd_network/io.systemd.network.varlink
+  - cargo run --example varlink-generator examples/io_systemd_network/io.systemd.network.varlink

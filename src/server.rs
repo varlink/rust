@@ -8,7 +8,7 @@ use std::borrow::Cow;
 use bytes::BytesMut;
 use bytes::BufMut;
 
-use futures::{future, Future, BoxFuture};
+use futures::{future, Future};
 
 use tokio_proto::pipeline::ServerProto;
 use tokio_service::Service;
@@ -40,7 +40,7 @@ pub struct Error {
 }
 
 impl From<serde_json::Error> for Error {
-    fn from(e: serde_json::Error) -> Self {
+    fn from(_e: serde_json::Error) -> Self {
         Error {
             error: "UnknownError".into(),
             ..Default::default()
@@ -177,7 +177,7 @@ impl Service for VarlinkService {
     type Error = io::Error;
 
     // The future for computing the response; box it for simplicity.
-    type Future = BoxFuture<Self::Response, Self::Error>;
+    type Future = Box<Future<Item=Self::Response, Error=Self::Error> + Send>;
 
     // Produce a future for computing a response from a request.
     fn call(&self, req: Self::Request) -> Self::Future {
@@ -185,11 +185,11 @@ impl Service for VarlinkService {
         println!("Request: {}", serde_json::to_string(&req).unwrap());
         let n: usize = match req.method.rfind('.') {
             None => {
-                return future::ok(Response::Err(Error {
+                return Box::new(future::ok(Response::Err(Error {
                                                     error: "InterfaceNotFound".into(),
                                                     parameters: Some(json!({"interface": req.method})),
                                                     ..Default::default()
-                                                })).boxed()
+                                                })))
             }
             Some(x) => x,
         };
@@ -199,24 +199,24 @@ impl Service for VarlinkService {
         match iface.as_ref() {
             "org.varlink.service" => {
                 match self::Interface::call(self, req) {
-                    Ok(val) => future::ok(Response::Ok(Reply { parameters: Some(val) })).boxed(), 
-                    Err(e) => future::ok(Response::Err(e)).boxed(),
+                    Ok(val) => Box::new(future::ok(Response::Ok(Reply { parameters: Some(val) }))),
+                    Err(e) => Box::new(future::ok(Response::Err(e)))
                 }
             }
             key => {
                 if self.ifaces.contains_key(key) {
                     match self.ifaces[key].call(req) {
                         Ok(val) => {
-                            future::ok(Response::Ok(Reply { parameters: Some(val) })).boxed()
+                            Box::new(future::ok(Response::Ok(Reply { parameters: Some(val) })))
                         }
-                        Err(e) => future::ok(Response::Err(e)).boxed(),
+                        Err(e) => Box::new(future::ok(Response::Err(e))),
                     }
                 } else {
-                    future::ok(Response::Err(Error {
+                    Box::new(future::ok(Response::Err(Error {
                                                  error: "InterfaceNotFound".into(),
                                                  parameters: Some(json!({"interface": key})),
                                                  ..Default::default()
-                                             })).boxed()
+                                             })))
                 }
             }
 

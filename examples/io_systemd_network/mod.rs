@@ -1,3 +1,10 @@
+//***************************************************************************
+//
+// In the end this file should be auto-generated with the varlink-generator
+// from the corresponding varlink file.
+//
+//***************************************************************************
+
 use serde_json;
 
 use std::result::Result;

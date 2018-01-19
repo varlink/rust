@@ -386,21 +386,6 @@ method F() -> ()
 }
 
 #[test]
-fn test_union() {
-    let v = Varlink::from_string(
-        "
-    interface foo.bar\nmethod F()->(s: (a: bool, b: int), u: bool,int,(foo: bool, bar: bool))",
-    ).unwrap();
-    assert_eq!(
-        v.interface.to_string(),
-        "\
-interface foo.bar
-method F() -> (s: (a: bool, b: int), u: bool , int , (foo: bool, bar: bool))
-"
-    );
-}
-
-#[test]
 fn test_duplicate() {
     let e = Varlink::from_string(
         "

@@ -1,6 +1,16 @@
 # rust-varlink
 WIP
 
+## varlink tool installaiton
+
+```bash
+$ sudo dnf copr enable "@varlink/varlink"
+$ sudo dnf install fedora-varlink
+$ sudo setenforce 0 # needed until systemd is able to create sockets in /run
+$ sudo systemctl enable --now org.varlink.resolver.socket
+$ varlink help
+```
+
 ## varlink file validator
 ```
 $ cargo run --example validate examples/io_systemd_network/io.systemd.network.varlink 

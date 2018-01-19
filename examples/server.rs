@@ -115,6 +115,8 @@ fn main() {
 
     let state = Arc::new(RwLock::new(0));
 
+    println!("Listening on {}", addr);
+
     // We provide a way to *instantiate* the service for each new
     // connection; here, we just immediately return a new instance.
     server.serve(move || {

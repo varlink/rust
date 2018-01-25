@@ -43,7 +43,6 @@ pub enum Error {
     UnknownNetworkDevice,
 }
 
-
 impl From<Error> for varlink::server::Error {
     fn from(e: Error) -> Self {
         varlink::server::Error {

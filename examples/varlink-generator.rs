@@ -180,6 +180,78 @@ impl<'a> InterfaceToRust for Interface<'a> {
 
         }
 
+        for t in self.errors.values() {
+            if t.parm.elts.len() > 0 {
+                out += "#[derive(Serialize, Deserialize, Debug)]\n";
+                out += format!("pub struct {}Args {{\n", t.name).as_ref();
+                for e in &t.parm.elts {
+                    out += format!("    pub {}: Option<{}>,\n",
+                                   e.name,
+                                   e.vtype.to_rust(self.name, &mut enumhash)?)
+                        .as_ref();
+                }
+                out += "}\n\n";
+            }
+
+        }
+
+        if self.errors.len() > 0 {
+            out += "#[derive(Debug)]\n";
+            out += "pub enum Error {\n";
+            for t in self.errors.values() {
+                if t.parm.elts.len() > 0 {
+                    out += format!("    {}(Option<{}Args>),\n", t.name, t.name).as_ref();
+                } else {
+                    out += format!("    {},\n", t.name).as_ref();
+                }
+            }
+            out += "}\n";
+
+            out += r#"
+impl From<Error> for varlink::server::Error {
+    fn from(e: Error) -> Self {
+        varlink::server::Error {
+            error: match e {
+"#;
+            for t in self.errors.values() {
+                out += format!(
+                    r#"                Error::{}{} => "io.systemd.network.{}".into(),
+"#,
+                    t.name,
+                    {
+                        if t.parm.elts.len() > 0 { "(_)" } else { "" }
+                    },
+                    t.name
+                ).as_ref();
+            }
+
+            out += r#"            },
+            parameters: match e {
+"#;
+            for t in self.errors.values() {
+                out += format!(
+                    r#"                Error::{}{} => {},
+"#,
+                    t.name,
+                    {
+                        if t.parm.elts.len() > 0 { "(args)" } else { "" }
+                    },
+                    {
+                        if t.parm.elts.len() > 0 {
+                            "Some(serde_json::to_value(args).unwrap())"
+                        } else {
+                            "None"
+                        }
+                    }
+                ).as_ref();
+            }
+            out += r#"            },
+        }
+    }
+}
+"#;
+        }
+
         for (name, v) in &enumhash {
             out += format!("pub enum {} {{\n", name).as_ref();
             let mut iter = v.iter();
@@ -192,12 +264,12 @@ impl<'a> InterfaceToRust for Interface<'a> {
             out += "\n}\n\n";
         }
 
-        out += "pub trait Interface: VarlinkInterface {\n";
+        out += "pub trait Interface: varlink::server::Interface {\n";
         for t in self.methods.values() {
             let mut inparms: String = "".to_owned();
             if t.input.elts.len() > 0 {
                 for e in &t.input.elts {
-                    inparms += format!(", {} : {}",
+                    inparms += format!(", {}: Option<{}>",
                                        e.name,
                                        e.vtype.to_rust(self.name, &mut enumhash)?)
                         .as_ref();
@@ -249,8 +321,10 @@ impl varlink::server::Interface for $name {{
         for t in self.methods.values() {
             let mut inparms: String = "".to_owned();
             if t.input.elts.len() > 0 {
-                for e in &t.input.elts {
-                    inparms += format!(", args.{}", e.name).as_ref();
+                let ref e = t.input.elts[0];
+                inparms += format!("args.{}", e.name).as_ref();
+                for e in &t.input.elts[1..] {
+                    inparms += format!(", args.{}, ", e.name).as_ref();
                 }
             }
             let mut c = t.name.chars();
@@ -265,17 +339,18 @@ impl varlink::server::Interface for $name {{
                     r#"
                 if let Some(args) = req.parameters {{
                     let args: {}Args = serde_json::from_value(args)?;
-                    return Ok(serde_json::to_value(self.{}(&self{})?)?);
+                    return Ok(serde_json::to_value(self.{}({})?)?);
                 }} else {{
                     return Err(varlink::server::VarlinkError::InvalidParameter(None).into());
                 }}
+            }}
 "#,
                     t.name,
                     fname,
                     inparms
                 ).as_ref();
             } else {
-                out += format!("return Ok(serde_json::to_value(self.{}()?)?); }}", fname).as_ref();
+                out += format!(" return Ok(serde_json::to_value(self.{}()?)?); }}", fname).as_ref();
 
             }
         }
@@ -287,7 +362,7 @@ impl varlink::server::Interface for $name {{
 "#;
         out += "        }\n";
         out += "    }\n";
-        out += "}\n}\n";
+        out += "}\n};\n}";
 
         Ok(out)
     }
@@ -312,11 +387,12 @@ fn do_main() -> Result<(), ToRustError> {
     }
 
     println!(
-        r#"
+        r#"// This file is automatically generated by the varlink rust generator
 use std::result::Result;
 use std::convert::From;
 
 use varlink;
+use serde_json;
 
 {}"#,
         vr.unwrap().interface.to_rust(&buffer)?

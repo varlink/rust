@@ -250,10 +250,7 @@ impl varlink::server::Interface for $name {{
             let mut inparms: String = "".to_owned();
             if t.input.elts.len() > 0 {
                 for e in &t.input.elts {
-                    inparms += format!(", {} : {}",
-                                       e.name,
-                                       e.vtype.to_rust(self.name, &mut enumhash)?)
-                        .as_ref();
+                    inparms += format!(", args.{}", e.name).as_ref();
                 }
             }
             let mut c = t.name.chars();
@@ -262,13 +259,32 @@ impl varlink::server::Interface for $name {{
                 Some(f) => f.to_lowercase().chain(c).collect(),
             };
 
-            out += format!("            \"{}.{}\" => {{ self.{}(&self{}) }}\n",
-                           self.name,
-                           t.name,
-                           fname,
-                           inparms)
-                .as_ref();
+            out += format!("            \"{}.{}\" => {{", self.name, t.name).as_ref();
+            if t.input.elts.len() > 0 {
+                out += format!(
+                    r#"
+                if let Some(args) = req.parameters {{
+                    let args: {}Args = serde_json::from_value(args)?;
+                    return Ok(serde_json::to_value(self.{}(&self{})?)?);
+                }} else {{
+                    return Err(varlink::server::VarlinkError::InvalidParameter(None).into());
+                }}
+"#,
+                    t.name,
+                    fname,
+                    inparms
+                ).as_ref();
+            } else {
+                out += format!("return Ok(serde_json::to_value(self.{}()?)?); }}", fname).as_ref();
+
+            }
         }
+        out += r#"
+            m => {
+                let method: String = m.clone().into();
+                return Err(varlink::server::VarlinkError::MethodNotFound(Some(method.into())).into());
+            }
+"#;
         out += "        }\n";
         out += "    }\n";
         out += "}\n}\n";

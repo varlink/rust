@@ -52,7 +52,7 @@ struct MyServer {
 }}
 
 impl Interface for MyServer {
-    fn info(&self, i: i64) -> Result<InfoReply, Error> {
+    fn info(&self, i: Option<i64>) -> Result<InfoReply, Error> {
         // State example
         {
             let mut number = self.state.write().unwrap();
@@ -63,20 +63,20 @@ impl Interface for MyServer {
         }
 
         match i {
-            1 => {
+            Some(1) => {
                 Ok(InfoReply {
-                       info: NetdevInfo {
-                           ifindex: 1,
-                           ifname: "lo".into(),
-                       },
+                       info: Some(NetdevInfo {
+                                      ifindex: Some(1),
+                                      ifname: Some("lo".into()),
+                                  }),
                    })
             }
-            2 => {
+            Some(2) => {
                 Ok(InfoReply {
-                       info: NetdevInfo {
-                           ifindex: 2,
-                           ifname: "eth0".into(),
-                       },
+                       info: Some(NetdevInfo {
+                                      ifindex: Some(2),
+                                      ifname: Some("eth0".into()),
+                                  }),
                    })
             }
             _ => Err(Error::UnknownNetworkDevice),
@@ -93,14 +93,14 @@ impl Interface for MyServer {
             println!("{}", *number);
         }
         Ok(ListReply {
-               netdevs: vec![Netdev {
-                                 ifindex: 1,
-                                 ifname: "lo".into(),
-                             },
-                             Netdev {
-                                 ifindex: 2,
-                                 ifname: "eth0".into(),
-                             }],
+               netdevs: Some(vec![Netdev {
+                                      ifindex: Some(1),
+                                      ifname: Some("lo".into()),
+                                  },
+                                  Netdev {
+                                      ifindex: Some(2),
+                                      ifname: Some("eth0".into()),
+                                  }]),
            })
     }
 }

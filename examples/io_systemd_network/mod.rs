@@ -3,6 +3,7 @@ use std::result::Result;
 use std::convert::From;
 
 use varlink;
+use serde_json;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Netdev {
@@ -31,6 +32,32 @@ pub struct ListReply {
     pub netdevs: Option<Vec<Netdev>>,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UnknownErrorArgs {
+    pub text: Option<String>,
+}
+
+#[derive(Debug)]
+pub enum Error {
+    UnknownError(Option<UnknownErrorArgs>),
+    UnknownNetworkDevice,
+}
+
+
+impl From<Error> for varlink::server::Error {
+    fn from(e: Error) -> Self {
+        varlink::server::Error {
+            error: match e {
+                Error::UnknownError(_) => "io.systemd.network.UnknownError".into(),
+                Error::UnknownNetworkDevice => "io.systemd.network.UnknownNetworkDevice".into(),
+            },
+            parameters: match e {
+                Error::UnknownError(args) => Some(serde_json::to_value(args).unwrap()),
+                Error::UnknownNetworkDevice => None,
+            },
+        }
+    }
+}
 pub trait Interface: varlink::server::Interface {
     fn info(&self, ifindex: Option<i64>) -> Result<InfoReply, Error>;
     fn list(&self) -> Result<ListReply, Error>;
@@ -94,22 +121,4 @@ error UnknownError (text: string)
     }
 }
 };
-}
-
-#[derive(Debug)]
-pub enum Error {
-    UnknownNetworkDevice,
-}
-
-impl From<Error> for varlink::server::Error {
-    fn from(e: Error) -> Self {
-        varlink::server::Error {
-            error: match e {
-                Error::UnknownNetworkDevice => "io.systemd.network.UnknownNetworkDevice".into(),
-            },
-            parameters: match e {
-                _ => None,
-            },
-        }
-    }
 }

@@ -133,10 +133,7 @@ impl From<VarlinkError> for Error {
 
 impl From<serde_json::Error> for Error {
     fn from(_e: serde_json::Error) -> Self {
-        Error {
-            error: "UnknownError".into(),
-            ..Default::default()
-        }
+        VarlinkError::InvalidParameter(Some(_e.to_string().into())).into()
     }
 }
 

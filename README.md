@@ -64,7 +64,7 @@ pub struct ListReply {
 
 ## Example Server
 
-```
+```bash
 $ cargo run --example server 
 ```
 
@@ -123,7 +123,7 @@ error UnknownNetworkDevice ()
 error InvalidParameter (field: string)
 ```
 
-```
+```bash
 $ varlink call ip:127.0.0.1:12345/io.systemd.network.List
 {
   "netdevs": [

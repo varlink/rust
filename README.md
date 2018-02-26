@@ -30,7 +30,7 @@ error UnknownNetworkDevice ()
 ```
 
 ## varlink rust generator
-```
+```rust
 $ cargo run --example varlink-generator examples/io_systemd_network/io.systemd.network.varlink 
     Finished dev [unoptimized + debuginfo] target(s) in 0.0 secs
      Running `target/debug/examples/varlink-generator examples/io_systemd_network/io.systemd.network.varlink`
@@ -70,8 +70,8 @@ $ cargo run --example server
 
 and test from a new shell
 
-```
-$ varlink help ip:127.0.0.1:12345/org.varlink.service
+```javascript
+$ varlink help tcp:127.0.0.1:12345/org.varlink.service
 # The Varlink Service Interface is provided by every varlink service. It
 # describes the service and the interfaces it implements.
 interface org.varlink.service
@@ -103,8 +103,8 @@ error MethodNotImplemented (method: string)
 error InvalidParameter (parameter: string)
 ```
 
-```
-$ varlink help ip:127.0.0.1:12345/io.systemd.network
+```javascript
+$ varlink help tcp:127.0.0.1:12345/io.systemd.network
 # Provides information about network state
 interface io.systemd.network
 
@@ -123,8 +123,8 @@ error UnknownNetworkDevice ()
 error InvalidParameter (field: string)
 ```
 
-```bash
-$ varlink call ip:127.0.0.1:12345/io.systemd.network.List
+```javascript
+$ varlink call tcp:127.0.0.1:12345/io.systemd.network.List
 {
   "netdevs": [
     {

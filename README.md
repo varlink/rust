@@ -1,7 +1,7 @@
 # rust for varlink
 WIP.
 
-[![Build Status](https://travis-ci.org/varlink/rust-varlink.svg?branch=master)](https://travis-ci.org/varlink/rust-varlink)
+[![Build Status](https://travis-ci.org/varlink/rust.svg?branch=master)](https://travis-ci.org/varlink/rust)
 
 ## varlink tool installation
 

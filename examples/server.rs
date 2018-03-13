@@ -30,7 +30,7 @@ impl io_systemd_network::Interface for MyServer {
 
             println!("{}", *number);
         }
-
+        println!("Call: {:?}", call.request);
         match i {
             Some(1) => {
                 return call.reply(
@@ -65,6 +65,7 @@ impl io_systemd_network::Interface for MyServer {
 
             println!("{}", *number);
         }
+        println!("Call: {:?}", call.request);
         return call.reply(
             ListReply {
                 netdevs: Some(vec![

@@ -12,7 +12,7 @@ pub trait Interface {
     fn call(&self, &mut Call) -> io::Result<()>;
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Request {
     pub method: Cow<'static, str>,
     pub parameters: Option<Value>,
@@ -22,8 +22,8 @@ pub trait VarlinkReply {}
 
 #[derive(Serialize, Deserialize)]
 pub struct Reply {
-    pub error: Option<Cow<'static, str>>,
-    pub parameters: Option<Value>,
+    error: Option<Cow<'static, str>>,
+    parameters: Option<Value>,
 }
 
 impl Reply {
@@ -34,10 +34,10 @@ impl Reply {
         }
     }
 
-    pub fn error(name: Cow<'static, str>, parameters: Value) -> Self {
+    pub fn error(name: Cow<'static, str>, parameters: Option<Value>) -> Self {
         Reply {
             error: Some(name),
-            parameters: Some(parameters),
+            parameters,
         }
     }
 }
@@ -54,15 +54,15 @@ where
 
 pub struct Call<'a> {
     writer: &'a mut Write,
-    pub request: &'a mut Request,
+    pub request: &'a Request,
 }
 
 impl<'a> Call<'a> {
-    pub fn new(writer: &'a mut Write, request: &'a mut Request) -> Self {
+    fn new(writer: &'a mut Write, request: &'a Request) -> Self {
         Call { writer, request }
     }
 
-    pub fn reply_parameters(&mut self, parameters: Value) -> io::Result<()> {
+    fn reply_parameters(&mut self, parameters: Value) -> io::Result<()> {
         let reply = Reply::parameters(parameters);
         let mut buf = serde_json::to_vec(&reply)?;
         buf.push(0);
@@ -239,7 +239,7 @@ error InvalidParameter (parameter: string)
                 if call.request.parameters == None {
                     return call.reply(VarlinkError::InvalidParameter(None).into());
                 }
-                if let Some(val) = call.request.parameters.take() {
+                if let Some(val) = call.request.parameters.clone() {
                     let args: GetInterfaceArgs = serde_json::from_value(val)?;
                     match args.interface.as_ref() {
                         "org.varlink.service" => {
@@ -342,8 +342,8 @@ impl VarlinkService {
             let read_bytes = bufreader.read_until(b'\0', &mut buf).unwrap();
             if read_bytes > 0 {
                 buf.pop();
-                let mut req: Request = serde_json::from_slice(&buf)?;
-                self.call(&mut Call::new(writer, &mut req))?;
+                let req: Request = serde_json::from_slice(&buf)?;
+                self.call(&mut Call::new(writer, &req))?;
             } else {
                 break;
             }

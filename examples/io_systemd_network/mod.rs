@@ -64,16 +64,16 @@ impl<'a> Call<'a> {
 
 impl From<Error> for varlink::server::Reply {
     fn from(e: Error) -> Self {
-        varlink::server::Reply {
-            error: Some(match e {
+        varlink::server::Reply::error(
+            match e {
                 Error::UnknownError(_) => "io.systemd.network.UnknownError".into(),
                 Error::UnknownNetworkDevice => "io.systemd.network.UnknownNetworkDevice".into(),
-            }),
-            parameters: match e {
+            },
+            match e {
                 Error::UnknownError(args) => Some(serde_json::to_value(args).unwrap()),
                 Error::UnknownNetworkDevice => None,
             },
-        }
+        )
     }
 }
 
@@ -125,7 +125,7 @@ error UnknownError (text: string)
         let method = call.request.method.clone();
         match method.as_ref() {
             "io.systemd.network.Info" => {
-                if let Some(args) = call.request.parameters.take() {
+                if let Some(args) = call.request.parameters.clone() {
                     let args: InfoArgs = serde_json::from_value(args)?;
                     return self.inner.info(call, args.ifindex);
                 } else {

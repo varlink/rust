@@ -57,20 +57,21 @@ impl From<Error> for varlink::server::Error {
         }
     }
 }
-pub trait Interface: varlink::server::Interface {
+
+pub trait Interface {
     fn info(&self, ifindex: Option<i64>) -> Result<InfoReply, Error>;
     fn list(&self) -> Result<ListReply, Error>;
 }
 
+pub struct InterfaceImpl {
+    inner: Box<Interface>,
+}
 
-#[macro_export]
-macro_rules! IoSystemdNetwork {
-	(
-		()
-		$(pub)* struct $name:ident $($_tail:tt)*
-	) => {
+pub fn new(inner: Box<Interface>) -> Box<InterfaceImpl> {
+    Box::new(InterfaceImpl { inner })
+}
 
-impl varlink::server::Interface for $name {
+impl varlink::server::Interface for InterfaceImpl {
     fn get_description(&self) -> &'static str {
         r#"
 # Provides information about network state
@@ -101,23 +102,28 @@ error UnknownError (text: string)
         "io.systemd.network"
     }
 
-    fn call(&self, req: varlink::server::Request) -> Result<serde_json::Value, varlink::server::Error> {
+    fn call(
+        &self,
+        req: varlink::server::Request,
+    ) -> Result<serde_json::Value, varlink::server::Error> {
         match req.method.as_ref() {
             "io.systemd.network.Info" => {
                 if let Some(args) = req.parameters {
                     let args: InfoArgs = serde_json::from_value(args)?;
-                    return Ok(serde_json::to_value(self.info(args.ifindex)?)?);
+                    return Ok(serde_json::to_value(self.inner.info(args.ifindex)?)?);
                 } else {
                     return Err(varlink::server::VarlinkError::InvalidParameter(None).into());
                 }
             }
-            "io.systemd.network.List" => { return Ok(serde_json::to_value(self.list()?)?); }
+            "io.systemd.network.List" => {
+                return Ok(serde_json::to_value(self.inner.list()?)?);
+            }
             m => {
                 let method: String = m.clone().into();
-                return Err(varlink::server::VarlinkError::MethodNotFound(Some(method.into())).into());
+                return Err(
+                    varlink::server::VarlinkError::MethodNotFound(Some(method.into())).into(),
+                );
             }
         }
     }
-}
-};
 }

@@ -8,13 +8,7 @@ use std::borrow::Cow;
 use bytes::BytesMut;
 use bytes::BufMut;
 
-use futures::{future, Future};
-
-use tokio_proto::pipeline::ServerProto;
-use tokio_service::Service;
-use tokio_io::codec::{Encoder, Decoder};
-use tokio_io::{AsyncRead, AsyncWrite};
-use tokio_io::codec::Framed;
+use std::io::{BufRead, BufReader, Read, Write};
 
 pub trait Interface {
     fn get_description(&self) -> &'static str;
@@ -76,56 +70,46 @@ impl From<VarlinkError> for Error {
                 VarlinkError::InvalidParameter(_) => "org.varlink.service.InvalidParameter".into(),
             },
             parameters: match e {
-                VarlinkError::InterfaceNotFound(m) => {
-                    match m {
-                        Some(i) => {
-                            Some(serde_json::from_str(format!("{{ \"interface\" : \"{}\" }}", i)
-                                                          .as_ref())
-                                     .unwrap())
-                        }
-                        None => None,
+                VarlinkError::InterfaceNotFound(m) => match m {
+                    Some(i) => Some(
+                        serde_json::from_str(format!("{{ \"interface\" : \"{}\" }}", i).as_ref())
+                            .unwrap(),
+                    ),
+                    None => None,
+                },
+                VarlinkError::MethodNotFound(m) => match m {
+                    Some(me) => {
+                        let method: String = me.into();
+                        let n: usize = match method.rfind('.') {
+                            None => 0,
+                            Some(x) => x + 1,
+                        };
+                        let (_, method) = method.split_at(n);
+                        let s = format!("{{  \"method\" : \"{}\" }}", method);
+                        Some(serde_json::from_str(s.as_ref()).unwrap())
                     }
-                }
-                VarlinkError::MethodNotFound(m) => {
-                    match m {
-                        Some(me) => {
-                            let method: String = me.into();
-                            let n: usize = match method.rfind('.') {
-                                None => 0,
-                                Some(x) => x + 1,
-                            };
-                            let (_, method) = method.split_at(n);
-                            let s = format!("{{  \"method\" : \"{}\" }}", method);
-                            Some(serde_json::from_str(s.as_ref()).unwrap())
-                        }
-                        None => None,
+                    None => None,
+                },
+                VarlinkError::MethodNotImplemented(m) => match m {
+                    Some(me) => {
+                        let method: String = me.into();
+                        let n: usize = match method.rfind('.') {
+                            None => 0,
+                            Some(x) => x + 1,
+                        };
+                        let (_, method) = method.split_at(n);
+                        let s = format!("{{  \"method\" : \"{}\" }}", method);
+                        Some(serde_json::from_str(s.as_ref()).unwrap())
                     }
-                }
-                VarlinkError::MethodNotImplemented(m) => {
-                    match m {
-                        Some(me) => {
-                            let method: String = me.into();
-                            let n: usize = match method.rfind('.') {
-                                None => 0,
-                                Some(x) => x + 1,
-                            };
-                            let (_, method) = method.split_at(n);
-                            let s = format!("{{  \"method\" : \"{}\" }}", method);
-                            Some(serde_json::from_str(s.as_ref()).unwrap())
-                        }
-                        None => None,
-                    }
-                }
-                VarlinkError::InvalidParameter(m) => {
-                    match m {
-                        Some(i) => {
-                            Some(serde_json::from_str(format!("{{ \"parameter\" : \"{}\" }}", i)
-                                                          .as_ref())
-                                     .unwrap())
-                        }
-                        None => None,
-                    }
-                }
+                    None => None,
+                },
+                VarlinkError::InvalidParameter(m) => match m {
+                    Some(i) => Some(
+                        serde_json::from_str(format!("{{ \"parameter\" : \"{}\" }}", i).as_ref())
+                            .unwrap(),
+                    ),
+                    None => None,
+                },
             },
         }
     }
@@ -141,65 +125,6 @@ impl From<serde_json::Error> for Error {
 pub enum Response {
     Ok(Reply),
     Err(Error),
-}
-
-pub struct NulJsonCodec;
-
-impl Decoder for NulJsonCodec {
-    type Item = Request;
-    type Error = io::Error;
-    fn decode(&mut self, buf: &mut BytesMut) -> io::Result<Option<Request>> {
-        if let Some(i) = buf.iter().position(|&b| b == 0) {
-            // remove the serialized frame from the buffer.
-
-            let line = buf.split_to(i);
-            //println!("got {:?}", line);
-            // Also remove the '0'
-            buf.split_to(1);
-
-            Ok(Some(serde_json::from_slice(&line)?))
-        } else {
-            Ok(None)
-        }
-    }
-}
-
-impl Encoder for NulJsonCodec {
-    type Item = Response;
-    type Error = io::Error;
-
-    fn encode(&mut self, msg: Response, buf: &mut BytesMut) -> io::Result<()> {
-        match msg {
-            Response::Ok(val) => {
-                println!("Response: {}", serde_json::to_string(&val).unwrap());
-                buf.extend(serde_json::to_vec(&val)?)
-            }
-            Response::Err(val) => {
-                println!("Response: {}", serde_json::to_string(&val).unwrap());
-                buf.extend(serde_json::to_vec(&val)?)
-            }
-
-        }
-        buf.put_u8(0);
-        Ok(())
-    }
-}
-
-pub struct Proto;
-
-impl<T: AsyncRead + AsyncWrite + 'static> ServerProto<T> for Proto {
-    // For this protocol style, `Request` matches the `Item` type of the codec's `Encoder`
-    type Request = Request;
-
-    // For this protocol style, `Response` matches the `Item` type of the codec's `Decoder`
-    type Response = Response;
-
-    // A bit of boilerplate to hook in the codec:
-    type Transport = Framed<T, NulJsonCodec>;
-    type BindTransport = Result<Self::Transport, io::Error>;
-    fn bind_transport(&self, io: T) -> Self::BindTransport {
-        Ok(io.framed(NulJsonCodec))
-    }
 }
 
 #[derive(Deserialize)]
@@ -225,88 +150,6 @@ struct ServiceInfo {
 pub struct VarlinkService {
     info: ServiceInfo,
     ifaces: HashMap<Cow<'static, str>, Box<Interface>>,
-}
-
-impl VarlinkService {
-    pub fn new(vendor: Cow<'static, str>,
-               product: Cow<'static, str>,
-               version: Cow<'static, str>,
-               url: Cow<'static, str>,
-               ifaces: Vec<Box<Interface>>)
-               -> Self {
-        let mut ifhashmap = HashMap::<Cow<'static, str>, Box<Interface>>::new();
-        for i in ifaces {
-            ifhashmap.insert(i.get_name().into(), i);
-        }
-        let mut ifnames: Vec<Cow<'static, str>> = Vec::new();
-        ifnames.push("org.varlink.service".into());
-        ifnames.extend(ifhashmap
-                           .keys()
-                           .map(|i| Cow::<'static, str>::from(i.clone())));
-        VarlinkService {
-            info: ServiceInfo {
-                vendor: vendor,
-                product: product,
-                version: version,
-                url: url,
-                interfaces: ifnames,
-                ..Default::default()
-            },
-            ifaces: ifhashmap,
-        }
-    }
-}
-
-impl Service for VarlinkService {
-    // These types must match the corresponding protocol types:
-    type Request = Request;
-    type Response = Response;
-
-    // For non-streaming protocols, service errors are always io::Error
-    type Error = io::Error;
-
-    // The future for computing the response; box it for simplicity.
-    type Future = Box<Future<Item = Self::Response, Error = Self::Error> + Send>;
-
-    // Produce a future for computing a response from a request.
-    fn call(&self, req: Self::Request) -> Self::Future {
-
-        println!("Request: {}", serde_json::to_string(&req).unwrap());
-        let n: usize = match req.method.rfind('.') {
-            None => {
-                return Box::new(future::ok(Response::Err(VarlinkError::InterfaceNotFound(Some(req.method.into()))
-                                                      .into())));
-            }
-            Some(x) => x,
-        };
-        let iface = String::from(&req.method[..n]);
-
-        match iface.as_ref() {
-            "org.varlink.service" => {
-                match self::Interface::call(self, req) {
-                    Ok(val) => Box::new(future::ok(Response::Ok(Reply { parameters: Some(val) }))),
-                    Err(e) => Box::new(future::ok(Response::Err(e))),
-                }
-            }
-            key => {
-                if self.ifaces.contains_key(key) {
-                    match self.ifaces[key].call(req) {
-                        Ok(val) => {
-                            Box::new(future::ok(Response::Ok(Reply {
-                                                                 parameters: Some(val.clone()),
-                                                             })))
-                        }
-                        Err(e) => Box::new(future::ok(Response::Err(e))),
-                    }
-                } else {
-                    Box::new(future::ok(Response::Err(VarlinkError::InterfaceNotFound(Some(iface.clone().into()))
-                                                          .into())
-                                            .into()))
-                }
-            }
-
-        }
-    }
 }
 
 impl Interface for VarlinkService {
@@ -357,8 +200,8 @@ error InvalidParameter (parameter: string)
                 if req.parameters == None {
                     return Err(VarlinkError::InvalidParameter(None).into());
                 }
-                let args: GetInterfaceArgs = serde_json::from_value(req.parameters.unwrap())
-                    .unwrap();
+                let args: GetInterfaceArgs =
+                    serde_json::from_value(req.parameters.unwrap()).unwrap();
                 match args.interface.as_ref() {
                     "org.varlink.service" => Ok(json!({"description": self.get_description()})),
                     key => {
@@ -380,5 +223,107 @@ error InvalidParameter (parameter: string)
                 Err(VarlinkError::MethodNotFound(Some(m.clone().into())).into())
             }
         }
+    }
+}
+
+impl VarlinkService {
+    pub fn new(
+        vendor: &str,
+        product: &str,
+        version: &str,
+        url: &str,
+        ifaces: Vec<Box<Interface>>,
+    ) -> Self {
+        let mut ifhashmap = HashMap::<Cow<'static, str>, Box<Interface>>::new();
+        for i in ifaces {
+            ifhashmap.insert(i.get_name().into(), i);
+        }
+        let mut ifnames: Vec<Cow<'static, str>> = Vec::new();
+        ifnames.push("org.varlink.service".into());
+        ifnames.extend(
+            ifhashmap
+                .keys()
+                .map(|i| Cow::<'static, str>::from(i.clone())),
+        );
+        VarlinkService {
+            info: ServiceInfo {
+                vendor: String::from(vendor).into(),
+                product: String::from(product).into(),
+                version: String::from(version).into(),
+                url: String::from(url).into(),
+                interfaces: ifnames,
+                ..Default::default()
+            },
+            ifaces: ifhashmap,
+        }
+    }
+
+    fn call(&self, req: Request) -> Response {
+        println!("Request: {}", serde_json::to_string(&req).unwrap());
+        let n: usize = match req.method.rfind('.') {
+            None => {
+                return Response::Err(
+                    VarlinkError::InterfaceNotFound(Some(req.method.into())).into(),
+                )
+            }
+            Some(x) => x,
+        };
+        let iface = String::from(&req.method[..n]);
+
+        match iface.as_ref() {
+            "org.varlink.service" => match self::Interface::call(self, req) {
+                Ok(val) => Response::Ok(Reply {
+                    parameters: Some(val),
+                }),
+                Err(e) => Response::Err(e),
+            },
+            key => {
+                if self.ifaces.contains_key(key) {
+                    match self.ifaces[key].call(req) {
+                        Ok(val) => Response::Ok(Reply {
+                            parameters: Some(val.clone()),
+                        }),
+                        Err(e) => Response::Err(e),
+                    }
+                } else {
+                    Response::Err(
+                        VarlinkError::InterfaceNotFound(Some(iface.clone().into())).into(),
+                    )
+                }
+            }
+        }
+    }
+
+    fn encode(&self, msg: Response, buf: &mut BytesMut) -> io::Result<()> {
+        match msg {
+            Response::Ok(val) => {
+                println!("Response: {}", serde_json::to_string(&val).unwrap());
+                buf.extend(serde_json::to_vec(&val)?)
+            }
+            Response::Err(val) => {
+                println!("Response: {}", serde_json::to_string(&val).unwrap());
+                buf.extend(serde_json::to_vec(&val)?)
+            }
+        }
+        buf.put_u8(0);
+        Ok(())
+    }
+
+    pub fn handle(&self, reader: &mut Read, writer: &mut Write) -> io::Result<()> {
+        let mut bufreader = BufReader::new(reader);
+        loop {
+            let mut buf = Vec::new();
+            let read_bytes = bufreader.read_until(b'\0', &mut buf).unwrap();
+            if read_bytes > 0 {
+                let req: Request = serde_json::from_slice(&buf)?;
+                let res = self.call(req);
+                let mut buf = BytesMut::new();
+                self.encode(res, &mut buf)?;
+                writer.write_all(&mut buf)?;
+            } else {
+                break;
+            }
+        }
+        Ok(())
     }
 }

@@ -350,12 +350,11 @@ impl varlink::server::Interface for $name {{
                     inparms
                 ).as_ref();
             } else {
-                out += format!(" return Ok(serde_json::to_value(self.{}()?)?); }}", fname).as_ref();
+                out += format!(" return Ok(serde_json::to_value(self.{}()?)?); }}\n", fname).as_ref();
 
             }
         }
-        out += r#"
-            m => {
+        out += r#"            m => {
                 let method: String = m.clone().into();
                 return Err(varlink::server::VarlinkError::MethodNotFound(Some(method.into())).into());
             }

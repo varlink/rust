@@ -1,13 +1,8 @@
 use serde_json::{self, Value};
 
 use std::convert::From;
-use std::io;
 use std::collections::HashMap;
 use std::borrow::Cow;
-
-use bytes::BytesMut;
-use bytes::BufMut;
-
 use std::io::{BufRead, BufReader, Read, Write};
 
 pub trait Interface {
@@ -294,31 +289,26 @@ impl VarlinkService {
         }
     }
 
-    fn encode(&self, msg: Response, buf: &mut BytesMut) -> io::Result<()> {
-        match msg {
-            Response::Ok(val) => {
-                println!("Response: {}", serde_json::to_string(&val).unwrap());
-                buf.extend(serde_json::to_vec(&val)?)
-            }
-            Response::Err(val) => {
-                println!("Response: {}", serde_json::to_string(&val).unwrap());
-                buf.extend(serde_json::to_vec(&val)?)
-            }
-        }
-        buf.put_u8(0);
-        Ok(())
-    }
-
     pub fn handle(&self, reader: &mut Read, writer: &mut Write) -> io::Result<()> {
         let mut bufreader = BufReader::new(reader);
         loop {
             let mut buf = Vec::new();
             let read_bytes = bufreader.read_until(b'\0', &mut buf).unwrap();
             if read_bytes > 0 {
+                buf.pop();
                 let req: Request = serde_json::from_slice(&buf)?;
                 let res = self.call(req);
-                let mut buf = BytesMut::new();
-                self.encode(res, &mut buf)?;
+                let mut buf = match res {
+                    Response::Ok(val) => {
+                        println!("Response: {}", serde_json::to_string(&val).unwrap());
+                        serde_json::to_vec(&val)?
+                    }
+                    Response::Err(val) => {
+                        println!("Response: {}", serde_json::to_string(&val).unwrap());
+                        serde_json::to_vec(&val)?
+                    }
+                };
+                buf.push(0);
                 writer.write_all(&mut buf)?;
             } else {
                 break;

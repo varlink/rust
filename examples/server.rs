@@ -71,15 +71,6 @@ impl io_systemd_network::Interface for MyServer {
             println!("{}", *number);
         }
         println!("Call: {:?}", call.request);
-        call.reply_more(
-            ListReply {
-                netdevs: Some(vec![Netdev {
-                         ifindex: Some(1),
-                         ifname: Some("lo".into()),
-                     }]),
-            }.into(),
-        )?;
-
         return call.reply(
             ListReply {
                 netdevs: Some(vec![Netdev {
@@ -95,19 +86,19 @@ impl io_systemd_network::Interface for MyServer {
     }
 }
 
-fn main() {
-    let _join = thread::spawn(|| -> io::Result<()> {
+fn run_app() -> io::Result<()> {
+    thread::spawn(|| -> io::Result<()> {
         let addr = "0.0.0.0:12345";
-        let listener = TcpListener::bind(addr).unwrap();
+        let listener = TcpListener::bind(addr)?;
         let state = Arc::new(RwLock::new(0));
         println!("Listening on {}", addr);
         let myserver = MyServer { state };
-        let myintf = io_systemd_network::new(myserver);
-        let server = VarlinkService::new("org.varlink",
-                                         "test service",
-                                         "0.1",
-                                         "http://varlink.org",
-                                         vec![myintf.clone()]);
+        let myintf = io_systemd_network::new(Box::new(myserver));
+        let server = Arc::new(VarlinkService::new("org.varlink",
+                                                  "test service",
+                                                  "0.1",
+                                                  "http://varlink.org",
+                                                  vec![Box::new(myintf)]));
 
         loop {
             let (mut stream, _addr) = listener.accept()?;
@@ -117,13 +108,20 @@ fn main() {
                 if let Err(e) = server.handle(&mut stream, &mut stream_clone) {
                     println!("Handle Error: {}", e);
                 }
-                if let Err(e) = stream.shutdown(Shutdown::Both) {
-                    println!("Shutdown Error: {}", e);
-                }
+                let _ = stream.shutdown(Shutdown::Both);
                 Ok(())
             });
         }
-
     }).join()
-        .unwrap();
+        .unwrap()
+}
+
+fn main() {
+    ::std::process::exit(match run_app() {
+                             Ok(_) => 0,
+                             Err(err) => {
+                                 eprintln!("error: {}", err);
+                                 1
+                             }
+                         });
 }

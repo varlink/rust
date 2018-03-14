@@ -96,7 +96,8 @@ impl<'a> Call<'a> {
 
     pub fn reply_more(&mut self, mut reply: Reply) -> io::Result<()> {
         if !self.wants_more() {
-            return Err(Error::new(ErrorKind::Other, "oh no!"));
+            return Err(Error::new(ErrorKind::Other,
+                                  "Call::reply_more() called without more in the request"));
         }
         reply.continues = Some(true);
         let mut buf = serde_json::to_vec(&reply)?;
@@ -238,7 +239,7 @@ struct ServiceInfo {
 
 pub struct VarlinkService {
     info: ServiceInfo,
-    ifaces: HashMap<Cow<'static, str>, Box<Interface>>,
+    ifaces: HashMap<Cow<'static, str>, Box<Interface + Send + Sync>>,
 }
 
 impl Interface for VarlinkService {
@@ -328,24 +329,21 @@ error InvalidParameter (parameter: string)
 }
 
 impl VarlinkService {
-    pub fn new(
-        vendor: &str,
-        product: &str,
-        version: &str,
-        url: &str,
-        ifaces: Vec<Box<Interface>>,
-    ) -> Self {
-        let mut ifhashmap = HashMap::<Cow<'static, str>, Box<Interface>>::new();
+    pub fn new(vendor: &str,
+               product: &str,
+               version: &str,
+               url: &str,
+               ifaces: Vec<Box<Interface + Send + Sync>>)
+               -> Self {
+        let mut ifhashmap = HashMap::<Cow<'static, str>, Box<Interface + Send + Sync>>::new();
         for i in ifaces {
             ifhashmap.insert(i.get_name().into(), i);
         }
         let mut ifnames: Vec<Cow<'static, str>> = Vec::new();
         ifnames.push("org.varlink.service".into());
-        ifnames.extend(
-            ifhashmap
-                .keys()
-                .map(|i| Cow::<'static, str>::from(i.clone())),
-        );
+        ifnames.extend(ifhashmap
+                           .keys()
+                           .map(|i| Cow::<'static, str>::from(i.clone())));
         VarlinkService {
             info: ServiceInfo {
                 vendor: String::from(vendor).into(),
@@ -360,7 +358,6 @@ impl VarlinkService {
     }
 
     fn call(&self, call: &mut Call) -> io::Result<()> {
-        println!("Request: {}", serde_json::to_string(&call.request).unwrap());
         let n: usize = match call.request.method.rfind('.') {
             None => {
                 let method = call.request.method.clone();
@@ -387,7 +384,7 @@ impl VarlinkService {
         let mut bufreader = BufReader::new(reader);
         loop {
             let mut buf = Vec::new();
-            let read_bytes = bufreader.read_until(b'\0', &mut buf).unwrap();
+            let read_bytes = bufreader.read_until(b'\0', &mut buf)?;
             if read_bytes > 0 {
                 buf.pop();
                 let req: Request = serde_json::from_slice(&buf)?;

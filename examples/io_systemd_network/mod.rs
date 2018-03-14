@@ -94,11 +94,11 @@ pub trait Interface {
 }
 
 pub struct InterfaceImpl {
-    inner: Box<Interface>,
+    inner: Box<Interface + Send + Sync>,
 }
 
-pub fn new(inner: Box<Interface>) -> Box<InterfaceImpl> {
-    Box::new(InterfaceImpl { inner })
+pub fn new(inner: Box<Interface + Send + Sync>) -> InterfaceImpl {
+    InterfaceImpl { inner }
 }
 
 impl varlink::server::Interface for InterfaceImpl {

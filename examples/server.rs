@@ -17,11 +17,11 @@ mod io_systemd_network {
 
 use io_systemd_network::*;
 
-struct MyServer {
+struct MyIoSystemdNetwork {
     pub state: Arc<RwLock<i64>>,
 }
 
-impl io_systemd_network::Interface for MyServer {
+impl io_systemd_network::Interface for MyIoSystemdNetwork {
     fn info(&self, call: &mut varlink::server::Call, i: Option<i64>) -> io::Result<()> {
         // State example
         {
@@ -44,6 +44,9 @@ impl io_systemd_network::Interface for MyServer {
                                                 ifindex: Some(2),
                                                 ifname: Some("eth".into()),
                                             }));
+            }
+            Some(3) => {
+                return call.reply_info(None);
             }
             _ => {
                 return call.reply_unknown_network_if_index(i);
@@ -71,11 +74,6 @@ impl io_systemd_network::Interface for MyServer {
                                          }]));
 
     }
-
-    fn call_upgraded(&self, call: &mut varlink::server::Call) -> io::Result<()> {
-        call.upgraded = false;
-        Ok(())
-    }
 }
 
 fn run_app() -> io::Result<()> {
@@ -84,20 +82,20 @@ fn run_app() -> io::Result<()> {
         let listener = TcpListener::bind(addr)?;
         let state = Arc::new(RwLock::new(0));
         println!("Listening on {}", addr);
-        let myserver = MyServer { state };
-        let myintf = io_systemd_network::new(Box::new(myserver));
-        let server = Arc::new(VarlinkService::new("org.varlink",
-                                                  "test service",
-                                                  "0.1",
-                                                  "http://varlink.org",
-                                                  vec![Box::new(myintf)]));
+        let myiosystemdnetwork = MyIoSystemdNetwork { state };
+        let myinterface = io_systemd_network::new(Box::new(myiosystemdnetwork));
+        let service = Arc::new(VarlinkService::new("org.varlink",
+                                                   "test service",
+                                                   "0.1",
+                                                   "http://varlink.org",
+                                                   vec![Box::new(myinterface)]));
 
         loop {
             let (mut stream, _addr) = listener.accept()?;
-            let server = server.clone();
+            let service = service.clone();
             let _join = thread::spawn(move || -> io::Result<()> {
                 let mut stream_clone = stream.try_clone().expect("clone failed...");
-                if let Err(e) = server.handle(&mut stream, &mut stream_clone) {
+                if let Err(e) = service.handle(&mut stream, &mut stream_clone) {
                     println!("Handle Error: {}", e);
                 }
                 let _ = stream.shutdown(Shutdown::Both);

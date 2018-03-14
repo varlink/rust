@@ -276,7 +276,7 @@ error InvalidParameter (parameter: string)
                     Some(x) => x + 1,
                 };
                 let m = String::from(&method[n..]);
-                return call.reply_method_not_found(Some(m.clone().into()));
+                return call.reply_method_not_found(Some(m.into()));
             }
         }
     }

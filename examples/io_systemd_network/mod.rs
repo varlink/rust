@@ -16,7 +16,6 @@ pub struct NetdevInfo {
     pub ifname: Option<String>,
 }
 
-
 #[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Debug)]
 struct Info_Reply {
@@ -83,7 +82,9 @@ impl<'a> Reply for varlink::server::Call<'a> {
 pub trait Interface {
     fn info(&self, &mut varlink::server::Call, ifindex: Option<i64>) -> io::Result<()>;
     fn list(&self, &mut varlink::server::Call) -> io::Result<()>;
-    fn call_upgraded(&self, &mut varlink::server::Call) -> io::Result<()>;
+    fn call_upgraded(&self, &mut varlink::server::Call) -> io::Result<()> {
+        Ok(())
+    }
 }
 
 pub struct InterfaceImpl {

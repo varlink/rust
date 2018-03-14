@@ -67,6 +67,7 @@ impl<'a> Call<'a> {
         let mut buf = serde_json::to_vec(&reply)?;
         buf.push(0);
         self.writer.write_all(&mut buf)?;
+        self.writer.flush()?;
         Ok(())
     }
 
@@ -74,6 +75,7 @@ impl<'a> Call<'a> {
         let mut buf = serde_json::to_vec(&reply)?;
         buf.push(0);
         self.writer.write_all(&mut buf)?;
+        self.writer.flush()?;
         Ok(())
     }
 }
@@ -160,11 +162,13 @@ impl From<VarlinkError> for Reply {
     }
 }
 
+/*
 impl From<serde_json::Error> for Reply {
     fn from(_e: serde_json::Error) -> Self {
         VarlinkError::InvalidParameter(Some(_e.to_string().into())).into()
     }
 }
+*/
 
 #[derive(Deserialize)]
 struct GetInterfaceArgs {

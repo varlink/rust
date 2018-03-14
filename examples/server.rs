@@ -3,7 +3,7 @@ extern crate serde_json;
 extern crate serde_derive;
 use std::io;
 use std::thread;
-
+use std::process::exit;
 extern crate varlink;
 
 use varlink::server::VarlinkService;
@@ -31,32 +31,22 @@ impl io_systemd_network::Interface for MyServer {
 
             println!("{}", *number);
         }
-        println!("Call: {:?}", call.request);
+
         match i {
             Some(1) => {
-                return call.reply(
-                    InfoReply {
-                        info: Some(NetdevInfo {
-                            ifindex: Some(1),
-                            ifname: Some("lo".into()),
-                        }),
-                    }.into(),
-                )
+                return call.reply_info(Some(NetdevInfo {
+                                                ifindex: Some(1),
+                                                ifname: Some("lo".into()),
+                                            }));
             }
             Some(2) => {
-                return call.reply(
-                    InfoReply {
-                        info: Some(NetdevInfo {
-                            ifindex: Some(2),
-                            ifname: Some("eth0".into()),
-                        }),
-                    }.into(),
-                )
+                return call.reply_info(Some(NetdevInfo {
+                                                ifindex: Some(2),
+                                                ifname: Some("eth".into()),
+                                            }));
             }
             _ => {
-                return call.reply(Error::UnknownNetworkIfIndex(Some(UnknownNetworkIfIndexArgs {
-                                                                        ifindex: i,
-                                                                    })).into())
+                return call.reply_unknown_network_if_index(i);
             }
         }
     }
@@ -70,19 +60,21 @@ impl io_systemd_network::Interface for MyServer {
 
             println!("{}", *number);
         }
-        println!("Call: {:?}", call.request);
-        return call.reply(
-            ListReply {
-                netdevs: Some(vec![Netdev {
-                         ifindex: Some(1),
-                         ifname: Some("lo".into()),
-                     },
-                     Netdev {
-                         ifindex: Some(2),
-                         ifname: Some("eth0".into()),
-                     }]),
-            }.into(),
-        );
+
+        return call.reply_list(Some(vec![Netdev {
+                                             ifindex: Some(1),
+                                             ifname: Some("lo".into()),
+                                         },
+                                         Netdev {
+                                             ifindex: Some(2),
+                                             ifname: Some("eth0".into()),
+                                         }]));
+
+    }
+
+    fn call_upgraded(&self, call: &mut varlink::server::Call) -> io::Result<()> {
+        call.upgraded = false;
+        Ok(())
     }
 }
 
@@ -117,11 +109,11 @@ fn run_app() -> io::Result<()> {
 }
 
 fn main() {
-    ::std::process::exit(match run_app() {
-                             Ok(_) => 0,
-                             Err(err) => {
-                                 eprintln!("error: {}", err);
-                                 1
-                             }
-                         });
+    exit(match run_app() {
+             Ok(_) => 0,
+             Err(err) => {
+                 eprintln!("error: {}", err);
+                 1
+             }
+         });
 }

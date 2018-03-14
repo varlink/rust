@@ -10,9 +10,10 @@ pub trait Interface {
     fn get_description(&self) -> &'static str;
     fn get_name(&self) -> &'static str;
     fn call(&self, &mut Call) -> io::Result<()>;
+    fn call_upgraded(&self, &mut Call) -> io::Result<()>;
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Request {
     pub more: Option<bool>,
     pub oneshot: Option<bool>,
@@ -52,8 +53,7 @@ impl Reply {
 }
 
 impl<T> From<T> for Reply
-    where T: VarlinkReply,
-          T: Serialize
+    where T: VarlinkReply + Serialize
 {
     fn from(a: T) -> Self {
         Reply::parameters(serde_json::to_value(a).unwrap())
@@ -62,49 +62,111 @@ impl<T> From<T> for Reply
 
 pub struct Call<'a> {
     writer: &'a mut Write,
-    pub request: &'a Request,
+    pub request: Option<&'a Request>,
+    pub continues: bool,
+    pub upgraded: bool,
 }
 
 impl<'a> Call<'a> {
     fn new(writer: &'a mut Write, request: &'a Request) -> Self {
-        Call { writer, request }
+        Call {
+            writer,
+            request: Some(request),
+            continues: false,
+            upgraded: false,
+        }
     }
-
+    fn new_upgraded(writer: &'a mut Write) -> Self {
+        Call {
+            writer,
+            request: None,
+            continues: false,
+            upgraded: false,
+        }
+    }
     pub fn is_oneshot(&self) -> bool {
-        if let Some(val) = self.request.oneshot {
-            val
-        } else {
-            false
+        match self.request {
+            Some(req) => {
+                if let Some(val) = req.oneshot {
+                    val
+                } else {
+                    false
+                }
+            }
+            None => false,
         }
     }
 
     pub fn wants_more(&self) -> bool {
-        if let Some(val) = self.request.more {
-            val
-        } else {
-            false
+        match self.request {
+            Some(req) => if let Some(val) = req.more { val } else { false },
+            None => false,
         }
     }
 
-    pub fn reply(&mut self, reply: Reply) -> io::Result<()> {
-        let mut buf = serde_json::to_vec(&reply)?;
-        buf.push(0);
-        self.writer.write_all(&mut buf)?;
-        self.writer.flush()?;
-        Ok(())
-    }
-
-    pub fn reply_more(&mut self, mut reply: Reply) -> io::Result<()> {
-        if !self.wants_more() {
+    pub fn reply(&mut self, mut reply: Reply) -> io::Result<()> {
+        if self.continues && !self.wants_more() {
             return Err(Error::new(ErrorKind::Other,
-                                  "Call::reply_more() called without more in the request"));
+                                  "Call::reply() called with continues, but without more in the request"));
         }
-        reply.continues = Some(true);
+        if self.continues {
+            reply.continues = Some(true);
+        }
         let mut buf = serde_json::to_vec(&reply)?;
         buf.push(0);
         self.writer.write_all(&mut buf)?;
         self.writer.flush()?;
         Ok(())
+    }
+
+    fn reply_interface_not_found(&mut self, arg: Option<String>) -> io::Result<()> {
+        self.reply(Reply::error(
+            "org.varlink.service.InterfaceNotFound".into(),
+            match arg {
+                Some(a) => {
+                    let s = format!("{{  \"interface\" : \"{}\" }}", a);
+                    Some(serde_json::from_str(s.as_ref()).unwrap())
+                }
+                None => None,
+            },
+        ))
+    }
+
+    pub fn reply_method_not_found(&mut self, arg: Option<String>) -> io::Result<()> {
+        self.reply(Reply::error(
+            "org.varlink.service.MethodNotFound".into(),
+            match arg {
+                Some(a) => {
+                    let s = format!("{{  \"method\" : \"{}\" }}", a);
+                    Some(serde_json::from_str(s.as_ref()).unwrap())
+                }
+                None => None,
+            },
+        ))
+    }
+
+    pub fn reply_method_not_implemented(&mut self, arg: Option<String>) -> io::Result<()> {
+        self.reply(Reply::error("org.varlink.service.MethodNotImplemented".into(),
+                                match arg {
+                                    Some(a) => {
+                                        let s = format!("{{  \"method\" : \"{}\" }}", a);
+                                        Some(serde_json::from_str(s.as_ref()).unwrap())
+                                    }
+                                    None => None,
+                                }))
+    }
+
+    pub fn reply_invalid_parameter(&mut self, arg: Option<String>) -> io::Result<()> {
+        self.reply(Reply::error(
+            "org.varlink.service.InvalidParameter".into(),
+            match arg {
+                Some(a) => {
+                    let s = format!("{{  \"parameter\" : \"{}\" }}", a);
+                    Some(serde_json::from_str(s.as_ref()).unwrap())
+                }
+                None => None,
+            },
+        ))
     }
 
     fn reply_parameters(&mut self, parameters: Value) -> io::Result<()> {
@@ -117,118 +179,12 @@ impl<'a> Call<'a> {
     }
 }
 
-/*
-# The requested interface was not found.
-error InterfaceNotFound (interface: string)
-
-# The requested method was not found
-error MethodNotFound (method: string)
-
-# The interface defines the requested method, but the service does not
-# implement it.
-error MethodNotImplemented (method: string)
-
-# One of the passed parameters is invalid.
-error InvalidParameter (parameter: string)
-*/
-
-#[derive(Debug)]
-pub enum VarlinkError {
-    InterfaceNotFound(Option<Cow<'static, str>>),
-    MethodNotFound(Option<Cow<'static, str>>),
-    MethodNotImplemented(Option<Cow<'static, str>>),
-    InvalidParameter(Option<Cow<'static, str>>),
-}
-
-impl From<VarlinkError> for Reply {
-    fn from(e: VarlinkError) -> Self {
-        Reply::error(match e {
-                         VarlinkError::MethodNotFound(_) => {
-                             "org.varlink.service.MethodNotFound".into()
-                         }
-                         VarlinkError::InterfaceNotFound(_) => {
-                             "org.varlink.service.InterfaceNotFound".into()
-                         }
-                         VarlinkError::MethodNotImplemented(_) => {
-                             "org.varlink.service.MethodNotImplemented".into()
-                         }
-                         VarlinkError::InvalidParameter(_) => {
-                             "org.varlink.service.InvalidParameter".into()
-                         }
-                     },
-                     match e {
-                         VarlinkError::InterfaceNotFound(m) => {
-                             match m {
-                                 Some(i) => Some(
-                        serde_json::from_str(format!("{{ \"interface\" : \"{}\" }}", i).as_ref())
-                            .unwrap(),
-                    ),
-                                 None => None,
-                             }
-                         }
-                         VarlinkError::MethodNotFound(m) => {
-                             match m {
-                                 Some(me) => {
-                                     let method: String = me.into();
-                                     let n: usize = match method.rfind('.') {
-                                         None => 0,
-                                         Some(x) => x + 1,
-                                     };
-                                     let (_, method) = method.split_at(n);
-                                     let s = format!("{{  \"method\" : \"{}\" }}", method);
-                                     Some(serde_json::from_str(s.as_ref()).unwrap())
-                                 }
-                                 None => None,
-                             }
-                         }
-                         VarlinkError::MethodNotImplemented(m) => {
-                             match m {
-                                 Some(me) => {
-                                     let method: String = me.into();
-                                     let n: usize = match method.rfind('.') {
-                                         None => 0,
-                                         Some(x) => x + 1,
-                                     };
-                                     let (_, method) = method.split_at(n);
-                                     let s = format!("{{  \"method\" : \"{}\" }}", method);
-                                     Some(serde_json::from_str(s.as_ref()).unwrap())
-                                 }
-                                 None => None,
-                             }
-                         }
-                         VarlinkError::InvalidParameter(m) => {
-                             match m {
-                                 Some(i) => Some(
-                        serde_json::from_str(format!("{{ \"parameter\" : \"{}\" }}", i).as_ref())
-                            .unwrap(),
-                    ),
-                                 None => None,
-                             }
-                         }
-                     })
-    }
-}
-
-/*
-impl From<serde_json::Error> for Reply {
-    fn from(_e: serde_json::Error) -> Self {
-        VarlinkError::InvalidParameter(Some(_e.to_string().into())).into()
-    }
-}
-*/
-
 #[derive(Deserialize)]
 struct GetInterfaceArgs {
     interface: Cow<'static, str>,
 }
 
-#[derive(Serialize, Deserialize, Default)]
-struct Property {
-    key: Cow<'static, str>,
-    value: Cow<'static, str>,
-}
-
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize)]
 struct ServiceInfo {
     vendor: Cow<'static, str>,
     product: Cow<'static, str>,
@@ -282,15 +238,16 @@ error InvalidParameter (parameter: string)
     }
 
     fn call(&self, call: &mut Call) -> io::Result<()> {
-        match call.request.method.as_ref() {
+        let req = call.request.unwrap();
+        match req.method.as_ref() {
             "org.varlink.service.GetInfo" => {
                 return call.reply_parameters(serde_json::to_value(&self.info)?);
             }
             "org.varlink.service.GetInterfaceDescription" => {
-                if call.request.parameters == None {
-                    return call.reply(VarlinkError::InvalidParameter(None).into());
+                if req.parameters == None {
+                    return call.reply_invalid_parameter(None);
                 }
-                if let Some(val) = call.request.parameters.clone() {
+                if let Some(val) = req.parameters.clone() {
                     let args: GetInterfaceArgs = serde_json::from_value(val)?;
                     match args.interface.as_ref() {
                         "org.varlink.service" => {
@@ -304,27 +261,28 @@ error InvalidParameter (parameter: string)
                                     json!({"description": self.ifaces[key].get_description()}),
                                 );
                             } else {
-                                return call.reply(
-                                    VarlinkError::InvalidParameter(Some("interface".into())).into(),
-                                );
+                                return call.reply_invalid_parameter(Some("interface".into()));
                             }
                         }
                     }
                 } else {
-                    return call.reply(VarlinkError::InvalidParameter(Some("interface".into()))
-                                          .into());
+                    return call.reply_invalid_parameter(Some("interface".into()));
                 }
             }
             _ => {
-                let method: String = call.request.method.clone().into();
+                let method: String = req.method.clone().into();
                 let n: usize = match method.rfind('.') {
                     None => 0,
                     Some(x) => x + 1,
                 };
                 let m = String::from(&method[n..]);
-                return call.reply(VarlinkError::MethodNotFound(Some(m.clone().into())).into());
+                return call.reply_method_not_found(Some(m.clone().into()));
             }
         }
+    }
+    fn call_upgraded(&self, call: &mut Call) -> io::Result<()> {
+        call.upgraded = false;
+        Ok(())
     }
 }
 
@@ -351,30 +309,32 @@ impl VarlinkService {
                 version: String::from(version).into(),
                 url: String::from(url).into(),
                 interfaces: ifnames,
-                ..Default::default()
             },
             ifaces: ifhashmap,
         }
     }
 
-    fn call(&self, call: &mut Call) -> io::Result<()> {
-        let n: usize = match call.request.method.rfind('.') {
-            None => {
-                let method = call.request.method.clone();
-                return call.reply(VarlinkError::InterfaceNotFound(Some(method.into())).into());
-            }
-            Some(x) => x,
-        };
-        let iface = String::from(&call.request.method[..n]);
-
+    fn call(&self, iface: String, call: &mut Call) -> io::Result<()> {
         match iface.as_ref() {
             "org.varlink.service" => return self::Interface::call(self, call),
             key => {
                 if self.ifaces.contains_key(key) {
                     return self.ifaces[key].call(call);
                 } else {
-                    return call.reply(VarlinkError::InterfaceNotFound(Some(iface.clone().into()))
-                                          .into());
+                    return call.reply_interface_not_found(Some(iface.clone().into()));
+                }
+            }
+        }
+    }
+
+    fn call_upgraded(&self, iface: String, call: &mut Call) -> io::Result<()> {
+        match iface.as_ref() {
+            "org.varlink.service" => return self::Interface::call_upgraded(self, call),
+            key => {
+                if self.ifaces.contains_key(key) {
+                    return self.ifaces[key].call_upgraded(call);
+                } else {
+                    return call.reply_interface_not_found(Some(iface.clone().into()));
                 }
             }
         }
@@ -382,15 +342,39 @@ impl VarlinkService {
 
     pub fn handle(&self, reader: &mut Read, writer: &mut Write) -> io::Result<()> {
         let mut bufreader = BufReader::new(reader);
+        let mut upgraded = false;
+        let mut last_iface = String::from("");
         loop {
-            let mut buf = Vec::new();
-            let read_bytes = bufreader.read_until(b'\0', &mut buf)?;
-            if read_bytes > 0 {
-                buf.pop();
-                let req: Request = serde_json::from_slice(&buf)?;
-                self.call(&mut Call::new(writer, &req))?;
+            if !upgraded {
+                let mut buf = Vec::new();
+                let read_bytes = bufreader.read_until(b'\0', &mut buf)?;
+                if read_bytes > 0 {
+                    buf.pop();
+                    let req: Request = serde_json::from_slice(&buf)?;
+                    let mut call = Call::new(writer, &req);
+
+                    let n: usize = match req.method.rfind('.') {
+                        None => {
+                            let method = req.method.clone();
+                            return call.reply_interface_not_found(Some(method.into()));
+                        }
+                        Some(x) => x,
+                    };
+
+                    let iface = String::from(&req.method[..n]);
+
+                    self.call(iface.clone(), &mut call)?;
+                    upgraded = call.upgraded;
+                    if upgraded {
+                        last_iface = iface;
+                    }
+                } else {
+                    break;
+                }
             } else {
-                break;
+                let mut call = Call::new_upgraded(writer);
+                self.call_upgraded(last_iface.clone(), &mut call)?;
+                upgraded = call.upgraded;
             }
         }
         Ok(())

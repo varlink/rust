@@ -4,7 +4,7 @@ use serde::ser::Serialize;
 use std::convert::From;
 use std::collections::HashMap;
 use std::borrow::Cow;
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::io::{self, BufRead, BufReader, Error, ErrorKind, Read, Write};
 
 pub trait Interface {
     fn get_description(&self) -> &'static str;
@@ -14,6 +14,9 @@ pub trait Interface {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Request {
+    pub more: Option<bool>,
+    pub oneshot: Option<bool>,
+    pub upgrade: Option<bool>,
     pub method: Cow<'static, str>,
     pub parameters: Option<Value>,
 }
@@ -22,6 +25,8 @@ pub trait VarlinkReply {}
 
 #[derive(Serialize, Deserialize)]
 pub struct Reply {
+    continues: Option<bool>,
+    upgraded: Option<bool>,
     error: Option<Cow<'static, str>>,
     parameters: Option<Value>,
 }
@@ -29,6 +34,8 @@ pub struct Reply {
 impl Reply {
     pub fn parameters(parameters: Value) -> Self {
         Reply {
+            continues: None,
+            upgraded: None,
             error: None,
             parameters: Some(parameters),
         }
@@ -36,6 +43,8 @@ impl Reply {
 
     pub fn error(name: Cow<'static, str>, parameters: Option<Value>) -> Self {
         Reply {
+            continues: None,
+            upgraded: None,
             error: Some(name),
             parameters,
         }
@@ -62,8 +71,23 @@ impl<'a> Call<'a> {
         Call { writer, request }
     }
 
-    fn reply_parameters(&mut self, parameters: Value) -> io::Result<()> {
-        let reply = Reply::parameters(parameters);
+    pub fn is_oneshot(&self) -> bool {
+        if let Some(val) = self.request.oneshot {
+            val
+        } else {
+            false
+        }
+    }
+
+    pub fn wants_more(&self) -> bool {
+        if let Some(val) = self.request.more {
+            val
+        } else {
+            false
+        }
+    }
+
+    pub fn reply(&mut self, reply: Reply) -> io::Result<()> {
         let mut buf = serde_json::to_vec(&reply)?;
         buf.push(0);
         self.writer.write_all(&mut buf)?;
@@ -71,7 +95,20 @@ impl<'a> Call<'a> {
         Ok(())
     }
 
-    pub fn reply(&mut self, reply: Reply) -> io::Result<()> {
+    pub fn reply_more(&mut self, mut reply: Reply) -> io::Result<()> {
+        if !self.wants_more() {
+            return Err(Error::new(ErrorKind::Other, "oh no!"));
+        }
+        reply.continues = Some(true);
+        let mut buf = serde_json::to_vec(&reply)?;
+        buf.push(0);
+        self.writer.write_all(&mut buf)?;
+        self.writer.flush()?;
+        Ok(())
+    }
+
+    fn reply_parameters(&mut self, parameters: Value) -> io::Result<()> {
+        let reply = Reply::parameters(parameters);
         let mut buf = serde_json::to_vec(&reply)?;
         buf.push(0);
         self.writer.write_all(&mut buf)?;
@@ -105,8 +142,8 @@ pub enum VarlinkError {
 
 impl From<VarlinkError> for Reply {
     fn from(e: VarlinkError) -> Self {
-        Reply {
-            error: Some(match e {
+        Reply::error(
+            match e {
                 VarlinkError::MethodNotFound(_) => "org.varlink.service.MethodNotFound".into(),
                 VarlinkError::InterfaceNotFound(_) => {
                     "org.varlink.service.InterfaceNotFound".into()
@@ -115,8 +152,8 @@ impl From<VarlinkError> for Reply {
                     "org.varlink.service.MethodNotImplemented".into()
                 }
                 VarlinkError::InvalidParameter(_) => "org.varlink.service.InvalidParameter".into(),
-            }),
-            parameters: match e {
+            },
+            match e {
                 VarlinkError::InterfaceNotFound(m) => match m {
                     Some(i) => Some(
                         serde_json::from_str(format!("{{ \"interface\" : \"{}\" }}", i).as_ref())
@@ -158,7 +195,7 @@ impl From<VarlinkError> for Reply {
                     None => None,
                 },
             },
-        }
+        )
     }
 }
 

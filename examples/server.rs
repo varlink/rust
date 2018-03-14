@@ -66,6 +66,17 @@ impl io_systemd_network::Interface for MyServer {
             println!("{}", *number);
         }
         println!("Call: {:?}", call.request);
+        call.reply_more(
+            ListReply {
+                netdevs: Some(vec![
+                    Netdev {
+                        ifindex: Some(1),
+                        ifname: Some("lo".into()),
+                    },
+                ]),
+            }.into(),
+        )?;
+
         return call.reply(
             ListReply {
                 netdevs: Some(vec![

@@ -53,7 +53,8 @@ impl Reply {
 }
 
 impl<T> From<T> for Reply
-    where T: VarlinkReply + Serialize
+where
+    T: VarlinkReply + Serialize,
 {
     fn from(a: T) -> Self {
         Reply::parameters(serde_json::to_value(a).unwrap())
@@ -65,6 +66,29 @@ pub struct Call<'a> {
     pub request: Option<&'a Request>,
     pub continues: bool,
     pub upgraded: bool,
+}
+
+pub trait CallTrait {
+    fn reply_struct(&mut self, Reply) -> io::Result<()>;
+}
+
+impl<'a> CallTrait for Call<'a> {
+    fn reply_struct(&mut self, mut reply: Reply) -> io::Result<()> {
+        if self.continues && !self.wants_more() {
+            return Err(Error::new(
+                ErrorKind::Other,
+                "Call::reply() called with continues, but without more in the request",
+            ));
+        }
+        if self.continues {
+            reply.continues = Some(true);
+        }
+        let mut buf = serde_json::to_vec(&reply)?;
+        buf.push(0);
+        self.writer.write_all(&mut buf)?;
+        self.writer.flush()?;
+        Ok(())
+    }
 }
 
 impl<'a> Call<'a> {
@@ -99,28 +123,17 @@ impl<'a> Call<'a> {
 
     pub fn wants_more(&self) -> bool {
         match self.request {
-            Some(req) => if let Some(val) = req.more { val } else { false },
+            Some(req) => if let Some(val) = req.more {
+                val
+            } else {
+                false
+            },
             None => false,
         }
     }
 
-    pub fn reply(&mut self, mut reply: Reply) -> io::Result<()> {
-        if self.continues && !self.wants_more() {
-            return Err(Error::new(ErrorKind::Other,
-                                  "Call::reply() called with continues, but without more in the request"));
-        }
-        if self.continues {
-            reply.continues = Some(true);
-        }
-        let mut buf = serde_json::to_vec(&reply)?;
-        buf.push(0);
-        self.writer.write_all(&mut buf)?;
-        self.writer.flush()?;
-        Ok(())
-    }
-
     fn reply_interface_not_found(&mut self, arg: Option<String>) -> io::Result<()> {
-        self.reply(Reply::error(
+        self.reply_struct(Reply::error(
             "org.varlink.service.InterfaceNotFound".into(),
             match arg {
                 Some(a) => {
@@ -133,7 +146,7 @@ impl<'a> Call<'a> {
     }
 
     pub fn reply_method_not_found(&mut self, arg: Option<String>) -> io::Result<()> {
-        self.reply(Reply::error(
+        self.reply_struct(Reply::error(
             "org.varlink.service.MethodNotFound".into(),
             match arg {
                 Some(a) => {
@@ -146,18 +159,20 @@ impl<'a> Call<'a> {
     }
 
     pub fn reply_method_not_implemented(&mut self, arg: Option<String>) -> io::Result<()> {
-        self.reply(Reply::error("org.varlink.service.MethodNotImplemented".into(),
-                                match arg {
-                                    Some(a) => {
-                                        let s = format!("{{  \"method\" : \"{}\" }}", a);
-                                        Some(serde_json::from_str(s.as_ref()).unwrap())
-                                    }
-                                    None => None,
-                                }))
+        self.reply_struct(Reply::error(
+            "org.varlink.service.MethodNotImplemented".into(),
+            match arg {
+                Some(a) => {
+                    let s = format!("{{  \"method\" : \"{}\" }}", a);
+                    Some(serde_json::from_str(s.as_ref()).unwrap())
+                }
+                None => None,
+            },
+        ))
     }
 
     pub fn reply_invalid_parameter(&mut self, arg: Option<String>) -> io::Result<()> {
-        self.reply(Reply::error(
+        self.reply_struct(Reply::error(
             "org.varlink.service.InvalidParameter".into(),
             match arg {
                 Some(a) => {
@@ -287,21 +302,24 @@ error InvalidParameter (parameter: string)
 }
 
 impl VarlinkService {
-    pub fn new(vendor: &str,
-               product: &str,
-               version: &str,
-               url: &str,
-               ifaces: Vec<Box<Interface + Send + Sync>>)
-               -> Self {
+    pub fn new(
+        vendor: &str,
+        product: &str,
+        version: &str,
+        url: &str,
+        ifaces: Vec<Box<Interface + Send + Sync>>,
+    ) -> Self {
         let mut ifhashmap = HashMap::<Cow<'static, str>, Box<Interface + Send + Sync>>::new();
         for i in ifaces {
             ifhashmap.insert(i.get_name().into(), i);
         }
         let mut ifnames: Vec<Cow<'static, str>> = Vec::new();
         ifnames.push("org.varlink.service".into());
-        ifnames.extend(ifhashmap
-                           .keys()
-                           .map(|i| Cow::<'static, str>::from(i.clone())));
+        ifnames.extend(
+            ifhashmap
+                .keys()
+                .map(|i| Cow::<'static, str>::from(i.clone())),
+        );
         VarlinkService {
             info: ServiceInfo {
                 vendor: String::from(vendor).into(),

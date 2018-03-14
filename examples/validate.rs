@@ -32,10 +32,7 @@ fn do_main() -> Result<(), IOError> {
 
     match args.len() {
         0 | 1 => io::stdin().read_to_string(&mut buffer)?,
-        _ => {
-            File::open(Path::new(&args[1]))?
-                .read_to_string(&mut buffer)?
-        }
+        _ => File::open(Path::new(&args[1]))?.read_to_string(&mut buffer)?,
     };
 
     match Varlink::from_string(&buffer) {
@@ -49,7 +46,6 @@ fn do_main() -> Result<(), IOError> {
             exit(1);
         }
     };
-
 }
 
 fn main() {

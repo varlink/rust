@@ -195,29 +195,32 @@ impl<'a> Interface<'a> {
             match o {
                 MethodOrTypedefOrError::Method(m) => {
                     if let Some(d) = i.methods.insert(m.name, m) {
-                        i.error
-                            .insert(format!("Interface `{}`: multiple definitions of type `{}`!",
-                                            i.name,
-                                            d.name)
-                                        .into());
+                        i.error.insert(
+                            format!(
+                                "Interface `{}`: multiple definitions of type `{}`!",
+                                i.name, d.name
+                            ).into(),
+                        );
                     };
                 }
                 MethodOrTypedefOrError::Typedef(t) => {
                     if let Some(d) = i.typedefs.insert(t.name, t) {
-                        i.error
-                            .insert(format!("Interface `{}`: multiple definitions of type `{}`!",
-                                            i.name,
-                                            d.name)
-                                        .into());
+                        i.error.insert(
+                            format!(
+                                "Interface `{}`: multiple definitions of type `{}`!",
+                                i.name, d.name
+                            ).into(),
+                        );
                     };
                 }
                 MethodOrTypedefOrError::Error(e) => {
                     if let Some(d) = i.errors.insert(e.name, e) {
-                        i.error
-                            .insert(format!("Interface `{}`: multiple definitions of error `{}`!",
-                                            i.name,
-                                            d.name)
-                                        .into());
+                        i.error.insert(
+                            format!(
+                                "Interface `{}`: multiple definitions of error `{}`!",
+                                i.name, d.name
+                            ).into(),
+                        );
                     };
                 }
             };
@@ -238,7 +241,6 @@ pub struct Varlink<'a> {
 
 impl<'a> Varlink<'a> {
     pub fn from_string(s: &'a str) -> Result<Varlink, String> {
-
         let iface = match VInterface(s) {
             Ok(v) => v,
             Err(e) => {
@@ -250,13 +252,12 @@ impl<'a> Varlink<'a> {
             Err(iface.error.into_iter().sorted().join("\n"))
         } else {
             Ok(Varlink {
-                   string: s,
-                   interface: iface,
-               })
+                string: s,
+                interface: iface,
+            })
         }
     }
 }
-
 
 #[test]
 fn test_standard() {
@@ -324,13 +325,16 @@ fn test_domainnames() {
     assert!(Varlink::from_string("interface org.varlink.service\nmethod F()->()").is_ok());
     assert!(Varlink::from_string("interface com.example.0example\nmethod F()->()").is_ok());
     assert!(Varlink::from_string("interface com.example.example-dash\nmethod F()->()").is_ok());
-    assert!(Varlink::from_string("interface xn--lgbbat1ad8j.example.algeria\nmethod F()->()")
-                .is_ok());
+    assert!(
+        Varlink::from_string("interface xn--lgbbat1ad8j.example.algeria\nmethod F()->()").is_ok()
+    );
     assert!(Varlink::from_string("interface com.-example.leadinghyphen\nmethod F()->()").is_err());
-    assert!(Varlink::from_string("interface com.example-.danglinghyphen-\nmethod F()->()")
-                .is_err());
-    assert!(Varlink::from_string("interface Com.example.uppercase-toplevel\nmethod F()->()")
-                .is_err());
+    assert!(
+        Varlink::from_string("interface com.example-.danglinghyphen-\nmethod F()->()").is_err()
+    );
+    assert!(
+        Varlink::from_string("interface Com.example.uppercase-toplevel\nmethod F()->()").is_err()
+    );
     assert!(Varlink::from_string("interface Co9.example.number-toplevel\nmethod F()->()").is_err());
     assert!(Varlink::from_string("interface 1om.example.number-toplevel\nmethod F()->()").is_err());
     assert!(Varlink::from_string("interface com.Example\nmethod F()->()").is_err());
@@ -362,14 +366,19 @@ fn test_type_one_arg() {
 #[test]
 fn test_type_one_array() {
     assert!(Varlink::from_string("interface foo.bar\n type I (b:bool[])\nmethod  F()->()").is_ok());
-    assert!(Varlink::from_string("interface foo.bar\n type I (b:bool[ ])\nmethod  F()->()")
-                .is_err());
-    assert!(Varlink::from_string("interface foo.bar\n type I (b:bool[1])\nmethod  F()->()")
-                .is_err());
-    assert!(Varlink::from_string("interface foo.bar\n type I (b:bool[ 1 ])\nmethod  F()->()")
-                .is_err());
-    assert!(Varlink::from_string("interface foo.bar\n type I (b:bool[ 1 1 ])\nmethod  F()->()")
-                .is_err());
+    assert!(
+        Varlink::from_string("interface foo.bar\n type I (b:bool[ ])\nmethod  F()->()").is_err()
+    );
+    assert!(
+        Varlink::from_string("interface foo.bar\n type I (b:bool[1])\nmethod  F()->()").is_err()
+    );
+    assert!(
+        Varlink::from_string("interface foo.bar\n type I (b:bool[ 1 ])\nmethod  F()->()").is_err()
+    );
+    assert!(
+        Varlink::from_string("interface foo.bar\n type I (b:bool[ 1 1 ])\nmethod  F()->()")
+            .is_err()
+    );
 }
 
 #[test]

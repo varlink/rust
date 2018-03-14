@@ -1,6 +1,6 @@
-extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
+extern crate serde_json;
 use std::io;
 use std::thread;
 use std::process::exit;
@@ -21,8 +21,8 @@ struct MyIoSystemdNetwork {
     pub state: Arc<RwLock<i64>>,
 }
 
-impl io_systemd_network::Interface for MyIoSystemdNetwork {
-    fn info(&self, call: &mut varlink::server::Call, i: Option<i64>) -> io::Result<()> {
+impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
+    fn info(&self, call: &mut _CallInfo, i: Option<i64>) -> io::Result<()> {
         // State example
         {
             let mut number = self.state.write().unwrap();
@@ -34,19 +34,19 @@ impl io_systemd_network::Interface for MyIoSystemdNetwork {
 
         match i {
             Some(1) => {
-                return call.reply_info(Some(NetdevInfo {
-                                                ifindex: Some(1),
-                                                ifname: Some("lo".into()),
-                                            }));
+                return call.reply(Some(NetdevInfo {
+                    ifindex: Some(1),
+                    ifname: Some("lo".into()),
+                }));
             }
             Some(2) => {
-                return call.reply_info(Some(NetdevInfo {
-                                                ifindex: Some(2),
-                                                ifname: Some("eth".into()),
-                                            }));
+                return call.reply(Some(NetdevInfo {
+                    ifindex: Some(2),
+                    ifname: Some("eth".into()),
+                }));
             }
             Some(3) => {
-                return call.reply_info(None);
+                return call.reply(None);
             }
             _ => {
                 return call.reply_unknown_network_if_index(i);
@@ -54,7 +54,7 @@ impl io_systemd_network::Interface for MyIoSystemdNetwork {
         }
     }
 
-    fn list(&self, call: &mut varlink::server::Call) -> io::Result<()> {
+    fn list(&self, call: &mut _CallList) -> io::Result<()> {
         // State example
         {
             let mut number = self.state.write().unwrap();
@@ -64,15 +64,16 @@ impl io_systemd_network::Interface for MyIoSystemdNetwork {
             println!("{}", *number);
         }
 
-        return call.reply_list(Some(vec![Netdev {
-                                             ifindex: Some(1),
-                                             ifname: Some("lo".into()),
-                                         },
-                                         Netdev {
-                                             ifindex: Some(2),
-                                             ifname: Some("eth0".into()),
-                                         }]));
-
+        return call.reply(Some(vec![
+            Netdev {
+                ifindex: Some(1),
+                ifname: Some("lo".into()),
+            },
+            Netdev {
+                ifindex: Some(2),
+                ifname: Some("eth0".into()),
+            },
+        ]));
     }
 }
 
@@ -84,11 +85,13 @@ fn run_app() -> io::Result<()> {
         println!("Listening on {}", addr);
         let myiosystemdnetwork = MyIoSystemdNetwork { state };
         let myinterface = io_systemd_network::new(Box::new(myiosystemdnetwork));
-        let service = Arc::new(VarlinkService::new("org.varlink",
-                                                   "test service",
-                                                   "0.1",
-                                                   "http://varlink.org",
-                                                   vec![Box::new(myinterface)]));
+        let service = Arc::new(VarlinkService::new(
+            "org.varlink",
+            "test service",
+            "0.1",
+            "http://varlink.org",
+            vec![Box::new(myinterface)],
+        ));
 
         loop {
             let (mut stream, _addr) = listener.accept()?;
@@ -108,10 +111,10 @@ fn run_app() -> io::Result<()> {
 
 fn main() {
     exit(match run_app() {
-             Ok(_) => 0,
-             Err(err) => {
-                 eprintln!("error: {}", err);
-                 1
-             }
-         });
+        Ok(_) => 0,
+        Err(err) => {
+            eprintln!("error: {}", err);
+            1
+        }
+    });
 }

@@ -63,7 +63,6 @@ impl From<IOError> for ToRustError {
     }
 }
 
-
 impl fmt::Display for ToRustError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.description())?;
@@ -81,8 +80,10 @@ impl<'a> ToRust for VType<'a> {
             VType::VData(_) => Ok("String".into()),
             VType::VTypename(v) => Ok(v.into()),
             VType::VEnum(ref v) => {
-                enumhash.insert(parent.into(),
-                                Vec::from_iter(v.elts.iter().map(|s| String::from(*s))));
+                enumhash.insert(
+                    parent.into(),
+                    Vec::from_iter(v.elts.iter().map(|s| String::from(*s))),
+                );
                 Ok(format!("{}", parent).into())
             }
             VType::VStruct(_) => Ok(format!("{}", parent).into()),
@@ -106,12 +107,12 @@ fn dotted_to_camel_case(s: &str) -> String {
     s.split('.')
         .map(|piece| piece.chars())
         .flat_map(|mut chars| {
-                      chars
-                          .nth(0)
-                          .expect("empty section between dots!")
-                          .to_uppercase()
-                          .chain(chars)
-                  })
+            chars
+                .nth(0)
+                .expect("empty section between dots!")
+                .to_uppercase()
+                .chain(chars)
+        })
         .collect()
 }
 
@@ -130,12 +131,12 @@ impl<'a> InterfaceToRust for Interface<'a> {
                 VStructOrEnum::VStruct(ref v) => {
                     out += format!("pub struct {} {{\n", t.name).as_ref();
                     for e in &v.elts {
-                        out += format!("    pub {}: Option<{}>,\n",
-                                       e.name,
-                                       e.vtype
-                                           .to_rust(format!("{}_{}", t.name, e.name).as_ref(),
-                                                    &mut enumhash)?)
-                            .as_ref();
+                        out += format!(
+                            "    pub {}: Option<{}>,\n",
+                            e.name,
+                            e.vtype
+                                .to_rust(format!("{}_{}", t.name, e.name).as_ref(), &mut enumhash)?
+                        ).as_ref();
                     }
                 }
                 VStructOrEnum::VEnum(ref v) => {
@@ -158,10 +159,11 @@ impl<'a> InterfaceToRust for Interface<'a> {
                 out += "#[derive(Serialize, Deserialize, Debug)]\n";
                 out += format!("pub struct {}Reply {{\n", t.name).as_ref();
                 for e in &t.output.elts {
-                    out += format!("    pub {}: Option<{}>,\n",
-                                   e.name,
-                                   e.vtype.to_rust(self.name, &mut enumhash)?)
-                        .as_ref();
+                    out += format!(
+                        "    pub {}: Option<{}>,\n",
+                        e.name,
+                        e.vtype.to_rust(self.name, &mut enumhash)?
+                    ).as_ref();
                 }
                 out += "}\n\n";
             }
@@ -170,14 +172,14 @@ impl<'a> InterfaceToRust for Interface<'a> {
                 out += "#[derive(Serialize, Deserialize, Debug)]\n";
                 out += format!("pub struct {}Args {{\n", t.name).as_ref();
                 for e in &t.input.elts {
-                    out += format!("    pub {}: Option<{}>,\n",
-                                   e.name,
-                                   e.vtype.to_rust(self.name, &mut enumhash)?)
-                        .as_ref();
+                    out += format!(
+                        "    pub {}: Option<{}>,\n",
+                        e.name,
+                        e.vtype.to_rust(self.name, &mut enumhash)?
+                    ).as_ref();
                 }
                 out += "}\n\n";
             }
-
         }
 
         for t in self.errors.values() {
@@ -185,14 +187,14 @@ impl<'a> InterfaceToRust for Interface<'a> {
                 out += "#[derive(Serialize, Deserialize, Debug)]\n";
                 out += format!("pub struct {}Args {{\n", t.name).as_ref();
                 for e in &t.parm.elts {
-                    out += format!("    pub {}: Option<{}>,\n",
-                                   e.name,
-                                   e.vtype.to_rust(self.name, &mut enumhash)?)
-                        .as_ref();
+                    out += format!(
+                        "    pub {}: Option<{}>,\n",
+                        e.name,
+                        e.vtype.to_rust(self.name, &mut enumhash)?
+                    ).as_ref();
                 }
                 out += "}\n\n";
             }
-
         }
 
         if self.errors.len() > 0 {
@@ -219,7 +221,11 @@ impl From<Error> for varlink::server::Error {
 "#,
                     t.name,
                     {
-                        if t.parm.elts.len() > 0 { "(_)" } else { "" }
+                        if t.parm.elts.len() > 0 {
+                            "(_)"
+                        } else {
+                            ""
+                        }
                     },
                     t.name
                 ).as_ref();
@@ -234,7 +240,11 @@ impl From<Error> for varlink::server::Error {
 "#,
                     t.name,
                     {
-                        if t.parm.elts.len() > 0 { "(args)" } else { "" }
+                        if t.parm.elts.len() > 0 {
+                            "(args)"
+                        } else {
+                            ""
+                        }
                     },
                     {
                         if t.parm.elts.len() > 0 {
@@ -269,10 +279,11 @@ impl From<Error> for varlink::server::Error {
             let mut inparms: String = "".to_owned();
             if t.input.elts.len() > 0 {
                 for e in &t.input.elts {
-                    inparms += format!(", {}: Option<{}>",
-                                       e.name,
-                                       e.vtype.to_rust(self.name, &mut enumhash)?)
-                        .as_ref();
+                    inparms += format!(
+                        ", {}: Option<{}>",
+                        e.name,
+                        e.vtype.to_rust(self.name, &mut enumhash)?
+                    ).as_ref();
                 }
             }
             let mut c = t.name.chars();
@@ -281,11 +292,10 @@ impl From<Error> for varlink::server::Error {
                 Some(f) => f.to_lowercase().chain(c).collect(),
             };
 
-            out += format!("    fn {}(&self{}) -> Result<{}Reply, Error>;\n",
-                           fname,
-                           inparms,
-                           t.name)
-                .as_ref();
+            out += format!(
+                "    fn {}(&self{}) -> Result<{}Reply, Error>;\n",
+                fname, inparms, t.name
+            ).as_ref();
         }
         out += "}\n\n";
 
@@ -315,9 +325,11 @@ impl varlink::server::Interface for $name {{
             self.name
         ).as_ref();
 
-        out += r#"    fn call(&self, req: varlink::server::Request) -> Result<serde_json::Value, varlink::server::Error> {
-        match req.method.as_ref() {
-"#;
+        out += concat!(
+            "    fn call(&self, req: varlink::server::Request) -> ",
+            "Result<serde_json::Value, varlink::server::Error> {\n",
+            "        match req.method.as_ref() {\n"
+        );
         for t in self.methods.values() {
             let mut inparms: String = "".to_owned();
             if t.input.elts.len() > 0 {
@@ -336,32 +348,32 @@ impl varlink::server::Interface for $name {{
             out += format!("            \"{}.{}\" => {{", self.name, t.name).as_ref();
             if t.input.elts.len() > 0 {
                 out += format!(
-                    r#"
-                if let Some(args) = req.parameters {{
-                    let args: {}Args = serde_json::from_value(args)?;
-                    return Ok(serde_json::to_value(self.{}({})?)?);
-                }} else {{
-                    return Err(varlink::server::VarlinkError::InvalidParameter(None).into());
-                }}
-            }}
-"#,
+                    concat!("\n                if let Some(args) = req.parameters {{\n",
+"                    let args: {}Args = serde_json::from_value(args)?;\n",
+"                    return Ok(serde_json::to_value(self.{}({})?)?);\n",
+"                }} else {{\n",
+"                    return Err(varlink::server::VarlinkError::InvalidParameter(None).into());\n",
+"                }}\n",
+"            }}\n"),
                     t.name,
                     fname,
                     inparms
                 ).as_ref();
             } else {
-                out += format!(" return Ok(serde_json::to_value(self.{}()?)?); }}\n", fname).as_ref();
-
+                out +=
+                    format!(" return Ok(serde_json::to_value(self.{}()?)?); }}\n", fname).as_ref();
             }
         }
-        out += r#"            m => {
-                let method: String = m.clone().into();
-                return Err(varlink::server::VarlinkError::MethodNotFound(Some(method.into())).into());
-            }
-"#;
-        out += "        }\n";
-        out += "    }\n";
-        out += "}\n};\n}";
+        out += concat!(
+            "            m => {\n",
+            "                let method: String = m.clone().into();\n",
+            "                return Err(varlink::server::VarlinkError::",
+            "MethodNotFound(Some(method.into())).into());\n",
+            "            }\n",
+            "        }\n",
+            "    }\n",
+            "}\n};\n}"
+        );
 
         Ok(out)
     }
@@ -372,10 +384,7 @@ fn do_main() -> Result<(), ToRustError> {
     let args: Vec<_> = env::args().collect();
     match args.len() {
         0 | 1 => io::stdin().read_to_string(&mut buffer)?,
-        _ => {
-            File::open(Path::new(&args[1]))?
-                .read_to_string(&mut buffer)?
-        }
+        _ => File::open(Path::new(&args[1]))?.read_to_string(&mut buffer)?,
     };
 
     let vr = Varlink::from_string(&buffer);

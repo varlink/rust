@@ -17,5 +17,5 @@ method Info(ifindex: int) -> (info: NetdevInfo)
 # Lists all network devices
 method List() -> (netdevs: Netdev[])
 
-error UnknownNetworkDevice ()
+error UnknownNetworkIfIndex (ifindex: int)
 error UnknownError (text: string)

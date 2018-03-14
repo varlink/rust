@@ -39,10 +39,15 @@ pub struct UnknownErrorArgs {
     pub text: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UnknownNetworkIfIndexArgs {
+    pub ifindex: Option<i64>,
+}
+
 #[derive(Debug)]
 pub enum Error {
     UnknownError(Option<UnknownErrorArgs>),
-    UnknownNetworkDevice,
+    UnknownNetworkIfIndex(Option<UnknownNetworkIfIndexArgs>),
 }
 /*
 pub struct Call<'a> {
@@ -64,16 +69,22 @@ impl<'a> Call<'a> {
 
 impl From<Error> for varlink::server::Reply {
     fn from(e: Error) -> Self {
-        varlink::server::Reply::error(
-            match e {
-                Error::UnknownError(_) => "io.systemd.network.UnknownError".into(),
-                Error::UnknownNetworkDevice => "io.systemd.network.UnknownNetworkDevice".into(),
-            },
-            match e {
-                Error::UnknownError(args) => Some(serde_json::to_value(args).unwrap()),
-                Error::UnknownNetworkDevice => None,
-            },
-        )
+        varlink::server::Reply::error(match e {
+                                          Error::UnknownError(_) => {
+                                              "io.systemd.network.UnknownError".into()
+                                          }
+                                          Error::UnknownNetworkIfIndex(_) => {
+                                              "io.systemd.network.UnknownNetworkIfIndex".into()
+                                          }
+                                      },
+                                      match e {
+                                          Error::UnknownError(args) => {
+                                              Some(serde_json::to_value(args).unwrap())
+                                          }
+                                          Error::UnknownNetworkIfIndex(args) => {
+                                              Some(serde_json::to_value(args).unwrap())
+                                          }
+                                      })
     }
 }
 
@@ -135,9 +146,9 @@ error UnknownError (text: string)
             "io.systemd.network.List" => return self.inner.list(call),
             m => {
                 let method: String = m.clone().into();
-                return call.reply(
-                    varlink::server::VarlinkError::MethodNotFound(Some(method.into())).into(),
-                );
+                return call.reply(varlink::server::VarlinkError::MethodNotFound(Some(method
+                                                                                         .into()))
+                                      .into());
             }
         }
     }

@@ -2,6 +2,7 @@ extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
 use std::io;
+use std::thread;
 
 extern crate varlink;
 
@@ -52,7 +53,11 @@ impl io_systemd_network::Interface for MyServer {
                     }.into(),
                 )
             }
-            _ => return call.reply(Error::UnknownNetworkDevice.into()),
+            _ => {
+                return call.reply(Error::UnknownNetworkIfIndex(Some(UnknownNetworkIfIndexArgs {
+                                                                        ifindex: i,
+                                                                    })).into())
+            }
         }
     }
 
@@ -68,48 +73,46 @@ impl io_systemd_network::Interface for MyServer {
         println!("Call: {:?}", call.request);
         call.reply_more(
             ListReply {
-                netdevs: Some(vec![
-                    Netdev {
-                        ifindex: Some(1),
-                        ifname: Some("lo".into()),
-                    },
-                ]),
+                netdevs: Some(vec![Netdev {
+                         ifindex: Some(1),
+                         ifname: Some("lo".into()),
+                     }]),
             }.into(),
         )?;
 
         return call.reply(
             ListReply {
-                netdevs: Some(vec![
-                    Netdev {
-                        ifindex: Some(1),
-                        ifname: Some("lo".into()),
-                    },
-                    Netdev {
-                        ifindex: Some(2),
-                        ifname: Some("eth0".into()),
-                    },
-                ]),
+                netdevs: Some(vec![Netdev {
+                         ifindex: Some(1),
+                         ifname: Some("lo".into()),
+                     },
+                     Netdev {
+                         ifindex: Some(2),
+                         ifname: Some("eth0".into()),
+                     }]),
             }.into(),
         );
     }
 }
 
 fn main() {
-    let addr = "0.0.0.0:12345";
-    let listener = TcpListener::bind(addr).unwrap();
-    let state = Arc::new(RwLock::new(0));
-    println!("Listening on {}", addr);
-    let server = VarlinkService::new(
-        "org.varlink",
-        "test service",
-        "0.1",
-        "http://varlink.org",
-        vec![io_systemd_network::new(Box::new(MyServer { state }))],
-    );
+    let _join = thread::spawn(|| -> io::Result<()> {
+        let addr = "0.0.0.0:12345";
+        let listener = TcpListener::bind(addr).unwrap();
+        let state = Arc::new(RwLock::new(0));
+        println!("Listening on {}", addr);
+        let myserver = MyServer { state };
+        let myintf = io_systemd_network::new(myserver);
+        let server = VarlinkService::new("org.varlink",
+                                         "test service",
+                                         "0.1",
+                                         "http://varlink.org",
+                                         vec![myintf.clone()]);
 
-    for stream in listener.incoming() {
-        match stream {
-            Ok(mut stream) => {
+        loop {
+            let (mut stream, _addr) = listener.accept()?;
+            let server = server.clone();
+            let _join = thread::spawn(move || -> io::Result<()> {
                 let mut stream_clone = stream.try_clone().expect("clone failed...");
                 if let Err(e) = server.handle(&mut stream, &mut stream_clone) {
                     println!("Handle Error: {}", e);
@@ -117,10 +120,10 @@ fn main() {
                 if let Err(e) = stream.shutdown(Shutdown::Both) {
                     println!("Shutdown Error: {}", e);
                 }
-            }
-            Err(e) => {
-                println!("Unable to accept: {}", e);
-            }
+                Ok(())
+            });
         }
-    }
+
+    }).join()
+        .unwrap();
 }

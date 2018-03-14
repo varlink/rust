@@ -52,9 +52,8 @@ impl Reply {
 }
 
 impl<T> From<T> for Reply
-where
-    T: VarlinkReply,
-    T: Serialize,
+    where T: VarlinkReply,
+          T: Serialize
 {
     fn from(a: T) -> Self {
         Reply::parameters(serde_json::to_value(a).unwrap())
@@ -142,60 +141,70 @@ pub enum VarlinkError {
 
 impl From<VarlinkError> for Reply {
     fn from(e: VarlinkError) -> Self {
-        Reply::error(
-            match e {
-                VarlinkError::MethodNotFound(_) => "org.varlink.service.MethodNotFound".into(),
-                VarlinkError::InterfaceNotFound(_) => {
-                    "org.varlink.service.InterfaceNotFound".into()
-                }
-                VarlinkError::MethodNotImplemented(_) => {
-                    "org.varlink.service.MethodNotImplemented".into()
-                }
-                VarlinkError::InvalidParameter(_) => "org.varlink.service.InvalidParameter".into(),
-            },
-            match e {
-                VarlinkError::InterfaceNotFound(m) => match m {
-                    Some(i) => Some(
+        Reply::error(match e {
+                         VarlinkError::MethodNotFound(_) => {
+                             "org.varlink.service.MethodNotFound".into()
+                         }
+                         VarlinkError::InterfaceNotFound(_) => {
+                             "org.varlink.service.InterfaceNotFound".into()
+                         }
+                         VarlinkError::MethodNotImplemented(_) => {
+                             "org.varlink.service.MethodNotImplemented".into()
+                         }
+                         VarlinkError::InvalidParameter(_) => {
+                             "org.varlink.service.InvalidParameter".into()
+                         }
+                     },
+                     match e {
+                         VarlinkError::InterfaceNotFound(m) => {
+                             match m {
+                                 Some(i) => Some(
                         serde_json::from_str(format!("{{ \"interface\" : \"{}\" }}", i).as_ref())
                             .unwrap(),
                     ),
-                    None => None,
-                },
-                VarlinkError::MethodNotFound(m) => match m {
-                    Some(me) => {
-                        let method: String = me.into();
-                        let n: usize = match method.rfind('.') {
-                            None => 0,
-                            Some(x) => x + 1,
-                        };
-                        let (_, method) = method.split_at(n);
-                        let s = format!("{{  \"method\" : \"{}\" }}", method);
-                        Some(serde_json::from_str(s.as_ref()).unwrap())
-                    }
-                    None => None,
-                },
-                VarlinkError::MethodNotImplemented(m) => match m {
-                    Some(me) => {
-                        let method: String = me.into();
-                        let n: usize = match method.rfind('.') {
-                            None => 0,
-                            Some(x) => x + 1,
-                        };
-                        let (_, method) = method.split_at(n);
-                        let s = format!("{{  \"method\" : \"{}\" }}", method);
-                        Some(serde_json::from_str(s.as_ref()).unwrap())
-                    }
-                    None => None,
-                },
-                VarlinkError::InvalidParameter(m) => match m {
-                    Some(i) => Some(
+                                 None => None,
+                             }
+                         }
+                         VarlinkError::MethodNotFound(m) => {
+                             match m {
+                                 Some(me) => {
+                                     let method: String = me.into();
+                                     let n: usize = match method.rfind('.') {
+                                         None => 0,
+                                         Some(x) => x + 1,
+                                     };
+                                     let (_, method) = method.split_at(n);
+                                     let s = format!("{{  \"method\" : \"{}\" }}", method);
+                                     Some(serde_json::from_str(s.as_ref()).unwrap())
+                                 }
+                                 None => None,
+                             }
+                         }
+                         VarlinkError::MethodNotImplemented(m) => {
+                             match m {
+                                 Some(me) => {
+                                     let method: String = me.into();
+                                     let n: usize = match method.rfind('.') {
+                                         None => 0,
+                                         Some(x) => x + 1,
+                                     };
+                                     let (_, method) = method.split_at(n);
+                                     let s = format!("{{  \"method\" : \"{}\" }}", method);
+                                     Some(serde_json::from_str(s.as_ref()).unwrap())
+                                 }
+                                 None => None,
+                             }
+                         }
+                         VarlinkError::InvalidParameter(m) => {
+                             match m {
+                                 Some(i) => Some(
                         serde_json::from_str(format!("{{ \"parameter\" : \"{}\" }}", i).as_ref())
                             .unwrap(),
                     ),
-                    None => None,
-                },
-            },
-        )
+                                 None => None,
+                             }
+                         }
+                     })
     }
 }
 
@@ -301,9 +310,8 @@ error InvalidParameter (parameter: string)
                         }
                     }
                 } else {
-                    return call.reply(
-                        VarlinkError::InvalidParameter(Some("interface".into())).into(),
-                    );
+                    return call.reply(VarlinkError::InvalidParameter(Some("interface".into()))
+                                          .into());
                 }
             }
             _ => {
@@ -368,9 +376,8 @@ impl VarlinkService {
                 if self.ifaces.contains_key(key) {
                     return self.ifaces[key].call(call);
                 } else {
-                    return call.reply(
-                        VarlinkError::InterfaceNotFound(Some(iface.clone().into())).into(),
-                    );
+                    return call.reply(VarlinkError::InterfaceNotFound(Some(iface.clone().into()))
+                                          .into());
                 }
             }
         }

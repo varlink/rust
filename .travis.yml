@@ -13,7 +13,7 @@ script:
   - cargo test --verbose
   - cargo run --bin varlink-generator ../examples/varlink-server-example/src/io.systemd.network.varlink
   - popd
-  - pushd example/varlink-server-example
+  - pushd examples/varlink-server-example
   - cargo build --verbose
   - cargo test --verbose
   - popd

@@ -21,7 +21,7 @@ pub struct NetdevInfo {
 struct _InfoReply {
     info: Option<NetdevInfo>,
 }
-impl varlink::server::VarlinkReply for _InfoReply {}
+impl varlink::VarlinkReply for _InfoReply {}
 
 #[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Debug)]
@@ -34,7 +34,7 @@ struct _InfoArgs {
 struct _ListReply {
     netdevs: Option<Vec<Netdev>>,
 }
-impl varlink::server::VarlinkReply for _ListReply {}
+impl varlink::VarlinkReply for _ListReply {}
 
 #[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Debug)]
@@ -48,41 +48,41 @@ struct _UnknownNetworkIfIndexArgs {
     ifindex: Option<i64>,
 }
 
-pub trait _CallErr: varlink::server::CallTrait {
+pub trait _CallErr: varlink::CallTrait {
     fn reply_unknown_error(&mut self, text: Option<String>) -> io::Result<()> {
-        self.reply_struct(varlink::server::Reply::error(
+        self.reply_struct(varlink::Reply::error(
             "io.systemd.network.UnknownError".into(),
             Some(serde_json::to_value(_UnknownErrorArgs { text }).unwrap()),
         ))
     }
 
     fn reply_unknown_network_if_index(&mut self, ifindex: Option<i64>) -> io::Result<()> {
-        self.reply_struct(varlink::server::Reply::error(
+        self.reply_struct(varlink::Reply::error(
             "io.systemd.network.UnknownNetworkIfIndex".into(),
             Some(serde_json::to_value(_UnknownNetworkIfIndexArgs { ifindex }).unwrap()),
         ))
     }
 }
-impl<'a> _CallErr for varlink::server::Call<'a> {}
+impl<'a> _CallErr for varlink::Call<'a> {}
 
 pub trait _CallInfo: _CallErr {
     fn reply(&mut self, info: Option<NetdevInfo>) -> io::Result<()> {
         self.reply_struct(_InfoReply { info }.into())
     }
 }
-impl<'a> _CallInfo for varlink::server::Call<'a> {}
+impl<'a> _CallInfo for varlink::Call<'a> {}
 
 pub trait _CallList: _CallErr {
     fn reply(&mut self, netdevs: Option<Vec<Netdev>>) -> io::Result<()> {
         self.reply_struct(_ListReply { netdevs }.into())
     }
 }
-impl<'a> _CallList for varlink::server::Call<'a> {}
+impl<'a> _CallList for varlink::Call<'a> {}
 
 pub trait VarlinkInterface {
     fn info(&self, &mut _CallInfo, ifindex: Option<i64>) -> io::Result<()>;
     fn list(&self, &mut _CallList) -> io::Result<()>;
-    fn call_upgraded(&self, &mut varlink::server::Call) -> io::Result<()> {
+    fn call_upgraded(&self, &mut varlink::Call) -> io::Result<()> {
         Ok(())
     }
 }
@@ -95,7 +95,7 @@ pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
     _InterfaceProxy { inner }
 }
 
-impl varlink::server::Interface for _InterfaceProxy {
+impl varlink::Interface for _InterfaceProxy {
     fn get_description(&self) -> &'static str {
         r#"
 # Provides information about network state
@@ -126,11 +126,11 @@ error UnknownError (text: string)
         "io.systemd.network"
     }
 
-    fn call_upgraded(&self, call: &mut varlink::server::Call) -> io::Result<()> {
+    fn call_upgraded(&self, call: &mut varlink::Call) -> io::Result<()> {
         self.inner.call_upgraded(call)
     }
 
-    fn call(&self, call: &mut varlink::server::Call) -> io::Result<()> {
+    fn call(&self, call: &mut varlink::Call) -> io::Result<()> {
         let req = call.request.unwrap();
         let method = req.method.clone();
         match method.as_ref() {

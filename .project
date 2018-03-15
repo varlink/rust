@@ -1,18 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>varlink</name>
+	<name>rust</name>
 	<comment></comment>
 	<projects>
 	</projects>
 	<buildSpec>
 		<buildCommand>
-			<name>com.github.rustdt.ide.core.Builder</name>
-			<triggers>clean,full,incremental,</triggers>
+			<name>org.eclipse.corrosion.builder.IncrementalCargoBuilder</name>
 			<arguments>
 			</arguments>
 		</buildCommand>
 	</buildSpec>
 	<natures>
-		<nature>com.github.rustdt.ide.core.nature</nature>
 	</natures>
 </projectDescription>

@@ -63,7 +63,6 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
 
             println!("{}", *number);
         }
-
         return call.reply(Some(vec![
             Netdev {
                 ifindex: Some(1),

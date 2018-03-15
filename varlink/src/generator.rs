@@ -251,12 +251,6 @@ impl<'a> InterfaceToRust for Interface<'a> {
                     innames.pop();
                 }
             }
-            let mut c = t.name.chars();
-            let fname = match c.next() {
-                None => String::from(t.name),
-                Some(f) => f.to_lowercase().chain(c).collect(),
-            };
-
             out += format!("pub trait _Call{}: _CallErr {{\n", t.name).as_ref();
             out += format!("    fn reply(&mut self{}) -> io::Result<()> {{\n", inparms).as_ref();
             out += format!(

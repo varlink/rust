@@ -1,8 +1,7 @@
-extern crate varlink;
+extern crate varlink_parser;
 
 use std::io;
 use std::io::prelude::*;
-use varlink::parser::Varlink;
 use std::process::exit;
 use std::path::Path;
 use std::fs::File;
@@ -12,10 +11,11 @@ use std::io::Error as IOError;
 use std::error::Error;
 
 use std::result::Result;
-use varlink::parser::*;
 use std::fmt;
 use std::collections::HashMap;
 use std::iter::FromIterator;
+
+use varlink_parser::{Interface, VStructOrEnum, VType, VTypeExt, Varlink};
 
 type EnumHash<'a> = HashMap<String, Vec<String>>;
 

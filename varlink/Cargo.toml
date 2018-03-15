@@ -2,6 +2,19 @@
 name = "varlink"
 version = "0.1.0"
 authors = ["Harald Hoyer <harald@redhat.com>"]
+license-file = "LICENSE.txt"
+documentation = "https://github.com/varlink/rust/blob/master/varlink/README.md"
+homepage = "https://github.com/varlink/rust/blob/master/varlink"
+repository = "https://github.com/varlink/rust"
+description = "Client and server support for the varlink protocol."
+
+[lib]
+name = "varlink"
+path = "src/lib.rs"
+
+[[bin]]
+name = "varlink-generator"
+path = "src/bin/varlink-generator.rs"
 
 [dependencies]
 itertools = "0"
@@ -10,4 +23,3 @@ serde_derive = "1"
 serde_json = "1"
 bytes = "0"
 varlink_parser = "0"
-

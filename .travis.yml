@@ -3,7 +3,13 @@ rust:
   - stable
 cache: cargo
 script:
+  - pushd varlink_parser
   - cargo build --verbose
   - cargo test --verbose
   - cargo run --example validate examples/io_systemd_network/io.systemd.network.varlink
+  - popd
+  - pushd varlink
+  - cargo build --verbose
+  - cargo test --verbose
   - cargo run --example varlink-generator examples/io_systemd_network/io.systemd.network.varlink
+  - popd

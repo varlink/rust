@@ -1,9 +1,8 @@
 [package]
 name = "varlink_parser"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 build = "build.rs"
-license = "MIT"
 license-file = "LICENSE.txt"
 documentation = "https://github.com/varlink/rust/blob/master/varlink_parser/README.md"
 homepage = "https://github.com/varlink/rust/blob/master/varlink_parser"

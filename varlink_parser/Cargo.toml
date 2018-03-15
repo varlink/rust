@@ -3,6 +3,12 @@ name = "varlink_parser"
 version = "0.1.0"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 build = "build.rs"
+license = "MIT"
+license-file = "LICENSE.txt"
+documentation = "https://github.com/varlink/rust/blob/master/varlink_parser/README.md"
+homepage = "https://github.com/varlink/rust/blob/master/varlink_parser"
+repository = "https://github.com/varlink/rust"
+description = "A crate for parsing varlink interface definition files."
 
 [dependencies]
 itertools = "0"

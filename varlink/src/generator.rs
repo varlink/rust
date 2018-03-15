@@ -86,17 +86,18 @@ impl<'a> ToRust for VTypeExt<'a> {
     }
 }
 
-fn dotted_to_camel_case(s: &str) -> String {
-    s.split('.')
-        .map(|piece| piece.chars())
-        .flat_map(|mut chars| {
-            chars
-                .nth(0)
-                .expect("empty section between dots!")
-                .to_uppercase()
-                .chain(chars)
-        })
-        .collect()
+fn camel_case_to_underscore(s: &str) -> String {
+    let mut out = String::from("");
+    for g in s.chars() {
+        match g {
+            c @ 'A'...'Z' => {
+                out += "_";
+                out += c.to_lowercase().to_string().as_ref();
+            }
+            c => out += c.to_string().as_ref(),
+        }
+    }
+    out
 }
 
 trait InterfaceToRust {
@@ -139,24 +140,25 @@ impl<'a> InterfaceToRust for Interface<'a> {
 
         for t in self.methods.values() {
             if t.output.elts.len() > 0 {
-                out += "#[derive(Serialize, Deserialize, Debug)]\n";
-                out += format!("pub struct {}Reply {{\n", t.name).as_ref();
+                out += "#[allow(non_camel_case_types)]\n#[derive(Serialize, Deserialize, Debug)]\n";
+                out += format!("struct _{}Reply {{\n", t.name).as_ref();
                 for e in &t.output.elts {
                     out += format!(
-                        "    pub {}: Option<{}>,\n",
+                        "    {}: Option<{}>,\n",
                         e.name,
                         e.vtype.to_rust(self.name, &mut enumhash)?
                     ).as_ref();
                 }
-                out += "}\n\n";
+                out += "}\n";
+                out += format!("impl varlink::VarlinkReply for _{}Reply {{}}\n\n", t.name).as_ref();
             }
 
             if t.input.elts.len() > 0 {
-                out += "#[derive(Serialize, Deserialize, Debug)]\n";
-                out += format!("pub struct {}Args {{\n", t.name).as_ref();
+                out += "#[allow(non_camel_case_types)]\n#[derive(Serialize, Deserialize, Debug)]\n";
+                out += format!("struct _{}Args {{\n", t.name).as_ref();
                 for e in &t.input.elts {
                     out += format!(
-                        "    pub {}: Option<{}>,\n",
+                        "    {}: Option<{}>,\n",
                         e.name,
                         e.vtype.to_rust(self.name, &mut enumhash)?
                     ).as_ref();
@@ -167,11 +169,11 @@ impl<'a> InterfaceToRust for Interface<'a> {
 
         for t in self.errors.values() {
             if t.parm.elts.len() > 0 {
-                out += "#[derive(Serialize, Deserialize, Debug)]\n";
-                out += format!("pub struct {}Args {{\n", t.name).as_ref();
+                out += "#[allow(non_camel_case_types)]\n#[derive(Serialize, Deserialize, Debug)]\n";
+                out += format!("struct _{}Args {{\n", t.name).as_ref();
                 for e in &t.parm.elts {
                     out += format!(
-                        "    pub {}: Option<{}>,\n",
+                        "    {}: Option<{}>,\n",
                         e.name,
                         e.vtype.to_rust(self.name, &mut enumhash)?
                     ).as_ref();
@@ -180,70 +182,47 @@ impl<'a> InterfaceToRust for Interface<'a> {
             }
         }
 
+        out += "pub trait _CallErr: varlink::CallTrait {\n";
         if self.errors.len() > 0 {
-            out += "#[derive(Debug)]\n";
-            out += "pub enum Error {\n";
             for t in self.errors.values() {
+                let mut inparms: String = "".to_owned();
+                let mut innames: String = "".to_owned();
                 if t.parm.elts.len() > 0 {
-                    out += format!("    {}(Option<{}Args>),\n", t.name, t.name).as_ref();
-                } else {
-                    out += format!("    {},\n", t.name).as_ref();
-                }
-            }
-            out += "}\n";
-
-            out += r#"
-impl From<Error> for varlink::server::Error {
-    fn from(e: Error) -> Self {
-        varlink::server::Error {
-            error: match e {
-"#;
-            for t in self.errors.values() {
-                out += format!(
-                    r#"                Error::{}{} => "io.systemd.network.{}".into(),
-"#,
-                    t.name,
-                    {
-                        if t.parm.elts.len() > 0 {
-                            "(_)"
-                        } else {
-                            ""
-                        }
-                    },
-                    t.name
-                ).as_ref();
-            }
-
-            out += r#"            },
-            parameters: match e {
-"#;
-            for t in self.errors.values() {
-                out += format!(
-                    r#"                Error::{}{} => {},
-"#,
-                    t.name,
-                    {
-                        if t.parm.elts.len() > 0 {
-                            "(args)"
-                        } else {
-                            ""
-                        }
-                    },
-                    {
-                        if t.parm.elts.len() > 0 {
-                            "Some(serde_json::to_value(args).unwrap())"
-                        } else {
-                            "None"
-                        }
+                    for e in &t.parm.elts {
+                        inparms += format!(
+                            ", {}: Option<{}>",
+                            e.name,
+                            e.vtype.to_rust(self.name, &mut enumhash)?
+                        ).as_ref();
+                        innames += format!("{}, ", e.name).as_ref();
+                        innames.pop();
+                        innames.pop();
                     }
+                }
+
+                out += format!(
+                    r#"    fn reply{}(&mut self{}) -> io::Result<()> {{
+        self.reply_struct(varlink::Reply::error(
+            "{}.{}".into(),
+"#,
+                    camel_case_to_underscore(t.name),
+                    inparms,
+                    self.name,
+                    t.name,
                 ).as_ref();
-            }
-            out += r#"            },
-        }
+
+                out += format!(
+                    "            Some(serde_json::to_value(_{}Args {{ {} }}).unwrap()),",
+                    t.name, innames
+                ).as_ref();
+
+                out += r#"
+        ))
     }
-}
 "#;
+            }
         }
+        out += "}\nimpl<'a> _CallErr for varlink::Call<'a> {}\n\n";
 
         for (name, v) in &enumhash {
             out += format!("pub enum {} {{\n", name).as_ref();
@@ -257,7 +236,40 @@ impl From<Error> for varlink::server::Error {
             out += "\n}\n\n";
         }
 
-        out += "pub trait Interface: varlink::server::Interface {\n";
+        for t in self.methods.values() {
+            let mut inparms: String = "".to_owned();
+            let mut innames: String = "".to_owned();
+            if t.output.elts.len() > 0 {
+                for e in &t.output.elts {
+                    inparms += format!(
+                        ", {}: Option<{}>",
+                        e.name,
+                        e.vtype.to_rust(self.name, &mut enumhash)?
+                    ).as_ref();
+                    innames += format!("{}, ", e.name).as_ref();
+                    innames.pop();
+                    innames.pop();
+                }
+            }
+            let mut c = t.name.chars();
+            let fname = match c.next() {
+                None => String::from(t.name),
+                Some(f) => f.to_lowercase().chain(c).collect(),
+            };
+
+            out += format!("pub trait _Call{}: _CallErr {{\n", t.name).as_ref();
+            out += format!("    fn reply(&mut self{}) -> io::Result<()> {{\n", inparms).as_ref();
+            out += format!(
+                "        self.reply_struct(_{}Reply {{ {} }}.into())\n",
+                t.name, innames
+            ).as_ref();
+            out += format!(
+                "    }}\n}}\nimpl<'a> _Call{} for varlink::Call<'a> {{}}\n\n",
+                t.name
+            ).as_ref();
+        }
+
+        out += "pub trait VarlinkInterface {\n";
         for t in self.methods.values() {
             let mut inparms: String = "".to_owned();
             if t.input.elts.len() > 0 {
@@ -276,22 +288,27 @@ impl From<Error> for varlink::server::Error {
             };
 
             out += format!(
-                "    fn {}(&self{}) -> Result<{}Reply, Error>;\n",
-                fname, inparms, t.name
+                "    fn {}(&self, &mut _Call{}{}) -> io::Result<()>;\n",
+                fname, t.name, inparms
             ).as_ref();
         }
-        out += "}\n\n";
+        out += r#"    fn call_upgraded(&self, &mut varlink::Call) -> io::Result<()> {
+        Ok(())
+    }
+}
+"#;
 
         out += format!(
             r####"
-#[macro_export]
-macro_rules! {} {{
-	(
-		()
-		$(pub)* struct $name:ident $($_tail:tt)*
-	) => {{
+pub struct _InterfaceProxy {{
+    inner: Box<VarlinkInterface + Send + Sync>,
+}}
 
-impl varlink::server::Interface for $name {{
+pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {{
+    _InterfaceProxy {{ inner }}
+}}
+
+impl varlink::Interface for _InterfaceProxy {{
     fn get_description(&self) -> &'static str {{
         r#"
 {}
@@ -303,16 +320,19 @@ impl varlink::server::Interface for $name {{
     }}
 
 "####,
-            dotted_to_camel_case(self.name),
-            description,
-            self.name
+            description, self.name
         ).as_ref();
 
-        out += concat!(
-            "    fn call(&self, req: varlink::server::Request) -> ",
-            "Result<serde_json::Value, varlink::server::Error> {\n",
-            "        match req.method.as_ref() {\n"
-        );
+        out += r#"    fn call_upgraded(&self, call: &mut varlink::Call) -> io::Result<()> {
+        self.inner.call_upgraded(call)
+    }
+
+    fn call(&self, call: &mut varlink::Call) -> io::Result<()> {
+        let req = call.request.unwrap();
+        let method = req.method.clone();
+        match method.as_ref() {
+"#;
+
         for t in self.methods.values() {
             let mut inparms: String = "".to_owned();
             if t.input.elts.len() > 0 {
@@ -330,32 +350,35 @@ impl varlink::server::Interface for $name {{
 
             out += format!("            \"{}.{}\" => {{", self.name, t.name).as_ref();
             if t.input.elts.len() > 0 {
-                out += format!(
-                    concat!("\n                if let Some(args) = req.parameters {{\n",
-"                    let args: {}Args = serde_json::from_value(args)?;\n",
-"                    return Ok(serde_json::to_value(self.{}({})?)?);\n",
+                out +=
+                    format!(
+                        concat!("\n                if let Some(args) = req.parameters.clone() {{\n",
+"                    let args: _{}Args = serde_json::from_value(args)?;\n",
+"                    return self.inner.{}(call as &mut _Call{}, {});\n",
 "                }} else {{\n",
-"                    return Err(varlink::server::VarlinkError::InvalidParameter(None).into());\n",
+"                    return call.reply_invalid_parameter(None);\n",
 "                }}\n",
 "            }}\n"),
-                    t.name,
-                    fname,
-                    inparms
-                ).as_ref();
+                        t.name,
+                        fname, t.name,
+                        inparms
+                    ).as_ref();
             } else {
-                out +=
-                    format!(" return Ok(serde_json::to_value(self.{}()?)?); }}\n", fname).as_ref();
+                out += format!(
+                    "\n                return self.inner.{}(call as &mut _Call{});\n            }}\n",
+                    fname, t.name
+                ).as_ref();
             }
         }
         out += concat!(
+            "\n",
             "            m => {\n",
             "                let method: String = m.clone().into();\n",
-            "                return Err(varlink::server::VarlinkError::",
-            "MethodNotFound(Some(method.into())).into());\n",
+            "                return call.reply_method_not_found(Some(method));\n",
             "            }\n",
             "        }\n",
             "    }\n",
-            "}\n};\n}"
+            "}"
         );
 
         Ok(out)
@@ -379,8 +402,7 @@ pub fn generate(mut reader: Box<Read>, mut writer: Box<Write>) -> io::Result<()>
             writeln!(
                 writer,
                 r#"// This file is automatically generated by the varlink rust generator
-use std::result::Result;
-use std::convert::From;
+use std::io;
 
 use varlink;
 use serde_json;

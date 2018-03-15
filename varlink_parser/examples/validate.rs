@@ -1,4 +1,4 @@
-extern crate varlink;
+extern crate varlink_parser;
 
 use std::env;
 use std::error::Error;
@@ -9,7 +9,7 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::process::exit;
 use std::result::Result;
-use varlink::parser::Varlink;
+use varlink_parser::Varlink;
 
 trait MainReturn {
     fn into_error_code(self) -> i32;

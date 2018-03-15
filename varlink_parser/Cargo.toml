@@ -1,6 +1,6 @@
 [package]
 name = "varlink_parser"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 build = "build.rs"
 license-file = "LICENSE.txt"

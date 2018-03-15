@@ -1,7 +1,7 @@
 //! client and server support for the varlink protocol
 
-extern crate itertools;
 extern crate bytes;
+extern crate itertools;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
@@ -9,6 +9,8 @@ extern crate serde_derive;
 extern crate serde_json;
 
 extern crate varlink_parser;
+
+pub mod generator;
 
 use serde_json::Value;
 use serde::ser::Serialize;

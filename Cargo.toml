@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "varlink_parser",
+    "varlink",
+    "examples/varlink-server-example",
+]

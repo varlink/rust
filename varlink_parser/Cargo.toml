@@ -1,13 +1,17 @@
 [package]
 name = "varlink_parser"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 build = "build.rs"
 license-file = "LICENSE.txt"
 documentation = "https://github.com/varlink/rust/blob/master/varlink_parser/README.md"
-homepage = "https://github.com/varlink/rust/blob/master/varlink_parser"
+homepage = "https://github.com/varlink/rust"
 repository = "https://github.com/varlink/rust"
 description = "A crate for parsing varlink interface definition files."
+keywords = ["varlink", "ipc", "parser"]
+
+[badges]
+travis-ci = { repository = "varlink/rust" }
 
 [dependencies]
 itertools = "0"

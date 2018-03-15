@@ -7,6 +7,7 @@ documentation = "https://github.com/varlink/rust/blob/master/varlink/README.md"
 homepage = "https://github.com/varlink/rust/blob/master/varlink"
 repository = "https://github.com/varlink/rust"
 description = "Client and server support for the varlink protocol."
+keywords = ["varlink", "ipc"]
 
 [lib]
 name = "varlink"
@@ -22,4 +23,10 @@ serde = "1"
 serde_derive = "1"
 serde_json = "1"
 bytes = "0"
-varlink_parser = "0"
+varlink_parser = { version = "0.1", path = "../varlink_parser" }
+
+[badges]
+travis-ci = { repository = "varlink/rust" }
+
+[dev-dependencies]
+varlink_parser = { version = "0", path = "../varlink_parser" }

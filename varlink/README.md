@@ -1,4 +1,12 @@
 [![Build Status](https://travis-ci.org/varlink/rust.svg?branch=master)](https://travis-ci.org/varlink/rust)
-[![Varlink Crate](https://img.shields.io/crates/v/varlink.svg)](https://crates.io/crates/varlink)
+[![Crate](https://img.shields.io/crates/v/varlink.svg)](https://crates.io/crates/varlink)
 
-# varlink protocol for rust
+# varlink
+
+The varlink crate provides support to implement client and server using the varlink protocol.
+
+See http://varlink.org for more information about varlink.
+
+* [API Documentation](https://docs.rs/varlink)
+* [Crate](https://crates.io/crates/varlink)
+* [Example](https://github.com/varlink/rust/tree/master/examples) usage of this crate

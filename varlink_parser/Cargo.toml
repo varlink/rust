@@ -1,6 +1,6 @@
 [package]
 name = "varlink_parser"
-version = "0.1.6"
+version = "0.1.7"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 build = "build.rs"
 license = "MIT/Apache-2.0"
@@ -18,9 +18,6 @@ travis-ci = { repository = "varlink/rust" }
 
 [dependencies]
 itertools = "0"
-serde = "1"
-serde_derive = "1"
-serde_json = "1"
 bytes = "0"
 
 [build-dependencies]

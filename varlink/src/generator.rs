@@ -407,6 +407,7 @@ use std::io;
 
 use varlink;
 use serde_json;
+use varlink::CallTrait;
 
 {}"#,
                 out

@@ -11,7 +11,7 @@ script:
   - pushd varlink
   - cargo build --verbose
   - cargo test --verbose
-  - cargo run --bin varlink-generator ../examples/varlink-server-example/src/io.systemd.network.varlink
+  - cargo run --bin varlink-rust-generator ../examples/varlink-server-example/src/io.systemd.network.varlink
   - popd
   - pushd examples/varlink-server-example
   - cargo build --verbose

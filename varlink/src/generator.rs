@@ -85,19 +85,34 @@ impl<'a> ToRust for VTypeExt<'a> {
         }
     }
 }
-
-fn camel_case_to_underscore(s: &str) -> String {
-    let mut out = String::from("");
-    for g in s.chars() {
-        match g {
-            c @ 'A'...'Z' => {
-                out += "_";
-                out += c.to_lowercase().to_string().as_ref();
-            }
-            c => out += c.to_string().as_ref(),
+fn to_snake_case(mut str: &str) -> String {
+    let mut words = vec![];
+    // Preserve leading underscores
+    str = str.trim_left_matches(|c: char| {
+        if c == '_' {
+            words.push(String::new());
+            true
+        } else {
+            false
         }
+    });
+    for s in str.split('_') {
+        let mut last_upper = false;
+        let mut buf = String::new();
+        if s.is_empty() {
+            continue;
+        }
+        for ch in s.chars() {
+            if !buf.is_empty() && buf != "'" && ch.is_uppercase() && !last_upper {
+                words.push(buf);
+                buf = String::new();
+            }
+            last_upper = ch.is_uppercase();
+            buf.extend(ch.to_lowercase());
+        }
+        words.push(buf);
     }
-    out
+    words.join("_")
 }
 
 trait InterfaceToRust {
@@ -195,17 +210,17 @@ impl<'a> InterfaceToRust for Interface<'a> {
                             e.vtype.to_rust(self.name, &mut enumhash)?
                         ).as_ref();
                         innames += format!("{}, ", e.name).as_ref();
-                        innames.pop();
-                        innames.pop();
                     }
+                    innames.pop();
+                    innames.pop();
                 }
 
                 out += format!(
-                    r#"    fn reply{}(&mut self{}) -> io::Result<()> {{
+                    r#"    fn reply_{}(&mut self{}) -> io::Result<()> {{
         self.reply_struct(varlink::Reply::error(
             "{}.{}".into(),
 "#,
-                    camel_case_to_underscore(t.name),
+                    to_snake_case(t.name),
                     inparms,
                     self.name,
                     t.name,
@@ -247,9 +262,9 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         e.vtype.to_rust(self.name, &mut enumhash)?
                     ).as_ref();
                     innames += format!("{}, ", e.name).as_ref();
-                    innames.pop();
-                    innames.pop();
                 }
+                innames.pop();
+                innames.pop();
             }
             out += format!("pub trait _Call{}: _CallErr {{\n", t.name).as_ref();
             out += format!("    fn reply(&mut self{}) -> io::Result<()> {{\n", inparms).as_ref();
@@ -275,18 +290,15 @@ impl<'a> InterfaceToRust for Interface<'a> {
                     ).as_ref();
                 }
             }
-            let mut c = t.name.chars();
-            let fname = match c.next() {
-                None => String::from(t.name),
-                Some(f) => f.to_lowercase().chain(c).collect(),
-            };
 
             out += format!(
-                "    fn {}(&self, &mut _Call{}{}) -> io::Result<()>;\n",
-                fname, t.name, inparms
+                "    fn {}(&self, call: &mut _Call{}{}) -> io::Result<()>;\n",
+                to_snake_case(t.name),
+                t.name,
+                inparms
             ).as_ref();
         }
-        out += r#"    fn call_upgraded(&self, &mut varlink::Call) -> io::Result<()> {
+        out += r#"    fn call_upgraded(&self, _call: &mut varlink::Call) -> io::Result<()> {
         Ok(())
     }
 }
@@ -336,11 +348,6 @@ impl varlink::Interface for _InterfaceProxy {{
                     inparms += format!(", args.{}, ", e.name).as_ref();
                 }
             }
-            let mut c = t.name.chars();
-            let fname = match c.next() {
-                None => String::from(t.name),
-                Some(f) => f.to_lowercase().chain(c).collect(),
-            };
 
             out += format!("            \"{}.{}\" => {{", self.name, t.name).as_ref();
             if t.input.elts.len() > 0 {
@@ -354,13 +361,13 @@ impl varlink::Interface for _InterfaceProxy {{
 "                }}\n",
 "            }}\n"),
                         t.name,
-                        fname, t.name,
+                        to_snake_case(t.name), t.name,
                         inparms
                     ).as_ref();
             } else {
                 out += format!(
                     "\n                return self.inner.{}(call as &mut _Call{});\n            }}\n",
-                    fname, t.name
+                    to_snake_case(t.name), t.name
                 ).as_ref();
             }
         }

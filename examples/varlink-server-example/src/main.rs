@@ -1,4 +1,3 @@
-extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
@@ -6,13 +5,12 @@ extern crate serde_json;
 extern crate varlink;
 
 use std::io;
-use std::thread;
+use std::io::{Error, ErrorKind};
 use std::process::exit;
+use std::sync::{Arc, RwLock};
+use std::env;
 
 use varlink::VarlinkService;
-
-use std::sync::{Arc, RwLock};
-use std::net::{Shutdown, TcpListener};
 
 // Dynamically build the varlink rust code.
 //mod io_systemd_network;
@@ -82,35 +80,29 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
 }
 
 fn run_app() -> io::Result<()> {
-    thread::spawn(|| -> io::Result<()> {
-        let addr = "0.0.0.0:12345";
-        let listener = TcpListener::bind(addr)?;
-        let state = Arc::new(RwLock::new(0));
-        println!("Listening on {}", addr);
-        let myiosystemdnetwork = MyIoSystemdNetwork { state };
-        let myinterface = io_systemd_network::new(Box::new(myiosystemdnetwork));
-        let service = Arc::new(VarlinkService::new(
-            "org.varlink",
-            "test service",
-            "0.1",
-            "http://varlink.org",
-            vec![Box::new(myinterface)],
-        ));
-
-        loop {
-            let (mut stream, _addr) = listener.accept()?;
-            let service = service.clone();
-            let _join = thread::spawn(move || -> io::Result<()> {
-                let mut stream_clone = stream.try_clone().expect("clone failed...");
-                if let Err(e) = service.handle(&mut stream, &mut stream_clone) {
-                    println!("Handle Error: {}", e);
-                }
-                let _ = stream.shutdown(Shutdown::Both);
-                Ok(())
-            });
+    let args: Vec<_> = env::args().collect();
+    match args.len() {
+        2 => {}
+        _ => {
+            return Err(Error::new(
+                ErrorKind::Other,
+                format!("Usage: {} <varlink address>", args[0]),
+            ))
         }
-    }).join()
-        .unwrap()
+    };
+
+    let state = Arc::new(RwLock::new(0));
+    let myiosystemdnetwork = MyIoSystemdNetwork { state };
+    let myinterface = io_systemd_network::new(Box::new(myiosystemdnetwork));
+    let service = Arc::new(VarlinkService::new(
+        "org.varlink",
+        "test service",
+        "0.1",
+        "http://varlink.org",
+        vec![Box::new(myinterface)],
+    ));
+
+    varlink::server::listen(&args[1], service)
 }
 
 fn main() {

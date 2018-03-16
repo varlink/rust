@@ -2,15 +2,18 @@
 
 extern crate bytes;
 extern crate itertools;
+
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 #[macro_use]
 extern crate serde_json;
+extern crate unix_socket;
 
 extern crate varlink_parser;
 
 pub mod generator;
+pub mod server;
 
 use serde_json::Value;
 use serde::ser::Serialize;

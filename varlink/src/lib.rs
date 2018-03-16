@@ -84,6 +84,45 @@ pub struct Call<'a> {
 
 pub trait CallTrait {
     fn reply_struct(&mut self, Reply) -> io::Result<()>;
+
+    fn reply_method_not_found(&mut self, arg: Option<String>) -> io::Result<()> {
+        self.reply_struct(Reply::error(
+            "org.varlink.service.MethodNotFound".into(),
+            match arg {
+                Some(a) => {
+                    let s = format!("{{  \"method\" : \"{}\" }}", a);
+                    Some(serde_json::from_str(s.as_ref()).unwrap())
+                }
+                None => None,
+            },
+        ))
+    }
+
+    fn reply_method_not_implemented(&mut self, arg: Option<String>) -> io::Result<()> {
+        self.reply_struct(Reply::error(
+            "org.varlink.service.MethodNotImplemented".into(),
+            match arg {
+                Some(a) => {
+                    let s = format!("{{  \"method\" : \"{}\" }}", a);
+                    Some(serde_json::from_str(s.as_ref()).unwrap())
+                }
+                None => None,
+            },
+        ))
+    }
+
+    fn reply_invalid_parameter(&mut self, arg: Option<String>) -> io::Result<()> {
+        self.reply_struct(Reply::error(
+            "org.varlink.service.InvalidParameter".into(),
+            match arg {
+                Some(a) => {
+                    let s = format!("{{  \"parameter\" : \"{}\" }}", a);
+                    Some(serde_json::from_str(s.as_ref()).unwrap())
+                }
+                None => None,
+            },
+        ))
+    }
 }
 
 impl<'a> CallTrait for Call<'a> {
@@ -152,45 +191,6 @@ impl<'a> Call<'a> {
             match arg {
                 Some(a) => {
                     let s = format!("{{  \"interface\" : \"{}\" }}", a);
-                    Some(serde_json::from_str(s.as_ref()).unwrap())
-                }
-                None => None,
-            },
-        ))
-    }
-
-    pub fn reply_method_not_found(&mut self, arg: Option<String>) -> io::Result<()> {
-        self.reply_struct(Reply::error(
-            "org.varlink.service.MethodNotFound".into(),
-            match arg {
-                Some(a) => {
-                    let s = format!("{{  \"method\" : \"{}\" }}", a);
-                    Some(serde_json::from_str(s.as_ref()).unwrap())
-                }
-                None => None,
-            },
-        ))
-    }
-
-    pub fn reply_method_not_implemented(&mut self, arg: Option<String>) -> io::Result<()> {
-        self.reply_struct(Reply::error(
-            "org.varlink.service.MethodNotImplemented".into(),
-            match arg {
-                Some(a) => {
-                    let s = format!("{{  \"method\" : \"{}\" }}", a);
-                    Some(serde_json::from_str(s.as_ref()).unwrap())
-                }
-                None => None,
-            },
-        ))
-    }
-
-    pub fn reply_invalid_parameter(&mut self, arg: Option<String>) -> io::Result<()> {
-        self.reply_struct(Reply::error(
-            "org.varlink.service.InvalidParameter".into(),
-            match arg {
-                Some(a) => {
-                    let s = format!("{{  \"parameter\" : \"{}\" }}", a);
                     Some(serde_json::from_str(s.as_ref()).unwrap())
                 }
                 None => None,

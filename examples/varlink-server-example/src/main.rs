@@ -10,9 +10,12 @@ use std::thread;
 use std::process::exit;
 
 use varlink::VarlinkService;
+
 use std::sync::{Arc, RwLock};
 use std::net::{Shutdown, TcpListener};
 
+// Dynamically build the varlink rust code.
+//mod io_systemd_network;
 mod io_systemd_network {
     include!(concat!(env!("OUT_DIR"), "/io.systemd.network.rs"));
 }
@@ -24,7 +27,7 @@ struct MyIoSystemdNetwork {
 }
 
 impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
-    fn info(&self, call: &mut _CallInfo, i: Option<i64>) -> io::Result<()> {
+    fn info(&self, call: &mut _CallInfo, ifindex: Option<i64>) -> io::Result<()> {
         // State example
         {
             let mut number = self.state.write().unwrap();
@@ -34,7 +37,7 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
             println!("{}", *number);
         }
 
-        match i {
+        match ifindex {
             Some(1) => {
                 return call.reply(Some(NetdevInfo {
                     ifindex: Some(1),
@@ -48,10 +51,10 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
                 }));
             }
             Some(3) => {
-                return call.reply(None);
+                return call.reply_invalid_parameter(Some("ifindex".into()));
             }
             _ => {
-                return call.reply_unknown_network_if_index(i);
+                return call.reply_unknown_network_if_index(ifindex);
             }
         }
     }

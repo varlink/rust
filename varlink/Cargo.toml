@@ -17,8 +17,8 @@ name = "varlink"
 path = "src/lib.rs"
 
 [[bin]]
-name = "varlink-generator"
-path = "src/bin/varlink-generator.rs"
+name = "varlink-rust-generator"
+path = "src/bin/varlink-rust-generator.rs"
 
 [dependencies]
 itertools = "0"

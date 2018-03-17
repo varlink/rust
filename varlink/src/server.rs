@@ -5,10 +5,16 @@ use std::sync::Arc;
 use std::net::{TcpListener, TcpStream};
 // FIXME: abstract unix domains sockets still not in std
 // FIXME: https://github.com/rust-lang/rust/issues/14194
-use unix_socket::{UnixListener, UnixStream};
+use unix_socket::UnixListener as AbstractUnixListener;
 use std::fs;
 use std::env;
-use std::os::unix::io::FromRawFd;
+use std::os::unix::io::{FromRawFd, IntoRawFd};
+use std::os::unix::net::{UnixListener, UnixStream};
+
+//#![feature(getpid)]
+//use std::process;
+// FIXME
+use libc::getpid;
 
 enum VarlinkListener {
     TCP(TcpListener),
@@ -36,18 +42,24 @@ impl<'a> VarlinkStream {
 fn activation_listener() -> io::Result<Option<UnixListener>> {
     /*
 	FIXME: only working on nightly https://github.com/rust-lang/rust/pull/45059
+*/
 
     let spid = env::var("LISTEN_PID");
     if let Ok(pid) = spid {
-        let mypid = std::process::id();
-        match pid.parse::<u32>() {
-            mypid => {}
-            _ => return Ok(None),
+        //FIXME:
+        //let mypid = process::id();
+        unsafe {
+            let mypid = getpid();
+            match pid.parse::<i32>() {
+                Ok(p) => if p != mypid {
+                    return Ok(None);
+                },
+                _ => return Ok(None),
+            }
         }
     } else {
         return Ok(None);
     }
-*/
     let snfds = env::var("LISTEN_FDS");
     if let Ok(nfds) = snfds {
         match nfds.parse::<u32>() {
@@ -80,10 +92,15 @@ impl VarlinkListener {
             let mut addr = String::from(address[5..].split(";").next().unwrap());
             if addr.starts_with("@") {
                 addr = addr.replacen("@", "\0", 1);
-            } else {
-                // ignore error on non-existant file
-                let _ = fs::remove_file(addr.clone());
+                let l = AbstractUnixListener::bind(addr)?;
+                unsafe {
+                    return Ok(VarlinkListener::UNIX(UnixListener::from_raw_fd(
+                        l.into_raw_fd(),
+                    )));
+                }
             }
+            // ignore error on non-existant file
+            let _ = fs::remove_file(addr.clone());
             Ok(VarlinkListener::UNIX(UnixListener::bind(addr)?))
         } else {
             Err(Error::new(ErrorKind::Other, "unknown varlink address"))
@@ -102,11 +119,18 @@ impl VarlinkListener {
             }
         }
     }
+    pub fn set_nonblocking(&self, b: bool) -> io::Result<()> {
+        match self {
+            &VarlinkListener::TCP(ref l) => l.set_nonblocking(b),
+            &VarlinkListener::UNIX(ref l) => l.set_nonblocking(b),
+        }
+    }
 }
 
 pub fn listen(addr: &str, service: Arc<::VarlinkService>) -> io::Result<()> {
     println!("Listening on {}", addr);
     let listener = VarlinkListener::new(addr)?;
+    listener.set_nonblocking(false)?;
 
     loop {
         let mut stream;

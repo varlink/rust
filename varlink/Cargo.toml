@@ -21,6 +21,7 @@ name = "varlink-rust-generator"
 path = "src/bin/varlink-rust-generator.rs"
 
 [dependencies]
+libc = "0"
 unix_socket = "0.5.0"
 itertools = "0"
 serde = "1"

@@ -3,6 +3,7 @@
 extern crate bytes;
 extern crate itertools;
 
+extern crate libc;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;

@@ -51,12 +51,12 @@ pub struct Reply {
 }
 
 impl Reply {
-    pub fn parameters(parameters: Value) -> Self {
+    pub fn parameters(parameters: Option<Value>) -> Self {
         Reply {
             continues: None,
             upgraded: None,
             error: None,
-            parameters: Some(parameters),
+            parameters: parameters,
         }
     }
 
@@ -75,7 +75,7 @@ where
     T: VarlinkReply + Serialize,
 {
     fn from(a: T) -> Self {
-        Reply::parameters(serde_json::to_value(a).unwrap())
+        Reply::parameters(Some(serde_json::to_value(a).unwrap()))
     }
 }
 
@@ -88,6 +88,8 @@ pub struct Call<'a> {
 
 pub trait CallTrait {
     fn reply_struct(&mut self, Reply) -> io::Result<()>;
+
+    fn set_continues(&mut self, cont: bool);
 
     fn reply_method_not_found(&mut self, arg: Option<String>) -> io::Result<()> {
         self.reply_struct(Reply::error(
@@ -146,6 +148,9 @@ impl<'a> CallTrait for Call<'a> {
         self.writer.flush()?;
         Ok(())
     }
+    fn set_continues(&mut self, cont: bool) {
+        self.continues = cont;
+    }
 }
 
 impl<'a> Call<'a> {
@@ -203,7 +208,7 @@ impl<'a> Call<'a> {
     }
 
     fn reply_parameters(&mut self, parameters: Value) -> io::Result<()> {
-        let reply = Reply::parameters(parameters);
+        let reply = Reply::parameters(Some(parameters));
         let mut buf = serde_json::to_vec(&reply)?;
         buf.push(0);
         self.writer.write_all(&mut buf)?;

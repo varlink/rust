@@ -15,8 +15,8 @@ before_script:
 cache: cargo
 script:
 - pushd varlink_parser
-- travis-cargo build --verbose
-- travis-cargo test --verbose
+- travis-cargo build
+- travis-cargo test
 - cargo run --example validate ../examples/varlink-server-example/src/io.systemd.network.varlink
 - popd
 - pushd varlink

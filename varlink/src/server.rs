@@ -230,12 +230,23 @@ impl Worker {
     }
 }
 
-pub fn listen(
+pub enum ServerError {
+    IoError(Error),
+    AcceptTimeout,
+}
+
+impl From<Error> for ServerError {
+    fn from(e: Error) -> Self {
+        ServerError::IoError(e)
+    }
+}
+
+pub fn do_listen(
     service: ::VarlinkService,
     addr: &str,
     workers: usize,
     accept_timeout: u64,
-) -> io::Result<()> {
+) -> Result<(), ServerError> {
     let service = Arc::new(service);
     let listener = Arc::new(VarlinkListener::new(addr)?);
     listener.set_nonblocking(false)?;
@@ -255,7 +266,7 @@ pub fn listen(
 
             stream = match receiver.recv_timeout(Duration::from_secs(accept_timeout)) {
                 Ok(s) => s?,
-                Err(_) => return Err(Error::new(ErrorKind::Other, "accept timeout")),
+                Err(_) => return Err(ServerError::AcceptTimeout),
             };
         } else {
             stream = listener.accept()?;
@@ -268,5 +279,20 @@ pub fn listen(
                 let _ = stream.shutdown();
             }
         });
+    }
+}
+
+pub fn listen(
+    service: ::VarlinkService,
+    addr: &str,
+    workers: usize,
+    accept_timeout: u64,
+) -> io::Result<()> {
+    match do_listen(service, addr, workers, accept_timeout) {
+        Err(e) => match e {
+            ServerError::IoError(e) => Err(e),
+            ServerError::AcceptTimeout => Ok(()),
+        },
+        Ok(_) => Ok(()),
     }
 }

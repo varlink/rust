@@ -241,7 +241,7 @@ impl From<Error> for ServerError {
     }
 }
 
-pub fn do_listen(
+fn do_listen(
     service: ::VarlinkService,
     addr: &str,
     workers: usize,

@@ -142,9 +142,8 @@ impl<'a> CallTrait for Call<'a> {
         if self.continues {
             reply.continues = Some(true);
         }
-        let mut buf = serde_json::to_vec(&reply)?;
-        buf.push(0);
-        self.writer.write_all(&mut buf)?;
+        serde_json::to_writer(&mut *self.writer, &reply)?;
+        self.writer.write_all(b"\0")?;
         self.writer.flush()?;
         Ok(())
     }
@@ -209,9 +208,8 @@ impl<'a> Call<'a> {
 
     fn reply_parameters(&mut self, parameters: Value) -> io::Result<()> {
         let reply = Reply::parameters(Some(parameters));
-        let mut buf = serde_json::to_vec(&reply)?;
-        buf.push(0);
-        self.writer.write_all(&mut buf)?;
+        serde_json::to_writer(&mut *self.writer, &reply)?;
+        self.writer.write_all(b"\0")?;
         self.writer.flush()?;
         Ok(())
     }

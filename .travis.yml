@@ -16,12 +16,12 @@ script:
   - pushd examples/varlink-server-example
   - cargo build --verbose
   - cargo test --verbose
-  - cargo run unix:@test-varlink-server-example
-  - cargo run unix:/tmp/varlink-server-example-test
-  - cargo run tcp:0.0.0.0:12345
   - popd
   - pushd examples/varlink-server-more
   - cargo build --verbose
+  - cargo run unix:@test-varlink-server-more-$$
+  - cargo run unix:/tmp/varlink-server-more-test-$$
+  - cargo run tcp:0.0.0.0:12345
   - cargo test --verbose
   - popd
   - pushd examples/varlink-server-ping

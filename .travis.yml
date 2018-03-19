@@ -1,30 +1,48 @@
 language: rust
 rust:
-  - stable
+- stable
+addons:
+  apt:
+    packages:
+    - libcurl4-openssl-dev
+    - libelf-dev
+    - libdw-dev
+    - binutils-dev
+before_script:
+- |
+  pip install 'travis-cargo<0.2' --user &&
+  export PATH=$HOME/.local/bin:$PATH
 cache: cargo
 script:
-  - pushd varlink_parser
-  - cargo build --verbose
-  - cargo test --verbose
-  - cargo run --example validate ../examples/varlink-server-example/src/io.systemd.network.varlink
-  - popd
-  - pushd varlink
-  - cargo build --verbose
-  - cargo test --verbose
-  - cargo run --bin varlink-rust-generator ../examples/varlink-server-example/src/io.systemd.network.varlink
-  - popd
-  - pushd examples/varlink-server-example
-  - cargo build --verbose
-  - cargo test --verbose
-  - popd
-  - pushd examples/varlink-server-more
-  - cargo build --verbose
-  - cargo run unix:@test-varlink-server-more-$$
-  - cargo run unix:/tmp/varlink-server-more-test-$$
-  - cargo run tcp:0.0.0.0:12345
-  - cargo test --verbose
-  - popd
-  - pushd examples/varlink-server-ping
-  - cargo build --verbose
-  - cargo test --verbose
-  - popd
+- pushd varlink_parser
+- travis-cargo build --verbose
+- travis-cargo test --verbose
+- cargo run --example validate ../examples/varlink-server-example/src/io.systemd.network.varlink
+- popd
+- pushd varlink
+- cargo build --verbose
+- cargo test --verbose
+- cargo run --bin varlink-rust-generator ../examples/varlink-server-example/src/io.systemd.network.varlink
+- popd
+- pushd examples/varlink-server-example
+- cargo build --verbose
+- cargo test --verbose
+- popd
+- pushd examples/varlink-server-more
+- cargo build --verbose
+- cargo run unix:@test-varlink-server-more-$$
+- cargo run unix:/tmp/varlink-server-more-test-$$
+- cargo run tcp:0.0.0.0:12345
+- cargo test --verbose
+- popd
+- pushd examples/varlink-server-ping
+- cargo build --verbose
+- cargo test --verbose
+- popd
+after_success:
+- pushd varlink_parser
+- TRAVIS_JOB_ID=$COVERALLS_TOKEN travis-cargo coveralls --no-sudo --verify
+- popd
+env:
+  global:
+    secure: DdzrmEtTAvbmIf1+us7mI+BQkJb9QIJf0aSHEcPjoU88pIaEVc/hB2oS1gBO1zHf6qfA6siEl6j5Zbue31Ybdm3O+kKEl0jfSCaYaxlOBaoMP3Nxz/wFoJYcVyYAUefutCqrv9GJau8zzikD38ghxd1FsNGAK0vZN69PqLk8r7oUsKZ9Eet0TBF55dJseJaFfaufnUoBUAPV2IGTeN2PRLm9j54OfMcCYm8UNqoFQMzsMaTWUifzUceabTP/YbzDw95GVIUrD1a+e6AwFnAy73PDA7M0TvbCz8IdfnwWYZf/6z9lfrewJGYk9Hmt1saocphY9O7SEG/7jYQJD4OSsm2+Fj5tg9AqK3yMVoA17NOgzZA/0glXxQFB69fxIS7tlaZiGwUWJSDm6Jf7UHsAKd/Szr6ZKPCXthxe2GsENA0146Tls9ahoA9Nkw897xwavL8oezIwLjlqKVSJ6qWP5MHnxoXsPaLPd+/utOTOvSqLnmXbAHvcHbz63mRSkU2OuV4gGXi60iZijV3XDz7M1vkabSjR3lmGk/mx33IQ4c9McjzYUixHAhMH2sn9Ki6hs428xAr3UUwFCChlAva08R3B1DKaQ0UJ1tNmhDleVEt2ByyaJye5pJp8iXgRity4pY+qGgJ8RBFJ8ltJJ6gjgOEt/T7x5s+C1CClyJJwpfk=

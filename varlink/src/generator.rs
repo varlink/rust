@@ -125,7 +125,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
         let mut enumhash = EnumHash::new();
 
         for t in self.typedefs.values() {
-            out += "#[derive(Serialize, Deserialize, Debug)]\n";
+            out += "#[derive(Serialize, Deserialize, Debug, Default)]\n";
             match t.elt {
                 VStructOrEnum::VStruct(ref v) => {
                     out += format!("pub struct {} {{\n", t.name).as_ref();
@@ -214,7 +214,6 @@ impl<'a> InterfaceToRust for Interface<'a> {
                     innames.pop();
                     innames.pop();
                 }
-
                 out += format!(
                     r#"    fn reply_{}(&mut self{}) -> io::Result<()> {{
         self.reply_struct(varlink::Reply::error(
@@ -268,10 +267,14 @@ impl<'a> InterfaceToRust for Interface<'a> {
             }
             out += format!("pub trait _Call{}: _CallErr {{\n", t.name).as_ref();
             out += format!("    fn reply(&mut self{}) -> io::Result<()> {{\n", inparms).as_ref();
-            out += format!(
-                "        self.reply_struct(_{}Reply {{ {} }}.into())\n",
-                t.name, innames
-            ).as_ref();
+            if t.output.elts.len() > 0 {
+                out += format!(
+                    "        self.reply_struct(_{}Reply {{ {} }}.into())\n",
+                    t.name, innames
+                ).as_ref();
+            } else {
+                out += "        self.reply_struct(varlink::Reply::parameters(None))\n";
+            }
             out += format!(
                 "    }}\n}}\nimpl<'a> _Call{} for varlink::Call<'a> {{}}\n\n",
                 t.name

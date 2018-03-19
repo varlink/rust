@@ -94,15 +94,15 @@ fn run_app() -> io::Result<()> {
     let state = Arc::new(RwLock::new(0));
     let myiosystemdnetwork = MyIoSystemdNetwork { state };
     let myinterface = io_systemd_network::new(Box::new(myiosystemdnetwork));
-    let service = Arc::new(VarlinkService::new(
+    let service = VarlinkService::new(
         "org.varlink",
         "test service",
         "0.1",
         "http://varlink.org",
         vec![Box::new(myinterface)],
-    ));
+    );
 
-    varlink::server::listen(&args[1], service)
+    varlink::server::listen(service, &args[1], 100, 0)
 }
 
 fn main() {

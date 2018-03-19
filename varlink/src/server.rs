@@ -1,8 +1,7 @@
 use std::io;
 use std::io::{Error, ErrorKind, Read, Write};
 use std::thread;
-use std::sync::Arc;
-use std::net::{TcpListener, TcpStream};
+use std::net::{Shutdown, TcpListener, TcpStream};
 // FIXME: abstract unix domains sockets still not in std
 // FIXME: https://github.com/rust-lang/rust/issues/14194
 use unix_socket::UnixListener as AbstractUnixListener;
@@ -10,6 +9,9 @@ use std::fs;
 use std::env;
 use std::os::unix::io::{FromRawFd, IntoRawFd};
 use std::os::unix::net::{UnixListener, UnixStream};
+use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 //#![feature(getpid)]
 //use std::process;
@@ -35,6 +37,12 @@ impl<'a> VarlinkStream {
             VarlinkStream::UNIX(ref mut s) => {
                 Ok((Box::new(s.try_clone()?), Box::new(s.try_clone()?)))
             }
+        }
+    }
+    pub fn shutdown(&mut self) -> io::Result<()> {
+        match *self {
+            VarlinkStream::TCP(ref mut s) => s.shutdown(Shutdown::Both),
+            VarlinkStream::UNIX(ref mut s) => s.shutdown(Shutdown::Both),
         }
     }
 }
@@ -127,27 +135,138 @@ impl VarlinkListener {
     }
 }
 
-pub fn listen(addr: &str, service: Arc<::VarlinkService>) -> io::Result<()> {
-    println!("Listening on {}", addr);
-    let listener = VarlinkListener::new(addr)?;
+enum Message {
+    NewJob(Job),
+    Terminate,
+}
+
+pub struct ThreadPool {
+    workers: Vec<Worker>,
+    sender: mpsc::Sender<Message>,
+}
+
+trait FnBox {
+    fn call_box(self: Box<Self>);
+}
+
+impl<F: FnOnce()> FnBox for F {
+    fn call_box(self: Box<F>) {
+        (*self)()
+    }
+}
+
+type Job = Box<FnBox + Send + 'static>;
+
+impl ThreadPool {
+    /// Create a new ThreadPool.
+    ///
+    /// The size is the number of threads in the pool.
+    ///
+    /// # Panics
+    ///
+    /// The `new` function will panic if the size is zero.
+    pub fn new(size: usize) -> ThreadPool {
+        assert!(size > 0);
+
+        let (sender, receiver) = mpsc::channel();
+
+        let receiver = Arc::new(Mutex::new(receiver));
+
+        let mut workers = Vec::with_capacity(size);
+
+        for _ in 0..size {
+            workers.push(Worker::new(Arc::clone(&receiver)));
+        }
+
+        ThreadPool { workers, sender }
+    }
+
+    pub fn execute<F>(&self, f: F)
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        let job = Box::new(f);
+
+        self.sender.send(Message::NewJob(job)).unwrap();
+    }
+}
+
+impl Drop for ThreadPool {
+    fn drop(&mut self) {
+        for _ in &mut self.workers {
+            self.sender.send(Message::Terminate).unwrap();
+        }
+
+        for worker in &mut self.workers {
+            if let Some(thread) = worker.thread.take() {
+                thread.join().unwrap();
+            }
+        }
+    }
+}
+
+struct Worker {
+    thread: Option<thread::JoinHandle<()>>,
+}
+
+impl Worker {
+    fn new(receiver: Arc<Mutex<mpsc::Receiver<Message>>>) -> Worker {
+        let thread = thread::spawn(move || loop {
+            let message = receiver.lock().unwrap().recv().unwrap();
+
+            match message {
+                Message::NewJob(job) => {
+                    job.call_box();
+                }
+                Message::Terminate => {
+                    break;
+                }
+            }
+        });
+
+        Worker {
+            thread: Some(thread),
+        }
+    }
+}
+
+pub fn listen(
+    service: ::VarlinkService,
+    addr: &str,
+    workers: usize,
+    accept_timeout: u64,
+) -> io::Result<()> {
+    let service = Arc::new(service);
+    let listener = Arc::new(VarlinkListener::new(addr)?);
     listener.set_nonblocking(false)?;
+    let pool = ThreadPool::new(workers);
 
     loop {
-        let mut stream;
-        match listener.accept() {
-            Err(e) => match Error::last_os_error().raw_os_error() {
-                Some(11) => continue,
-                _ => return Err(e),
-            },
-            Ok(s) => stream = s,
+        let mut stream: VarlinkStream;
+        if accept_timeout != 0 {
+            let listener = listener.clone();
+            let (sender, receiver) = mpsc::channel();
+            let _t = thread::spawn(move || {
+                match sender.send(listener.accept()) {
+                    Ok(()) => {} // everything good
+                    Err(_) => {} // we have been released, don't panic
+                }
+            });
+
+            stream = match receiver.recv_timeout(Duration::from_secs(accept_timeout)) {
+                Ok(s) => s?,
+                Err(_) => return Err(Error::new(ErrorKind::Other, "accept timeout")),
+            };
+        } else {
+            stream = listener.accept()?;
         }
         let service = service.clone();
-        let _join = thread::spawn(move || -> io::Result<()> {
-            let (mut r, mut w) = stream.split()?;
-            if let Err(e) = service.handle(&mut r, &mut w) {
-                println!("Handle Error: {}", e);
+        pool.execute(move || {
+            let (mut r, mut w) = stream.split().expect("Could not split stream");
+            if let Err(_e) = service.handle(&mut r, &mut w) {
+                //println!("Handle Error: {}", e);
+                let _ = stream.shutdown();
             }
-            Ok(())
         });
     }
 }

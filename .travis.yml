@@ -4,10 +4,7 @@ rust:
 addons:
   apt:
     packages:
-    - libcurl4-openssl-dev
-    - libelf-dev
-    - libdw-dev
-    - binutils-dev
+    - libssl-dev
 before_script:
 - |
   pip install 'travis-cargo<0.2' --user &&

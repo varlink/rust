@@ -24,7 +24,7 @@ trait ToRust {
 }
 
 #[derive(Debug)]
-pub enum ToRustError {
+enum ToRustError {
     IoError(IOError),
 }
 
@@ -431,15 +431,18 @@ use varlink::CallTrait;
 /// `cargo_build` is used in a `build.rs` program to build the rust code
 /// from a varlink interface definition.
 ///
-/// ```rust,no_run
-/// extern crate varlink;
-///
-/// fn main() {
-///     varlink::generator::cargo_build("src/org.example.ping.varlink");
-/// }
-/// ```
-///
 /// Errors are emitted to stderr and terminate the process.
+///
+///# Examples
+///
+///```rust,no_run
+///extern crate varlink;
+///
+///fn main() {
+///    varlink::generator::cargo_build("src/org.example.ping.varlink");
+///}
+///```
+///
 pub fn cargo_build<T: AsRef<Path> + ?Sized>(input_path: &T) {
     let mut stderr = io::stderr();
     let input_path = input_path.as_ref();

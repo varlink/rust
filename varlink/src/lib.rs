@@ -4,10 +4,10 @@
 //!E.g. `src/org.example.ping.varlink`:
 //!
 //!```varlink
-//!## Example service
+//!# Example service
 //!interface org.example.ping
 //!
-//!## Returns the same string
+//!# Returns the same string
 //!method Ping(ping: string) -> (pong: string)
 //!```
 //!
@@ -64,7 +64,6 @@
 //!#     fn call_upgraded(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
 //!#     fn call(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
 //!# }
-//!
 //!struct MyOrgExamplePing;
 //!
 //!impl VarlinkInterface for MyOrgExamplePing {
@@ -272,6 +271,8 @@ where
 /// If your varlink method is called `TestMethod`, the rust method to be implemented is called
 /// `test_method`. The first parameter is of type `_CallTestMethod`, which has the method `reply()`.
 ///
+///# Examples
+///
 /// ```rust,no_run
 ///# use std::io;
 ///# use varlink;
@@ -361,6 +362,8 @@ pub trait CallTrait {
     fn reply_struct(&mut self, Reply) -> io::Result<()>;
 
     /// Set this to `true` to indicate, that more replies are following.
+    ///
+    ///# Examples
     ///
     ///```rust,no_run
     ///# use std::io;
@@ -633,6 +636,8 @@ impl VarlinkService {
     ///
     /// The `interfaces` vector is an array of varlink `Interfaces` this service provides.
     ///
+    ///# Examples
+    ///
     ///```rust,no_run
     ///# use varlink;
     ///# use std::io;
@@ -764,19 +769,22 @@ impl VarlinkService {
 /// amount of seconds, if no new connection is made in that time frame. It still waits for
 /// all pending connections to finish.
 ///
-/// ```
-///    let service = varlink::VarlinkService::new(
-///        "org.varlink",
-///        "test service",
-///        "0.1",
-///        "http://varlink.org",
-///        vec![/* Your varlink interfaces go here */],
-///    );
+///# Examples
 ///
-///    if let Err(e) = varlink::listen(service, "unix:/tmp/test_listen_timeout", 10, 1) {
-///        panic!("Error listen: {}", e);
-///    }
-/// ```
+///```
+///let service = varlink::VarlinkService::new(
+///    "org.varlink",
+///    "test service",
+///    "0.1",
+///    "http://varlink.org",
+///    vec![/* Your varlink interfaces go here */],
+///);
+///
+///if let Err(e) = varlink::listen(service, "unix:/tmp/test_listen_timeout", 10, 1) {
+///    panic!("Error listen: {}", e);
+///}
+///```
+///# Note
 /// You don't have to use this simple server. With the `VarlinkService::handle()` method you
 /// can implement your own server model using whatever framework you prefer.
 pub fn listen(

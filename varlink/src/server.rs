@@ -110,7 +110,7 @@ impl VarlinkListener {
                 }
             }
             // ignore error on non-existant file
-            let _ = fs::remove_file(addr.clone());
+            let _ = fs::remove_file(&*addr);
             Ok(VarlinkListener::UNIX(UnixListener::bind(addr)?))
         } else {
             Err(Error::new(ErrorKind::Other, "unknown varlink address"))

@@ -107,5 +107,22 @@ fn main() {
 
 #[test]
 fn test_unix() {
-    assert!(run_app("unix:/tmp/org.example.more_unix".into(), 1).is_ok());
+    if let Err(e) = run_app("unix:/tmp/org.example.more_unix".into(), 1) {
+        panic!("error: {}", e);
+    }
+}
+
+#[test]
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn test_unix_abstract() {
+    if let Err(e) = run_app("unix:@org.example.more_unix".into(), 1) {
+        panic!("error: {}", e);
+    }
+}
+
+#[test]
+fn test_tcp() {
+    if let Err(e) = run_app("tcp:0.0.0.0:12345".into(), 1) {
+        panic!("error: {}", e);
+    }
 }

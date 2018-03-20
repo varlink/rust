@@ -73,18 +73,7 @@ impl org_example_more::VarlinkInterface for MyOrgExampleMore {
     }
 }
 
-fn run_app() -> io::Result<()> {
-    let args: Vec<_> = env::args().collect();
-    match args.len() {
-        2 => {}
-        _ => {
-            return Err(Error::new(
-                ErrorKind::Other,
-                format!("Usage: {} <varlink address>", args[0]),
-            ))
-        }
-    };
-
+fn run_app(address: String, timeout: u64) -> io::Result<()> {
     let myexamplemore = MyOrgExampleMore;
     let myinterface = org_example_more::new(Box::new(myexamplemore));
     let service = VarlinkService::new(
@@ -94,15 +83,29 @@ fn run_app() -> io::Result<()> {
         "http://varlink.org",
         vec![Box::new(myinterface)],
     );
-    varlink::listen(service, &args[1], 100, 10)
+    varlink::listen(service, &address, 10, timeout)
 }
 
 fn main() {
-    exit(match run_app() {
+    let args: Vec<_> = env::args().collect();
+    match args.len() {
+        2 => {}
+        _ => {
+            eprintln!("Usage: {} <varlink address>", args[0]);
+            exit(1);
+        }
+    };
+
+    exit(match run_app(args[1].clone(), 0) {
         Ok(_) => 0,
         Err(err) => {
-            eprintln!("error: {:?}", err);
+            eprintln!("error: {}", err);
             1
         }
     });
+}
+
+#[test]
+fn test_unix() {
+    assert!(run_app("unix:/tmp/org.example.more_unix".into(), 1).is_ok());
 }

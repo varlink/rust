@@ -5,7 +5,6 @@ extern crate serde_json;
 extern crate varlink;
 
 use std::io;
-use std::io::{Error, ErrorKind};
 use std::process::exit;
 use std::sync::{Arc, RwLock};
 use std::env;
@@ -79,18 +78,7 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
     }
 }
 
-fn run_app() -> io::Result<()> {
-    let args: Vec<_> = env::args().collect();
-    match args.len() {
-        2 => {}
-        _ => {
-            return Err(Error::new(
-                ErrorKind::Other,
-                format!("Usage: {} <varlink address>", args[0]),
-            ))
-        }
-    };
-
+fn run_app(address: String, timeout: u64) -> io::Result<()> {
     let state = Arc::new(RwLock::new(0));
     let myiosystemdnetwork = MyIoSystemdNetwork { state };
     let myinterface = io_systemd_network::new(Box::new(myiosystemdnetwork));
@@ -102,15 +90,29 @@ fn run_app() -> io::Result<()> {
         vec![Box::new(myinterface)],
     );
 
-    varlink::listen(service, &args[1], 100, 0)
+    varlink::listen(service, &address, 10, timeout)
 }
 
 fn main() {
-    exit(match run_app() {
+    let args: Vec<_> = env::args().collect();
+    match args.len() {
+        2 => {}
+        _ => {
+            eprintln!("Usage: {} <varlink address>", args[0]);
+            exit(1);
+        }
+    };
+
+    exit(match run_app(args[1].clone(), 0) {
         Ok(_) => 0,
         Err(err) => {
             eprintln!("error: {}", err);
             1
         }
     });
+}
+
+#[test]
+fn test_unix() {
+    assert!(run_app("unix:/tmp/io.systemd.network_unix".into(), 1).is_ok());
 }

@@ -316,7 +316,7 @@ error MethodNotImplemented (method: string)
 fn test_complex() {
     let v = Varlink::from_string(
         "interface org.example.complex
-type TypeBar ( string: string )
+type TypeEnum ( a, b, c )
 
 type TypeFoo (
     bool: bool,
@@ -324,7 +324,7 @@ type TypeFoo (
     float: float,
     string: string,
     enum: ( foo, bar, baz ),
-    type: TypeBar,
+    type: TypeEnum,
     anon: ( foo: bool, bar: int, baz: ( a: int, b: int) )
 )
 
@@ -339,10 +339,10 @@ error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)
         v.interface.to_string(),
         concat!(
             "interface org.example.complex\n",
-            "type TypeBar (string: string)\n",
+            "type TypeEnum (a, b, c)\n",
             "type TypeFoo (bool: bool, int: int, float: float, ",
             "string: string, enum: (foo, bar, baz),",
-            " type: TypeBar, anon: (foo: bool, bar: int, baz: (a: int, b: int)))\n",
+            " type: TypeEnum, anon: (foo: bool, bar: int, baz: (a: int, b: int)))\n",
             "method Foo(a: (b: bool, c: int), foo: TypeFoo) ",
             "-> (a: (b: bool, c: int), foo: TypeFoo)\n",
             "error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)\n",

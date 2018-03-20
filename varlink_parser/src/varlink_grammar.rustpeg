@@ -46,7 +46,6 @@ type -> VTypeExt<'input>
     / "int"     a:array? { VTypeExt { vtype: VType::Int(None), isarray: a.is_some() }}
     / "float"   a:array? { VTypeExt { vtype: VType::Float(None), isarray: a.is_some() }}
     / "string"  a:array? { VTypeExt { vtype: VType::VString(None),isarray: a.is_some() }}
-    / "data"    a:array? { VTypeExt { vtype: VType::VData(None),isarray: a.is_some() }}
     / t:$(name) a:array? { VTypeExt { vtype: VType::VTypename(t), isarray: a.is_some() }}
     / v:vstruct a:array? { VTypeExt { vtype: VType::VStruct(Box::new(v)), isarray: a.is_some() }}
     / v:venum a:array? { VTypeExt { vtype: VType::VEnum(Box::new(v)), isarray: a.is_some() }}

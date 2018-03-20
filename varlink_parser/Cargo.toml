@@ -1,6 +1,6 @@
 [package]
 name = "varlink_parser"
-version = "0.1.7"
+version = "0.2.0"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 build = "build.rs"
 license = "MIT/Apache-2.0"

@@ -41,8 +41,6 @@ type
     / "float"   array?
     / "string"  array? _* "=" _* '"' ( '\\' '"' / '\\' / [^"\\] )+ '"'
     / "string"  array?
-    / "data"    array? _* "=" _* '"' ( '\\' '"' / '\\' / [^"\\] )+ '"'
-    / "data"    array?
     / name      array?
     / v:vstruct array?
 

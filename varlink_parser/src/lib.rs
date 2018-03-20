@@ -1,8 +1,7 @@
-//! varlink_parser crate for parsing varlink interface definition files. 
+//! varlink_parser crate for parsing varlink interface definition files.
 
-
-extern crate itertools;
 extern crate bytes;
+extern crate itertools;
 
 mod varlink_grammar {
     include!(concat!(env!("OUT_DIR"), "/varlink_grammar.rs"));
@@ -19,7 +18,6 @@ pub enum VType<'a> {
     Int(Option<i64>),
     Float(Option<f64>),
     VString(Option<&'a str>),
-    VData(Option<&'a str>),
     VTypename(&'a str),
     VStruct(Box<VStruct<'a>>),
     VEnum(Box<VEnum<'a>>),
@@ -113,7 +111,6 @@ impl<'a> fmt::Display for VTypeExt<'a> {
             VType::Int(ref v) => printVTypeExt!(self, f, v, "int"),
             VType::Float(ref v) => printVTypeExt!(self, f, v, "float"),
             VType::VString(ref v) => printVTypeExt!(self, f, v, "string", "\""),
-            VType::VData(ref v) => printVTypeExt!(self, f, v, "data", "\""),
             VType::VTypename(ref v) => printVTypeExt!(self, f, v),
             VType::VStruct(ref v) => printVTypeExt!(self, f, v),
             VType::VEnum(ref v) => printVTypeExt!(self, f, v),

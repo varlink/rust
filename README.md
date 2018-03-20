@@ -2,6 +2,8 @@
 
 [![Build Status](https://travis-ci.org/varlink/rust.svg?branch=master)](https://travis-ci.org/varlink/rust)
 
+See http://varlink.org for more information about varlink.
+
 ## Example usage
 Look into the examples directory. ```build.rs``` contains the magic, which will build rust bindings for the varlink interface definition file.
 

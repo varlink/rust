@@ -431,7 +431,7 @@ use varlink::CallTrait;
 /// `cargo_build` is used in a `build.rs` program to build the rust code
 /// from a varlink interface definition.
 ///
-/// ```no_run
+/// ```rust,no_run
 /// extern crate varlink;
 ///
 /// fn main() {

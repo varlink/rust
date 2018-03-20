@@ -3,7 +3,7 @@
 //! To create a varlink server in rust, place your varlink interface definition file in src/.
 //! E.g. `src/org.example.ping.varlink`:
 //!
-//! ```no_run
+//! ```ignore
 //! ## Example service
 //! interface org.example.ping
 //!
@@ -13,7 +13,7 @@
 //!
 //! Then create a `build.rs` file in your project directory:
 //!
-//! ```no_run
+//! ```rust,ignore
 //! extern crate varlink;
 //!
 //! fn main() {
@@ -23,14 +23,14 @@
 //!
 //! Add to your `Cargo.toml`:
 //!
-//! ```no_run
+//! ```ignore
 //! [package]
 //! build = "build.rs"
 //! ```
 //!
 //! In your `main.rs` you can then use:
 //!
-//! ```no_run
+//! ```rust,ignore
 //! mod org_example_ping {
 //!     include!(concat!(env!("OUT_DIR"), "/org.example.ping.rs"));
 //! }
@@ -50,7 +50,7 @@
 //! If your varlink method is called `TestMethod`, the rust method to be implemented is called
 //! `test_method`. The first parameter is of type `_CallTestMethod`, which has the method `reply()`.
 //!
-//! ```no_run
+//! ```rust,ignore
 //!    fn test_method(&self, call: &mut _CallTestMethod, /* more arguments */) -> io::Result<()> {
 //!        /* ... */
 //!        return call.reply( /* more arguments */ );
@@ -59,7 +59,7 @@
 //!
 //! A typical server creates a `VarlinkService` and starts a server via `varlink::listen()`
 //!
-//! ```no_run
+//! ```rust,ignore
 //! let myorgexampleping = MyOrgExamplePing;
 //! let myorgexampleping_interface = org_example_ping::new(Box::new(myorgexampleping));
 //!
@@ -193,7 +193,7 @@ pub struct Call<'a> {
 ///
 /// E.g. for not yet implemented methods:
 ///
-/// ```no_run
+/// ```rust,ignore
 ///    fn test_method_not_implemented(
 ///        &self,
 ///        call: &mut _CallTestMethodNotImplemented,
@@ -207,7 +207,7 @@ pub trait CallTrait {
 
     /// Set this to `true` to indicate, that more replies are following.
     ///
-    /// ```no_run
+    /// ```rust,ignore
     ///    fn test_method(
     ///        &self,
     ///        call: &mut _CallTestMethod,
@@ -468,7 +468,7 @@ impl VarlinkService {
     ///
     /// The `interfaces` vector is an array of varlink `Interfaces` this service provides.
     ///
-    /// ```no_run
+    /// ```rust,ignore
     ///     let service = VarlinkService::new(
     ///         "org.varlink",
     ///         "test service",

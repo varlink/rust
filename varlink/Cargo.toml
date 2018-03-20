@@ -28,7 +28,7 @@ serde = "1"
 serde_derive = "1"
 serde_json = "1"
 bytes = "0"
-varlink_parser = { version = "0.1", path = "../varlink_parser" }
+varlink_parser = { version = "0.2", path = "../varlink_parser" }
 
 [badges]
 travis-ci = { repository = "varlink/rust" }

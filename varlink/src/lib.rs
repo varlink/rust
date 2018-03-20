@@ -1,93 +1,173 @@
-//! Server support for the [varlink protocol](http://varlink.org)
+//!Server support for the [varlink protocol](http://varlink.org)
 //!
-//! To create a varlink server in rust, place your varlink interface definition file in src/.
-//! E.g. `src/org.example.ping.varlink`:
+//!To create a varlink server in rust, place your varlink interface definition file in src/.
+//!E.g. `src/org.example.ping.varlink`:
 //!
-//! ```varlink
-//! ## Example service
-//! interface org.example.ping
+//!```varlink
+//!## Example service
+//!interface org.example.ping
 //!
-//! ## Returns the same string
-//! method Ping(ping: string) -> (pong: string)
-//! ```
+//!## Returns the same string
+//!method Ping(ping: string) -> (pong: string)
+//!```
 //!
-//! Then create a `build.rs` file in your project directory:
+//!Then create a `build.rs` file in your project directory:
 //!
-//! ```rust,no_run
-//! extern crate varlink;
+//!```rust,no_run
+//!extern crate varlink;
 //!
-//! fn main() {
-//!     varlink::generator::cargo_build("src/org.example.ping.varlink");
-//! }
-//! ```
+//!fn main() {
+//!    varlink::generator::cargo_build("src/org.example.ping.varlink");
+//!}
+//!```
 //!
-//! Add to your `Cargo.toml`:
+//!Add to your `Cargo.toml`:
 //!
-//! ```toml
-//! [package]
-//! build = "build.rs"
-//! ```
+//!```toml
+//![package]
+//!build = "build.rs"
+//!```
 //!
-//! In your `main.rs` you can then use:
+//!In your `main.rs` you can then use:
 //!
-//! ```rust,ignore
-//! mod org_example_ping {
-//!     include!(concat!(env!("OUT_DIR"), "/org.example.ping.rs"));
-//! }
+//!```rust,ignore
+//!mod org_example_ping {
+//!    include!(concat!(env!("OUT_DIR"), "/org.example.ping.rs"));
+//!}
+//!```
+//!and then implement the interface:
 //!
-//! use org_example_ping::*;
+//!```no_run
+//!# use std::io;
+//!# use varlink;
+//!# use varlink::CallTrait;
+//!# struct _PingReply {pong: Option<String>}
+//!# impl varlink::VarlinkReply for _PingReply {}
+//!# struct _PingArgs {ping: Option<String>}
+//!# pub trait _CallErr: varlink::CallTrait {}
+//!# impl<'a> _CallErr for varlink::Call<'a> {}
+//!# pub trait _CallPing: _CallErr {
+//!#     fn reply(&mut self, pong: Option<String>) -> io::Result<()> { Ok(()) }
+//!# }
+//!# impl<'a> _CallPing for varlink::Call<'a> {}
+//!# pub trait VarlinkInterface {
+//!#     fn ping(&self, call: &mut _CallPing, ping: Option<String>) -> io::Result<()>;
+//!#     fn call_upgraded(&self, _call: &mut varlink::Call) -> io::Result<()> {Ok(())}
+//!# }
+//!# pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
+//!# pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
+//!#     _InterfaceProxy { inner }
+//!# }
+//!# impl varlink::Interface for _InterfaceProxy {
+//!#     fn get_description(&self) -> &'static str { "interface org.example.ping\nmethod Ping(ping: string) -> (pong: string)" }
+//!#     fn get_name(&self) -> &'static str { "org.example.ping" }
+//!#     fn call_upgraded(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
+//!#     fn call(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
+//!# }
 //!
-//! struct MyOrgExamplePing;
+//!struct MyOrgExamplePing;
 //!
-//! impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
-//!     fn ping(&self, call: &mut _CallPing, ping: Option<String>) -> io::Result<()> {
-//!         return call.reply(ping);
-//!     }
-//! }
-//! ```
-//! to implement the interface methods.
-//!
-//! If your varlink method is called `TestMethod`, the rust method to be implemented is called
-//! `test_method`. The first parameter is of type `_CallTestMethod`, which has the method `reply()`.
-//!
-//! ```rust,ignore
-//!    fn test_method(&self, call: &mut _CallTestMethod, /* more arguments */) -> io::Result<()> {
-//!        /* ... */
-//!        return call.reply( /* more arguments */ );
+//!impl VarlinkInterface for MyOrgExamplePing {
+//!    fn ping(&self, call: &mut _CallPing, ping: Option<String>) -> io::Result<()> {
+//!        return call.reply(ping);
 //!    }
-//! ```
+//!}
+//!```
+//!to implement the interface methods.
 //!
-//! A typical server creates a `VarlinkService` and starts a server via `varlink::listen()`
+//!If your varlink method is called `TestMethod`, the rust method to be implemented is called
+//!`test_method`. The first parameter is of type `_CallTestMethod`, which has the method `reply()`.
 //!
-//! ```rust,ignore
-//! let myorgexampleping = MyOrgExamplePing;
-//! let myorgexampleping_interface = org_example_ping::new(Box::new(myorgexampleping));
+//!```no_run
+//!# use std::io;
+//!# use varlink::CallTrait;
+//!# pub trait _CallErr: varlink::CallTrait {}
+//!# impl<'a> _CallErr for varlink::Call<'a> {}
+//!# pub trait _CallTestMethod: _CallErr {
+//!#     fn reply(&mut self) -> io::Result<()> {
+//!#         self.reply_struct(varlink::Reply::parameters(None))
+//!#     }
+//!# }
+//!# impl<'a> _CallTestMethod for varlink::Call<'a> {}
+//!# struct TestService;
+//!# impl TestService {
+//!fn test_method(&self, call: &mut _CallTestMethod, /* more arguments */) -> io::Result<()> {
+//!    /* ... */
+//!    return call.reply( /* more arguments */ );
+//!}
+//!# }
+//!```
 //!
-//! let service = VarlinkService::new(
-//!     "org.varlink",
-//!     "test service",
-//!     "0.1",
-//!     "http://varlink.org",
-//!     vec![
-//!         Box::new(myorgexampleping_interface),
-//!         /* more interfaces ...*/
-//!     ],
-//! );
+//!A typical server creates a `VarlinkService` and starts a server via `varlink::listen()`
 //!
-//! varlink::listen(service, &args[1], 10, 0)
-//! ```
+//!```no_run
+//!# use std::io;
+//!# mod org_example_ping {
+//!# use std::io;
+//!# use varlink;
+//!# struct _PingReply {pong: Option<String>}
+//!# impl varlink::VarlinkReply for _PingReply {}
+//!# struct _PingArgs {ping: Option<String>}
+//!# pub trait _CallErr: varlink::CallTrait {}
+//!# impl<'a> _CallErr for varlink::Call<'a> {}
+//!# pub trait _CallPing: _CallErr {
+//!#     fn reply(&mut self, pong: Option<String>) -> io::Result<()> { Ok(()) }
+//!# }
+//!# impl<'a> _CallPing for varlink::Call<'a> {}
+//!# pub trait VarlinkInterface {
+//!#     fn ping(&self, call: &mut _CallPing, ping: Option<String>) -> io::Result<()>;
+//!#     fn call_upgraded(&self, _call: &mut varlink::Call) -> io::Result<()> {Ok(())}
+//!# }
+//!# pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
+//!# pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
+//!#     _InterfaceProxy { inner }
+//!# }
+//!# impl varlink::Interface for _InterfaceProxy {
+//!#     fn get_description(&self) -> &'static str { "interface org.example.ping\nmethod Ping(ping: string) -> (pong: string)" }
+//!#     fn get_name(&self) -> &'static str { "org.example.ping" }
+//!#     fn call_upgraded(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
+//!#     fn call(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
+//!# }}
+//!# use org_example_ping::*;
+//!#
+//!# struct MyOrgExamplePing;
+//!#
+//!# impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
+//!#     fn ping(&self, call: &mut _CallPing, ping: Option<String>) -> io::Result<()> {
+//!#         return call.reply(ping);
+//!#     }
+//!# }
+//!# fn main() {
+//!let args: Vec<_> = std::env::args().collect();
+//!let myorgexampleping = MyOrgExamplePing;
+//!let myorgexampleping_interface = org_example_ping::new(Box::new(myorgexampleping));
 //!
-//! where args[1] would follow the varlink
-//! [address specification](https://github.com/varlink/documentation/wiki#address).
+//!let service = varlink::VarlinkService::new(
+//!    "org.varlink",
+//!    "test service",
+//!    "0.1",
+//!    "http://varlink.org",
+//!    vec![
+//!        Box::new(myorgexampleping_interface),
+//!        /* more interfaces ...*/
+//!    ],
+//!);
 //!
-//! Currently supported address URIs are:
+//!varlink::listen(service, &args[1], 10, 0);
+//!# }
+//!```
 //!
-//! - TCP `tcp:127.0.0.1:12345` hostname/IP address and port
-//! - UNIX socket `unix:/run/org.example.ftl` optional access `;mode=0666` parameter
-//! - UNIX abstract namespace socket `unix:@org.example.ftl` (on Linux only)
-//! - executed binary `exec:/usr/bin/org.example.ftl` via
-//!   [socket activation](https://github.com/varlink/documentation/wiki#activation)
-//!   (on Linux only)
+//!where args[1] would follow the varlink
+//![address specification](https://github.com/varlink/documentation/wiki#address).
+//!
+//!Currently supported address URIs are:
+//!
+//!- TCP `tcp:127.0.0.1:12345` hostname/IP address and port
+//!- UNIX socket `unix:/run/org.example.ftl` optional access `;mode=0666` parameter
+//!- UNIX abstract namespace socket `unix:@org.example.ftl` (on Linux only)
+//!- executed binary `exec:/usr/bin/org.example.ftl` via
+//!  [socket activation](https://github.com/varlink/documentation/wiki#activation)
+//!  (on Linux only)
 
 extern crate bytes;
 extern crate itertools;
@@ -126,6 +206,7 @@ pub trait Interface {
 /// The structure of a varlink request. Used to serialize json into it.
 ///
 /// There should be no need to use this directly.
+///
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Request {
     pub more: Option<bool>,
@@ -138,11 +219,13 @@ pub struct Request {
 /// Marker trait for the rust code generated by the varlink-rust-generator
 ///
 /// There should be no need to use this directly.
+/// See the [CallTrait](trait.CallTrait.html) to use with the first Call parameter
 pub trait VarlinkReply {}
 
 /// The structure of a varlink reply. Used to deserialize it into json.
 ///
 /// There should be no need to use this directly.
+/// See the [CallTrait](trait.CallTrait.html) to use with the first Call parameter
 #[derive(Serialize, Deserialize)]
 pub struct Reply {
     pub continues: Option<bool>,
@@ -181,6 +264,34 @@ where
 }
 
 /// Call is a struct, which is passed as the first argument to the interface methods in a derived form.
+///
+/// See also the [CallTrait](trait.CallTrait.html) to use with the first Call parameter
+///
+/// #Examples
+///
+/// If your varlink method is called `TestMethod`, the rust method to be implemented is called
+/// `test_method`. The first parameter is of type `_CallTestMethod`, which has the method `reply()`.
+///
+/// ```rust,no_run
+///# use std::io;
+///# use varlink;
+///# use varlink::CallTrait;
+///# pub trait _CallErr: varlink::CallTrait {}
+///# impl<'a> _CallErr for varlink::Call<'a> {}
+///# pub trait _CallTestMethod: _CallErr {
+///#     fn reply(&mut self) -> io::Result<()> {
+///#         self.reply_struct(varlink::Reply::parameters(None))
+///#     }
+///# }
+///# impl<'a> _CallTestMethod for varlink::Call<'a> {}
+///# struct TestService;
+///# impl TestService {
+///fn test_method(&self, call: &mut _CallTestMethod, /* more arguments */) -> io::Result<()> {
+///    /* ... */
+///    return call.reply( /* more arguments */ );
+///}
+///# }
+/// ```
 pub struct Call<'a> {
     writer: &'a mut Write,
     pub request: Option<&'a Request>,
@@ -191,15 +302,59 @@ pub struct Call<'a> {
 /// CallTrait provides convenience methods for the `Call` struct, which is passed as
 /// the first argument to the interface methods.
 ///
-/// E.g. for not yet implemented methods:
+///#  Examples
 ///
-/// ```rust,ignore
-///    fn test_method_not_implemented(
-///        &self,
-///        call: &mut _CallTestMethodNotImplemented,
-///    ) -> io::Result<()> {
-///        return call.reply_method_not_implemented(Some("TestMethodNotImplemented".into()));
+/// For an invalid parameter:
+///
+/// ```rust,no_run
+///# use std::io;
+///# use varlink;
+///# use varlink::CallTrait;
+///# pub trait _CallErr: varlink::CallTrait {}
+///# impl<'a> _CallErr for varlink::Call<'a> {}
+///# pub trait _CallTestMethod: _CallErr {
+///#     fn reply(&mut self) -> io::Result<()> {
+///#         self.reply_struct(varlink::Reply::parameters(None))
+///#     }
+///# }
+///# impl<'a> _CallTestMethod for varlink::Call<'a> {}
+///# struct TestService;
+///# impl TestService {
+///fn test_method(&self, call: &mut _CallTestMethod, testparam: Option<i64>) -> io::Result<()> {
+///    match testparam {
+///        Some(i) => if i > 100 {
+///            return call.reply_invalid_parameter(Some("testparam".into()));
+///        },
+///        None => {
+///            return call.reply_invalid_parameter(Some("testparam".into()));
+///        }
 ///    }
+///    /* ... */
+///    Ok(())
+///}
+///# }
+/// ```
+///
+/// For not yet implemented methods:
+///
+/// ```rust,no_run
+///# use std::io;
+///# use varlink;
+///# use varlink::CallTrait;
+///# pub trait _CallErr: varlink::CallTrait {}
+///# impl<'a> _CallErr for varlink::Call<'a> {}
+///# pub trait _CallTestMethodNotImplemented: _CallErr {
+///#     fn reply(&mut self) -> io::Result<()> {
+///#         self.reply_struct(varlink::Reply::parameters(None))
+///#     }
+///# }
+///# impl<'a> _CallTestMethodNotImplemented for varlink::Call<'a> {}
+///# struct TestService;
+///# impl TestService {
+///fn test_method_not_implemented(&self, call: &mut _CallTestMethodNotImplemented) -> io::Result<()> {
+///    return call.reply_method_not_implemented(Some("TestMethodNotImplemented".into()));
+///}
+///# }
 /// ```
 pub trait CallTrait {
     /// Don't use this directly. Rather use the standard `reply()` method.
@@ -207,19 +362,29 @@ pub trait CallTrait {
 
     /// Set this to `true` to indicate, that more replies are following.
     ///
-    /// ```rust,ignore
-    ///    fn test_method(
-    ///        &self,
-    ///        call: &mut _CallTestMethod,
-    ///    ) -> io::Result<()> {
-    ///        call.set_continue(true);
-    ///        call.reply( /* more args*/ )?;
-    ///        call.reply( /* more args*/ )?;
-    ///        call.reply( /* more args*/ )?;
-    ///        call.set_continue(false);
-    ///        return call.reply( /* more args*/ );
-    ///    }
-    /// ```
+    ///```rust,no_run
+    ///# use std::io;
+    ///# use varlink::CallTrait;
+    ///# pub trait _CallErr: varlink::CallTrait {}
+    ///# impl<'a> _CallErr for varlink::Call<'a> {}
+    ///# pub trait _CallTestMethod: _CallErr {
+    ///#     fn reply(&mut self) -> io::Result<()> {
+    ///#         self.reply_struct(varlink::Reply::parameters(None))
+    ///#     }
+    ///# }
+    ///# impl<'a> _CallTestMethod for varlink::Call<'a> {}
+    ///# struct TestService;
+    ///# impl TestService {
+    ///fn test_method(&self, call: &mut _CallTestMethod) -> io::Result<()> {
+    ///    call.set_continues(true);
+    ///    call.reply( /* more args*/ )?;
+    ///    call.reply( /* more args*/ )?;
+    ///    call.reply( /* more args*/ )?;
+    ///    call.set_continues(false);
+    ///    return call.reply( /* more args*/ );
+    ///}
+    ///# }
+    ///```
     fn set_continues(&mut self, cont: bool);
 
     /// reply with the standard varlink `org.varlink.service.MethodNotFound` error
@@ -468,21 +633,31 @@ impl VarlinkService {
     ///
     /// The `interfaces` vector is an array of varlink `Interfaces` this service provides.
     ///
-    /// ```rust,ignore
-    ///     let service = VarlinkService::new(
-    ///         "org.varlink",
-    ///         "test service",
-    ///         "0.1",
-    ///         "http://varlink.org",
-    ///         vec![
-    ///             Box::new(interface_foo),
-    ///             Box::new(interface_bar),
-    ///             Box::new(interface_baz),
-    ///         ],
-    ///     );
-    ///
-    ///     varlink::listen(service, &args[1], 10, 0)
-    /// ```
+    ///```rust,no_run
+    ///# use varlink;
+    ///# use std::io;
+    ///# struct interface;
+    ///# impl varlink::Interface for interface {
+    ///# fn get_description(&self) -> &'static str { "interface org.example.ping\nmethod Ping(ping: string) -> (pong: string)" }
+    ///# fn get_name(&self) -> &'static str { "org.example.ping" }
+    ///# fn call_upgraded(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
+    ///# fn call(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
+    ///# }
+    ///# let interface_foo = interface;
+    ///# let interface_bar = interface;
+    ///# let interface_baz = interface;
+    ///let service = varlink::VarlinkService::new(
+    ///    "org.varlink",
+    ///    "test service",
+    ///    "0.1",
+    ///    "http://varlink.org",
+    ///    vec![
+    ///        Box::new(interface_foo),
+    ///        Box::new(interface_bar),
+    ///        Box::new(interface_baz),
+    ///    ],
+    ///);
+    ///```
     pub fn new(
         vendor: &str,
         product: &str,

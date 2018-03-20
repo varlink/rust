@@ -313,6 +313,44 @@ error MethodNotImplemented (method: string)
 }
 
 #[test]
+fn test_complex() {
+    let v = Varlink::from_string(
+        "interface org.example.complex
+type TypeBar ( string: string )
+
+type TypeFoo (
+    bool: bool,
+    int: int,
+    float: float,
+    string: string,
+    enum: ( foo, bar, baz ),
+    type: TypeBar,
+    anon: ( foo: bool, bar: int, baz: ( a: int, b: int) )
+)
+
+method Foo(a: (b: bool, c: int), foo: TypeFoo) -> (a: (b: bool, c: int), foo: TypeFoo)
+
+error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)
+",
+    ).unwrap();
+    assert_eq!(v.interface.name, "org.example.complex");
+    println!("{}", v.interface.to_string());
+    assert_eq!(
+        v.interface.to_string(),
+        concat!(
+            "interface org.example.complex\n",
+            "type TypeBar (string: string)\n",
+            "type TypeFoo (bool: bool, int: int, float: float, ",
+            "string: string, enum: (foo, bar, baz),",
+            " type: TypeBar, anon: (foo: bool, bar: int, baz: (a: int, b: int)))\n",
+            "method Foo(a: (b: bool, c: int), foo: TypeFoo) ",
+            "-> (a: (b: bool, c: int), foo: TypeFoo)\n",
+            "error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)\n",
+        )
+    );
+}
+
+#[test]
 fn test_one_method() {
     let v = Varlink::from_string("interface foo.bar\nmethod Foo()->()");
     assert!(v.is_ok());
@@ -364,6 +402,29 @@ fn test_type_no_args() {
 #[test]
 fn test_type_one_arg() {
     assert!(Varlink::from_string("interface foo.bar\n type I (b:bool)\nmethod F()->()").is_ok());
+}
+
+#[test]
+fn test_type_enum() {
+    assert!(
+        Varlink::from_string("interface foo.bar\n type I (b: (foo, bar, baz))\nmethod F()->()")
+            .is_ok()
+    );
+}
+
+#[test]
+fn test_type_string() {
+    assert!(Varlink::from_string("interface foo.bar\n type I (b: string)\nmethod F()->()").is_ok());
+}
+
+#[test]
+fn test_type_int() {
+    assert!(Varlink::from_string("interface foo.bar\n type I (b: int)\nmethod F()->()").is_ok());
+}
+
+#[test]
+fn test_type_float() {
+    assert!(Varlink::from_string("interface foo.bar\n type I (b: float)\nmethod F()->()").is_ok());
 }
 
 #[test]

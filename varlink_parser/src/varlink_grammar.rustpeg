@@ -56,11 +56,11 @@ object_field -> Argument<'input>
 
 use super::VStruct;
 vstruct -> VStruct<'input>
-    = '(' e:object_field ** ',' _* ')' { VStruct{ elts: e} }
+    = '(' _* e:object_field ** ',' _* ')' { VStruct{ elts: e} }
 
 use super::VEnum;
 venum -> VEnum<'input>
-    = '(' v:field_name ** ( ',' _* ) _*  ')' { VEnum { elts: v } }
+    = '(' _* v:field_name ** ( ',' _* ) _*  ')' { VEnum { elts: v } }
 
 use super::Typedef;
 use super::VStructOrEnum;

@@ -793,3 +793,18 @@ pub fn listen(
         Ok(_) => Ok(()),
     }
 }
+
+#[test]
+fn test_listen() {
+    let service = VarlinkService::new(
+        "org.varlink",
+        "test service",
+        "0.1",
+        "http://varlink.org",
+        vec![/* Your varlink interfaces go here */],
+    );
+
+    if let Err(e) = listen(service, "unix:/tmp/test_listen_timeout", 10, 1) {
+        panic!("Error listen: {}", e);
+    }
+}

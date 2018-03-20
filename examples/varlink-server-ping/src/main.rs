@@ -18,7 +18,7 @@ mod org_example_ping {
 
 use org_example_ping::*;
 
-struct MyOrgExamplePing {}
+struct MyOrgExamplePing;
 
 impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
     fn ping(&self, call: &mut _CallPing, ping: Option<String>) -> io::Result<()> {
@@ -38,7 +38,7 @@ fn run_app() -> io::Result<()> {
         }
     };
 
-    let myorgexampleping = MyOrgExamplePing {};
+    let myorgexampleping = MyOrgExamplePing;
     let myinterface = org_example_ping::new(Box::new(myorgexampleping));
     let service = VarlinkService::new(
         "org.varlink",
@@ -48,7 +48,7 @@ fn run_app() -> io::Result<()> {
         vec![Box::new(myinterface)],
     );
 
-    varlink::server::listen(service, &args[1], 10, 0)
+    varlink::listen(service, &args[1], 10, 0)
 }
 
 fn main() {

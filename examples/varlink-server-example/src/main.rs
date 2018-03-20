@@ -102,7 +102,7 @@ fn run_app() -> io::Result<()> {
         vec![Box::new(myinterface)],
     );
 
-    varlink::server::listen(service, &args[1], 100, 0)
+    varlink::listen(service, &args[1], 100, 0)
 }
 
 fn main() {

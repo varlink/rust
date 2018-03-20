@@ -1,3 +1,5 @@
+//! Handle network connections for a varlink service
+
 use std::io;
 use std::io::{Error, ErrorKind, Read, Write};
 use std::thread;
@@ -140,7 +142,7 @@ enum Message {
     Terminate,
 }
 
-pub struct ThreadPool {
+struct ThreadPool {
     workers: Vec<Worker>,
     sender: mpsc::Sender<Message>,
 }
@@ -241,7 +243,7 @@ impl From<Error> for ServerError {
     }
 }
 
-fn do_listen(
+pub fn do_listen(
     service: ::VarlinkService,
     addr: &str,
     workers: usize,
@@ -279,20 +281,5 @@ fn do_listen(
                 let _ = stream.shutdown();
             }
         });
-    }
-}
-
-pub fn listen(
-    service: ::VarlinkService,
-    addr: &str,
-    workers: usize,
-    accept_timeout: u64,
-) -> io::Result<()> {
-    match do_listen(service, addr, workers, accept_timeout) {
-        Err(e) => match e {
-            ServerError::IoError(e) => Err(e),
-            ServerError::AcceptTimeout => Ok(()),
-        },
-        Ok(_) => Ok(()),
     }
 }

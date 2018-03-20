@@ -19,7 +19,7 @@ mod org_example_more {
 
 use org_example_more::*;
 
-struct MyOrgExampleMore {}
+struct MyOrgExampleMore;
 
 impl org_example_more::VarlinkInterface for MyOrgExampleMore {
     fn ping(&self, call: &mut _CallPing, ping: Option<String>) -> io::Result<()> {
@@ -85,7 +85,7 @@ fn run_app() -> io::Result<()> {
         }
     };
 
-    let myexamplemore = MyOrgExampleMore {};
+    let myexamplemore = MyOrgExampleMore;
     let myinterface = org_example_more::new(Box::new(myexamplemore));
     let service = VarlinkService::new(
         "org.varlink",
@@ -94,7 +94,7 @@ fn run_app() -> io::Result<()> {
         "http://varlink.org",
         vec![Box::new(myinterface)],
     );
-    varlink::server::listen(service, &args[1], 100, 10)
+    varlink::listen(service, &args[1], 100, 10)
 }
 
 fn main() {

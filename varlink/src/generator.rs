@@ -1,3 +1,5 @@
+//! Generate rust code from varlink interface definition files
+
 extern crate varlink_parser;
 
 use std::env;
@@ -389,7 +391,9 @@ impl varlink::Interface for _InterfaceProxy {{
     }
 }
 
-pub fn generate(mut reader: Box<Read>, mut writer: Box<Write>) -> io::Result<()> {
+/// `generate` reads a varlink interface definition from `reader` and writes
+/// the rust code to `writer`.
+pub fn generate(reader: &mut Read, writer: &mut Write) -> io::Result<()> {
     let mut buffer = String::new();
 
     reader.read_to_string(&mut buffer)?;
@@ -425,32 +429,39 @@ use varlink::CallTrait;
     Ok(())
 }
 
+/// `cargo_build` is used in a `build.rs` program to build the rust code
+/// from a varlink interface definition.
+///
+/// ```no_run
+/// extern crate varlink;
+///
+/// fn main() {
+///     varlink::generator::cargo_build("src/org.example.ping.varlink");
+/// }
+/// ```
+///
 /// Errors are emitted to stderr and terminate the process.
 pub fn cargo_build<T: AsRef<Path> + ?Sized>(input_path: &T) {
     let mut stderr = io::stderr();
     let input_path = input_path.as_ref();
-
-    let reader: Box<Read>;
 
     let out_dir: PathBuf = env::var_os("OUT_DIR").unwrap().into();
     let rust_path = out_dir
         .join(input_path.file_name().unwrap())
         .with_extension("rs");
 
-    let writer: Box<Write> = Box::new(File::create(&rust_path).unwrap());
+    let writer: &mut Write = &mut (File::create(&rust_path).unwrap());
 
-    match File::open(input_path) {
-        Ok(r) => reader = Box::new(r),
-        Err(e) => {
-            writeln!(
-                stderr,
-                "Could not read varlink input file `{}`: {}",
-                input_path.display(),
-                e
-            ).unwrap();
-            exit(1);
-        }
-    }
+    let reader: &mut Read = &mut (File::open(input_path).unwrap_or_else(|e| {
+        writeln!(
+            stderr,
+            "Could not read varlink input file `{}`: {}",
+            input_path.display(),
+            e
+        ).unwrap();
+        exit(1);
+    }));
+
     if let Err(e) = generate(reader, writer) {
         writeln!(
             stderr,

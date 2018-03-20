@@ -1,3 +1,5 @@
+//! varlink-rust-generator
+
 extern crate varlink;
 
 use std::io;
@@ -28,12 +30,12 @@ impl<E: Error> MainReturn for Result<(), E> {
 fn do_main() -> io::Result<()> {
     let args: Vec<_> = env::args().collect();
     {
-        let reader: Box<Read> = match args.len() {
+        let mut reader: Box<Read> = match args.len() {
             0 | 1 => Box::new(io::stdin()),
-            _ => Box::new(File::open(Path::new(&args[1])).unwrap()),
+            _ => Box::new(File::open(Path::new(&args[1]))?),
         };
-        let writer: Box<Write> = Box::new(io::stdout());
-        generate(reader, writer)
+        let writer: &mut Write = &mut io::stdout();
+        generate(&mut reader, writer)
     }
 }
 

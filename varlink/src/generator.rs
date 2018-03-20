@@ -62,7 +62,6 @@ impl<'a> ToRust for VType<'a> {
             VType::Int(_) => Ok("i64".into()),
             VType::Float(_) => Ok("f64".into()),
             VType::VString(_) => Ok("String".into()),
-            VType::VData(_) => Ok("String".into()),
             VType::VTypename(v) => Ok(v.into()),
             VType::VEnum(ref v) => {
                 enumhash.insert(

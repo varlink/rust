@@ -3,7 +3,7 @@
 //! To create a varlink server in rust, place your varlink interface definition file in src/.
 //! E.g. `src/org.example.ping.varlink`:
 //!
-//! ```ignore
+//! ```varlink
 //! ## Example service
 //! interface org.example.ping
 //!
@@ -13,7 +13,7 @@
 //!
 //! Then create a `build.rs` file in your project directory:
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! extern crate varlink;
 //!
 //! fn main() {
@@ -23,7 +23,7 @@
 //!
 //! Add to your `Cargo.toml`:
 //!
-//! ```ignore
+//! ```toml
 //! [package]
 //! build = "build.rs"
 //! ```

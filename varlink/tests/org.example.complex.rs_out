@@ -18,7 +18,7 @@ pub struct TypeFoo {
     pub int: Option<i64>,
     pub float: Option<f64>,
     pub string: Option<String>,
-    pub enum: Option<TypeFoo_enum>,
+    pub enum: Option<Vec<TypeFoo_enum>>,
     pub type: Option<TypeEnum>,
     pub anon: Option<TypeFoo_anon>,
 }
@@ -26,7 +26,7 @@ pub struct TypeFoo {
 #[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Debug)]
 struct _FooReply {
-    a: Option<FooReply_a>,
+    a: Option<Vec<FooReply_a>>,
     foo: Option<TypeFoo>,
 }
 impl varlink::VarlinkReply for _FooReply {}
@@ -50,7 +50,7 @@ struct _ErrorFooArgs {
 struct TypeFoo_anon {
     foo: Option<bool>,
     bar: Option<i64>,
-    baz: Option<TypeFoo_anon_baz>,
+    baz: Option<Vec<TypeFoo_anon_baz>>,
 }
 
 #[allow(non_camel_case_types)]
@@ -98,7 +98,7 @@ pub trait _CallErr: varlink::CallTrait {
 impl<'a> _CallErr for varlink::Call<'a> {}
 
 pub trait _CallFoo: _CallErr {
-    fn reply(&mut self, a: Option<FooReply_a>, foo: Option<TypeFoo>) -> io::Result<()> {
+    fn reply(&mut self, a: Option<Vec<FooReply_a>>, foo: Option<TypeFoo>) -> io::Result<()> {
         self.reply_struct(_FooReply { a, foo }.into())
     }
 }
@@ -130,12 +130,12 @@ type TypeFoo (
     int: int,
     float: float,
     string: string,
-    enum: ( foo, bar, baz ),
+    enum: ( foo, bar, baz )[],
     type: TypeEnum,
-    anon: ( foo: bool, bar: int, baz: ( a: int, b: int) )
+    anon: ( foo: bool, bar: int, baz: (a: int, b: int)[] )
 )
 
-method Foo(a: (b: bool, c: int), foo: TypeFoo) -> (a: (b: bool, c: int), foo: TypeFoo)
+method Foo(a: (b: bool, c: int), foo: TypeFoo) -> (a: (b: bool, c: int)[], foo: TypeFoo)
 
 error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)
 

@@ -1,4 +1,5 @@
 interface org.example.complex
+
 type TypeEnum ( a, b, c )
 
 type TypeFoo (
@@ -6,11 +7,11 @@ type TypeFoo (
     int: int,
     float: float,
     string: string,
-    enum: ( foo, bar, baz ),
+    enum: ( foo, bar, baz )[],
     type: TypeEnum,
-    anon: ( foo: bool, bar: int, baz: ( a: int, b: int) )
+    anon: ( foo: bool, bar: int, baz: (a: int, b: int)[] )
 )
 
-method Foo(a: (b: bool, c: int), foo: TypeFoo) -> (a: (b: bool, c: int), foo: TypeFoo)
+method Foo(a: (b: bool, c: int), foo: TypeFoo) -> (a: (b: bool, c: int)[], foo: TypeFoo)
 
 error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)

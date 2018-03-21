@@ -187,7 +187,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         "    {}: Option<{}>,\n",
                         e.name,
                         e.vtype.to_rust(
-                            format!("{}_{}", t.name, e.name).as_ref(),
+                            format!("{}Reply_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
                             &mut structvec
                         )?
@@ -205,7 +205,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         "    {}: Option<{}>,\n",
                         e.name,
                         e.vtype.to_rust(
-                            format!("{}_{}", t.name, e.name).as_ref(),
+                            format!("{}Args_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
                             &mut structvec
                         )?
@@ -224,13 +224,52 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         "    {}: Option<{}>,\n",
                         e.name,
                         e.vtype.to_rust(
-                            format!("{}_{}", t.name, e.name).as_ref(),
+                            format!("{}Args_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
                             &mut structvec
                         )?
                     ).as_ref();
                 }
                 out += "}\n\n";
+            }
+        }
+        {
+            loop {
+                let mut nstructvec = StructVec::new();
+                for (name, v) in structvec.drain(..) {
+                    out += "#[allow(non_camel_case_types)]\n#[derive(Serialize, Deserialize, Debug)]\n";
+                    out += format!("struct {} {{\n", name).as_ref();
+                    for e in &v.elts {
+                        out += format!(
+                            "    {}: Option<{}>,\n",
+                            e.name,
+                            e.vtype
+                                .to_rust(
+                                    format!("{}_{}", name, e.name).as_ref(),
+                                    &mut enumvec,
+                                    &mut nstructvec
+                                )
+                                .unwrap()
+                        ).as_ref();
+                    }
+                    out += "}\n\n";
+                }
+                for (name, v) in enumvec.drain(..) {
+                    out += format!("pub enum {} {{\n", name).as_ref();
+                    let mut iter = v.iter();
+                    if let Some(fst) = iter.next() {
+                        out += format!("    {}", fst).as_ref();
+                        for elt in iter {
+                            out += format!(",\n    {}", elt).as_ref();
+                        }
+                    }
+                    out += "\n}\n\n";
+                }
+
+                if nstructvec.len() == 0 {
+                    break;
+                }
+                structvec = nstructvec;
             }
         }
 
@@ -245,7 +284,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                             ", {}: Option<{}>",
                             e.name,
                             e.vtype.to_rust(
-                                format!("{}_{}", t.name, e.name).as_ref(),
+                                format!("{}Args_{}", t.name, e.name).as_ref(),
                                 &mut enumvec,
                                 &mut structvec
                             )?
@@ -288,7 +327,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         ", {}: Option<{}>",
                         e.name,
                         e.vtype.to_rust(
-                            format!("{}_{}", t.name, e.name).as_ref(),
+                            format!("{}Reply_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
                             &mut structvec
                         )?
@@ -314,45 +353,6 @@ impl<'a> InterfaceToRust for Interface<'a> {
             ).as_ref();
         }
 
-        loop {
-            let drain = structvec.drain(..);
-            let mut structvec = StructVec::new();
-
-            for (name, v) in drain {
-                out += "#[allow(non_camel_case_types)]\n#[derive(Serialize, Deserialize, Debug)]\n";
-                out += format!("struct {} {{\n", name).as_ref();
-                for e in &v.elts {
-                    out += format!(
-                        "    {}: Option<{}>,\n",
-                        e.name,
-                        e.vtype
-                            .to_rust(
-                                format!("{}_{}", name, e.name).as_ref(),
-                                &mut enumvec,
-                                &mut structvec
-                            )
-                            .unwrap()
-                    ).as_ref();
-                }
-                out += "}\n\n";
-            }
-            for (name, v) in enumvec.drain(..) {
-                out += format!("pub enum {} {{\n", name).as_ref();
-                let mut iter = v.iter();
-                if let Some(fst) = iter.next() {
-                    out += format!("    {}", fst).as_ref();
-                    for elt in iter {
-                        out += format!(",\n    {}", elt).as_ref();
-                    }
-                }
-                out += "\n}\n\n";
-            }
-
-            if structvec.len() == 0 {
-                break;
-            }
-        }
-
         out += "pub trait VarlinkInterface {\n";
         for t in self.methods.values() {
             let mut inparms: String = "".to_owned();
@@ -362,7 +362,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         ", {}: Option<{}>",
                         e.name,
                         e.vtype.to_rust(
-                            format!("{}_{}", t.name, e.name).as_ref(),
+                            format!("{}Args_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
                             &mut structvec
                         )?

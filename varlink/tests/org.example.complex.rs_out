@@ -26,7 +26,7 @@ pub struct TypeFoo {
 #[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Debug)]
 struct _FooReply {
-    a: Option<Foo_a>,
+    a: Option<FooReply_a>,
     foo: Option<TypeFoo>,
 }
 impl varlink::VarlinkReply for _FooReply {}
@@ -34,33 +34,16 @@ impl varlink::VarlinkReply for _FooReply {}
 #[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Debug)]
 struct _FooArgs {
-    a: Option<Foo_a>,
+    a: Option<FooArgs_a>,
     foo: Option<TypeFoo>,
 }
 
 #[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Debug)]
 struct _ErrorFooArgs {
-    a: Option<ErrorFoo_a>,
+    a: Option<ErrorFooArgs_a>,
     foo: Option<TypeFoo>,
 }
-
-pub trait _CallErr: varlink::CallTrait {
-    fn reply_error_foo(&mut self, a: Option<ErrorFoo_a>, foo: Option<TypeFoo>) -> io::Result<()> {
-        self.reply_struct(varlink::Reply::error(
-            "org.example.complex.ErrorFoo".into(),
-            Some(serde_json::to_value(_ErrorFooArgs { a, foo }).unwrap()),
-        ))
-    }
-}
-impl<'a> _CallErr for varlink::Call<'a> {}
-
-pub trait _CallFoo: _CallErr {
-    fn reply(&mut self, a: Option<Foo_a>, foo: Option<TypeFoo>) -> io::Result<()> {
-        self.reply_struct(_FooReply { a, foo }.into())
-    }
-}
-impl<'a> _CallFoo for varlink::Call<'a> {}
 
 #[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Debug)]
@@ -72,35 +55,21 @@ struct TypeFoo_anon {
 
 #[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Debug)]
-struct Foo_a {
+struct FooReply_a {
     b: Option<bool>,
     c: Option<i64>,
 }
 
 #[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Debug)]
-struct Foo_a {
+struct FooArgs_a {
     b: Option<bool>,
     c: Option<i64>,
 }
 
 #[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Debug)]
-struct ErrorFoo_a {
-    b: Option<bool>,
-    c: Option<i64>,
-}
-
-#[allow(non_camel_case_types)]
-#[derive(Serialize, Deserialize, Debug)]
-struct ErrorFoo_a {
-    b: Option<bool>,
-    c: Option<i64>,
-}
-
-#[allow(non_camel_case_types)]
-#[derive(Serialize, Deserialize, Debug)]
-struct Foo_a {
+struct ErrorFooArgs_a {
     b: Option<bool>,
     c: Option<i64>,
 }
@@ -111,8 +80,32 @@ pub enum TypeFoo_enum {
     baz
 }
 
+#[allow(non_camel_case_types)]
+#[derive(Serialize, Deserialize, Debug)]
+struct TypeFoo_anon_baz {
+    a: Option<i64>,
+    b: Option<i64>,
+}
+
+pub trait _CallErr: varlink::CallTrait {
+    fn reply_error_foo(&mut self, a: Option<ErrorFooArgs_a>, foo: Option<TypeFoo>) -> io::Result<()> {
+        self.reply_struct(varlink::Reply::error(
+            "org.example.complex.ErrorFoo".into(),
+            Some(serde_json::to_value(_ErrorFooArgs { a, foo }).unwrap()),
+        ))
+    }
+}
+impl<'a> _CallErr for varlink::Call<'a> {}
+
+pub trait _CallFoo: _CallErr {
+    fn reply(&mut self, a: Option<FooReply_a>, foo: Option<TypeFoo>) -> io::Result<()> {
+        self.reply_struct(_FooReply { a, foo }.into())
+    }
+}
+impl<'a> _CallFoo for varlink::Call<'a> {}
+
 pub trait VarlinkInterface {
-    fn foo(&self, call: &mut _CallFoo, a: Option<Foo_a>, foo: Option<TypeFoo>) -> io::Result<()>;
+    fn foo(&self, call: &mut _CallFoo, a: Option<FooArgs_a>, foo: Option<TypeFoo>) -> io::Result<()>;
     fn call_upgraded(&self, _call: &mut varlink::Call) -> io::Result<()> {
         Ok(())
     }

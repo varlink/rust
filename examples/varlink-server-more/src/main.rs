@@ -1,23 +1,20 @@
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
-
 extern crate varlink;
 
+use org_example_more::*;
+use std::{thread, time};
+use std::env;
 use std::io;
 use std::io::{Error, ErrorKind};
 use std::process::exit;
-use std::env;
-use std::{thread, time};
-
 use varlink::VarlinkService;
 
 // Dynamically build the varlink rust code.
 mod org_example_more {
     include!(concat!(env!("OUT_DIR"), "/org.example.more.rs"));
 }
-
-use org_example_more::*;
 
 struct MyOrgExampleMore;
 

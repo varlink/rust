@@ -1,6 +1,7 @@
 extern crate varlink;
-use std::io::prelude::*;
+
 use std::fs::File;
+use std::io::prelude::*;
 
 fn compare_files(a: std::path::PathBuf, b: std::path::PathBuf) -> bool {
     let fa = File::open(a).unwrap();

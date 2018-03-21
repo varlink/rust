@@ -2,15 +2,14 @@
 
 extern crate varlink;
 
-use std::io;
-use std::process::exit;
-use std::path::Path;
-use std::fs::File;
 use std::env;
-use std::io::{Read, Write};
 use std::error::Error;
+use std::fs::File;
+use std::io;
+use std::io::{Read, Write};
+use std::path::Path;
+use std::process::exit;
 use std::result::Result;
-
 use varlink::generator::generate;
 
 trait MainReturn {

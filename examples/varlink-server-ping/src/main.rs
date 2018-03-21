@@ -1,21 +1,18 @@
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
-
 extern crate varlink;
 
+use org_example_ping::*;
+use std::env;
 use std::io;
 use std::process::exit;
-use std::env;
-
 use varlink::VarlinkService;
 
 // Dynamically build the varlink rust code.
 mod org_example_ping {
     include!(concat!(env!("OUT_DIR"), "/org.example.ping.rs"));
 }
-
-use org_example_ping::*;
 
 struct MyOrgExamplePing;
 

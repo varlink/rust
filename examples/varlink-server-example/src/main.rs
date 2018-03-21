@@ -1,14 +1,13 @@
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
-
 extern crate varlink;
 
+use io_systemd_network::*;
+use std::env;
 use std::io;
 use std::process::exit;
 use std::sync::{Arc, RwLock};
-use std::env;
-
 use varlink::VarlinkService;
 
 // Dynamically build the varlink rust code.
@@ -16,8 +15,6 @@ use varlink::VarlinkService;
 mod io_systemd_network {
     include!(concat!(env!("OUT_DIR"), "/io.systemd.network.rs"));
 }
-
-use io_systemd_network::*;
 
 struct MyIoSystemdNetwork {
     pub state: Arc<RwLock<i64>>,

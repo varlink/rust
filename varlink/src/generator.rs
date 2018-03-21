@@ -3,18 +3,17 @@
 extern crate varlink_parser;
 
 use std::env;
+use std::error::Error;
+use std::fmt;
+use std::fs::File;
+use std::io::{Read, Write};
+use std::io;
+use std::io::Error as IOError;
+use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
 use std::process::exit;
-use std::io::Error as IOError;
-use std::error::Error;
-use std::io::{Read, Write};
 use std::result::Result;
-use std::fmt;
-use std::iter::FromIterator;
-use std::io;
-use std::fs::File;
-
-use varlink_parser::{Interface, VStruct, VStructOrEnum, VType, VTypeExt, Varlink};
+use varlink_parser::{Interface, Varlink, VStruct, VStructOrEnum, VType, VTypeExt};
 
 type EnumVec<'a> = Vec<(String, Vec<String>)>;
 type StructVec<'a> = Vec<(String, &'a VStruct<'a>)>;

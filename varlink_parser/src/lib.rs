@@ -3,15 +3,16 @@
 extern crate bytes;
 extern crate itertools;
 
+use itertools::Itertools;
+use self::varlink_grammar::VInterface;
+use std::borrow::Cow;
+use std::collections::BTreeMap;
+use std::collections::HashSet;
+use std::fmt;
+
 mod varlink_grammar {
     include!(concat!(env!("OUT_DIR"), "/varlink_grammar.rs"));
 }
-
-use itertools::Itertools;
-use std::collections::BTreeMap;
-use std::borrow::Cow;
-use std::collections::HashSet;
-use self::varlink_grammar::VInterface;
 
 pub enum VType<'a> {
     Bool(Option<bool>),
@@ -76,7 +77,6 @@ pub struct Interface<'a> {
     pub error: HashSet<Cow<'static, str>>,
 }
 
-use std::fmt;
 macro_rules! printVTypeExt {
 	($s:ident, $f:ident, $t:expr) => {{
                 write!($f, "{}", $t)?;

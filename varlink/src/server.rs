@@ -1,24 +1,23 @@
 //! Handle network connections for a varlink service
 
-use std::io;
-use std::io::{Error, ErrorKind, Read, Write};
-use std::thread;
-use std::net::{Shutdown, TcpListener, TcpStream};
-// FIXME: abstract unix domains sockets still not in std
-// FIXME: https://github.com/rust-lang/rust/issues/14194
-use unix_socket::UnixListener as AbstractUnixListener;
-use std::fs;
-use std::env;
-use std::os::unix::io::{FromRawFd, IntoRawFd};
-use std::os::unix::net::{UnixListener, UnixStream};
-use std::sync::mpsc;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
-
 //#![feature(getpid)]
 //use std::process;
 // FIXME
 use libc::getpid;
+use std::env;
+use std::fs;
+use std::io;
+use std::io::{Error, ErrorKind, Read, Write};
+use std::net::{Shutdown, TcpListener, TcpStream};
+use std::os::unix::io::{FromRawFd, IntoRawFd};
+use std::os::unix::net::{UnixListener, UnixStream};
+use std::sync::{Arc, Mutex};
+use std::sync::mpsc;
+use std::thread;
+use std::time::Duration;
+// FIXME: abstract unix domains sockets still not in std
+// FIXME: https://github.com/rust-lang/rust/issues/14194
+use unix_socket::UnixListener as AbstractUnixListener;
 
 enum VarlinkListener {
     TCP(TcpListener),

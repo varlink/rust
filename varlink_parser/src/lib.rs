@@ -337,16 +337,14 @@ error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)
     println!("{}", v.interface.to_string());
     assert_eq!(
         v.interface.to_string(),
-        concat!(
-            "interface org.example.complex\n",
-            "type TypeEnum (a, b, c)\n",
-            "type TypeFoo (bool: bool, int: int, float: float, ",
-            "string: string, enum: (foo, bar, baz),",
-            " type: TypeEnum, anon: (foo: bool, bar: int, baz: (a: int, b: int)))\n",
-            "method Foo(a: (b: bool, c: int), foo: TypeFoo) ",
-            "-> (a: (b: bool, c: int), foo: TypeFoo)\n",
-            "error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)\n",
-        )
+        "interface org.example.complex\n\
+         type TypeEnum (a, b, c)\n\
+         type TypeFoo (bool: bool, int: int, float: float, \
+         string: string, enum: (foo, bar, baz), \
+         type: TypeEnum, anon: (foo: bool, bar: int, baz: (a: int, b: int)))\n\
+         method Foo(a: (b: bool, c: int), foo: TypeFoo) \
+         -> (a: (b: bool, c: int), foo: TypeFoo)\n\
+         error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)\n"
     );
 }
 

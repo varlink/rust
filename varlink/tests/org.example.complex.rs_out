@@ -88,6 +88,12 @@ struct TypeFoo_anon_baz {
 }
 
 pub trait _CallErr: varlink::CallTrait {
+    fn reply_error_bar(&mut self) -> io::Result<()> {
+        self.reply_struct(varlink::Reply::error(
+            "org.example.complex.ErrorBar".into(),
+            Some(serde_json::to_value(_ErrorBarArgs {  }).unwrap()),
+        ))
+    }
     fn reply_error_foo(&mut self, a: Option<ErrorFooArgs_a>, foo: Option<TypeFoo>) -> io::Result<()> {
         self.reply_struct(varlink::Reply::error(
             "org.example.complex.ErrorFoo".into(),
@@ -97,6 +103,13 @@ pub trait _CallErr: varlink::CallTrait {
 }
 impl<'a> _CallErr for varlink::Call<'a> {}
 
+pub trait _CallBar: _CallErr {
+    fn reply(&mut self) -> io::Result<()> {
+        self.reply_struct(varlink::Reply::parameters(None))
+    }
+}
+impl<'a> _CallBar for varlink::Call<'a> {}
+
 pub trait _CallFoo: _CallErr {
     fn reply(&mut self, a: Option<Vec<FooReply_a>>, foo: Option<TypeFoo>) -> io::Result<()> {
         self.reply_struct(_FooReply { a, foo }.into())
@@ -105,6 +118,7 @@ pub trait _CallFoo: _CallErr {
 impl<'a> _CallFoo for varlink::Call<'a> {}
 
 pub trait VarlinkInterface {
+    fn bar(&self, call: &mut _CallBar) -> io::Result<()>;
     fn foo(&self, call: &mut _CallFoo, a: Option<FooArgs_a>, foo: Option<TypeFoo>) -> io::Result<()>;
     fn call_upgraded(&self, _call: &mut varlink::Call) -> io::Result<()> {
         Ok(())
@@ -137,8 +151,10 @@ type TypeFoo (
 )
 
 method Foo(a: (b: bool, c: int), foo: TypeFoo) -> (a: (b: bool, c: int)[], foo: TypeFoo)
+method Bar() -> ()
 
 error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)
+error ErrorBar ()
 
 "#
     }
@@ -155,6 +171,9 @@ error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)
         let req = call.request.unwrap();
         let method = req.method.clone();
         match method.as_ref() {
+            "org.example.complex.Bar" => {
+                return self.inner.bar(call as &mut _CallBar);
+            }
             "org.example.complex.Foo" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: _FooArgs = serde_json::from_value(args)?;

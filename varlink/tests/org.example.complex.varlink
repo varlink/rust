@@ -13,5 +13,7 @@ type TypeFoo (
 )
 
 method Foo(a: (b: bool, c: int), foo: TypeFoo) -> (a: (b: bool, c: int)[], foo: TypeFoo)
+method Bar() -> ()
 
 error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)
+error ErrorBar ()

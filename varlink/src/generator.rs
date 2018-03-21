@@ -13,19 +13,17 @@ use std::fmt;
 use std::iter::FromIterator;
 use std::io;
 use std::fs::File;
-//use std::collections::BTreeMap;
 
 use varlink_parser::{Interface, VStruct, VStructOrEnum, VType, VTypeExt, Varlink};
 
-type EnumHash<'a> = Vec<(String, Vec<String>)>;
-
+type EnumVec<'a> = Vec<(String, Vec<String>)>;
 type StructVec<'a> = Vec<(String, &'a VStruct<'a>)>;
 
 trait ToRust<'short, 'long: 'short> {
     fn to_rust(
         &'long self,
         parent: &str,
-        enumvec: &mut EnumHash,
+        enumvec: &mut EnumVec,
         structvec: &mut StructVec<'short>,
     ) -> Result<String, ToRustError>;
 }
@@ -66,7 +64,7 @@ impl<'short, 'long: 'short> ToRust<'short, 'long> for VType<'long> {
     fn to_rust(
         &'long self,
         parent: &str,
-        enumvec: &mut EnumHash,
+        enumvec: &mut EnumVec,
         structvec: &mut StructVec<'short>,
     ) -> Result<String, ToRustError> {
         match self {
@@ -94,7 +92,7 @@ impl<'short, 'long: 'short> ToRust<'short, 'long> for VTypeExt<'long> {
     fn to_rust(
         &'long self,
         parent: &str,
-        enumvec: &mut EnumHash,
+        enumvec: &mut EnumVec,
         structvec: &mut StructVec<'short>,
     ) -> Result<String, ToRustError> {
         let v = self.vtype.to_rust(parent, enumvec, structvec)?;
@@ -143,7 +141,7 @@ trait InterfaceToRust {
 impl<'a> InterfaceToRust for Interface<'a> {
     fn to_rust(&self, description: &String) -> Result<String, ToRustError> {
         let mut out: String = "".to_owned();
-        let mut enumvec = EnumHash::new();
+        let mut enumvec = EnumVec::new();
         let mut structvec = StructVec::new();
 
         for t in self.typedefs.values() {

@@ -2,3 +2,4 @@ target
 Cargo.lock
 /.settings
 /.DS_store
+.project

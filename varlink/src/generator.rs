@@ -10,17 +10,24 @@ use std::error::Error;
 use std::io::{Read, Write};
 use std::result::Result;
 use std::fmt;
-use std::collections::HashMap;
 use std::iter::FromIterator;
 use std::io;
 use std::fs::File;
+//use std::collections::BTreeMap;
 
-use varlink_parser::{Interface, VStructOrEnum, VType, VTypeExt, Varlink};
+use varlink_parser::{Interface, VStruct, VStructOrEnum, VType, VTypeExt, Varlink};
 
-type EnumHash<'a> = HashMap<String, Vec<String>>;
+type EnumHash<'a> = Vec<(String, Vec<String>)>;
 
-trait ToRust {
-    fn to_rust(&self, parent: &str, enumhash: &mut EnumHash) -> Result<String, ToRustError>;
+type StructVec<'a> = Vec<(String, &'a VStruct<'a>)>;
+
+trait ToRust<'a, 'b: 'a> {
+    fn to_rust(
+        &'b self,
+        parent: &str,
+        enumvec: &mut EnumHash,
+        structvec: &mut StructVec<'a>,
+    ) -> Result<String, ToRustError>;
 }
 
 #[derive(Debug)]
@@ -55,29 +62,42 @@ impl fmt::Display for ToRustError {
     }
 }
 
-impl<'a> ToRust for VType<'a> {
-    fn to_rust(&self, parent: &str, enumhash: &mut EnumHash) -> Result<String, ToRustError> {
-        match *self {
-            VType::Bool(_) => Ok("bool".into()),
-            VType::Int(_) => Ok("i64".into()),
-            VType::Float(_) => Ok("f64".into()),
-            VType::VString(_) => Ok("String".into()),
-            VType::VTypename(v) => Ok(v.into()),
-            VType::VEnum(ref v) => {
-                enumhash.insert(
+impl<'a, 'b: 'a> ToRust<'a, 'b> for VType<'b> {
+    fn to_rust(
+        &'b self,
+        parent: &str,
+        enumvec: &mut EnumHash,
+        structvec: &mut StructVec<'a>,
+    ) -> Result<String, ToRustError> {
+        match self {
+            &VType::Bool(_) => Ok("bool".into()),
+            &VType::Int(_) => Ok("i64".into()),
+            &VType::Float(_) => Ok("f64".into()),
+            &VType::VString(_) => Ok("String".into()),
+            &VType::VTypename(v) => Ok(v.into()),
+            &VType::VEnum(ref v) => {
+                enumvec.push((
                     parent.into(),
                     Vec::from_iter(v.elts.iter().map(|s| String::from(*s))),
-                );
+                ));
                 Ok(format!("{}", parent).into())
             }
-            VType::VStruct(_) => Ok(format!("{}", parent).into()),
+            &VType::VStruct(ref v) => {
+                structvec.push((String::from(parent), v.as_ref()));
+                Ok(format!("{}", parent).into())
+            }
         }
     }
 }
 
-impl<'a> ToRust for VTypeExt<'a> {
-    fn to_rust(&self, parent: &str, enumhash: &mut EnumHash) -> Result<String, ToRustError> {
-        let v = self.vtype.to_rust(parent, enumhash)?;
+impl<'a, 'b: 'a> ToRust<'a, 'b> for VTypeExt<'b> {
+    fn to_rust(
+        &'a self,
+        parent: &str,
+        enumvec: &mut EnumHash,
+        structvec: &mut StructVec<'a>,
+    ) -> Result<String, ToRustError> {
+        let v = self.vtype.to_rust(parent, enumvec, structvec)?;
 
         if self.isarray {
             Ok(format!("Vec<{}>", v).into())
@@ -123,7 +143,8 @@ trait InterfaceToRust {
 impl<'a> InterfaceToRust for Interface<'a> {
     fn to_rust(&self, description: &String) -> Result<String, ToRustError> {
         let mut out: String = "".to_owned();
-        let mut enumhash = EnumHash::new();
+        let mut enumvec = EnumHash::new();
+        let mut structvec = StructVec::new();
 
         for t in self.typedefs.values() {
             out += "#[derive(Serialize, Deserialize, Debug, Default)]\n";
@@ -134,8 +155,11 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         out += format!(
                             "    pub {}: Option<{}>,\n",
                             e.name,
-                            e.vtype
-                                .to_rust(format!("{}_{}", t.name, e.name).as_ref(), &mut enumhash)?
+                            e.vtype.to_rust(
+                                format!("{}_{}", t.name, e.name).as_ref(),
+                                &mut enumvec,
+                                &mut structvec
+                            )?
                         ).as_ref();
                     }
                 }
@@ -162,7 +186,11 @@ impl<'a> InterfaceToRust for Interface<'a> {
                     out += format!(
                         "    {}: Option<{}>,\n",
                         e.name,
-                        e.vtype.to_rust(self.name, &mut enumhash)?
+                        e.vtype.to_rust(
+                            format!("{}_{}", t.name, e.name).as_ref(),
+                            &mut enumvec,
+                            &mut structvec
+                        )?
                     ).as_ref();
                 }
                 out += "}\n";
@@ -176,7 +204,11 @@ impl<'a> InterfaceToRust for Interface<'a> {
                     out += format!(
                         "    {}: Option<{}>,\n",
                         e.name,
-                        e.vtype.to_rust(self.name, &mut enumhash)?
+                        e.vtype.to_rust(
+                            format!("{}_{}", t.name, e.name).as_ref(),
+                            &mut enumvec,
+                            &mut structvec
+                        )?
                     ).as_ref();
                 }
                 out += "}\n\n";
@@ -191,7 +223,11 @@ impl<'a> InterfaceToRust for Interface<'a> {
                     out += format!(
                         "    {}: Option<{}>,\n",
                         e.name,
-                        e.vtype.to_rust(self.name, &mut enumhash)?
+                        e.vtype.to_rust(
+                            format!("{}_{}", t.name, e.name).as_ref(),
+                            &mut enumvec,
+                            &mut structvec
+                        )?
                     ).as_ref();
                 }
                 out += "}\n\n";
@@ -208,7 +244,11 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         inparms += format!(
                             ", {}: Option<{}>",
                             e.name,
-                            e.vtype.to_rust(self.name, &mut enumhash)?
+                            e.vtype.to_rust(
+                                format!("{}_{}", t.name, e.name).as_ref(),
+                                &mut enumvec,
+                                &mut structvec
+                            )?
                         ).as_ref();
                         innames += format!("{}, ", e.name).as_ref();
                     }
@@ -239,18 +279,6 @@ impl<'a> InterfaceToRust for Interface<'a> {
         }
         out += "}\nimpl<'a> _CallErr for varlink::Call<'a> {}\n\n";
 
-        for (name, v) in &enumhash {
-            out += format!("pub enum {} {{\n", name).as_ref();
-            let mut iter = v.iter();
-            if let Some(fst) = iter.next() {
-                out += format!("    {}", fst).as_ref();
-                for elt in iter {
-                    out += format!(",\n    {}", elt).as_ref();
-                }
-            }
-            out += "\n}\n\n";
-        }
-
         for t in self.methods.values() {
             let mut inparms: String = "".to_owned();
             let mut innames: String = "".to_owned();
@@ -259,7 +287,11 @@ impl<'a> InterfaceToRust for Interface<'a> {
                     inparms += format!(
                         ", {}: Option<{}>",
                         e.name,
-                        e.vtype.to_rust(self.name, &mut enumhash)?
+                        e.vtype.to_rust(
+                            format!("{}_{}", t.name, e.name).as_ref(),
+                            &mut enumvec,
+                            &mut structvec
+                        )?
                     ).as_ref();
                     innames += format!("{}, ", e.name).as_ref();
                 }
@@ -282,6 +314,45 @@ impl<'a> InterfaceToRust for Interface<'a> {
             ).as_ref();
         }
 
+        loop {
+            let drain = structvec.drain(..);
+            let mut structvec = StructVec::new();
+
+            for (name, v) in drain {
+                out += "#[allow(non_camel_case_types)]\n#[derive(Serialize, Deserialize, Debug)]\n";
+                out += format!("struct {} {{\n", name).as_ref();
+                for e in &v.elts {
+                    out += format!(
+                        "    {}: Option<{}>,\n",
+                        e.name,
+                        e.vtype
+                            .to_rust(
+                                format!("{}_{}", name, e.name).as_ref(),
+                                &mut enumvec,
+                                &mut structvec
+                            )
+                            .unwrap()
+                    ).as_ref();
+                }
+                out += "}\n\n";
+            }
+            for (name, v) in enumvec.drain(..) {
+                out += format!("pub enum {} {{\n", name).as_ref();
+                let mut iter = v.iter();
+                if let Some(fst) = iter.next() {
+                    out += format!("    {}", fst).as_ref();
+                    for elt in iter {
+                        out += format!(",\n    {}", elt).as_ref();
+                    }
+                }
+                out += "\n}\n\n";
+            }
+
+            if structvec.len() == 0 {
+                break;
+            }
+        }
+
         out += "pub trait VarlinkInterface {\n";
         for t in self.methods.values() {
             let mut inparms: String = "".to_owned();
@@ -290,7 +361,11 @@ impl<'a> InterfaceToRust for Interface<'a> {
                     inparms += format!(
                         ", {}: Option<{}>",
                         e.name,
-                        e.vtype.to_rust(self.name, &mut enumhash)?
+                        e.vtype.to_rust(
+                            format!("{}_{}", t.name, e.name).as_ref(),
+                            &mut enumvec,
+                            &mut structvec
+                        )?
                     ).as_ref();
                 }
             }
@@ -302,6 +377,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                 inparms
             ).as_ref();
         }
+
         out += r#"    fn call_upgraded(&self, _call: &mut varlink::Call) -> io::Result<()> {
         Ok(())
     }

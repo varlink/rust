@@ -10,11 +10,7 @@ use std::process::exit;
 use std::sync::{Arc, RwLock};
 use varlink::VarlinkService;
 
-// Dynamically build the varlink rust code.
-//mod io_systemd_network;
-mod io_systemd_network {
-    include!(concat!(env!("OUT_DIR"), "/io.systemd.network.rs"));
-}
+mod io_systemd_network;
 
 struct MyIoSystemdNetwork {
     pub state: Arc<RwLock<i64>>,

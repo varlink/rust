@@ -103,6 +103,7 @@ impl<'short, 'long: 'short> ToRust<'short, 'long> for VTypeExt<'long> {
         }
     }
 }
+
 fn to_snake_case(mut str: &str) -> String {
     let mut words = vec![];
     // Preserve leading underscores
@@ -155,7 +156,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                             e.vtype.to_rust(
                                 format!("{}_{}", t.name, e.name).as_ref(),
                                 &mut enumvec,
-                                &mut structvec
+                                &mut structvec,
                             )?
                         ).as_ref();
                     }
@@ -186,7 +187,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         e.vtype.to_rust(
                             format!("{}Reply_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut structvec
+                            &mut structvec,
                         )?
                     ).as_ref();
                 }
@@ -204,7 +205,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         e.vtype.to_rust(
                             format!("{}Args_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut structvec
+                            &mut structvec,
                         )?
                     ).as_ref();
                 }
@@ -223,7 +224,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         e.vtype.to_rust(
                             format!("{}Args_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut structvec
+                            &mut structvec,
                         )?
                     ).as_ref();
                 }
@@ -244,7 +245,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                                 .to_rust(
                                     format!("{}_{}", name, e.name).as_ref(),
                                     &mut enumvec,
-                                    &mut nstructvec
+                                    &mut nstructvec,
                                 )
                                 .unwrap()
                         ).as_ref();
@@ -283,7 +284,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                             e.vtype.to_rust(
                                 format!("{}Args_{}", t.name, e.name).as_ref(),
                                 &mut enumvec,
-                                &mut structvec
+                                &mut structvec,
                             )?
                         ).as_ref();
                         innames += format!("{}, ", e.name).as_ref();
@@ -326,7 +327,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         e.vtype.to_rust(
                             format!("{}Reply_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut structvec
+                            &mut structvec,
                         )?
                     ).as_ref();
                     innames += format!("{}, ", e.name).as_ref();
@@ -361,7 +362,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         e.vtype.to_rust(
                             format!("{}Args_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut structvec
+                            &mut structvec,
                         )?
                     ).as_ref();
                 }
@@ -502,6 +503,8 @@ use varlink::CallTrait;
     Ok(())
 }
 
+/// cargo build helper function
+///
 /// `cargo_build` is used in a `build.rs` program to build the rust code
 /// from a varlink interface definition.
 ///
@@ -517,7 +520,7 @@ use varlink::CallTrait;
 ///}
 ///```
 ///
-pub fn cargo_build<T: AsRef<Path> + ?Sized>(input_path: &T) {
+pub fn cargo_build<T: AsRef<Path> + ? Sized>(input_path: &T) {
     let mut stderr = io::stderr();
     let input_path = input_path.as_ref();
 
@@ -525,6 +528,64 @@ pub fn cargo_build<T: AsRef<Path> + ?Sized>(input_path: &T) {
     let rust_path = out_dir
         .join(input_path.file_name().unwrap())
         .with_extension("rs");
+
+    let writer: &mut Write = &mut (File::create(&rust_path).unwrap());
+
+    let reader: &mut Read = &mut (File::open(input_path).unwrap_or_else(|e| {
+        writeln!(
+            stderr,
+            "Could not read varlink input file `{}`: {}",
+            input_path.display(),
+            e
+        ).unwrap();
+        exit(1);
+    }));
+
+    if let Err(e) = generate(reader, writer) {
+        writeln!(
+            stderr,
+            "Could not generate rust code from varlink file `{}`: {}",
+            input_path.display(),
+            e
+        ).unwrap();
+        exit(1);
+    }
+
+    println!("cargo:rerun-if-changed={}", input_path.display());
+}
+
+/// cargo build helper function
+///
+/// `cargo_build_tosource` is used in a `build.rs` program to build the rust code
+/// from a varlink interface definition. This function saves the rust code
+/// in the same directory as the varlink file. The name is the name of the varlink file
+/// and "." replaced with "_" and of course ending with ".rs".
+///
+/// Use this, if you are using an IDE with code completion, as most cannot cope with
+/// `include!(concat!(env!("OUT_DIR"), "<varlink_file>"));`
+///
+/// Errors are emitted to stderr and terminate the process.
+///
+///# Examples
+///
+///```rust,no_run
+///extern crate varlink;
+///
+///fn main() {
+///    varlink::generator::cargo_build_tosource("src/org.example.ping.varlink");
+///}
+///```
+///
+pub fn cargo_build_tosource<T: AsRef<Path> + ? Sized>(input_path: &T) {
+    let mut stderr = io::stderr();
+    let input_path = input_path.as_ref();
+    let noextension = input_path.with_extension("");
+    let newfilename = str::replace(noextension.file_name().unwrap().to_str().unwrap(),
+                                   ".", "_");
+    let rust_path = input_path.parent().unwrap().join(
+        Path::new(&newfilename).with_extension("rs"));
+
+    eprintln!("{}", rust_path.display());
 
     let writer: &mut Write = &mut (File::create(&rust_path).unwrap());
 

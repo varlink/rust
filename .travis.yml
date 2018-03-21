@@ -6,6 +6,11 @@ addons:
     packages:
     - libssl-dev
 cache: cargo
+before_script:
+  - export PATH=$HOME/.cargo/bin:$PATH
+  - cargo install cargo-update || echo "cargo-update already installed"
+  - cargo install cargo-tarpaulin || echo "cargo-tarpaulin already installed"
+  - cargo install-update -a # update outdated cached binaries
 script:
 - pushd varlink_parser
 - cargo build --verbose
@@ -29,7 +34,6 @@ script:
 - cargo build --verbose
 - cargo test --verbose
 - popd
-- cargo install cargo-tarpaulin
 after_success: |
   if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
     cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID

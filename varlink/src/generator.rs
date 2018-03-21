@@ -21,12 +21,12 @@ type EnumHash<'a> = Vec<(String, Vec<String>)>;
 
 type StructVec<'a> = Vec<(String, &'a VStruct<'a>)>;
 
-trait ToRust<'a, 'b: 'a> {
+trait ToRust<'short, 'long: 'short> {
     fn to_rust(
-        &'b self,
+        &'long self,
         parent: &str,
         enumvec: &mut EnumHash,
-        structvec: &mut StructVec<'a>,
+        structvec: &mut StructVec<'short>,
     ) -> Result<String, ToRustError>;
 }
 
@@ -62,12 +62,12 @@ impl fmt::Display for ToRustError {
     }
 }
 
-impl<'a, 'b: 'a> ToRust<'a, 'b> for VType<'b> {
+impl<'short, 'long: 'short> ToRust<'short, 'long> for VType<'long> {
     fn to_rust(
-        &'b self,
+        &'long self,
         parent: &str,
         enumvec: &mut EnumHash,
-        structvec: &mut StructVec<'a>,
+        structvec: &mut StructVec<'short>,
     ) -> Result<String, ToRustError> {
         match self {
             &VType::Bool(_) => Ok("bool".into()),
@@ -90,12 +90,12 @@ impl<'a, 'b: 'a> ToRust<'a, 'b> for VType<'b> {
     }
 }
 
-impl<'a, 'b: 'a> ToRust<'a, 'b> for VTypeExt<'b> {
+impl<'short, 'long: 'short> ToRust<'short, 'long> for VTypeExt<'long> {
     fn to_rust(
-        &'a self,
+        &'long self,
         parent: &str,
         enumvec: &mut EnumHash,
-        structvec: &mut StructVec<'a>,
+        structvec: &mut StructVec<'short>,
     ) -> Result<String, ToRustError> {
         let v = self.vtype.to_rust(parent, enumvec, structvec)?;
 

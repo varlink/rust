@@ -1,6 +1,7 @@
 # varlink for rust
 
 [![Build Status](https://travis-ci.org/varlink/rust.svg?branch=master)](https://travis-ci.org/varlink/rust)
+[![Coverage Status](https://coveralls.io/repos/github/varlink/rust/badge.svg?branch=master)](https://coveralls.io/github/varlink/rust?branch=master)
 
 See http://varlink.org for more information about varlink.
 

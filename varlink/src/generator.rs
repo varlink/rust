@@ -150,7 +150,7 @@ fn is_rust_keyword(v: &str) -> bool {
 
 fn replace_if_rust_keyword(v: &str) -> String {
     if is_rust_keyword(v) {
-        String::from(v) + "A"
+        String::from(v) + "_"
     } else { String::from(v) }
 }
 
@@ -158,7 +158,7 @@ fn replace_if_rust_keyword_annotate(v: &str, out: &mut String, prefix: &str) -> 
     if is_rust_keyword(v) {
         *out += prefix;
         *out += format!("#[serde(rename = \"{}\")]\n", v).as_ref();
-        String::from(v) + "A"
+        String::from(v) + "_"
     } else { String::from(v) }
 }
 

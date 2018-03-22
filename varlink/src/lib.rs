@@ -253,8 +253,8 @@ impl Reply {
 }
 
 impl<T> From<T> for Reply
-where
-    T: VarlinkReply + Serialize,
+    where
+        T: VarlinkReply + Serialize,
 {
     fn from(a: T) -> Self {
         Reply::parameters(Some(serde_json::to_value(a).unwrap()))
@@ -643,7 +643,8 @@ impl VarlinkService {
     ///# use std::io;
     ///# struct Interface;
     ///# impl varlink::Interface for Interface {
-    ///# fn get_description(&self) -> &'static str { "interface org.example.ping\nmethod Ping(ping: string) -> (pong: string)" }
+    ///# fn get_description(&self) -> &'static str {
+    ///#                    "interface org.example.ping\nmethod Ping(ping: string) -> (pong: string)" }
     ///# fn get_name(&self) -> &'static str { "org.example.ping" }
     ///# fn call_upgraded(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
     ///# fn call(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }

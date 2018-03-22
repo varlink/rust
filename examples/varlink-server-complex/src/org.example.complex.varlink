@@ -1,0 +1,19 @@
+interface org.example.complex
+
+type TypeEnum ( a, b, c )
+
+type TypeFoo (
+    bool: bool,
+    int: int,
+    float: float,
+    string: string,
+    enum: ( foo, bar, baz )[],
+    type: TypeEnum,
+    anon: ( foo: bool, bar: int, baz: (a: int, b: int)[] )
+)
+
+method Foo(a: (b: bool, c: int), foo: TypeFoo) -> (a: (b: bool, c: int)[], foo: TypeFoo)
+method Bar() -> ()
+
+error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo, bar: (type, enum, int, bool, string, if, let))
+error ErrorBar ()

@@ -8,14 +8,18 @@ use varlink::CallTrait;
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Netdev {
-    pub ifindex: Option<i64>,
-    pub ifname: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+       pub ifindex: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+       pub ifname: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct NetdevInfo {
-    pub ifindex: Option<i64>,
-    pub ifname: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+       pub ifindex: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+       pub ifname: Option<String>,
 }
 
 #[allow(non_camel_case_types)]
@@ -23,6 +27,7 @@ pub struct NetdevInfo {
 struct _InfoReply {
     info: Option<NetdevInfo>,
 }
+
 impl varlink::VarlinkReply for _InfoReply {}
 
 #[allow(non_camel_case_types)]
@@ -36,6 +41,7 @@ struct _InfoArgs {
 struct _ListReply {
     netdevs: Option<Vec<Netdev>>,
 }
+
 impl varlink::VarlinkReply for _ListReply {}
 
 #[allow(non_camel_case_types)]
@@ -64,6 +70,7 @@ pub trait _CallErr: varlink::CallTrait {
         ))
     }
 }
+
 impl<'a> _CallErr for varlink::Call<'a> {}
 
 pub trait _CallInfo: _CallErr {
@@ -71,6 +78,7 @@ pub trait _CallInfo: _CallErr {
         self.reply_struct(_InfoReply { info }.into())
     }
 }
+
 impl<'a> _CallInfo for varlink::Call<'a> {}
 
 pub trait _CallList: _CallErr {
@@ -78,6 +86,7 @@ pub trait _CallList: _CallErr {
         self.reply_struct(_ListReply { netdevs }.into())
     }
 }
+
 impl<'a> _CallList for varlink::Call<'a> {}
 
 pub trait VarlinkInterface {

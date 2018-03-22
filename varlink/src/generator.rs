@@ -13,7 +13,7 @@ use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::result::Result;
-use varlink_parser::{Interface, VStruct, VStructOrEnum, VType, VTypeExt, Varlink};
+use varlink_parser::{Interface, Varlink, VStruct, VStructOrEnum, VType, VTypeExt};
 
 type EnumVec<'a> = Vec<(String, Vec<String>)>;
 type StructVec<'a> = Vec<(String, &'a VStruct<'a>)>;
@@ -134,6 +134,34 @@ fn to_snake_case(mut str: &str) -> String {
     words.join("_")
 }
 
+fn is_rust_keyword(v: &str) -> bool {
+    match v {
+        "abstract" | "alignof" |
+        "as" | "become" | "box" | "break" | "const" |
+        "continue" | "crate" | "do" | "else" | "enum" |
+        "extern" | "false" | "final" | "fn" | "for" | "if" | "impl" | "in" | "let" |
+        "loop" | "macro" | "match" | "mod" | "move" | "mut" | "offsetof" | "override" | "priv" |
+        "proc" | "pub" | "pure" | "ref" | "return" | "Self" | "self" | "sizeof" | "static" | "struct" |
+        "super" | "trait" | "true" | "type" | "typeof" | "unsafe" | "unsized" | "use" | "virtual" | "where" |
+        "while" | "yield" => true,
+        _ => false
+    }
+}
+
+fn replace_if_rust_keyword(v: &str) -> String {
+    if is_rust_keyword(v) {
+        String::from(v) + "A"
+    } else { String::from(v) }
+}
+
+fn replace_if_rust_keyword_annotate(v: &str, out: &mut String, prefix: &str) -> String {
+    if is_rust_keyword(v) {
+        *out += prefix;
+        *out += format!("#[serde(rename = \"{}\")]\n", v).as_ref();
+        String::from(v) + "A"
+    } else { String::from(v) }
+}
+
 trait InterfaceToRust {
     fn to_rust(&self, description: &String) -> Result<String, ToRustError>;
 }
@@ -145,30 +173,31 @@ impl<'a> InterfaceToRust for Interface<'a> {
         let mut structvec = StructVec::new();
 
         for t in self.typedefs.values() {
-            out += "#[derive(Serialize, Deserialize, Debug, Default)]\n";
             match t.elt {
                 VStructOrEnum::VStruct(ref v) => {
-                    out += format!("pub struct {} {{\n", t.name).as_ref();
+                    out += "#[derive(Serialize, Deserialize, Debug, Default)]\n";
+                    out += format!("pub struct {} {{\n", replace_if_rust_keyword_annotate(t.name, &mut
+                        out, "")).as_ref();
                     for e in &v.elts {
-                        out += format!(
-                            "    pub {}: Option<{}>,\n",
-                            e.name,
-                            e.vtype.to_rust(
-                                format!("{}_{}", t.name, e.name).as_ref(),
-                                &mut enumvec,
-                                &mut structvec
-                            )?
+                        out += "    #[serde(skip_serializing_if = \"Option::is_none\")]\n";
+                        out += format!("       pub {}: Option<{}>,\n",
+                                       replace_if_rust_keyword_annotate(e.name, &mut out, "    "),
+                                       e.vtype.to_rust(
+                                           format!("{}_{}", t.name, e.name).as_ref(),
+                                           &mut enumvec,
+                                           &mut structvec,
+                                       )?
                         ).as_ref();
                     }
                 }
                 VStructOrEnum::VEnum(ref v) => {
+                    out += "#[derive(Serialize, Deserialize, Debug)]\n";
+                    out += "#[allow(non_camel_case_types)]\n";
                     out += format!("pub enum {} {{\n", t.name).as_ref();
                     let mut iter = v.elts.iter();
-                    if let Some(fst) = iter.next() {
-                        out += format!("    {}", fst).as_ref();
-                        for elt in iter {
-                            out += format!(",\n    {}", elt).as_ref();
-                        }
+                    for elt in iter {
+                        out += format!("    {},\n", replace_if_rust_keyword_annotate(elt, &mut out, "    "))
+                            .as_ref();
                     }
                     out += "\n";
                 }
@@ -183,15 +212,15 @@ impl<'a> InterfaceToRust for Interface<'a> {
                 for e in &t.output.elts {
                     out += format!(
                         "    {}: Option<{}>,\n",
-                        e.name,
+                        replace_if_rust_keyword_annotate(e.name, &mut out, "    "),
                         e.vtype.to_rust(
                             format!("{}Reply_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut structvec
+                            &mut structvec,
                         )?
                     ).as_ref();
                 }
-                out += "}\n";
+                out += "}\n\n";
                 out += format!("impl varlink::VarlinkReply for _{}Reply {{}}\n\n", t.name).as_ref();
             }
 
@@ -201,11 +230,11 @@ impl<'a> InterfaceToRust for Interface<'a> {
                 for e in &t.input.elts {
                     out += format!(
                         "    {}: Option<{}>,\n",
-                        e.name,
+                        replace_if_rust_keyword_annotate(e.name, &mut out, "    "),
                         e.vtype.to_rust(
                             format!("{}Args_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut structvec
+                            &mut structvec,
                         )?
                     ).as_ref();
                 }
@@ -220,55 +249,56 @@ impl<'a> InterfaceToRust for Interface<'a> {
                 for e in &t.parm.elts {
                     out += format!(
                         "    {}: Option<{}>,\n",
-                        e.name,
+                        replace_if_rust_keyword_annotate(e.name, &mut out, "    "),
                         e.vtype.to_rust(
                             format!("{}Args_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut structvec
+                            &mut structvec,
                         )?
                     ).as_ref();
                 }
                 out += "}\n\n";
             }
         }
-        {
-            loop {
-                let mut nstructvec = StructVec::new();
-                for (name, v) in structvec.drain(..) {
-                    out += "#[allow(non_camel_case_types)]\n#[derive(Serialize, Deserialize, Debug)]\n";
-                    out += format!("struct {} {{\n", name).as_ref();
-                    for e in &v.elts {
-                        out += format!(
-                            "    {}: Option<{}>,\n",
-                            e.name,
-                            e.vtype
-                                .to_rust(
-                                    format!("{}_{}", name, e.name).as_ref(),
-                                    &mut enumvec,
-                                    &mut nstructvec
-                                )
-                                .unwrap()
-                        ).as_ref();
-                    }
-                    out += "}\n\n";
-                }
-                for (name, v) in enumvec.drain(..) {
-                    out += format!("pub enum {} {{\n", name).as_ref();
-                    let mut iter = v.iter();
-                    if let Some(fst) = iter.next() {
-                        out += format!("    {}", fst).as_ref();
-                        for elt in iter {
-                            out += format!(",\n    {}", elt).as_ref();
-                        }
-                    }
-                    out += "\n}\n\n";
-                }
 
-                if nstructvec.len() == 0 {
-                    break;
+        loop {
+            let mut nstructvec = StructVec::new();
+            for (name, v) in structvec.drain(..) {
+                out += "#[allow(non_camel_case_types)]\n\
+                #[derive(Serialize, Deserialize, Debug, Default)]\n";
+                out += format!("pub struct {} {{\n", name).as_ref();
+                for e in &v.elts {
+                    out += "    #[serde(skip_serializing_if = \"Option::is_none\")]\n";
+                    out += format!("    pub {}: Option<{}>,\n",
+                                   replace_if_rust_keyword_annotate(e.name, &mut out, "    "),
+                                   e.vtype
+                                       .to_rust(
+                                           format!("{}_{}", name, e.name).as_ref(),
+                                           &mut enumvec,
+                                           &mut nstructvec,
+                                       )
+                                       .unwrap()
+                    ).as_ref();
                 }
-                structvec = nstructvec;
+                out += "}\n\n";
             }
+            for (name, v) in enumvec.drain(..) {
+                out += format!("#[allow(non_camel_case_types)]\n\
+                #[derive(Serialize, Deserialize, Debug)]\n\
+                pub enum {} {{\n", replace_if_rust_keyword_annotate(name.as_str(), &mut out, ""))
+                    .as_ref();
+                let mut iter = v.iter();
+                for elt in iter {
+                    out += format!("    {},\n", replace_if_rust_keyword_annotate(elt, &mut out, "    "))
+                        .as_ref();
+                }
+                out += "\n}\n\n";
+            }
+
+            if nstructvec.len() == 0 {
+                break;
+            }
+            structvec = nstructvec;
         }
 
         out += "pub trait _CallErr: varlink::CallTrait {\n";
@@ -280,14 +310,14 @@ impl<'a> InterfaceToRust for Interface<'a> {
                     for e in &t.parm.elts {
                         inparms += format!(
                             ", {}: Option<{}>",
-                            e.name,
+                            replace_if_rust_keyword(e.name),
                             e.vtype.to_rust(
                                 format!("{}Args_{}", t.name, e.name).as_ref(),
                                 &mut enumvec,
-                                &mut structvec
+                                &mut structvec,
                             )?
                         ).as_ref();
-                        innames += format!("{}, ", e.name).as_ref();
+                        innames += format!("{}, ", replace_if_rust_keyword(e.name)).as_ref();
                     }
                     innames.pop();
                     innames.pop();
@@ -302,11 +332,14 @@ impl<'a> InterfaceToRust for Interface<'a> {
                     self.name,
                     t.name,
                 ).as_ref();
-
-                out += format!(
-                    "            Some(serde_json::to_value(_{}Args {{ {} }}).unwrap()),",
-                    t.name, innames
-                ).as_ref();
+                if t.parm.elts.len() > 0 {
+                    out += format!(
+                        "            Some(serde_json::to_value(_{}Args {{ {} }}).unwrap()),",
+                        t.name, innames
+                    ).as_ref();
+                } else {
+                    out += "        None,\n";
+                }
 
                 out += r#"
         ))
@@ -314,7 +347,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
 "#;
             }
         }
-        out += "}\nimpl<'a> _CallErr for varlink::Call<'a> {}\n\n";
+        out += "}\n\nimpl<'a> _CallErr for varlink::Call<'a> {}\n\n";
 
         for t in self.methods.values() {
             let mut inparms: String = "".to_owned();
@@ -323,14 +356,14 @@ impl<'a> InterfaceToRust for Interface<'a> {
                 for e in &t.output.elts {
                     inparms += format!(
                         ", {}: Option<{}>",
-                        e.name,
+                        replace_if_rust_keyword(e.name),
                         e.vtype.to_rust(
                             format!("{}Reply_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut structvec
+                            &mut structvec,
                         )?
                     ).as_ref();
-                    innames += format!("{}, ", e.name).as_ref();
+                    innames += format!("{}, ", replace_if_rust_keyword(e.name)).as_ref();
                 }
                 innames.pop();
                 innames.pop();
@@ -346,7 +379,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                 out += "        self.reply_struct(varlink::Reply::parameters(None))\n";
             }
             out += format!(
-                "    }}\n}}\nimpl<'a> _Call{} for varlink::Call<'a> {{}}\n\n",
+                "    }}\n}}\n\nimpl<'a> _Call{} for varlink::Call<'a> {{}}\n\n",
                 t.name
             ).as_ref();
         }
@@ -358,11 +391,11 @@ impl<'a> InterfaceToRust for Interface<'a> {
                 for e in &t.input.elts {
                     inparms += format!(
                         ", {}: Option<{}>",
-                        e.name,
+                        replace_if_rust_keyword(e.name),
                         e.vtype.to_rust(
-                            format!("{}Args_{}", t.name, e.name).as_ref(),
+                            format!("{}Args_{}", t.name, replace_if_rust_keyword(e.name)).as_ref(),
                             &mut enumvec,
-                            &mut structvec
+                            &mut structvec,
                         )?
                     ).as_ref();
                 }
@@ -520,7 +553,7 @@ use varlink::CallTrait;
 ///}
 ///```
 ///
-pub fn cargo_build<T: AsRef<Path> + ?Sized>(input_path: &T) {
+pub fn cargo_build<T: AsRef<Path> + ? Sized>(input_path: &T) {
     let mut stderr = io::stderr();
     let input_path = input_path.as_ref();
 
@@ -576,11 +609,11 @@ pub fn cargo_build<T: AsRef<Path> + ?Sized>(input_path: &T) {
 ///}
 ///```
 ///
-pub fn cargo_build_tosource<T: AsRef<Path> + ?Sized>(input_path: &T) {
+pub fn cargo_build_tosource<T: AsRef<Path> + ? Sized>(input_path: &T) {
     let mut stderr = io::stderr();
     let input_path = input_path.as_ref();
     let noextension = input_path.with_extension("");
-    let newfilename = str::replace(noextension.file_name().unwrap().to_str().unwrap(), ".", "_");
+    let newfilename = noextension.file_name().unwrap().to_str().unwrap().replace(".", "_");
     let rust_path = input_path
         .parent()
         .unwrap()

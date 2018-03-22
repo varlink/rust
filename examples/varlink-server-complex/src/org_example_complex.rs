@@ -56,6 +56,7 @@ struct _FooArgs {
 struct _ErrorFooArgs {
     a: Option<ErrorFooArgs_a>,
     foo: Option<TypeFoo>,
+    bar: Option<ErrorFooArgs_bar>,
 }
 
 #[allow(non_camel_case_types)]
@@ -106,6 +107,23 @@ pub enum TypeFoo_enum {
 }
 
 #[allow(non_camel_case_types)]
+#[derive(Serialize, Deserialize, Debug)]
+pub enum ErrorFooArgs_bar {
+    #[serde(rename = "type")]
+    typeA,
+    #[serde(rename = "enum")]
+    enumA,
+    int,
+    bool,
+    string,
+    #[serde(rename = "if")]
+    ifA,
+    #[serde(rename = "let")]
+    letA,
+
+}
+
+#[allow(non_camel_case_types)]
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct TypeFoo_anon_baz {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -122,10 +140,10 @@ pub trait _CallErr: varlink::CallTrait {
 
         ))
     }
-    fn reply_error_foo(&mut self, a: Option<ErrorFooArgs_a>, foo: Option<TypeFoo>) -> io::Result<()> {
+    fn reply_error_foo(&mut self, a: Option<ErrorFooArgs_a>, foo: Option<TypeFoo>, bar: Option<ErrorFooArgs_bar>) -> io::Result<()> {
         self.reply_struct(varlink::Reply::error(
             "org.example.complex.ErrorFoo".into(),
-            Some(serde_json::to_value(_ErrorFooArgs { a, foo }).unwrap()),
+            Some(serde_json::to_value(_ErrorFooArgs { a, foo, bar }).unwrap()),
         ))
     }
 }
@@ -184,7 +202,7 @@ type TypeFoo (
 method Foo(a: (b: bool, c: int), foo: TypeFoo) -> (a: (b: bool, c: int)[], foo: TypeFoo)
 method Bar() -> ()
 
-error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)
+error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo, bar: (type, enum, int, bool, string, if, let))
 error ErrorBar ()
 
 "#

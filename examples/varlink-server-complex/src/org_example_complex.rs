@@ -13,8 +13,7 @@ use varlink::CallTrait;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Enum {
-    #[serde(rename = "enum")]
-    enum_,
+    #[serde(rename = "enum")] enum_,
     b,
     c,
 
@@ -30,8 +29,7 @@ pub enum Interface {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Type {
-    #[serde(rename = "type")]
-    type_,
+    #[serde(rename = "type")] type_,
     b,
     c,
 
@@ -39,8 +37,7 @@ pub enum Type {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum TypeEnum {
-    #[serde(rename = "type")]
-    type_,
+    #[serde(rename = "type")] type_,
     b,
     c,
 
@@ -48,94 +45,63 @@ pub enum TypeEnum {
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct TypeFoo {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub bool: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub int: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub float: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub string: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "enum")]
-    pub enum_: Option<Vec<TypeFoo_enum>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "type")]
-    pub type_: Option<TypeEnum>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub anon: Option<TypeFoo_anon>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub bool: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub int: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub float: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub string: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")] #[serde(rename = "enum")] pub enum_: Option<Vec<TypeFoo_enum>>,
+    #[serde(skip_serializing_if = "Option::is_none")] #[serde(rename = "type")] pub type_: Option<TypeEnum>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub anon: Option<TypeFoo_anon>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct _FooReply {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    a: Option<Vec<FooReply_a>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    foo: Option<TypeFoo>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    interface: Option<Interface>,
+    #[serde(skip_serializing_if = "Option::is_none")] a: Option<Vec<FooReply_a>>,
+    #[serde(skip_serializing_if = "Option::is_none")] foo: Option<TypeFoo>,
+    #[serde(skip_serializing_if = "Option::is_none")] interface: Option<Interface>,
 }
 
 impl varlink::VarlinkReply for _FooReply {}
 
 #[derive(Serialize, Deserialize, Debug)]
 struct _FooArgs {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "enum")]
-    enum_: Option<FooArgs_enum>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    foo: Option<TypeFoo>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    interface: Option<Interface>,
+    #[serde(skip_serializing_if = "Option::is_none")] #[serde(rename = "enum")] enum_: Option<FooArgs_enum>,
+    #[serde(skip_serializing_if = "Option::is_none")] foo: Option<TypeFoo>,
+    #[serde(skip_serializing_if = "Option::is_none")] interface: Option<Interface>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct _ErrorFooArgs {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "enum")]
-    enum_: Option<ErrorFooArgs_enum>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    foo: Option<TypeFoo>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    bar: Option<ErrorFooArgs_bar>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    interface: Option<Interface>,
+    #[serde(skip_serializing_if = "Option::is_none")] #[serde(rename = "enum")] enum_: Option<ErrorFooArgs_enum>,
+    #[serde(skip_serializing_if = "Option::is_none")] foo: Option<TypeFoo>,
+    #[serde(skip_serializing_if = "Option::is_none")] bar: Option<ErrorFooArgs_bar>,
+    #[serde(skip_serializing_if = "Option::is_none")] interface: Option<Interface>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct TypeFoo_anon {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub foo: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub bar: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub baz: Option<Vec<TypeFoo_anon_baz>>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub foo: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub bar: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub baz: Option<Vec<TypeFoo_anon_baz>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct FooReply_a {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub b: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub c: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub b: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub c: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct FooArgs_enum {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub b: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub c: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub b: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub c: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct ErrorFooArgs_enum {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub b: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub c: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub interface: Option<Interface>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub b: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub c: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub interface: Option<Interface>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -148,26 +114,20 @@ pub enum TypeFoo_enum {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ErrorFooArgs_bar {
-    #[serde(rename = "type")]
-    type_,
-    #[serde(rename = "enum")]
-    enum_,
+    #[serde(rename = "type")] type_,
+    #[serde(rename = "enum")] enum_,
     int,
     bool,
     string,
-    #[serde(rename = "if")]
-    if_,
-    #[serde(rename = "let")]
-    let_,
+    #[serde(rename = "if")] if_,
+    #[serde(rename = "let")] let_,
 
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct TypeFoo_anon_baz {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub a: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub b: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub a: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub b: Option<i64>,
 }
 
 pub trait _CallErr: varlink::CallTrait {

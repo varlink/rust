@@ -13,16 +13,14 @@ use varlink::CallTrait;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct _PingReply {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pong: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")] pong: Option<String>,
 }
 
 impl varlink::VarlinkReply for _PingReply {}
 
 #[derive(Serialize, Deserialize, Debug)]
 struct _PingArgs {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    ping: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")] ping: Option<String>,
 }
 
 pub trait _CallErr: varlink::CallTrait {

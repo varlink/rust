@@ -157,9 +157,12 @@ fn replace_if_rust_keyword(v: &str) -> String {
 fn replace_if_rust_keyword_annotate(v: &str, out: &mut String, prefix: &str) -> String {
     if is_rust_keyword(v) {
         *out += prefix;
-        *out += format!("#[serde(rename = \"{}\")]\n", v).as_ref();
+        *out += format!("#[serde(rename = \"{}\")] ", v).as_ref();
         String::from(v) + "_"
-    } else { String::from(v) }
+    } else {
+        *out += prefix;
+        String::from(v)
+    }
 }
 
 trait InterfaceToRust {
@@ -176,12 +179,11 @@ impl<'a> InterfaceToRust for Interface<'a> {
             match t.elt {
                 VStructOrEnum::VStruct(ref v) => {
                     out += "#[derive(Serialize, Deserialize, Debug, Default)]\n";
-                    out += format!("pub struct {} {{\n", replace_if_rust_keyword_annotate(t.name, &mut
-                        out, "")).as_ref();
+                    out += format!("pub struct {} {{\n", replace_if_rust_keyword(t.name)).as_ref();
                     for e in &v.elts {
-                        out += "    #[serde(skip_serializing_if = \"Option::is_none\")]\n";
-                        out += format!("    pub {}: Option<{}>,\n",
-                                       replace_if_rust_keyword_annotate(e.name, &mut out, "    "),
+                        out += "    #[serde(skip_serializing_if = \"Option::is_none\")]";
+                        out += format!("pub {}: Option<{}>,\n",
+                                       replace_if_rust_keyword_annotate(e.name, &mut out, " "),
                                        e.vtype.to_rust(
                                            format!("{}_{}", t.name, e.name).as_ref(),
                                            &mut enumvec,
@@ -195,7 +197,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                     out += format!("pub enum {} {{\n", t.name).as_ref();
                     let mut iter = v.elts.iter();
                     for elt in iter {
-                        out += format!("    {},\n", replace_if_rust_keyword_annotate(elt, &mut out, "    "))
+                        out += format!("{},\n", replace_if_rust_keyword_annotate(elt, &mut out, "    "))
                             .as_ref();
                     }
                     out += "\n";
@@ -209,10 +211,10 @@ impl<'a> InterfaceToRust for Interface<'a> {
                 out += "#[derive(Serialize, Deserialize, Debug)]\n";
                 out += format!("struct _{}Reply {{\n", t.name).as_ref();
                 for e in &t.output.elts {
-                    out += "    #[serde(skip_serializing_if = \"Option::is_none\")]\n";
+                    out += "    #[serde(skip_serializing_if = \"Option::is_none\")]";
                     out += format!(
-                        "    {}: Option<{}>,\n",
-                        replace_if_rust_keyword_annotate(e.name, &mut out, "    "),
+                        "{}: Option<{}>,\n",
+                        replace_if_rust_keyword_annotate(e.name, &mut out, " "),
                         e.vtype.to_rust(
                             format!("{}Reply_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
@@ -228,10 +230,10 @@ impl<'a> InterfaceToRust for Interface<'a> {
                 out += "#[derive(Serialize, Deserialize, Debug)]\n";
                 out += format!("struct _{}Args {{\n", t.name).as_ref();
                 for e in &t.input.elts {
-                    out += "    #[serde(skip_serializing_if = \"Option::is_none\")]\n";
+                    out += "    #[serde(skip_serializing_if = \"Option::is_none\")]";
                     out += format!(
-                        "    {}: Option<{}>,\n",
-                        replace_if_rust_keyword_annotate(e.name, &mut out, "    "),
+                        "{}: Option<{}>,\n",
+                        replace_if_rust_keyword_annotate(e.name, &mut out, " "),
                         e.vtype.to_rust(
                             format!("{}Args_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
@@ -248,10 +250,10 @@ impl<'a> InterfaceToRust for Interface<'a> {
                 out += "#[derive(Serialize, Deserialize, Debug)]\n";
                 out += format!("struct _{}Args {{\n", t.name).as_ref();
                 for e in &t.parm.elts {
-                    out += "    #[serde(skip_serializing_if = \"Option::is_none\")]\n";
+                    out += "    #[serde(skip_serializing_if = \"Option::is_none\")]";
                     out += format!(
-                        "    {}: Option<{}>,\n",
-                        replace_if_rust_keyword_annotate(e.name, &mut out, "    "),
+                        "{}: Option<{}>,\n",
+                        replace_if_rust_keyword_annotate(e.name, &mut out, " "),
                         e.vtype.to_rust(
                             format!("{}Args_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
@@ -267,11 +269,11 @@ impl<'a> InterfaceToRust for Interface<'a> {
             let mut nstructvec = StructVec::new();
             for (name, v) in structvec.drain(..) {
                 out += "#[derive(Serialize, Deserialize, Debug, Default)]\n";
-                out += format!("pub struct {} {{\n", name).as_ref();
+                out += format!("pub struct {} {{\n", replace_if_rust_keyword(&name)).as_ref();
                 for e in &v.elts {
-                    out += "    #[serde(skip_serializing_if = \"Option::is_none\")]\n";
-                    out += format!("    pub {}: Option<{}>,\n",
-                                   replace_if_rust_keyword_annotate(e.name, &mut out, "    "),
+                    out += "    #[serde(skip_serializing_if = \"Option::is_none\")]";
+                    out += format!("pub {}: Option<{}>,\n",
+                                   replace_if_rust_keyword_annotate(e.name, &mut out, " "),
                                    e.vtype
                                        .to_rust(
                                            format!("{}_{}", name, e.name).as_ref(),
@@ -285,11 +287,11 @@ impl<'a> InterfaceToRust for Interface<'a> {
             }
             for (name, v) in enumvec.drain(..) {
                 out += format!("#[derive(Serialize, Deserialize, Debug)]\n\
-                pub enum {} {{\n", replace_if_rust_keyword_annotate(name.as_str(), &mut out, ""))
+                pub enum {} {{\n", replace_if_rust_keyword(name.as_str()))
                     .as_ref();
                 let mut iter = v.iter();
                 for elt in iter {
-                    out += format!("    {},\n", replace_if_rust_keyword_annotate(elt, &mut out, "    "))
+                    out += format!("{},\n", replace_if_rust_keyword_annotate(elt, &mut out, "    "))
                         .as_ref();
                 }
                 out += "\n}\n\n";

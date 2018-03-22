@@ -13,52 +13,43 @@ use varlink::CallTrait;
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Netdev {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ifindex: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ifname: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub ifindex: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub ifname: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct NetdevInfo {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ifindex: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ifname: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub ifindex: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub ifname: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct _InfoReply {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    info: Option<NetdevInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")] info: Option<NetdevInfo>,
 }
 
 impl varlink::VarlinkReply for _InfoReply {}
 
 #[derive(Serialize, Deserialize, Debug)]
 struct _InfoArgs {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    ifindex: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")] ifindex: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct _ListReply {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    netdevs: Option<Vec<Netdev>>,
+    #[serde(skip_serializing_if = "Option::is_none")] netdevs: Option<Vec<Netdev>>,
 }
 
 impl varlink::VarlinkReply for _ListReply {}
 
 #[derive(Serialize, Deserialize, Debug)]
 struct _UnknownErrorArgs {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")] text: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct _UnknownNetworkIfIndexArgs {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    ifindex: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")] ifindex: Option<i64>,
 }
 
 pub trait _CallErr: varlink::CallTrait {

@@ -19,7 +19,13 @@ impl org_example_complex::VarlinkInterface for MyImplementation {
         unimplemented!()
     }
 
-    fn foo(&self, call: &mut _CallFoo, enum_: Option<FooArgs_enum>, foo: Option<TypeFoo>, interface: Option<Interface>) -> Result<(), Error> {
+    fn foo(
+        &self,
+        call: &mut _CallFoo,
+        enum_: Option<FooArgs_enum>,
+        foo: Option<TypeFoo>,
+        interface: Option<Interface>,
+    ) -> Result<(), Error> {
         unimplemented!()
     }
 }

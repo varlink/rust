@@ -13,46 +13,38 @@ use varlink::CallTrait;
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct State {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub start: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub progress: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub end: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub start: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub progress: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub end: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct _PingReply {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pong: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")] pong: Option<String>,
 }
 
 impl varlink::VarlinkReply for _PingReply {}
 
 #[derive(Serialize, Deserialize, Debug)]
 struct _PingArgs {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    ping: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")] ping: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct _TestMoreReply {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    state: Option<State>,
+    #[serde(skip_serializing_if = "Option::is_none")] state: Option<State>,
 }
 
 impl varlink::VarlinkReply for _TestMoreReply {}
 
 #[derive(Serialize, Deserialize, Debug)]
 struct _TestMoreArgs {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    n: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")] n: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct _TestMoreErrorArgs {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")] reason: Option<String>,
 }
 
 pub trait _CallErr: varlink::CallTrait {

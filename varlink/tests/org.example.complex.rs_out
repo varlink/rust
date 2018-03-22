@@ -209,7 +209,7 @@ error ErrorBar ()
             "org.example.complex.Foo" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: _FooArgs = serde_json::from_value(args)?;
-                    return self.inner.foo(call as &mut _CallFoo, args.a, args.foo, );
+                    return self.inner.foo(call as &mut _CallFoo, args.a, args.foo);
                 } else {
                     return call.reply_invalid_parameter(None);
                 }

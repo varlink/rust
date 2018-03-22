@@ -6,6 +6,7 @@ extern crate varlink;
 use org_example_complex::*;
 use std::env;
 use std::io;
+use std::io::Error;
 use std::process::exit;
 use varlink::VarlinkService;
 
@@ -14,11 +15,11 @@ mod org_example_complex;
 struct MyImplementation;
 
 impl org_example_complex::VarlinkInterface for MyImplementation {
-    fn bar(&self, call: &mut _CallBar) -> io::Result<()> {
+    fn bar(&self, call: &mut _CallBar) -> Result<(), Error> {
         unimplemented!()
     }
 
-    fn foo(&self, call: &mut _CallFoo, a: Option<FooArgs_a>, foo: Option<TypeFoo>) -> io::Result<()> {
+    fn foo(&self, call: &mut _CallFoo, enumA: Option<FooArgs_enum>, foo: Option<TypeFoo>, interface: Option<Interface>) -> Result<(), Error> {
         unimplemented!()
     }
 }

@@ -393,7 +393,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         ", {}: Option<{}>",
                         replace_if_rust_keyword(e.name),
                         e.vtype.to_rust(
-                            format!("{}Args_{}", t.name, replace_if_rust_keyword(e.name)).as_ref(),
+                            format!("{}Args_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
                             &mut structvec,
                         )?
@@ -452,12 +452,8 @@ impl varlink::Interface for _InterfaceProxy {{
 
         for t in self.methods.values() {
             let mut inparms: String = "".to_owned();
-            if t.input.elts.len() > 0 {
-                let ref e = t.input.elts[0];
-                inparms += format!("args.{}", e.name).as_ref();
-                for e in &t.input.elts[1..] {
-                    inparms += format!(", args.{}, ", e.name).as_ref();
-                }
+            for e in &t.input.elts {
+                inparms += format!(", args.{}", replace_if_rust_keyword(e.name)).as_ref();
             }
 
             out += format!("            \"{}.{}\" => {{", self.name, t.name).as_ref();
@@ -466,7 +462,7 @@ impl varlink::Interface for _InterfaceProxy {{
                     format!(
                         concat!("\n                if let Some(args) = req.parameters.clone() {{\n",
 "                    let args: _{}Args = serde_json::from_value(args)?;\n",
-"                    return self.inner.{}(call as &mut _Call{}, {});\n",
+"                    return self.inner.{}(call as &mut _Call{}{});\n",
 "                }} else {{\n",
 "                    return call.reply_invalid_parameter(None);\n",
 "                }}\n",

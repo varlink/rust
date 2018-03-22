@@ -1,6 +1,12 @@
 interface org.example.complex
 
-type TypeEnum ( a, b, c )
+type Enum ( enum, b, c )
+
+type Type ( type, b, c )
+
+type TypeEnum ( type, b, c )
+
+type Interface ( interface, b, c )
 
 type TypeFoo (
     bool: bool,
@@ -12,8 +18,9 @@ type TypeFoo (
     anon: ( foo: bool, bar: int, baz: (a: int, b: int)[] )
 )
 
-method Foo(a: (b: bool, c: int), foo: TypeFoo) -> (a: (b: bool, c: int)[], foo: TypeFoo)
+method Foo(enum: (b: bool, c: int), foo: TypeFoo, interface: Interface) -> (a: (b: bool, c: int)[], foo:
+TypeFoo, interface: Interface)
 method Bar() -> ()
 
-error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)
+error ErrorFoo (enum: (b: bool, c: int, interface: Interface), foo: TypeFoo, bar: (type, enum, int, bool, string, if, let), interface: Interface)
 error ErrorBar ()

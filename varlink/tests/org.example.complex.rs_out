@@ -12,8 +12,35 @@ use varlink::CallTrait;
 
 
 #[derive(Serialize, Deserialize, Debug)]
+pub enum Enum {
+    #[serde(rename = "enum")]
+    enumA,
+    b,
+    c,
+
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum Interface {
+    interface,
+    b,
+    c,
+
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum Type {
+    #[serde(rename = "type")]
+    typeA,
+    b,
+    c,
+
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub enum TypeEnum {
-    a,
+    #[serde(rename = "type")]
+    typeA,
     b,
     c,
 
@@ -45,6 +72,8 @@ struct _FooReply {
     a: Option<Vec<FooReply_a>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     foo: Option<TypeFoo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    interface: Option<Interface>,
 }
 
 impl varlink::VarlinkReply for _FooReply {}
@@ -52,17 +81,25 @@ impl varlink::VarlinkReply for _FooReply {}
 #[derive(Serialize, Deserialize, Debug)]
 struct _FooArgs {
     #[serde(skip_serializing_if = "Option::is_none")]
-    a: Option<FooArgs_a>,
+    #[serde(rename = "enum")]
+    enumA: Option<FooArgs_enum>,
     #[serde(skip_serializing_if = "Option::is_none")]
     foo: Option<TypeFoo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    interface: Option<Interface>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct _ErrorFooArgs {
     #[serde(skip_serializing_if = "Option::is_none")]
-    a: Option<ErrorFooArgs_a>,
+    #[serde(rename = "enum")]
+    enumA: Option<ErrorFooArgs_enum>,
     #[serde(skip_serializing_if = "Option::is_none")]
     foo: Option<TypeFoo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    bar: Option<ErrorFooArgs_bar>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    interface: Option<Interface>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -84,7 +121,7 @@ pub struct FooReply_a {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
-pub struct FooArgs_a {
+pub struct FooArgs_enum {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub b: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -92,11 +129,13 @@ pub struct FooArgs_a {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
-pub struct ErrorFooArgs_a {
+pub struct ErrorFooArgs_enum {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub b: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub c: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub interface: Option<Interface>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -104,6 +143,22 @@ pub enum TypeFoo_enum {
     foo,
     bar,
     baz,
+
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum ErrorFooArgs_bar {
+    #[serde(rename = "type")]
+    typeA,
+    #[serde(rename = "enum")]
+    enumA,
+    int,
+    bool,
+    string,
+    #[serde(rename = "if")]
+    ifA,
+    #[serde(rename = "let")]
+    letA,
 
 }
 
@@ -123,10 +178,10 @@ pub trait _CallErr: varlink::CallTrait {
 
         ))
     }
-    fn reply_error_foo(&mut self, a: Option<ErrorFooArgs_a>, foo: Option<TypeFoo>) -> io::Result<()> {
+    fn reply_error_foo(&mut self, enumA: Option<ErrorFooArgs_enum>, foo: Option<TypeFoo>, bar: Option<ErrorFooArgs_bar>, interface: Option<Interface>) -> io::Result<()> {
         self.reply_struct(varlink::Reply::error(
             "org.example.complex.ErrorFoo".into(),
-            Some(serde_json::to_value(_ErrorFooArgs { a, foo }).unwrap()),
+            Some(serde_json::to_value(_ErrorFooArgs { enumA, foo, bar, interface }).unwrap()),
         ))
     }
 }
@@ -142,8 +197,8 @@ pub trait _CallBar: _CallErr {
 impl<'a> _CallBar for varlink::Call<'a> {}
 
 pub trait _CallFoo: _CallErr {
-    fn reply(&mut self, a: Option<Vec<FooReply_a>>, foo: Option<TypeFoo>) -> io::Result<()> {
-        self.reply_struct(_FooReply { a, foo }.into())
+    fn reply(&mut self, a: Option<Vec<FooReply_a>>, foo: Option<TypeFoo>, interface: Option<Interface>) -> io::Result<()> {
+        self.reply_struct(_FooReply { a, foo, interface }.into())
     }
 }
 
@@ -151,7 +206,7 @@ impl<'a> _CallFoo for varlink::Call<'a> {}
 
 pub trait VarlinkInterface {
     fn bar(&self, call: &mut _CallBar) -> io::Result<()>;
-    fn foo(&self, call: &mut _CallFoo, a: Option<FooArgs_a>, foo: Option<TypeFoo>) -> io::Result<()>;
+    fn foo(&self, call: &mut _CallFoo, enumA: Option<FooArgs_enum>, foo: Option<TypeFoo>, interface: Option<Interface>) -> io::Result<()>;
     fn call_upgraded(&self, _call: &mut varlink::Call) -> io::Result<()> {
         Ok(())
     }
@@ -170,7 +225,13 @@ impl varlink::Interface for _InterfaceProxy {
         r#"
 interface org.example.complex
 
-type TypeEnum ( a, b, c )
+type Enum ( enum, b, c )
+
+type Type ( type, b, c )
+
+type TypeEnum ( type, b, c )
+
+type Interface ( interface, b, c )
 
 type TypeFoo (
     bool: bool,
@@ -182,10 +243,11 @@ type TypeFoo (
     anon: ( foo: bool, bar: int, baz: (a: int, b: int)[] )
 )
 
-method Foo(a: (b: bool, c: int), foo: TypeFoo) -> (a: (b: bool, c: int)[], foo: TypeFoo)
+method Foo(enum: (b: bool, c: int), foo: TypeFoo, interface: Interface) -> (a: (b: bool, c: int)[], foo:
+TypeFoo, interface: Interface)
 method Bar() -> ()
 
-error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)
+error ErrorFoo (enum: (b: bool, c: int, interface: Interface), foo: TypeFoo, bar: (type, enum, int, bool, string, if, let), interface: Interface)
 error ErrorBar ()
 
 "#
@@ -209,7 +271,7 @@ error ErrorBar ()
             "org.example.complex.Foo" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: _FooArgs = serde_json::from_value(args)?;
-                    return self.inner.foo(call as &mut _CallFoo, args.a, args.foo);
+                    return self.inner.foo(call as &mut _CallFoo, args.enumA, args.foo, args.interface);
                 } else {
                     return call.reply_invalid_parameter(None);
                 }

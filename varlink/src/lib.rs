@@ -207,10 +207,14 @@ pub trait Interface {
 ///
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Request {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub more: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub oneshot: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub upgrade: Option<bool>,
     pub method: Cow<'static, str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub parameters: Option<Value>,
 }
 
@@ -226,9 +230,13 @@ pub trait VarlinkReply {}
 /// See the [CallTrait](trait.CallTrait.html) to use with the first Call parameter
 #[derive(Serialize, Deserialize)]
 pub struct Reply {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub continues: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub upgraded: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<Cow<'static, str>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub parameters: Option<Value>,
 }
 

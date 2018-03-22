@@ -12,9 +12,7 @@ use std::process::exit;
 use varlink::VarlinkService;
 
 // Dynamically build the varlink rust code.
-mod org_example_more {
-    include!(concat!(env!("OUT_DIR"), "/org.example.more.rs"));
-}
+mod org_example_more;
 
 struct MyOrgExampleMore;
 

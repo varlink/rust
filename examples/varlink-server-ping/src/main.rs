@@ -10,9 +10,7 @@ use std::process::exit;
 use varlink::VarlinkService;
 
 // Dynamically build the varlink rust code.
-mod org_example_ping {
-    include!(concat!(env!("OUT_DIR"), "/org.example.ping.rs"));
-}
+mod org_example_ping;
 
 struct MyOrgExamplePing;
 

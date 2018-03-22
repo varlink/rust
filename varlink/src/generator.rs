@@ -13,7 +13,7 @@ use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::result::Result;
-use varlink_parser::{Interface, Varlink, VStruct, VStructOrEnum, VType, VTypeExt};
+use varlink_parser::{Interface, VStruct, VStructOrEnum, VType, VTypeExt, Varlink};
 
 type EnumVec<'a> = Vec<(String, Vec<String>)>;
 type StructVec<'a> = Vec<(String, &'a VStruct<'a>)>;
@@ -156,7 +156,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                             e.vtype.to_rust(
                                 format!("{}_{}", t.name, e.name).as_ref(),
                                 &mut enumvec,
-                                &mut structvec,
+                                &mut structvec
                             )?
                         ).as_ref();
                     }
@@ -187,7 +187,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         e.vtype.to_rust(
                             format!("{}Reply_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut structvec,
+                            &mut structvec
                         )?
                     ).as_ref();
                 }
@@ -205,7 +205,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         e.vtype.to_rust(
                             format!("{}Args_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut structvec,
+                            &mut structvec
                         )?
                     ).as_ref();
                 }
@@ -224,7 +224,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         e.vtype.to_rust(
                             format!("{}Args_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut structvec,
+                            &mut structvec
                         )?
                     ).as_ref();
                 }
@@ -245,7 +245,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                                 .to_rust(
                                     format!("{}_{}", name, e.name).as_ref(),
                                     &mut enumvec,
-                                    &mut nstructvec,
+                                    &mut nstructvec
                                 )
                                 .unwrap()
                         ).as_ref();
@@ -284,7 +284,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                             e.vtype.to_rust(
                                 format!("{}Args_{}", t.name, e.name).as_ref(),
                                 &mut enumvec,
-                                &mut structvec,
+                                &mut structvec
                             )?
                         ).as_ref();
                         innames += format!("{}, ", e.name).as_ref();
@@ -327,7 +327,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         e.vtype.to_rust(
                             format!("{}Reply_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut structvec,
+                            &mut structvec
                         )?
                     ).as_ref();
                     innames += format!("{}, ", e.name).as_ref();
@@ -362,7 +362,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         e.vtype.to_rust(
                             format!("{}Args_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut structvec,
+                            &mut structvec
                         )?
                     ).as_ref();
                 }
@@ -520,7 +520,7 @@ use varlink::CallTrait;
 ///}
 ///```
 ///
-pub fn cargo_build<T: AsRef<Path> + ? Sized>(input_path: &T) {
+pub fn cargo_build<T: AsRef<Path> + ?Sized>(input_path: &T) {
     let mut stderr = io::stderr();
     let input_path = input_path.as_ref();
 
@@ -576,14 +576,15 @@ pub fn cargo_build<T: AsRef<Path> + ? Sized>(input_path: &T) {
 ///}
 ///```
 ///
-pub fn cargo_build_tosource<T: AsRef<Path> + ? Sized>(input_path: &T) {
+pub fn cargo_build_tosource<T: AsRef<Path> + ?Sized>(input_path: &T) {
     let mut stderr = io::stderr();
     let input_path = input_path.as_ref();
     let noextension = input_path.with_extension("");
-    let newfilename = str::replace(noextension.file_name().unwrap().to_str().unwrap(),
-                                   ".", "_");
-    let rust_path = input_path.parent().unwrap().join(
-        Path::new(&newfilename).with_extension("rs"));
+    let newfilename = str::replace(noextension.file_name().unwrap().to_str().unwrap(), ".", "_");
+    let rust_path = input_path
+        .parent()
+        .unwrap()
+        .join(Path::new(&newfilename).with_extension("rs"));
 
     eprintln!("{}", rust_path.display());
 

@@ -137,6 +137,7 @@ impl<'a> fmt::Display for Argument<'a> {
         Ok(())
     }
 }
+
 impl<'a> fmt::Display for VStruct<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "(")?;
@@ -301,14 +302,15 @@ error InvalidParameter (parameter: string)
     println!("{}", v.interface.to_string());
     assert_eq!(
         v.interface.to_string(),
-        r#"interface org.varlink.service
-method GetInfo() -> (vendor: string, product: string, version: string, url: string, interfaces: string[])
-method GetInterfaceDescription(interface: string) -> (description: string)
-error InterfaceNotFound (interface: string)
-error InvalidParameter (parameter: string)
-error MethodNotFound (method: string)
-error MethodNotImplemented (method: string)
-"#
+        "interface org.varlink.service\n\
+         method GetInfo() -> (vendor: string, product: string, \
+         version: string, url: string, interfaces: string[])\n\
+         method GetInterfaceDescription(interface: string) \
+         -> (description: string)\n\
+         error InterfaceNotFound (interface: string)\n\
+         error InvalidParameter (parameter: string)\n\
+         error MethodNotFound (method: string)\n\
+         error MethodNotImplemented (method: string)\n"
     );
 }
 

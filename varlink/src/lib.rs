@@ -59,7 +59,8 @@
 //!#     _InterfaceProxy { inner }
 //!# }
 //!# impl varlink::Interface for _InterfaceProxy {
-//!#     fn get_description(&self) -> &'static str { "interface org.example.ping\nmethod Ping(ping: string) -> (pong: string)" }
+//!#     fn get_description(&self) -> &'static str { "interface org.example.ping\n\
+//!                                                   method Ping(ping: string) -> (pong: string)" }
 //!#     fn get_name(&self) -> &'static str { "org.example.ping" }
 //!#     fn call_upgraded(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
 //!#     fn call(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
@@ -122,7 +123,8 @@
 //!#     _InterfaceProxy { inner }
 //!# }
 //!# impl varlink::Interface for _InterfaceProxy {
-//!#     fn get_description(&self) -> &'static str { "interface org.example.ping\nmethod Ping(ping: string) -> (pong: string)" }
+//!#     fn get_description(&self) -> &'static str { "interface org.example.ping\n\
+//!#                                                  method Ping(ping: string) -> (pong: string)" }
 //!#     fn get_name(&self) -> &'static str { "org.example.ping" }
 //!#     fn call_upgraded(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
 //!#     fn call(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
@@ -195,8 +197,8 @@ mod server;
 pub trait Interface {
     fn get_description(&self) -> &'static str;
     fn get_name(&self) -> &'static str;
-    fn call(&self, &mut Call) -> io::Result<()>;
-    fn call_upgraded(&self, &mut Call) -> io::Result<()>;
+    fn call_upgraded(&self, call: &mut Call) -> io::Result<()>;
+    fn call(&self, call: &mut Call) -> io::Result<()>;
 }
 
 /// The structure of a varlink request. Used to serialize json into it.
@@ -236,7 +238,7 @@ impl Reply {
             continues: None,
             upgraded: None,
             error: None,
-            parameters: parameters,
+            parameters,
         }
     }
 
@@ -259,7 +261,8 @@ where
     }
 }
 
-/// Call is a struct, which is passed as the first argument to the interface methods in a derived form.
+/// Call is a struct, which is passed as the first argument to the interface methods
+/// in a derived form.
 ///
 /// See also the [CallTrait](trait.CallTrait.html) to use with the first Call parameter
 ///
@@ -356,7 +359,7 @@ pub struct Call<'a> {
 /// ```
 pub trait CallTrait {
     /// Don't use this directly. Rather use the standard `reply()` method.
-    fn reply_struct(&mut self, Reply) -> io::Result<()>;
+    fn reply_struct(&mut self, reply: Reply) -> io::Result<()>;
 
     /// Set this to `true` to indicate, that more replies are following.
     ///

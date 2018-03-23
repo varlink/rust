@@ -9,6 +9,7 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::fmt;
+use std::io::{self, Error, ErrorKind};
 
 mod varlink_grammar {
     include!(concat!(env!("OUT_DIR"), "/varlink_grammar.rs"));
@@ -244,16 +245,19 @@ pub struct Varlink<'a> {
 }
 
 impl<'a> Varlink<'a> {
-    pub fn from_string(s: &'a str) -> Result<Varlink, String> {
+    pub fn from_string(s: &'a str) -> io::Result<Varlink> {
         let iface = match VInterface(s) {
             Ok(v) => v,
             Err(e) => {
-                return Err(e.to_string());
+                return Err(Error::new(ErrorKind::Other, e));
             }
         };
 
         if iface.error.len() != 0 {
-            Err(iface.error.into_iter().sorted().join("\n"))
+            Err(Error::new(
+                ErrorKind::Other,
+                iface.error.into_iter().sorted().join("\n"),
+            ))
         } else {
             Ok(Varlink {
                 string: s,
@@ -473,7 +477,7 @@ interface foo.example
     ).err()
         .unwrap();
     assert_eq!(
-        e,
+        e.to_string(),
         "\
 Interface `foo.example`: multiple definitions of type `Device`!
 Interface `foo.example`: multiple definitions of type `F`!

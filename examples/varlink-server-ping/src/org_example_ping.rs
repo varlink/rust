@@ -10,7 +10,6 @@ use varlink;
 use serde_json;
 use varlink::CallTrait;
 
-
 #[derive(Serialize, Deserialize, Debug)]
 struct _PingReply {
     #[serde(skip_serializing_if = "Option::is_none")] pong: Option<String>,
@@ -23,8 +22,7 @@ struct _PingArgs {
     #[serde(skip_serializing_if = "Option::is_none")] ping: Option<String>,
 }
 
-pub trait _CallErr: varlink::CallTrait {
-}
+pub trait _CallErr: varlink::CallTrait {}
 
 impl<'a> _CallErr for varlink::Call<'a> {}
 

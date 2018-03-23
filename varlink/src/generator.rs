@@ -11,6 +11,7 @@ use std::io;
 use std::io::Error as IOError;
 use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::process::exit;
 use std::result::Result;
 use varlink_parser::{Interface, Varlink, VStruct, VStructOrEnum, VType, VTypeExt};
@@ -608,11 +609,11 @@ pub fn cargo_build<T: AsRef<Path> + ? Sized>(input_path: &T) {
 ///extern crate varlink;
 ///
 ///fn main() {
-///    varlink::generator::cargo_build_tosource("src/org.example.ping.varlink");
+///    varlink::generator::cargo_build_tosource("src/org.example.ping.varlink", true);
 ///}
 ///```
 ///
-pub fn cargo_build_tosource<T: AsRef<Path> + ? Sized>(input_path: &T) {
+pub fn cargo_build_tosource<T: AsRef<Path> + ? Sized>(input_path: &T, rustfmt: bool) {
     let mut stderr = io::stderr();
     let input_path = input_path.as_ref();
     let noextension = input_path.with_extension("");
@@ -644,6 +645,17 @@ pub fn cargo_build_tosource<T: AsRef<Path> + ? Sized>(input_path: &T) {
             e
         ).unwrap();
         exit(1);
+    }
+
+    if rustfmt {
+        if let Err(e) = Command::new("rustfmt").arg(rust_path.to_str().unwrap()).output() {
+            writeln!(
+                stderr,
+                "Could not run rustfmt on file `{}` {}", rust_path.display(),
+                e
+            ).unwrap();
+            exit(1);
+        }
     }
 
     println!("cargo:rerun-if-changed={}", input_path.display());

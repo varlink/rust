@@ -10,7 +10,6 @@ use varlink;
 use serde_json;
 use varlink::CallTrait;
 
-
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Netdev {
     #[serde(skip_serializing_if = "Option::is_none")] pub ifindex: Option<i64>,

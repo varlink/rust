@@ -10,7 +10,6 @@ use varlink;
 use serde_json;
 use varlink::CallTrait;
 
-
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct State {
     #[serde(skip_serializing_if = "Option::is_none")] pub start: Option<bool>,
@@ -93,7 +92,10 @@ impl<'a> _CallTestMore for varlink::Call<'a> {}
 pub trait VarlinkInterface {
     fn ping(&self, call: &mut _CallPing, ping: Option<String>) -> io::Result<()>;
     fn stop_serving(&self, call: &mut _CallStopServing) -> io::Result<()>;
-    fn test_method_not_implemented(&self, call: &mut _CallTestMethodNotImplemented) -> io::Result<()>;
+    fn test_method_not_implemented(
+        &self,
+        call: &mut _CallTestMethodNotImplemented,
+    ) -> io::Result<()>;
     fn test_more(&self, call: &mut _CallTestMore, n: Option<i64>) -> io::Result<()>;
     fn call_upgraded(&self, _call: &mut varlink::Call) -> io::Result<()> {
         Ok(())
@@ -165,7 +167,8 @@ error TestMoreError (reason: string)
                 return self.inner.stop_serving(call as &mut _CallStopServing);
             }
             "org.example.more.TestMethodNotImplemented" => {
-                return self.inner.test_method_not_implemented(call as &mut _CallTestMethodNotImplemented);
+                return self.inner
+                    .test_method_not_implemented(call as &mut _CallTestMethodNotImplemented);
             }
             "org.example.more.TestMore" => {
                 if let Some(args) = req.parameters.clone() {

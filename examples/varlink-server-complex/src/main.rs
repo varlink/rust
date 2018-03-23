@@ -15,16 +15,16 @@ mod org_example_complex;
 struct MyImplementation;
 
 impl org_example_complex::VarlinkInterface for MyImplementation {
-    fn bar(&self, call: &mut _CallBar) -> Result<(), Error> {
+    fn bar(&self, _call: &mut _CallBar) -> Result<(), Error> {
         unimplemented!()
     }
 
     fn foo(
         &self,
-        call: &mut _CallFoo,
-        enum_: Option<FooArgs_enum>,
-        foo: Option<TypeFoo>,
-        interface: Option<Interface>,
+        _call: &mut _CallFoo,
+        _enum_: Option<FooArgs_enum>,
+        _foo: Option<TypeFoo>,
+        _interface: Option<Interface>,
     ) -> Result<(), Error> {
         unimplemented!()
     }

@@ -10,7 +10,6 @@ use varlink;
 use serde_json;
 use varlink::CallTrait;
 
-
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Enum {
     #[serde(rename = "enum")] enum_,

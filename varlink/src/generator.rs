@@ -634,8 +634,6 @@ pub fn cargo_build_tosource<T: AsRef<Path> + ?Sized>(input_path: &T, rustfmt: bo
         .unwrap()
         .join(Path::new(&newfilename).with_extension("rs"));
 
-    eprintln!("{}", rust_path.display());
-
     let writer: &mut Write = &mut (File::create(&rust_path).unwrap());
 
     let reader: &mut Read = &mut (File::open(input_path).unwrap_or_else(|e| {

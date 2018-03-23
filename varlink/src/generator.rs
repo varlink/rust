@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::process::exit;
 use std::result::Result;
-use varlink_parser::{Interface, Varlink, VStruct, VStructOrEnum, VType, VTypeExt};
+use varlink_parser::{Interface, VStruct, VStructOrEnum, VType, VTypeExt, Varlink};
 
 type EnumVec<'a> = Vec<(String, Vec<String>)>;
 type StructVec<'a> = Vec<(String, &'a VStruct<'a>)>;
@@ -137,22 +137,23 @@ fn to_snake_case(mut str: &str) -> String {
 
 fn is_rust_keyword(v: &str) -> bool {
     match v {
-        "abstract" | "alignof" |
-        "as" | "become" | "box" | "break" | "const" |
-        "continue" | "crate" | "do" | "else" | "enum" |
-        "extern" | "false" | "final" | "fn" | "for" | "if" | "impl" | "in" | "let" |
-        "loop" | "macro" | "match" | "mod" | "move" | "mut" | "offsetof" | "override" | "priv" |
-        "proc" | "pub" | "pure" | "ref" | "return" | "Self" | "self" | "sizeof" | "static" | "struct" |
-        "super" | "trait" | "true" | "type" | "typeof" | "unsafe" | "unsized" | "use" | "virtual" | "where" |
-        "while" | "yield" => true,
-        _ => false
+        "abstract" | "alignof" | "as" | "become" | "box" | "break" | "const" | "continue"
+        | "crate" | "do" | "else" | "enum" | "extern" | "false" | "final" | "fn" | "for" | "if"
+        | "impl" | "in" | "let" | "loop" | "macro" | "match" | "mod" | "move" | "mut"
+        | "offsetof" | "override" | "priv" | "proc" | "pub" | "pure" | "ref" | "return"
+        | "Self" | "self" | "sizeof" | "static" | "struct" | "super" | "trait" | "true"
+        | "type" | "typeof" | "unsafe" | "unsized" | "use" | "virtual" | "where" | "while"
+        | "yield" => true,
+        _ => false,
     }
 }
 
 fn replace_if_rust_keyword(v: &str) -> String {
     if is_rust_keyword(v) {
         String::from(v) + "_"
-    } else { String::from(v) }
+    } else {
+        String::from(v)
+    }
 }
 
 fn replace_if_rust_keyword_annotate(v: &str, out: &mut String, prefix: &str) -> String {
@@ -183,13 +184,14 @@ impl<'a> InterfaceToRust for Interface<'a> {
                     out += format!("pub struct {} {{\n", replace_if_rust_keyword(t.name)).as_ref();
                     for e in &v.elts {
                         out += "    #[serde(skip_serializing_if = \"Option::is_none\")]";
-                        out += format!("pub {}: Option<{}>,\n",
-                                       replace_if_rust_keyword_annotate(e.name, &mut out, " "),
-                                       e.vtype.to_rust(
-                                           format!("{}_{}", t.name, e.name).as_ref(),
-                                           &mut enumvec,
-                                           &mut structvec,
-                                       )?
+                        out += format!(
+                            "pub {}: Option<{}>,\n",
+                            replace_if_rust_keyword_annotate(e.name, &mut out, " "),
+                            e.vtype.to_rust(
+                                format!("{}_{}", t.name, e.name).as_ref(),
+                                &mut enumvec,
+                                &mut structvec
+                            )?
                         ).as_ref();
                     }
                 }
@@ -198,8 +200,10 @@ impl<'a> InterfaceToRust for Interface<'a> {
                     out += format!("pub enum {} {{\n", t.name).as_ref();
                     let mut iter = v.elts.iter();
                     for elt in iter {
-                        out += format!("{},\n", replace_if_rust_keyword_annotate(elt, &mut out, "    "))
-                            .as_ref();
+                        out += format!(
+                            "{},\n",
+                            replace_if_rust_keyword_annotate(elt, &mut out, "    ")
+                        ).as_ref();
                     }
                     out += "\n";
                 }
@@ -219,7 +223,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         e.vtype.to_rust(
                             format!("{}Reply_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut structvec,
+                            &mut structvec
                         )?
                     ).as_ref();
                 }
@@ -238,7 +242,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         e.vtype.to_rust(
                             format!("{}Args_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut structvec,
+                            &mut structvec
                         )?
                     ).as_ref();
                 }
@@ -258,7 +262,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         e.vtype.to_rust(
                             format!("{}Args_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut structvec,
+                            &mut structvec
                         )?
                     ).as_ref();
                 }
@@ -273,27 +277,32 @@ impl<'a> InterfaceToRust for Interface<'a> {
                 out += format!("pub struct {} {{\n", replace_if_rust_keyword(&name)).as_ref();
                 for e in &v.elts {
                     out += "    #[serde(skip_serializing_if = \"Option::is_none\")]";
-                    out += format!("pub {}: Option<{}>,\n",
-                                   replace_if_rust_keyword_annotate(e.name, &mut out, " "),
-                                   e.vtype
-                                       .to_rust(
-                                           format!("{}_{}", name, e.name).as_ref(),
-                                           &mut enumvec,
-                                           &mut nstructvec,
-                                       )
-                                       .unwrap()
+                    out += format!(
+                        "pub {}: Option<{}>,\n",
+                        replace_if_rust_keyword_annotate(e.name, &mut out, " "),
+                        e.vtype
+                            .to_rust(
+                                format!("{}_{}", name, e.name).as_ref(),
+                                &mut enumvec,
+                                &mut nstructvec
+                            )
+                            .unwrap()
                     ).as_ref();
                 }
                 out += "}\n\n";
             }
             for (name, v) in enumvec.drain(..) {
-                out += format!("#[derive(Serialize, Deserialize, Debug)]\n\
-                pub enum {} {{\n", replace_if_rust_keyword(name.as_str()))
-                    .as_ref();
+                out += format!(
+                    "#[derive(Serialize, Deserialize, Debug)]\n\
+                     pub enum {} {{\n",
+                    replace_if_rust_keyword(name.as_str())
+                ).as_ref();
                 let mut iter = v.iter();
                 for elt in iter {
-                    out += format!("{},\n", replace_if_rust_keyword_annotate(elt, &mut out, "    "))
-                        .as_ref();
+                    out += format!(
+                        "{},\n",
+                        replace_if_rust_keyword_annotate(elt, &mut out, "    ")
+                    ).as_ref();
                 }
                 out += "\n}\n\n";
             }
@@ -317,7 +326,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                             e.vtype.to_rust(
                                 format!("{}Args_{}", t.name, e.name).as_ref(),
                                 &mut enumvec,
-                                &mut structvec,
+                                &mut structvec
                             )?
                         ).as_ref();
                         innames += format!("{}, ", replace_if_rust_keyword(e.name)).as_ref();
@@ -363,7 +372,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         e.vtype.to_rust(
                             format!("{}Reply_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut structvec,
+                            &mut structvec
                         )?
                     ).as_ref();
                     innames += format!("{}, ", replace_if_rust_keyword(e.name)).as_ref();
@@ -398,7 +407,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
                         e.vtype.to_rust(
                             format!("{}Args_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut structvec,
+                            &mut structvec
                         )?
                     ).as_ref();
                 }
@@ -555,7 +564,7 @@ use varlink::CallTrait;
 ///}
 ///```
 ///
-pub fn cargo_build<T: AsRef<Path> + ? Sized>(input_path: &T) {
+pub fn cargo_build<T: AsRef<Path> + ?Sized>(input_path: &T) {
     let input_path = input_path.as_ref();
 
     let out_dir: PathBuf = env::var_os("OUT_DIR").unwrap().into();
@@ -611,10 +620,15 @@ pub fn cargo_build<T: AsRef<Path> + ? Sized>(input_path: &T) {
 ///}
 ///```
 ///
-pub fn cargo_build_tosource<T: AsRef<Path> + ? Sized>(input_path: &T, rustfmt: bool) {
+pub fn cargo_build_tosource<T: AsRef<Path> + ?Sized>(input_path: &T, rustfmt: bool) {
     let input_path = input_path.as_ref();
     let noextension = input_path.with_extension("");
-    let newfilename = noextension.file_name().unwrap().to_str().unwrap().replace(".", "_");
+    let newfilename = noextension
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .replace(".", "_");
     let rust_path = input_path
         .parent()
         .unwrap()
@@ -643,9 +657,13 @@ pub fn cargo_build_tosource<T: AsRef<Path> + ? Sized>(input_path: &T, rustfmt: b
     }
 
     if rustfmt {
-        if let Err(e) = Command::new("rustfmt").arg(rust_path.to_str().unwrap()).output() {
+        if let Err(e) = Command::new("rustfmt")
+            .arg(rust_path.to_str().unwrap())
+            .output()
+        {
             eprintln!(
-                "Could not run rustfmt on file `{}` {}", rust_path.display(),
+                "Could not run rustfmt on file `{}` {}",
+                rust_path.display(),
                 e
             );
             exit(1);

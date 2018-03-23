@@ -252,8 +252,8 @@ impl Reply {
 }
 
 impl<T> From<T> for Reply
-    where
-        T: VarlinkReply + Serialize,
+where
+    T: VarlinkReply + Serialize,
 {
     fn from(a: T) -> Self {
         Reply::parameters(Some(serde_json::to_value(a).unwrap()))
@@ -474,26 +474,21 @@ impl<'a> Call<'a> {
     /// True, if this request does not want a reply.
     pub fn is_oneshot(&self) -> bool {
         match self.request {
-            Some(req) => {
-                if let Some(val) = req.oneshot {
-                    val
-                } else {
-                    false
-                }
-            }
-            None => false,
+            Some(&Request {
+                oneshot: Some(true),
+                ..
+            }) => true,
+            _ => false,
         }
     }
 
     /// True, if this request accepts more than one reply.
     pub fn wants_more(&self) -> bool {
         match self.request {
-            Some(req) => if let Some(val) = req.more {
-                val
-            } else {
-                false
-            },
-            None => false,
+            Some(&Request {
+                more: Some(true), ..
+            }) => true,
+            _ => false,
         }
     }
 
@@ -584,32 +579,30 @@ error InvalidParameter (parameter: string)
             "org.varlink.service.GetInfo" => {
                 return call.reply_parameters(serde_json::to_value(&self.info)?);
             }
-            "org.varlink.service.GetInterfaceDescription" => {
-                match req.parameters.as_ref() {
-                    None => {
-                        return call.reply_invalid_parameter(None);
-                    }
-                    Some(val) => {
-                        let args: GetInterfaceArgs = serde_json::from_value(val.clone())?;
-                        match args.interface.as_ref() {
-                            "org.varlink.service" => {
+            "org.varlink.service.GetInterfaceDescription" => match req.parameters.as_ref() {
+                None => {
+                    return call.reply_invalid_parameter(None);
+                }
+                Some(val) => {
+                    let args: GetInterfaceArgs = serde_json::from_value(val.clone())?;
+                    match args.interface.as_ref() {
+                        "org.varlink.service" => {
+                            return call.reply_parameters(
+                                json!({"description": self.get_description()}),
+                            );
+                        }
+                        key => {
+                            if self.ifaces.contains_key(key) {
                                 return call.reply_parameters(
-                                    json!({"description": self.get_description()}),
+                                    json!({"description": self.ifaces[key].get_description()}),
                                 );
-                            }
-                            key => {
-                                if self.ifaces.contains_key(key) {
-                                    return call.reply_parameters(
-                                        json!({"description": self.ifaces[key].get_description()}),
-                                    );
-                                } else {
-                                    return call.reply_invalid_parameter(Some("interface".into()));
-                                }
+                            } else {
+                                return call.reply_invalid_parameter(Some("interface".into()));
                             }
                         }
                     }
                 }
-            }
+            },
             _ => {
                 let method: String = req.method.clone().into();
                 let n: usize = match method.rfind('.') {
@@ -738,8 +731,9 @@ impl VarlinkService {
 
                         let n: usize = match req.method.rfind('.') {
                             None => {
-                                return call.reply_interface_not_found(Some(String::from(req.method
-                                    .as_ref())));
+                                return call.reply_interface_not_found(Some(String::from(
+                                    req.method.as_ref(),
+                                )));
                             }
                             Some(x) => x,
                         };

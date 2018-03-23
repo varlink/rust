@@ -153,8 +153,7 @@ error TestMoreError (reason: string)
 
     fn call(&self, call: &mut varlink::Call) -> io::Result<()> {
         let req = call.request.unwrap();
-        let method = req.method.clone();
-        match method.as_ref() {
+        match req.method.as_ref() {
             "org.example.more.Ping" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: _PingArgs = serde_json::from_value(args)?;
@@ -180,8 +179,7 @@ error TestMoreError (reason: string)
             }
 
             m => {
-                let method: String = m.clone().into();
-                return call.reply_method_not_found(Some(method));
+                return call.reply_method_not_found(Some(String::from(m)));
             }
         }
     }

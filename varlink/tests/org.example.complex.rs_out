@@ -245,8 +245,7 @@ error ErrorBar ()
 
     fn call(&self, call: &mut varlink::Call) -> io::Result<()> {
         let req = call.request.unwrap();
-        let method = req.method.clone();
-        match method.as_ref() {
+        match req.method.as_ref() {
             "org.example.complex.Bar" => {
                 return self.inner.bar(call as &mut _CallBar);
             }
@@ -260,8 +259,7 @@ error ErrorBar ()
             }
 
             m => {
-                let method: String = m.clone().into();
-                return call.reply_method_not_found(Some(method));
+                return call.reply_method_not_found(Some(String::from(m)));
             }
         }
     }

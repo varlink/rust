@@ -449,8 +449,7 @@ impl varlink::Interface for _InterfaceProxy {{
 
     fn call(&self, call: &mut varlink::Call) -> io::Result<()> {
         let req = call.request.unwrap();
-        let method = req.method.clone();
-        match method.as_ref() {
+        match req.method.as_ref() {
 "#;
 
         for t in self.methods.values() {
@@ -484,8 +483,7 @@ impl varlink::Interface for _InterfaceProxy {{
         out += concat!(
             "\n",
             "            m => {\n",
-            "                let method: String = m.clone().into();\n",
-            "                return call.reply_method_not_found(Some(method));\n",
+            "                return call.reply_method_not_found(Some(String::from(m)));\n",
             "            }\n",
             "        }\n",
             "    }\n",
@@ -558,7 +556,6 @@ use varlink::CallTrait;
 ///```
 ///
 pub fn cargo_build<T: AsRef<Path> + ? Sized>(input_path: &T) {
-    let mut stderr = io::stderr();
     let input_path = input_path.as_ref();
 
     let out_dir: PathBuf = env::var_os("OUT_DIR").unwrap().into();
@@ -569,22 +566,20 @@ pub fn cargo_build<T: AsRef<Path> + ? Sized>(input_path: &T) {
     let writer: &mut Write = &mut (File::create(&rust_path).unwrap());
 
     let reader: &mut Read = &mut (File::open(input_path).unwrap_or_else(|e| {
-        writeln!(
-            stderr,
+        eprintln!(
             "Could not read varlink input file `{}`: {}",
             input_path.display(),
             e
-        ).unwrap();
+        );
         exit(1);
     }));
 
     if let Err(e) = generate(reader, writer) {
-        writeln!(
-            stderr,
+        eprintln!(
             "Could not generate rust code from varlink file `{}`: {}",
             input_path.display(),
             e
-        ).unwrap();
+        );
         exit(1);
     }
 
@@ -601,6 +596,9 @@ pub fn cargo_build<T: AsRef<Path> + ? Sized>(input_path: &T) {
 /// Use this, if you are using an IDE with code completion, as most cannot cope with
 /// `include!(concat!(env!("OUT_DIR"), "<varlink_file>"));`
 ///
+/// Set `rustfmt` to `true`, if you want the generator to run rustfmt on the generated
+/// code. This might be good practice to avoid large changes after a global `cargo fmt` run.
+///
 /// Errors are emitted to stderr and terminate the process.
 ///
 ///# Examples
@@ -614,7 +612,6 @@ pub fn cargo_build<T: AsRef<Path> + ? Sized>(input_path: &T) {
 ///```
 ///
 pub fn cargo_build_tosource<T: AsRef<Path> + ? Sized>(input_path: &T, rustfmt: bool) {
-    let mut stderr = io::stderr();
     let input_path = input_path.as_ref();
     let noextension = input_path.with_extension("");
     let newfilename = noextension.file_name().unwrap().to_str().unwrap().replace(".", "_");
@@ -628,32 +625,29 @@ pub fn cargo_build_tosource<T: AsRef<Path> + ? Sized>(input_path: &T, rustfmt: b
     let writer: &mut Write = &mut (File::create(&rust_path).unwrap());
 
     let reader: &mut Read = &mut (File::open(input_path).unwrap_or_else(|e| {
-        writeln!(
-            stderr,
+        eprintln!(
             "Could not read varlink input file `{}`: {}",
             input_path.display(),
             e
-        ).unwrap();
+        );
         exit(1);
     }));
 
     if let Err(e) = generate(reader, writer) {
-        writeln!(
-            stderr,
+        eprintln!(
             "Could not generate rust code from varlink file `{}`: {}",
             input_path.display(),
             e
-        ).unwrap();
+        );
         exit(1);
     }
 
     if rustfmt {
         if let Err(e) = Command::new("rustfmt").arg(rust_path.to_str().unwrap()).output() {
-            writeln!(
-                stderr,
+            eprintln!(
                 "Could not run rustfmt on file `{}` {}", rust_path.display(),
                 e
-            ).unwrap();
+            );
             exit(1);
         }
     }

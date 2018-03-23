@@ -1,4 +1,11 @@
-//! varlink-rust-generator
+//! varlink-rust-generator generates rust code from a varlink interface
+//! definition file
+//!
+//! Usage: varlink-rust-generator `[<varlink_file>]`
+//!
+//! If <varlink_file> is omitted, input is expected to come from stdin.
+//!
+//! Output is sent to stdout.
 
 extern crate varlink;
 
@@ -19,13 +26,14 @@ trait MainReturn {
 impl<E: Error> MainReturn for Result<(), E> {
     fn into_error_code(self) -> i32 {
         if let Err(e) = self {
-            write!(io::stderr(), "{}\n", e).unwrap();
+            eprintln!("{}", e);
             1
         } else {
             0
         }
     }
 }
+
 fn do_main() -> io::Result<()> {
     let args: Vec<_> = env::args().collect();
     {

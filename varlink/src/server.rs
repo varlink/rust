@@ -49,36 +49,18 @@ impl<'a> VarlinkStream {
 }
 
 fn activation_listener() -> io::Result<Option<UnixListener>> {
-    /*
-	FIXME: only working on nightly https://github.com/rust-lang/rust/pull/45059
-*/
-
-    let spid = env::var("LISTEN_PID");
-    if let Ok(pid) = spid {
-        //FIXME:
-        //let mypid = process::id();
-        unsafe {
-            let mypid = getpid();
-            match pid.parse::<i32>() {
-                Ok(p) => if p != mypid {
-                    return Ok(None);
-                },
-                _ => return Ok(None),
-            }
-        }
-    } else {
-        return Ok(None);
+    match env::var("LISTEN_FDS") {
+        Ok(ref nfds) if nfds.parse::<u32>() == Ok(1) => {}
+        _ => return Ok(None),
     }
-    let snfds = env::var("LISTEN_FDS");
-    if let Ok(nfds) = snfds {
-        match nfds.parse::<u32>() {
-            Ok(1) => {}
+
+    unsafe {
+        match env::var("LISTEN_PID") {
+            //FIXME: replace Ok(getpid()) with Ok(process::id())
+            Ok(ref pid) if pid.parse::<i32>() == Ok(getpid()) => {}
             _ => return Ok(None),
         }
-    } else {
-        return Ok(None);
-    }
-    unsafe {
+
         //syscall.CloseOnExec(3)
         let listener = UnixListener::from_raw_fd(3);
         env::remove_var("LISTEN_PID");
@@ -258,6 +240,7 @@ pub fn do_listen(
         if accept_timeout != 0 {
             let listener = listener.clone();
             let (sender, receiver) = mpsc::channel();
+
             let _t = thread::spawn(move || {
                 match sender.send(listener.accept()) {
                     Ok(()) => {} // everything good
@@ -272,9 +255,12 @@ pub fn do_listen(
         } else {
             stream = listener.accept()?;
         }
+
         let service = service.clone();
+
         pool.execute(move || {
             let (mut r, mut w) = stream.split().expect("Could not split stream");
+
             if let Err(_e) = service.handle(&mut r, &mut w) {
                 //println!("Handle Error: {}", e);
                 let _ = stream.shutdown();

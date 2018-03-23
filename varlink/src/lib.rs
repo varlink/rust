@@ -723,30 +723,30 @@ impl VarlinkService {
             match upgraded {
                 false => {
                     let mut buf = Vec::new();
-                    let read_bytes = bufreader.read_until(b'\0', &mut buf)?;
-                    if read_bytes > 0 {
-                        buf.pop();
-                        let req: Request = serde_json::from_slice(&buf)?;
-                        let mut call = Call::new(writer, &req);
-
-                        let n: usize = match req.method.rfind('.') {
-                            None => {
-                                return call.reply_interface_not_found(Some(String::from(
-                                    req.method.as_ref(),
-                                )));
-                            }
-                            Some(x) => x,
-                        };
-
-                        let iface = String::from(&req.method[..n]);
-
-                        self.call(iface.clone(), &mut call)?;
-                        upgraded = call.upgraded;
-                        if upgraded {
-                            last_iface = iface;
-                        }
-                    } else {
+                    if bufreader.read_until(b'\0', &mut buf)? <= 0 {
                         break;
+                    }
+                    // pop the last zero byte
+                    buf.pop();
+                    let req: Request = serde_json::from_slice(&buf)?;
+                    let mut call = Call::new(writer, &req);
+
+                    let n: usize = match req.method.rfind('.') {
+                        None => {
+                            return call.reply_interface_not_found(Some(String::from(
+                                req.method.as_ref(),
+                            )));
+                        }
+                        Some(x) => x,
+                    };
+
+                    let iface = String::from(&req.method[..n]);
+
+                    self.call(iface.clone(), &mut call)?;
+
+                    upgraded = call.upgraded;
+                    if upgraded {
+                        last_iface = iface;
                     }
                 }
                 true => {
@@ -791,11 +791,8 @@ pub fn listen(
     accept_timeout: u64,
 ) -> io::Result<()> {
     match server::do_listen(service, varlink_uri, num_worker, accept_timeout) {
-        Err(e) => match e {
-            server::ServerError::IoError(e) => Err(e),
-            server::ServerError::AcceptTimeout => Ok(()),
-        },
-        Ok(_) => Ok(()),
+        Err(server::ServerError::IoError(e)) => Err(e),
+        _ => Ok(()),
     }
 }
 

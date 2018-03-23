@@ -231,11 +231,7 @@ type TypeFoo (
   )
 )
 
-method Foo(
-  enum: (b: bool, c: int),
-  foo: TypeFoo,
-  interface: Interface
-) -> (
+method Foo(  enum: (b: bool, c: int),  foo: TypeFoo,  interface: Interface) -> (
   a: (b: bool, c: int)[],
   foo: TypeFoo,
   interface: Interface

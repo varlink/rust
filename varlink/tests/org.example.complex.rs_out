@@ -12,33 +12,33 @@ use varlink::CallTrait;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Enum {
-    #[serde(rename = "enum")] enum_,
-    b,
-    c,
+ #[serde(rename = "enum")]   enum_,
+   b,
+   c,
 
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Interface {
-    interface,
-    b,
-    c,
+   interface,
+   b,
+   c,
 
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Type {
-    #[serde(rename = "type")] type_,
-    b,
-    c,
+ #[serde(rename = "type")]   type_,
+   b,
+   c,
 
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum TypeEnum {
-    #[serde(rename = "type")] type_,
-    b,
-    c,
+ #[serde(rename = "type")]   type_,
+   b,
+   c,
 
 }
 
@@ -105,21 +105,21 @@ pub struct ErrorFooArgs_enum {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum TypeFoo_enum {
-    foo,
-    bar,
-    baz,
+   foo,
+   bar,
+   baz,
 
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ErrorFooArgs_bar {
-    #[serde(rename = "type")] type_,
-    #[serde(rename = "enum")] enum_,
-    int,
-    bool,
-    string,
-    #[serde(rename = "if")] if_,
-    #[serde(rename = "let")] let_,
+ #[serde(rename = "type")]   type_,
+ #[serde(rename = "enum")]   enum_,
+   int,
+   bool,
+   string,
+ #[serde(rename = "if")]   if_,
+ #[serde(rename = "let")]   let_,
 
 }
 

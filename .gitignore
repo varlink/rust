@@ -2,5 +2,5 @@ target
 Cargo.lock
 /.settings
 /.DS_store
-/.idea
+.idea
 .project

@@ -3,7 +3,8 @@ members = [
     "varlink_parser",
     "varlink",
     "examples/varlink-server-example",
-    "examples/varlink-server-ping",
     "examples/varlink-server-more",
     "examples/varlink-server-complex",
+    "examples/varlink-server-ping",
+    "examples/varlink-client-ping",
 ]

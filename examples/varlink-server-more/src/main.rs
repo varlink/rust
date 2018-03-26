@@ -3,7 +3,7 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate varlink;
 
-use org_example_more::*;
+use org_example_more1::*;
 use std::{thread, time};
 use std::env;
 use std::io;
@@ -12,11 +12,11 @@ use std::process::exit;
 use varlink::VarlinkService;
 
 // Dynamically build the varlink rust code.
-mod org_example_more;
+mod org_example_more1;
 
 struct MyOrgExampleMore;
 
-impl org_example_more::VarlinkInterface for MyOrgExampleMore {
+impl VarlinkInterface for MyOrgExampleMore {
     fn ping(&self, call: &mut _CallPing, ping: Option<String>) -> io::Result<()> {
         return call.reply(ping);
     }
@@ -70,7 +70,7 @@ impl org_example_more::VarlinkInterface for MyOrgExampleMore {
 
 fn run_app(address: String, timeout: u64) -> io::Result<()> {
     let myexamplemore = MyOrgExampleMore;
-    let myinterface = org_example_more::new(Box::new(myexamplemore));
+    let myinterface = new(Box::new(myexamplemore));
     let service = VarlinkService::new(
         "org.varlink",
         "test service",

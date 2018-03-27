@@ -39,12 +39,17 @@ fn main() {
     match args.len() {
         2 => {}
         _ => {
-            eprintln!("Usage: {} <varlink address>", args[0]);
+            eprintln!("Usage: {} --varlink=<varlink address>", args[0]);
             exit(1);
         }
     };
 
-    exit(match run_app(args[1].clone(), 0) {
+    if !args[1].starts_with("--varlink") {
+        eprintln!("Usage: {} --varlink=<varlink address>", args[0]);
+        exit(1);
+    }
+
+    exit(match run_app(args[1][10..].into(), 0) {
         Ok(_) => 0,
         Err(err) => {
             eprintln!("error: {}", err);

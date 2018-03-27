@@ -3,7 +3,7 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate varlink;
 
-use org_example_more1::*;
+use org_example_more::*;
 use std::{thread, time};
 use std::env;
 use std::io;
@@ -12,7 +12,7 @@ use std::process::exit;
 use varlink::VarlinkService;
 
 // Dynamically build the varlink rust code.
-mod org_example_more1;
+mod org_example_more;
 
 struct MyOrgExampleMore;
 
@@ -91,7 +91,12 @@ fn main() {
         }
     };
 
-    exit(match run_app(args[1].clone(), 0) {
+    if !args[1].starts_with("--varlink") {
+        eprintln!("Usage: {} --varlink=<varlink address>", args[0]);
+        exit(1);
+    }
+
+    exit(match run_app(args[1][10..].into(), 0) {
         Ok(_) => 0,
         Err(err) => {
             eprintln!("error: {}", err);

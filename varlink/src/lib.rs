@@ -554,7 +554,7 @@ impl Connection {
 
 impl Client for Connection {
     fn send(&mut self, method: Cow<'static, str>, parameters: Option<Value>) -> io::Result<()> {
-        let req = varlink::Request::create(method.into(), parameters)?;
+        let req = Request::create(method.into(), parameters);
 
         serde_json::to_writer(&mut *self.writer, &req)?;
         self.writer.write_all(b"\0")?;

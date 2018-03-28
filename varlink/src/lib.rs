@@ -180,12 +180,14 @@ extern crate serde_json;
 extern crate unix_socket;
 extern crate varlink_parser;
 
+use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
 use serde_json::Value;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::convert::From;
-use std::io::{self, BufRead, BufReader, Error, ErrorKind, Read, Write};
+use std::io::{self, BufRead, BufReader, ErrorKind, Read, Write};
+use std::marker::PhantomData;
 use std::sync::{Arc, RwLock};
 
 pub mod generator;
@@ -237,7 +239,7 @@ pub trait VarlinkReply {}
 ///
 /// There should be no need to use this directly.
 /// See the [CallTrait](trait.CallTrait.html) to use with the first Call parameter
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Reply {
     #[serde(skip_serializing_if = "Option::is_none")] pub continues: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")] pub upgraded: Option<bool>,
@@ -447,10 +449,175 @@ pub trait CallTrait {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct ErrorInterfaceNotFound {
+    pub interface: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct ErrorInvalidParameter {
+    pub parameter: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct ErrorMethodNotImplemented {
+    pub method: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct ErrorMethodNotFound {
+    pub method: Option<String>,
+}
+
+pub enum Error {
+    InterfaceNotFound(ErrorInterfaceNotFound),
+    InvalidParameter(ErrorInvalidParameter),
+    MethodNotImplemented(ErrorMethodNotImplemented),
+    MethodNotFound(ErrorMethodNotFound),
+    UnknownError(Reply),
+    IOError(io::Error),
+    JSONError(serde_json::Error),
+}
+
+impl Error {
+    pub fn is_error(r: &Reply) -> bool {
+        match r.error {
+            Some(ref t) => match t.to_string().as_ref() {
+                "org.varlink.service.InvalidParameter" => true,
+                "org.varlink.service.InterfaceNotFound" => true,
+                "org.varlink.service.MethodNotFound" => true,
+                "org.varlink.service.MethodNotImplemented" => true,
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+}
+
+impl From<Reply> for Error {
+    fn from(e: Reply) -> Self {
+        if let Some(ref t) = e.error.clone() {
+            match t.as_ref() {
+                "org.varlink.service.InvalidParameter" => {
+                    if e.parameters == None {
+                        Error::InvalidParameter(ErrorInvalidParameter {
+                            ..Default::default()
+                        })
+                    } else {
+                        match serde_json::from_value(e.parameters.unwrap()) {
+                            Ok(v) => Error::InvalidParameter(v),
+                            Err(_) => Error::InvalidParameter(ErrorInvalidParameter {
+                                ..Default::default()
+                            }),
+                        }
+                    }
+                }
+                "org.varlink.service.InterfaceNotFound" => {
+                    if e.parameters == None {
+                        Error::InterfaceNotFound(ErrorInterfaceNotFound {
+                            ..Default::default()
+                        })
+                    } else {
+                        match serde_json::from_value(e.parameters.unwrap()) {
+                            Ok(v) => Error::InterfaceNotFound(v),
+                            Err(_) => Error::InterfaceNotFound(ErrorInterfaceNotFound {
+                                ..Default::default()
+                            }),
+                        }
+                    }
+                }
+                "org.varlink.service.MethodNotFound" => {
+                    if e.parameters == None {
+                        Error::MethodNotFound(ErrorMethodNotFound {
+                            ..Default::default()
+                        })
+                    } else {
+                        match serde_json::from_value(e.parameters.unwrap()) {
+                            Ok(v) => Error::MethodNotFound(v),
+                            Err(_) => Error::MethodNotFound(ErrorMethodNotFound {
+                                ..Default::default()
+                            }),
+                        }
+                    }
+                }
+                "org.varlink.service.MethodNotImplemented" => {
+                    if e.parameters == None {
+                        Error::MethodNotImplemented(ErrorMethodNotImplemented {
+                            ..Default::default()
+                        })
+                    } else {
+                        match serde_json::from_value(e.parameters.unwrap()) {
+                            Ok(v) => Error::MethodNotImplemented(v),
+                            Err(_) => Error::MethodNotImplemented(ErrorMethodNotImplemented {
+                                ..Default::default()
+                            }),
+                        }
+                    }
+                }
+                _ => Error::UnknownError(e),
+            }
+        } else {
+            Error::UnknownError(e)
+        }
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(e: io::Error) -> Self {
+        Error::IOError(e)
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(e: serde_json::Error) -> Self {
+        Error::JSONError(e)
+    }
+}
+
+impl From<Error> for io::Error {
+    fn from(e: Error) -> Self {
+        match e {
+            Error::IOError(e) => e,
+            Error::JSONError(e) => e.into(),
+            Error::InvalidParameter(e) => io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "varlink invalid parameter error: parameter '{}'",
+                    match e.parameter {
+                        Some(t) => t.to_string(),
+                        _ => String::from("None"),
+                    }
+                ),
+            ),
+            Error::MethodNotImplemented(e) => io::Error::new(
+                io::ErrorKind::Other,
+                format!("varlink method '{:?}' not implemented", e.method),
+            ),
+            Error::MethodNotFound(e) => io::Error::new(
+                io::ErrorKind::Other,
+                format!("varlink method '{:?}' not found", e.method),
+            ),
+            Error::InterfaceNotFound(e) => io::Error::new(
+                io::ErrorKind::Other,
+                format!("varlink interface not found '{:?}'", e.interface),
+            ),
+            Error::UnknownError(e) => io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "unknown varlink \
+                     error: {} {:?}",
+                    e.error.unwrap(),
+                    e.parameters
+                ),
+            ),
+        }
+    }
+}
+
 impl<'a> CallTrait for Call<'a> {
     fn reply_struct(&mut self, mut reply: Reply) -> io::Result<()> {
         if self.continues && !self.wants_more() {
-            return Err(Error::new(
+            return Err(io::Error::new(
                 ErrorKind::Other,
                 "Call::reply() called with continues, but without more in the request",
             ));
@@ -529,18 +696,10 @@ impl<'a> Call<'a> {
     }
 }
 
-pub trait Client {
-    /*
-    fn send(&mut self, method: Cow<'static, str>, parameters: Option<Value>) -> io::Result<()>;
-    fn recv(&mut self) -> io::Result<(Reply)>;
-    */
-    fn call(&mut self, method: Cow<'static, str>, parameters: Option<Value>) -> io::Result<Reply>;
-}
-
 pub struct Connection {
     reader: BufReader<Box<Read + Send + Sync>>,
     writer: Box<Write + Send + Sync>,
-    last_method: Option<String>,
+    last_method: String,
 }
 
 impl Connection {
@@ -551,78 +710,100 @@ impl Connection {
         Ok(Arc::new(RwLock::new(Connection {
             reader: bufreader,
             writer: w,
-            last_method: None,
+            last_method: "".into(),
         })))
     }
 }
 
-impl Client for Connection {
-    /*
-    fn send(&mut self, method: Cow<'static, str>, parameters: Option<Value>) -> io::Result<()> {
-        let req = Request::create(method.into(), parameters);
+pub struct MethodCall<MRequest, MReply, MError> {
+    connection: Arc<RwLock<Connection>>,
+    last_method: String,
+    cnt: i32,
+    has_more: bool,
+    phantom_request: PhantomData<MRequest>,
+    phantom_reply: PhantomData<MReply>,
+    phantom_error: PhantomData<MError>,
+}
 
-        serde_json::to_writer(&mut *self.writer, &req)?;
-        self.writer.write_all(b"\0")?;
-        self.writer.flush()?;
-        Ok(())
-    }
+impl<MRequest, MReply, MError> MethodCall<MRequest, MReply, MError>
+where
+    MRequest: Serialize,
+    MReply: DeserializeOwned,
+    MError: std::convert::From<std::io::Error>
+        + std::convert::From<serde_json::Error>
+        + std::convert::From<Reply>,
+{
+    pub fn call(
+        connection: Arc<RwLock<Connection>>,
+        method: String,
+        request: MRequest,
+    ) -> io::Result<Self> {
+        let s = MethodCall::<MRequest, MReply, MError> {
+            connection,
+            last_method: method.clone().into(),
+            has_more: true,
+            cnt: 0,
+            phantom_request: PhantomData,
+            phantom_reply: PhantomData,
+            phantom_error: PhantomData,
+        };
 
-    fn recv(&mut self) -> io::Result<(Reply)> {
-        let mut buf = Vec::new();
-        self.reader.read_until(0, &mut buf)?;
-        buf.pop();
-        let reply: Reply = serde_json::from_slice(&buf)?;
-        Ok(reply)
-    }
-*/
-    fn call(&mut self, method: Cow<'static, str>, parameters: Option<Value>) -> io::Result<Reply> {
         {
-            let req = Request::create(method.into(), parameters);
+            let mut conn = s.connection.write().unwrap();
+            let req = Request::create(method.into(), Some(serde_json::to_value(request)?));
 
-            serde_json::to_writer(&mut *self.writer, &req)?;
-            self.writer.write_all(b"\0")?;
-            self.writer.flush()?;
+            serde_json::to_writer(&mut *conn.writer, &req)?;
+            conn.writer.write_all(b"\0")?;
+            conn.writer.flush()?;
+
+            conn.last_method = s.last_method.clone();
+        }
+        Ok(s)
+    }
+
+    pub fn recv(&mut self) -> Result<MReply, MError> {
+        let mut conn = self.connection.write().unwrap();
+        let mut buf = Vec::new();
+        conn.reader.read_until(0, &mut buf)?;
+        buf.pop();
+        self.cnt += 1;
+        let reply: Reply = serde_json::from_slice(&buf)?;
+        match reply.continues {
+            Some(v) => self.has_more = v,
+            _ => {}
+        }
+        if reply.error != None {
+            return Err(MError::from(reply));
         }
 
-        let mut buf = Vec::new();
-        self.reader.read_until(0, &mut buf)?;
-        buf.pop();
-        let reply: Reply = serde_json::from_slice(&buf)?;
-        Ok(reply)
+        let mreply: MReply = serde_json::from_value(reply.parameters.unwrap())?;
+        Ok(mreply)
     }
 }
 
-/*
-trait ClientTrait {
-    fn call(conn: &mut Connection, method: Cow<'static, str>, p: I) -> io::Result<()>,
-
-}
-
-fn call(conn: &mut Connection, method: Cow<'static, str>, p: I) -> io::Result<()> {
-    let val = serde_json::to_value(p)?;
-    conn.send(method, val)?
-}
-*/
-
-/*
-impl<T> Iterator for ClientT<T>
-where T: serde_json::Deserialize
-    {
-    type Item = T;
-    fn next(&mut self) -> Option<T> {
-        let reply = conn.recv();
-        if let Err(_e) = reply {
+impl<MRequest, MReply, MError> Iterator for MethodCall<MRequest, MReply, MError>
+where
+    MRequest: Serialize,
+    MReply: DeserializeOwned,
+    MError: std::convert::From<std::io::Error>
+        + std::convert::From<serde_json::Error>
+        + std::convert::From<Reply>,
+{
+    type Item = Result<MReply, MError>;
+    fn next(&mut self) -> Option<Result<MReply, MError>> {
+        if !self.has_more {
             return None;
         }
 
-        let res = serde_json::from_value::<T>(reply.unwrap().parameters);
-        match res {
-            Err(_) => None,
-            Ok(v) => Some(v)
+        {
+            let conn = self.connection.read().unwrap();
+            if self.last_method != conn.last_method {
+                return None;
+            }
         }
+        Some(self.recv())
     }
 }
-*/
 
 #[derive(Serialize, Deserialize)]
 struct GetInterfaceDescriptionArgs {

@@ -191,15 +191,17 @@ use varlink::CallTrait;
         }
 
         for t in self.methods.values() {
-            if t.output.elts.len() > 0 {
+            if true
+            /*t.output.elts.len() > 0*/
+            {
                 write!(w, "#[derive(Serialize, Deserialize, Debug, Default)]\n")?;
-                write!(w, "struct _{}Reply {{\n", t.name)?;
+                write!(w, "pub struct _{}Reply {{\n", t.name)?;
                 for e in &t.output.elts {
                     write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
                     let ename = replace_if_rust_keyword_annotate(e.name, w)?;
                     write!(
                         w,
-                        " {}: Option<{}>,\n",
+                        " pub {}: Option<{}>,\n",
                         ename,
                         e.vtype.to_rust(
                             format!("{}Reply_{}", t.name, e.name).as_ref(),
@@ -216,15 +218,17 @@ use varlink::CallTrait;
                 )?;
             }
 
-            if t.input.elts.len() > 0 {
+            if true
+            /* t.input.elts.len() > 0 */
+            {
                 write!(w, "#[derive(Serialize, Deserialize, Debug)]\n")?;
-                write!(w, "struct _{}Args {{\n", t.name)?;
+                write!(w, "pub struct _{}Args {{\n", t.name)?;
                 for e in &t.input.elts {
                     write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
                     let ename = replace_if_rust_keyword_annotate(e.name, w)?;
                     write!(
                         w,
-                        " {}: Option<{}>,\n",
+                        " pub {}: Option<{}>,\n",
                         ename,
                         e.vtype.to_rust(
                             format!("{}Args_{}", t.name, e.name).as_ref(),
@@ -238,15 +242,17 @@ use varlink::CallTrait;
         }
 
         for t in self.errors.values() {
-            if t.parm.elts.len() > 0 {
-                write!(w, "#[derive(Serialize, Deserialize, Debug)]\n")?;
-                write!(w, "struct _{}Args {{\n", t.name)?;
+            if true
+            /* t.parm.elts.len() > 0 */
+            {
+                write!(w, "#[derive(Serialize, Deserialize, Debug, Default)]\n")?;
+                write!(w, "pub struct _{}Args {{\n", t.name)?;
                 for e in &t.parm.elts {
                     write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
                     let ename = replace_if_rust_keyword_annotate(e.name, w)?;
                     write!(
                         w,
-                        " {}: Option<{}>,\n",
+                        " pub {}: Option<{}>,\n",
                         ename,
                         e.vtype.to_rust(
                             format!("{}Args_{}", t.name, e.name).as_ref(),
@@ -304,7 +310,9 @@ use varlink::CallTrait;
         }
 
         write!(w, "pub trait _CallErr: varlink::CallTrait {{\n")?;
-        if self.errors.len() > 0 {
+        if true
+        /* self.errors.len() > 0 */
+        {
             for t in self.errors.values() {
                 let mut inparms: String = "".to_owned();
                 let mut innames: String = "".to_owned();
@@ -355,6 +363,125 @@ use varlink::CallTrait;
             }
         }
         write!(w, "}}\n\nimpl<'a> _CallErr for varlink::Call<'a> {{}}\n\n")?;
+
+        write!(w, "\npub enum _Error {{\n")?;
+        for t in self.errors.values() {
+            write!(w, "    {}(_{}Args),\n", t.name, t.name)?;
+        }
+        write!(
+            w,
+            "    \
+             VarlinkError_(varlink::Error),\n    \
+             UnknownError_(varlink::Reply),\n    \
+             IOError_(io::Error),\n    \
+             JSONError_(serde_json::Error),\n\
+             }}\n"
+        )?;
+        write!(
+            w,
+            r#"
+impl From<varlink::Reply> for _Error {{
+    fn from(e: varlink::Reply) -> Self {{
+        if varlink::Error::is_error(&e) {{
+            return _Error::VarlinkError_(e.into());
+        }}
+
+        match e {{
+"#
+        )?;
+
+        for t in self.errors.values() {
+            write!(
+                w,
+                r#"            varlink::Reply {{
+                     error: Some(ref t), ..
+                }} if t == "{}.{}" =>
+                {{
+                   match e {{
+                       varlink::Reply {{
+                           parameters: Some(p),
+                           ..
+                       }} => match serde_json::from_value(p) {{
+                           Ok(v) => _Error::{}(v),
+                           Err(_) => _Error::{}(_{}Args {{
+                               ..Default::default()
+                           }}),
+                       }},
+                       _ => _Error::{}(_{}Args {{
+                           ..Default::default()
+                       }}),
+                   }}
+               }}
+"#,
+                self.name, t.name, t.name, t.name, t.name, t.name, t.name
+            )?;
+        }
+
+        write!(
+            w,
+            r#"            _ => return _Error::UnknownError_(e),
+        }}
+    }}
+}}
+"#
+        )?;
+
+        write!(
+            w,
+            r#"
+impl From<io::Error> for _Error {{
+    fn from(e: io::Error) -> Self {{
+        _Error::IOError_(e)
+    }}
+}}
+
+impl From<serde_json::Error> for _Error {{
+    fn from(e: serde_json::Error) -> Self {{
+        use serde_json::error::Category;
+        match e.classify() {{
+            Category::Io => _Error::IOError_(e.into()),
+            _ => _Error::JSONError_(e),
+        }}
+    }}
+}}
+
+impl From<_Error> for io::Error {{
+    fn from(e: _Error) -> Self {{
+        match e {{
+"#
+        )?;
+
+        for t in self.errors.values() {
+            write!(
+                w,
+                r#"            _Error::{}(e) => io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "{}.{}: '{{}}'",
+                    serde_json::to_string_pretty(&e).unwrap()
+                ),
+            ),"#,
+                t.name, self.name, t.name
+            )?;
+        }
+
+        write!(
+            w,
+            r#"            _Error::VarlinkError_(e) => e.into(),
+            _Error::IOError_(e) => e,
+            _Error::JSONError_(e) => e.into(),
+            _Error::UnknownError_(e) => io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "unknown varlink error: {{}}",
+                    serde_json::to_string_pretty(&e).unwrap()
+                ),
+            ),
+        }}
+    }}
+}}
+"#
+        )?;
 
         for t in self.methods.values() {
             let mut inparms: String = "".to_owned();
@@ -470,10 +597,12 @@ use varlink::CallTrait;
 
             write!(
                 w,
-                "    fn {}(&mut self{}) -> io::Result<({})>;\n",
+                "    fn {}(&mut self{}) -> io::Result<varlink::MethodCall<_{}Args, _{}Reply, _Error>>;\
+                \n",
                 to_snake_case(t.name),
                 inparms,
-                outparms
+                t.name,
+                t.name
             )?;
         }
 
@@ -482,24 +611,22 @@ use varlink::CallTrait;
         write!(
             w,
             r#"
-pub struct VarlinkClient {{
-    connection: Arc<RwLock<varlink::Client + Send + Sync>>,
-}}
+        pub struct VarlinkClient {{
+            connection: Arc<RwLock<varlink::Connection>>,
+        }}
 
-impl VarlinkClient {{
-    pub fn new(connection: Arc<RwLock<varlink::Client + Send + Sync>>) -> Self {{
-        VarlinkClient {{ connection }}
-    }}
-}}
+        impl VarlinkClient {{
+            pub fn new(connection: Arc<RwLock<varlink::Connection>>) -> Self {{
+                VarlinkClient {{ connection }}
+            }}
+        }}
 
-impl VarlinkClientInterface for VarlinkClient {{
-"#
+        impl VarlinkClientInterface for VarlinkClient {{
+        "#
         )?;
         for t in self.methods.values() {
             let mut inparms: String = "".to_owned();
-            let mut outparms: String = "".to_owned();
             let mut innames: String = "".to_owned();
-            let mut returnparms: String = "".to_owned();
             if t.input.elts.len() > 0 {
                 for e in &t.input.elts {
                     inparms += format!(
@@ -516,44 +643,29 @@ impl VarlinkClientInterface for VarlinkClient {{
                 innames.pop();
                 innames.pop();
             }
-            if t.output.elts.len() > 0 {
-                for e in &t.output.elts {
-                    outparms += format!(
-                        "Option<{}>, ",
-                        e.vtype.to_rust(
-                            format!("{}Reply_{}", t.name, e.name).as_ref(),
-                            &mut enumvec,
-                            &mut structvec
-                        )?
-                    ).as_ref();
-                    returnparms += format!("r.{}, ", replace_if_rust_keyword(e.name)).as_ref();
-                }
-                outparms.pop();
-                outparms.pop();
-                returnparms.pop();
-                returnparms.pop();
-            }
-
             write!(
                 w,
-                "    fn {}(&mut self{}) -> io::Result<({})> {{\n",
+                "    fn {}(&mut self{}) -> io::Result<varlink::MethodCall<_{}Args, _{}Reply, _Error>> \
+                {{\n",
                 to_snake_case(t.name),
                 inparms,
-                outparms
+                t.name, t.name
             )?;
 
-            if t.input.elts.len() > 0 {
+            if true
+            /* t.input.elts.len() > 0 */
+            {
                 write!(
                     w,
-                    "        \
-                     let mut conn = self.connection.write().unwrap();\n        \
-                     let _reply = conn.call(\n            \
+                    "            \
+                     varlink::MethodCall::<_{}Args, _{}Reply, _Error>::call(\n            \
+                     self.connection.clone(),\n            \
                      \"{}.{}\".into(),\n            \
-                     Some(serde_json::to_value(_{}Args {{ {} }})?),\n        \
-                     )?;\n",
-                    self.name, t.name, t.name, innames
+                     _{}Args {{ {} }},\n        \
+                     )\n",
+                    t.name, t.name, self.name, t.name, t.name, innames
                 )?;
-            } else {
+            } /* else {
                 write!(
                     w,
                     "        \
@@ -563,20 +675,7 @@ impl VarlinkClientInterface for VarlinkClient {{
                      None)?;\n",
                     self.name, t.name
                 )?;
-            }
-            if t.output.elts.len() > 0 {
-                write!(
-                    w,
-                    "        \
-                     let r: _{}Reply = match _reply.parameters {{\n            \
-                     None => _{}Reply {{ ..Default::default() }},\n            \
-                     Some(v) => serde_json::from_value(v)?,\n        \
-                     }};\n        Ok(({}))\n",
-                    t.name, t.name, returnparms
-                )?;
-            } else {
-                write!(w, "        Ok(())\n")?;
-            }
+            }*/
             write!(w, "    }}\n")?;
         }
         write!(w, "}}\n")?;

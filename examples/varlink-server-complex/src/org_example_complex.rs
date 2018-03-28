@@ -55,31 +55,42 @@ pub struct TypeFoo {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
-struct _FooReply {
-    #[serde(skip_serializing_if = "Option::is_none")] a: Option<Vec<FooReply_a>>,
-    #[serde(skip_serializing_if = "Option::is_none")] foo: Option<TypeFoo>,
-    #[serde(skip_serializing_if = "Option::is_none")] interface: Option<Interface>,
+pub struct _BarReply {}
+
+impl varlink::VarlinkReply for _BarReply {}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct _BarArgs {}
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct _FooReply {
+    #[serde(skip_serializing_if = "Option::is_none")] pub a: Option<Vec<FooReply_a>>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub foo: Option<TypeFoo>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub interface: Option<Interface>,
 }
 
 impl varlink::VarlinkReply for _FooReply {}
 
 #[derive(Serialize, Deserialize, Debug)]
-struct _FooArgs {
+pub struct _FooArgs {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "enum")]
-    enum_: Option<FooArgs_enum>,
-    #[serde(skip_serializing_if = "Option::is_none")] foo: Option<TypeFoo>,
-    #[serde(skip_serializing_if = "Option::is_none")] interface: Option<Interface>,
+    pub enum_: Option<FooArgs_enum>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub foo: Option<TypeFoo>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub interface: Option<Interface>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct _ErrorFooArgs {
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct _ErrorBarArgs {}
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct _ErrorFooArgs {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "enum")]
-    enum_: Option<ErrorFooArgs_enum>,
-    #[serde(skip_serializing_if = "Option::is_none")] foo: Option<TypeFoo>,
-    #[serde(skip_serializing_if = "Option::is_none")] bar: Option<ErrorFooArgs_bar>,
-    #[serde(skip_serializing_if = "Option::is_none")] interface: Option<Interface>,
+    pub enum_: Option<ErrorFooArgs_enum>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub foo: Option<TypeFoo>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub bar: Option<ErrorFooArgs_bar>,
+    #[serde(skip_serializing_if = "Option::is_none")] pub interface: Option<Interface>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -162,6 +173,111 @@ pub trait _CallErr: varlink::CallTrait {
 
 impl<'a> _CallErr for varlink::Call<'a> {}
 
+pub enum _Error {
+    ErrorBar(_ErrorBarArgs),
+    ErrorFoo(_ErrorFooArgs),
+    VarlinkError_(varlink::Error),
+    UnknownError_(varlink::Reply),
+    IOError_(io::Error),
+    JSONError_(serde_json::Error),
+}
+
+impl From<varlink::Reply> for _Error {
+    fn from(e: varlink::Reply) -> Self {
+        if varlink::Error::is_error(&e) {
+            return _Error::VarlinkError_(e.into());
+        }
+
+        match e {
+            varlink::Reply {
+                error: Some(ref t), ..
+            } if t == "org.example.complex.ErrorBar" =>
+            {
+                match e {
+                    varlink::Reply {
+                        parameters: Some(p),
+                        ..
+                    } => match serde_json::from_value(p) {
+                        Ok(v) => _Error::ErrorBar(v),
+                        Err(_) => _Error::ErrorBar(_ErrorBarArgs {
+                            ..Default::default()
+                        }),
+                    },
+                    _ => _Error::ErrorBar(_ErrorBarArgs {
+                        ..Default::default()
+                    }),
+                }
+            }
+            varlink::Reply {
+                error: Some(ref t), ..
+            } if t == "org.example.complex.ErrorFoo" =>
+            {
+                match e {
+                    varlink::Reply {
+                        parameters: Some(p),
+                        ..
+                    } => match serde_json::from_value(p) {
+                        Ok(v) => _Error::ErrorFoo(v),
+                        Err(_) => _Error::ErrorFoo(_ErrorFooArgs {
+                            ..Default::default()
+                        }),
+                    },
+                    _ => _Error::ErrorFoo(_ErrorFooArgs {
+                        ..Default::default()
+                    }),
+                }
+            }
+            _ => return _Error::UnknownError_(e),
+        }
+    }
+}
+
+impl From<io::Error> for _Error {
+    fn from(e: io::Error) -> Self {
+        _Error::IOError_(e)
+    }
+}
+
+impl From<serde_json::Error> for _Error {
+    fn from(e: serde_json::Error) -> Self {
+        use serde_json::error::Category;
+        match e.classify() {
+            Category::Io => _Error::IOError_(e.into()),
+            _ => _Error::JSONError_(e),
+        }
+    }
+}
+
+impl From<_Error> for io::Error {
+    fn from(e: _Error) -> Self {
+        match e {
+            _Error::ErrorBar(e) => io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "org.example.complex.ErrorBar: '{}'",
+                    serde_json::to_string_pretty(&e).unwrap()
+                ),
+            ),
+            _Error::ErrorFoo(e) => io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "org.example.complex.ErrorFoo: '{}'",
+                    serde_json::to_string_pretty(&e).unwrap()
+                ),
+            ),
+            _Error::VarlinkError_(e) => e.into(),
+            _Error::IOError_(e) => e,
+            _Error::JSONError_(e) => e.into(),
+            _Error::UnknownError_(e) => io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "unknown varlink error: {}",
+                    serde_json::to_string_pretty(&e).unwrap()
+                ),
+            ),
+        }
+    }
+}
 pub trait _CallBar: _CallErr {
     fn reply(&mut self) -> io::Result<()> {
         self.reply_struct(varlink::Reply::parameters(None))
@@ -198,53 +314,48 @@ pub trait VarlinkInterface {
 }
 
 pub trait VarlinkClientInterface {
-    fn bar(&mut self) -> io::Result<()>;
+    fn bar(&mut self) -> io::Result<varlink::MethodCall<_BarArgs, _BarReply, _Error>>;
     fn foo(
         &mut self,
         enum_: Option<FooArgs_enum>,
         foo: Option<TypeFoo>,
         interface: Option<Interface>,
-    ) -> io::Result<(Option<Vec<FooReply_a>>, Option<TypeFoo>, Option<Interface>)>;
+    ) -> io::Result<varlink::MethodCall<_FooArgs, _FooReply, _Error>>;
 }
 
 pub struct VarlinkClient {
-    connection: Arc<RwLock<varlink::Client + Send + Sync>>,
+    connection: Arc<RwLock<varlink::Connection>>,
 }
 
 impl VarlinkClient {
-    pub fn new(connection: Arc<RwLock<varlink::Client + Send + Sync>>) -> Self {
+    pub fn new(connection: Arc<RwLock<varlink::Connection>>) -> Self {
         VarlinkClient { connection }
     }
 }
 
 impl VarlinkClientInterface for VarlinkClient {
-    fn bar(&mut self) -> io::Result<()> {
-        let mut conn = self.connection.write().unwrap();
-        let _reply = conn.call("org.example.complex.Bar".into(), None)?;
-        Ok(())
+    fn bar(&mut self) -> io::Result<varlink::MethodCall<_BarArgs, _BarReply, _Error>> {
+        varlink::MethodCall::<_BarArgs, _BarReply, _Error>::call(
+            self.connection.clone(),
+            "org.example.complex.Bar".into(),
+            _BarArgs {},
+        )
     }
     fn foo(
         &mut self,
         enum_: Option<FooArgs_enum>,
         foo: Option<TypeFoo>,
         interface: Option<Interface>,
-    ) -> io::Result<(Option<Vec<FooReply_a>>, Option<TypeFoo>, Option<Interface>)> {
-        let mut conn = self.connection.write().unwrap();
-        let _reply = conn.call(
+    ) -> io::Result<varlink::MethodCall<_FooArgs, _FooReply, _Error>> {
+        varlink::MethodCall::<_FooArgs, _FooReply, _Error>::call(
+            self.connection.clone(),
             "org.example.complex.Foo".into(),
-            Some(serde_json::to_value(_FooArgs {
+            _FooArgs {
                 enum_,
                 foo,
                 interface,
-            })?),
-        )?;
-        let r: _FooReply = match _reply.parameters {
-            None => _FooReply {
-                ..Default::default()
             },
-            Some(v) => serde_json::from_value(v)?,
-        };
-        Ok((r.a, r.foo, r.interface))
+        )
     }
 }
 

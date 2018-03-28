@@ -111,10 +111,10 @@ impl VarlinkClient {
 impl VarlinkClientInterface for VarlinkClient {
     fn info(&mut self, ifindex: Option<i64>) -> io::Result<(Option<NetdevInfo>)> {
         let mut conn = self.connection.write().unwrap();
-        let _reply = conn.call(varlink::Request::create(
+        let _reply = conn.call(
             "io.systemd.network.Info".into(),
             Some(serde_json::to_value(_InfoArgs { ifindex })?),
-        ))?;
+        )?;
         let r: _InfoReply = match _reply.parameters {
             None => _InfoReply {
                 ..Default::default()
@@ -125,10 +125,7 @@ impl VarlinkClientInterface for VarlinkClient {
     }
     fn list(&mut self) -> io::Result<(Option<Vec<Netdev>>)> {
         let mut conn = self.connection.write().unwrap();
-        let _reply = conn.call(varlink::Request::create(
-            "io.systemd.network.List".into(),
-            None,
-        ))?;
+        let _reply = conn.call("io.systemd.network.List".into(), None)?;
         let r: _ListReply = match _reply.parameters {
             None => _ListReply {
                 ..Default::default()
@@ -151,6 +148,7 @@ impl varlink::Interface for _InterfaceProxy {
     fn get_description(&self) -> &'static str {
         r#"
 # Provides information about network state
+#
 interface io.systemd.network
 
 type NetdevInfo (

@@ -123,10 +123,10 @@ impl VarlinkClient {
 impl VarlinkClientInterface for VarlinkClient {
     fn ping(&mut self, ping: Option<String>) -> io::Result<(Option<String>)> {
         let mut conn = self.connection.write().unwrap();
-        let _reply = conn.call(varlink::Request::create(
+        let _reply = conn.call(
             "org.example.more.Ping".into(),
             Some(serde_json::to_value(_PingArgs { ping })?),
-        ))?;
+        )?;
         let r: _PingReply = match _reply.parameters {
             None => _PingReply {
                 ..Default::default()
@@ -137,26 +137,20 @@ impl VarlinkClientInterface for VarlinkClient {
     }
     fn stop_serving(&mut self) -> io::Result<()> {
         let mut conn = self.connection.write().unwrap();
-        let _reply = conn.call(varlink::Request::create(
-            "org.example.more.StopServing".into(),
-            None,
-        ))?;
+        let _reply = conn.call("org.example.more.StopServing".into(), None)?;
         Ok(())
     }
     fn test_method_not_implemented(&mut self) -> io::Result<()> {
         let mut conn = self.connection.write().unwrap();
-        let _reply = conn.call(varlink::Request::create(
-            "org.example.more.TestMethodNotImplemented".into(),
-            None,
-        ))?;
+        let _reply = conn.call("org.example.more.TestMethodNotImplemented".into(), None)?;
         Ok(())
     }
     fn test_more(&mut self, n: Option<i64>) -> io::Result<(Option<State>)> {
         let mut conn = self.connection.write().unwrap();
-        let _reply = conn.call(varlink::Request::create(
+        let _reply = conn.call(
             "org.example.more.TestMore".into(),
             Some(serde_json::to_value(_TestMoreArgs { n })?),
-        ))?;
+        )?;
         let r: _TestMoreReply = match _reply.parameters {
             None => _TestMoreReply {
                 ..Default::default()

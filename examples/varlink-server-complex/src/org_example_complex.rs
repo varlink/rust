@@ -220,10 +220,7 @@ impl VarlinkClient {
 impl VarlinkClientInterface for VarlinkClient {
     fn bar(&mut self) -> io::Result<()> {
         let mut conn = self.connection.write().unwrap();
-        let _reply = conn.call(varlink::Request::create(
-            "org.example.complex.Bar".into(),
-            None,
-        ))?;
+        let _reply = conn.call("org.example.complex.Bar".into(), None)?;
         Ok(())
     }
     fn foo(
@@ -233,14 +230,14 @@ impl VarlinkClientInterface for VarlinkClient {
         interface: Option<Interface>,
     ) -> io::Result<(Option<Vec<FooReply_a>>, Option<TypeFoo>, Option<Interface>)> {
         let mut conn = self.connection.write().unwrap();
-        let _reply = conn.call(varlink::Request::create(
+        let _reply = conn.call(
             "org.example.complex.Foo".into(),
             Some(serde_json::to_value(_FooArgs {
                 enum_,
                 foo,
                 interface,
             })?),
-        ))?;
+        )?;
         let r: _FooReply = match _reply.parameters {
             None => _FooReply {
                 ..Default::default()
@@ -262,6 +259,7 @@ pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
 impl varlink::Interface for _InterfaceProxy {
     fn get_description(&self) -> &'static str {
         r#"
+#
 interface org.example.complex
 
 type Enum (enum, b, c)

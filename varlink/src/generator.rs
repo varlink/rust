@@ -547,10 +547,10 @@ impl VarlinkClientInterface for VarlinkClient {{
                     w,
                     "        \
                      let mut conn = self.connection.write().unwrap();\n        \
-                     let _reply = conn.call(varlink::Request::create(\n        \
+                     let _reply = conn.call(\n        \
                      \"{}.{}\".into(),\n        \
                      Some(serde_json::to_value(_{}Args {{ {} }})?),\n\
-                     ))?;\n",
+                     )?;\n",
                     self.name, t.name, t.name, innames
                 )?;
             } else {
@@ -558,9 +558,9 @@ impl VarlinkClientInterface for VarlinkClient {{
                     w,
                     "        \
                      let mut conn = self.connection.write().unwrap();\n        \
-                     let _reply = conn.call(varlink::Request::create(\n        \
+                     let _reply = conn.call(\n        \
                      \"{}.{}\".into(),\n        \
-                     None))?;\n",
+                     None)?;\n",
                     self.name, t.name
                 )?;
             }

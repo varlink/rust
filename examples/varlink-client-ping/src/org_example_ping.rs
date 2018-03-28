@@ -59,10 +59,10 @@ impl VarlinkClient {
 impl VarlinkClientInterface for VarlinkClient {
     fn ping(&mut self, ping: Option<String>) -> io::Result<(Option<String>)> {
         let mut conn = self.connection.write().unwrap();
-        let _reply = conn.call(varlink::Request::create(
+        let _reply = conn.call(
             "org.example.ping.Ping".into(),
             Some(serde_json::to_value(_PingArgs { ping })?),
-        ))?;
+        )?;
         let r: _PingReply = match _reply.parameters {
             None => _PingReply {
                 ..Default::default()

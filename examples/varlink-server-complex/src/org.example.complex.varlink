@@ -1,3 +1,4 @@
+#
 interface org.example.complex
 
 type Enum (enum, b, c)

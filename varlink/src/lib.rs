@@ -530,8 +530,11 @@ impl<'a> Call<'a> {
 }
 
 pub trait Client {
+    /*
     fn send(&mut self, method: Cow<'static, str>, parameters: Option<Value>) -> io::Result<()>;
     fn recv(&mut self) -> io::Result<(Reply)>;
+    */
+    fn call(&mut self, method: Cow<'static, str>, parameters: Option<Value>) -> io::Result<Reply>;
 }
 
 pub struct Connection {
@@ -548,11 +551,13 @@ impl Connection {
         Ok(Arc::new(RwLock::new(Connection {
             reader: bufreader,
             writer: w,
+            last_method: None,
         })))
     }
 }
 
 impl Client for Connection {
+    /*
     fn send(&mut self, method: Cow<'static, str>, parameters: Option<Value>) -> io::Result<()> {
         let req = Request::create(method.into(), parameters);
 
@@ -569,9 +574,57 @@ impl Client for Connection {
         let reply: Reply = serde_json::from_slice(&buf)?;
         Ok(reply)
     }
+*/
+    fn call(&mut self, method: Cow<'static, str>, parameters: Option<Value>) -> io::Result<Reply> {
+        {
+            let req = Request::create(method.into(), parameters);
+
+            serde_json::to_writer(&mut *self.writer, &req)?;
+            self.writer.write_all(b"\0")?;
+            self.writer.flush()?;
+        }
+
+        let mut buf = Vec::new();
+        self.reader.read_until(0, &mut buf)?;
+        buf.pop();
+        let reply: Reply = serde_json::from_slice(&buf)?;
+        Ok(reply)
+    }
 }
 
-#[derive(Deserialize)]
+/*
+trait ClientTrait {
+    fn call(conn: &mut Connection, method: Cow<'static, str>, p: I) -> io::Result<()>,
+
+}
+
+fn call(conn: &mut Connection, method: Cow<'static, str>, p: I) -> io::Result<()> {
+    let val = serde_json::to_value(p)?;
+    conn.send(method, val)?
+}
+*/
+
+/*
+impl<T> Iterator for ClientT<T>
+where T: serde_json::Deserialize
+    {
+    type Item = T;
+    fn next(&mut self) -> Option<T> {
+        let reply = conn.recv();
+        if let Err(_e) = reply {
+            return None;
+        }
+
+        let res = serde_json::from_value::<T>(reply.unwrap().parameters);
+        match res {
+            Err(_) => None,
+            Ok(v) => Some(v)
+        }
+    }
+}
+*/
+
+#[derive(Serialize, Deserialize)]
 struct GetInterfaceDescriptionArgs {
     interface: Cow<'static, str>,
 }

@@ -1,4 +1,5 @@
 # Provides information about network state
+#
 interface io.systemd.network
 
 type NetdevInfo (

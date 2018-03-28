@@ -211,11 +211,21 @@ pub trait VarlinkClientInterface {
 
 pub struct VarlinkClient {
     connection: Arc<RwLock<varlink::Connection>>,
+    more: bool,
 }
 
 impl VarlinkClient {
     pub fn new(connection: Arc<RwLock<varlink::Connection>>) -> Self {
-        VarlinkClient { connection }
+        VarlinkClient {
+            connection,
+            more: false,
+        }
+    }
+    pub fn more(&self) -> Self {
+        VarlinkClient {
+            connection: self.connection.clone(),
+            more: true,
+        }
     }
 }
 
@@ -228,6 +238,7 @@ impl VarlinkClientInterface for VarlinkClient {
             self.connection.clone(),
             "io.systemd.network.Info".into(),
             _InfoArgs { ifindex },
+            self.more,
         )
     }
     fn list(&mut self) -> io::Result<varlink::MethodCall<_ListArgs, _ListReply, _Error>> {
@@ -235,6 +246,7 @@ impl VarlinkClientInterface for VarlinkClient {
             self.connection.clone(),
             "io.systemd.network.List".into(),
             _ListArgs {},
+            self.more,
         )
     }
 }

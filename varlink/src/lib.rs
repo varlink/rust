@@ -737,6 +737,7 @@ where
         connection: Arc<RwLock<Connection>>,
         method: String,
         request: MRequest,
+        more: bool
     ) -> io::Result<Self> {
         let s = MethodCall::<MRequest, MReply, MError> {
             connection,
@@ -750,8 +751,10 @@ where
 
         {
             let mut conn = s.connection.write().unwrap();
-            let req = Request::create(method.into(), Some(serde_json::to_value(request)?));
-
+            let mut req = Request::create(method.into(), Some(serde_json::to_value(request)?));
+            if more {
+                req.more = Some(more);
+            }
             serde_json::to_writer(&mut *conn.writer, &req)?;
             conn.writer.write_all(b"\0")?;
             conn.writer.flush()?;

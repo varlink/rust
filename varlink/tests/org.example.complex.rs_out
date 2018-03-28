@@ -295,30 +295,40 @@ pub trait VarlinkClientInterface {
     fn foo(&mut self, enum_: Option<FooArgs_enum>, foo: Option<TypeFoo>, interface: Option<Interface>) -> io::Result<varlink::MethodCall<_FooArgs, _FooReply, _Error>>;
 }
 
-        pub struct VarlinkClient {
-            connection: Arc<RwLock<varlink::Connection>>,
-        }
+pub struct VarlinkClient {
+    connection: Arc<RwLock<varlink::Connection>>,
+    more: bool,
+}
 
-        impl VarlinkClient {
-            pub fn new(connection: Arc<RwLock<varlink::Connection>>) -> Self {
-                VarlinkClient { connection }
-            }
+impl VarlinkClient {
+    pub fn new(connection: Arc<RwLock<varlink::Connection>>) -> Self {
+        VarlinkClient {
+            connection,
+            more: false,
         }
+    }
+    pub fn more(&self) -> Self {
+        VarlinkClient {
+            connection: self.connection.clone(),
+            more: true,
+        }
+    }
+}
 
-        impl VarlinkClientInterface for VarlinkClient {
-            fn bar(&mut self) -> io::Result<varlink::MethodCall<_BarArgs, _BarReply, _Error>> {
+impl VarlinkClientInterface for VarlinkClient {
+    fn bar(&mut self) -> io::Result<varlink::MethodCall<_BarArgs, _BarReply, _Error>> {
             varlink::MethodCall::<_BarArgs, _BarReply, _Error>::call(
             self.connection.clone(),
             "org.example.complex.Bar".into(),
             _BarArgs {  },
-        )
+        self.more)
     }
     fn foo(&mut self, enum_: Option<FooArgs_enum>, foo: Option<TypeFoo>, interface: Option<Interface>) -> io::Result<varlink::MethodCall<_FooArgs, _FooReply, _Error>> {
             varlink::MethodCall::<_FooArgs, _FooReply, _Error>::call(
             self.connection.clone(),
             "org.example.complex.Foo".into(),
             _FooArgs { enum_, foo, interface },
-        )
+        self.more)
     }
 }
 

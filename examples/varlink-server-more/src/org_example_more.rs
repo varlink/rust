@@ -218,11 +218,21 @@ pub trait VarlinkClientInterface {
 
 pub struct VarlinkClient {
     connection: Arc<RwLock<varlink::Connection>>,
+    more: bool,
 }
 
 impl VarlinkClient {
     pub fn new(connection: Arc<RwLock<varlink::Connection>>) -> Self {
-        VarlinkClient { connection }
+        VarlinkClient {
+            connection,
+            more: false,
+        }
+    }
+    pub fn more(&self) -> Self {
+        VarlinkClient {
+            connection: self.connection.clone(),
+            more: true,
+        }
     }
 }
 
@@ -235,6 +245,7 @@ impl VarlinkClientInterface for VarlinkClient {
             self.connection.clone(),
             "org.example.more.Ping".into(),
             _PingArgs { ping },
+            self.more,
         )
     }
     fn stop_serving(
@@ -244,6 +255,7 @@ impl VarlinkClientInterface for VarlinkClient {
             self.connection.clone(),
             "org.example.more.StopServing".into(),
             _StopServingArgs {},
+            self.more,
         )
     }
     fn test_method_not_implemented(
@@ -255,7 +267,7 @@ impl VarlinkClientInterface for VarlinkClient {
             self.connection.clone(),
             "org.example.more.TestMethodNotImplemented".into(),
             _TestMethodNotImplementedArgs {  },
-        )
+        self.more)
     }
     fn test_more(
         &mut self,
@@ -265,6 +277,7 @@ impl VarlinkClientInterface for VarlinkClient {
             self.connection.clone(),
             "org.example.more.TestMore".into(),
             _TestMoreArgs { n },
+            self.more,
         )
     }
 }

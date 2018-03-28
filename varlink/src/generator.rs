@@ -611,18 +611,28 @@ impl From<_Error> for io::Error {{
         write!(
             w,
             r#"
-        pub struct VarlinkClient {{
-            connection: Arc<RwLock<varlink::Connection>>,
-        }}
+pub struct VarlinkClient {{
+    connection: Arc<RwLock<varlink::Connection>>,
+    more: bool,
+}}
 
-        impl VarlinkClient {{
-            pub fn new(connection: Arc<RwLock<varlink::Connection>>) -> Self {{
-                VarlinkClient {{ connection }}
-            }}
+impl VarlinkClient {{
+    pub fn new(connection: Arc<RwLock<varlink::Connection>>) -> Self {{
+        VarlinkClient {{
+            connection,
+            more: false,
         }}
+    }}
+    pub fn more(&self) -> Self {{
+        VarlinkClient {{
+            connection: self.connection.clone(),
+            more: true,
+        }}
+    }}
+}}
 
-        impl VarlinkClientInterface for VarlinkClient {{
-        "#
+impl VarlinkClientInterface for VarlinkClient {{
+"#
         )?;
         for t in self.methods.values() {
             let mut inparms: String = "".to_owned();
@@ -662,7 +672,7 @@ impl From<_Error> for io::Error {{
                      self.connection.clone(),\n            \
                      \"{}.{}\".into(),\n            \
                      _{}Args {{ {} }},\n        \
-                     )\n",
+                     self.more)\n",
                     t.name, t.name, self.name, t.name, t.name, innames
                 )?;
             } /* else {

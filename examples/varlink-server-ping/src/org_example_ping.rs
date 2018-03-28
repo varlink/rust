@@ -141,11 +141,21 @@ pub trait VarlinkClientInterface {
 
 pub struct VarlinkClient {
     connection: Arc<RwLock<varlink::Connection>>,
+    more: bool,
 }
 
 impl VarlinkClient {
     pub fn new(connection: Arc<RwLock<varlink::Connection>>) -> Self {
-        VarlinkClient { connection }
+        VarlinkClient {
+            connection,
+            more: false,
+        }
+    }
+    pub fn more(&self) -> Self {
+        VarlinkClient {
+            connection: self.connection.clone(),
+            more: true,
+        }
     }
 }
 
@@ -158,6 +168,7 @@ impl VarlinkClientInterface for VarlinkClient {
             self.connection.clone(),
             "org.example.ping.Ping".into(),
             _PingArgs { ping },
+            self.more,
         )
     }
 }

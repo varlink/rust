@@ -12,9 +12,9 @@ mod org_example_ping;
 
 fn run_app(address: String) -> io::Result<()> {
     let connection = varlink::Connection::new(&address)?;
-    let mut c = VarlinkClient::new(connection);
+    let c = VarlinkClient::new(connection);
     let ping: Option<String> = Some("Test".into());
-    let reply = c.ping(ping.clone())?.recv()?;
+    let reply = c.more().ping(ping.clone())?.recv()?;
     println!("Got {:?}", reply);
     assert_eq!(ping, reply.pong);
     Ok(())

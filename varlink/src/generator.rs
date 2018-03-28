@@ -547,9 +547,9 @@ impl VarlinkClientInterface for VarlinkClient {{
                     w,
                     "        \
                      let mut conn = self.connection.write().unwrap();\n        \
-                     let _reply = conn.call(\n        \
-                     \"{}.{}\".into(),\n        \
-                     Some(serde_json::to_value(_{}Args {{ {} }})?),\n\
+                     let _reply = conn.call(\n            \
+                     \"{}.{}\".into(),\n            \
+                     Some(serde_json::to_value(_{}Args {{ {} }})?),\n        \
                      )?;\n",
                     self.name, t.name, t.name, innames
                 )?;
@@ -558,8 +558,8 @@ impl VarlinkClientInterface for VarlinkClient {{
                     w,
                     "        \
                      let mut conn = self.connection.write().unwrap();\n        \
-                     let _reply = conn.call(\n        \
-                     \"{}.{}\".into(),\n        \
+                     let _reply = conn.call(\n            \
+                     \"{}.{}\".into(),\n            \
                      None)?;\n",
                     self.name, t.name
                 )?;
@@ -568,18 +568,16 @@ impl VarlinkClientInterface for VarlinkClient {{
                 write!(
                     w,
                     "        \
-                     let r: _{}Reply = match _reply.parameters {{\n        \
-                     None => _{}Reply {{\n \
-                     ..Default::default()\n \
-                     }},\n \
-                     Some(v) => serde_json::from_value(v)?,\n \
-                     }};\nOk(({}))",
+                     let r: _{}Reply = match _reply.parameters {{\n            \
+                     None => _{}Reply {{ ..Default::default() }},\n            \
+                     Some(v) => serde_json::from_value(v)?,\n        \
+                     }};\n        Ok(({}))\n",
                     t.name, t.name, returnparms
                 )?;
             } else {
-                write!(w, "        Ok(())")?;
+                write!(w, "        Ok(())\n")?;
             }
-            write!(w, "    }}")?;
+            write!(w, "    }}\n")?;
         }
         write!(w, "}}\n")?;
 

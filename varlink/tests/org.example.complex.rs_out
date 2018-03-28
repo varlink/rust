@@ -191,21 +191,23 @@ impl VarlinkClientInterface for VarlinkClient {
     fn bar(&mut self) -> io::Result<()> {
         let mut conn = self.connection.write().unwrap();
         let _reply = conn.call(
-        "org.example.complex.Bar".into(),
-        None)?;
-        Ok(())    }    fn foo(&mut self, enum_: Option<FooArgs_enum>, foo: Option<TypeFoo>, interface: Option<Interface>) -> io::Result<(Option<Vec<FooReply_a>>, Option<TypeFoo>, Option<Interface>)> {
+            "org.example.complex.Bar".into(),
+            None)?;
+        Ok(())
+    }
+    fn foo(&mut self, enum_: Option<FooArgs_enum>, foo: Option<TypeFoo>, interface: Option<Interface>) -> io::Result<(Option<Vec<FooReply_a>>, Option<TypeFoo>, Option<Interface>)> {
         let mut conn = self.connection.write().unwrap();
         let _reply = conn.call(
-        "org.example.complex.Foo".into(),
-        Some(serde_json::to_value(_FooArgs { enum_, foo, interface })?),
-)?;
+            "org.example.complex.Foo".into(),
+            Some(serde_json::to_value(_FooArgs { enum_, foo, interface })?),
+        )?;
         let r: _FooReply = match _reply.parameters {
-        None => _FooReply {
- ..Default::default()
- },
- Some(v) => serde_json::from_value(v)?,
- };
-Ok((r.a, r.foo, r.interface))    }}
+            None => _FooReply { ..Default::default() },
+            Some(v) => serde_json::from_value(v)?,
+        };
+        Ok((r.a, r.foo, r.interface))
+    }
+}
 
 pub struct _InterfaceProxy {
     inner: Box<VarlinkInterface + Send + Sync>,

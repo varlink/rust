@@ -5,7 +5,9 @@ addons:
   apt:
     packages:
     - libssl-dev
-cache: cargo
+cache:
+  timeout: 1000
+  cargo: true
 before_script:
   - export PATH=$HOME/.cargo/bin:$PATH
   - cargo install cargo-update || echo "cargo-update already installed"

@@ -7,4 +7,5 @@ members = [
     "examples/varlink-server-complex",
     "examples/varlink-server-ping",
     "examples/varlink-client-ping",
+    "examples/varlink-client-more",
 ]

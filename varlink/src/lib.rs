@@ -472,92 +472,93 @@ pub struct ErrorMethodNotFound {
 pub enum Error {
     InterfaceNotFound(ErrorInterfaceNotFound),
     InvalidParameter(ErrorInvalidParameter),
-    MethodNotImplemented(ErrorMethodNotImplemented),
     MethodNotFound(ErrorMethodNotFound),
+    MethodNotImplemented(ErrorMethodNotImplemented),
     UnknownError(Reply),
     IOError(io::Error),
     JSONError(serde_json::Error),
 }
 
-impl Error {
-    pub fn is_error(r: &Reply) -> bool {
-        match r.error {
-            Some(ref t) => match t.to_string().as_ref() {
-                "org.varlink.service.InvalidParameter" => true,
-                "org.varlink.service.InterfaceNotFound" => true,
-                "org.varlink.service.MethodNotFound" => true,
-                "org.varlink.service.MethodNotImplemented" => true,
-                _ => false,
-            },
-            _ => false,
-        }
-    }
-}
-
 impl From<Reply> for Error {
     fn from(e: Reply) -> Self {
-        if let Some(ref t) = e.error.clone() {
-            match t.as_ref() {
-                "org.varlink.service.InvalidParameter" => {
-                    if e.parameters == None {
-                        Error::InvalidParameter(ErrorInvalidParameter {
+        match e {
+            Reply {
+                error: Some(ref t), ..
+            } if t == "org.varlink.service.InterfaceNotFound" =>
+            {
+                match e {
+                    Reply {
+                        parameters: Some(p),
+                        ..
+                    } => match serde_json::from_value(p) {
+                        Ok(v) => Error::InterfaceNotFound(v),
+                        Err(_) => Error::InterfaceNotFound(ErrorInterfaceNotFound {
                             ..Default::default()
-                        })
-                    } else {
-                        match serde_json::from_value(e.parameters.unwrap()) {
-                            Ok(v) => Error::InvalidParameter(v),
-                            Err(_) => Error::InvalidParameter(ErrorInvalidParameter {
-                                ..Default::default()
-                            }),
-                        }
-                    }
+                        }),
+                    },
+                    _ => Error::InterfaceNotFound(ErrorInterfaceNotFound {
+                        ..Default::default()
+                    }),
                 }
-                "org.varlink.service.InterfaceNotFound" => {
-                    if e.parameters == None {
-                        Error::InterfaceNotFound(ErrorInterfaceNotFound {
-                            ..Default::default()
-                        })
-                    } else {
-                        match serde_json::from_value(e.parameters.unwrap()) {
-                            Ok(v) => Error::InterfaceNotFound(v),
-                            Err(_) => Error::InterfaceNotFound(ErrorInterfaceNotFound {
-                                ..Default::default()
-                            }),
-                        }
-                    }
-                }
-                "org.varlink.service.MethodNotFound" => {
-                    if e.parameters == None {
-                        Error::MethodNotFound(ErrorMethodNotFound {
-                            ..Default::default()
-                        })
-                    } else {
-                        match serde_json::from_value(e.parameters.unwrap()) {
-                            Ok(v) => Error::MethodNotFound(v),
-                            Err(_) => Error::MethodNotFound(ErrorMethodNotFound {
-                                ..Default::default()
-                            }),
-                        }
-                    }
-                }
-                "org.varlink.service.MethodNotImplemented" => {
-                    if e.parameters == None {
-                        Error::MethodNotImplemented(ErrorMethodNotImplemented {
-                            ..Default::default()
-                        })
-                    } else {
-                        match serde_json::from_value(e.parameters.unwrap()) {
-                            Ok(v) => Error::MethodNotImplemented(v),
-                            Err(_) => Error::MethodNotImplemented(ErrorMethodNotImplemented {
-                                ..Default::default()
-                            }),
-                        }
-                    }
-                }
-                _ => Error::UnknownError(e),
             }
-        } else {
-            Error::UnknownError(e)
+            Reply {
+                error: Some(ref t), ..
+            } if t == "org.varlink.service.InvalidParameter" =>
+            {
+                match e {
+                    Reply {
+                        parameters: Some(p),
+                        ..
+                    } => match serde_json::from_value(p) {
+                        Ok(v) => Error::InvalidParameter(v),
+                        Err(_) => Error::InvalidParameter(ErrorInvalidParameter {
+                            ..Default::default()
+                        }),
+                    },
+                    _ => Error::InvalidParameter(ErrorInvalidParameter {
+                        ..Default::default()
+                    }),
+                }
+            }
+            Reply {
+                error: Some(ref t), ..
+            } if t == "org.varlink.service.MethodNotFound" =>
+            {
+                match e {
+                    Reply {
+                        parameters: Some(p),
+                        ..
+                    } => match serde_json::from_value(p) {
+                        Ok(v) => Error::MethodNotFound(v),
+                        Err(_) => Error::MethodNotFound(ErrorMethodNotFound {
+                            ..Default::default()
+                        }),
+                    },
+                    _ => Error::MethodNotFound(ErrorMethodNotFound {
+                        ..Default::default()
+                    }),
+                }
+            }
+            Reply {
+                error: Some(ref t), ..
+            } if t == "org.varlink.service.MethodNotImplemented" =>
+            {
+                match e {
+                    Reply {
+                        parameters: Some(p),
+                        ..
+                    } => match serde_json::from_value(p) {
+                        Ok(v) => Error::MethodNotImplemented(v),
+                        Err(_) => Error::MethodNotImplemented(ErrorMethodNotImplemented {
+                            ..Default::default()
+                        }),
+                    },
+                    _ => Error::MethodNotImplemented(ErrorMethodNotImplemented {
+                        ..Default::default()
+                    }),
+                }
+            }
+            _ => return Error::UnknownError(e),
         }
     }
 }
@@ -570,46 +571,69 @@ impl From<io::Error> for Error {
 
 impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Self {
-        Error::JSONError(e)
+        use serde_json::error::Category;
+        match e.classify() {
+            Category::Io => Error::IOError(e.into()),
+            _ => Error::JSONError(e),
+        }
     }
 }
 
 impl From<Error> for io::Error {
     fn from(e: Error) -> Self {
         match e {
-            Error::IOError(e) => e,
-            Error::JSONError(e) => e.into(),
+            Error::InterfaceNotFound(e) => io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "org.varlink.service.InterfaceNotFound: '{}'",
+                    serde_json::to_string_pretty(&e).unwrap()
+                ),
+            ),
             Error::InvalidParameter(e) => io::Error::new(
                 io::ErrorKind::Other,
                 format!(
-                    "varlink invalid parameter error: parameter '{}'",
-                    match e.parameter {
-                        Some(t) => t.to_string(),
-                        _ => String::from("None"),
-                    }
+                    "org.varlink.service.InvalidParameter: '{}'",
+                    serde_json::to_string_pretty(&e).unwrap()
+                ),
+            ),
+            Error::MethodNotFound(e) => io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "org.varlink.service.MethodNotFound: '{}'",
+                    serde_json::to_string_pretty(&e).unwrap()
                 ),
             ),
             Error::MethodNotImplemented(e) => io::Error::new(
                 io::ErrorKind::Other,
-                format!("varlink method '{:?}' not implemented", e.method),
+                format!(
+                    "org.varlink.service.MethodNotImplemented: '{}'",
+                    serde_json::to_string_pretty(&e).unwrap()
+                ),
             ),
-            Error::MethodNotFound(e) => io::Error::new(
-                io::ErrorKind::Other,
-                format!("varlink method '{:?}' not found", e.method),
-            ),
-            Error::InterfaceNotFound(e) => io::Error::new(
-                io::ErrorKind::Other,
-                format!("varlink interface not found '{:?}'", e.interface),
-            ),
+            Error::IOError(e) => e,
+            Error::JSONError(e) => e.into(),
             Error::UnknownError(e) => io::Error::new(
                 io::ErrorKind::Other,
                 format!(
-                    "unknown varlink \
-                     error: {} {:?}",
-                    e.error.unwrap(),
-                    e.parameters
+                    "unknown varlink error: {}",
+                    serde_json::to_string_pretty(&e).unwrap()
                 ),
             ),
+        }
+    }
+}
+
+impl Error {
+    pub fn is_error(r: &Reply) -> bool {
+        match r.error {
+            Some(ref t) => match t.as_ref() {
+                "org.varlink.service.InvalidParameter" => true,
+                "org.varlink.service.InterfaceNotFound" => true,
+                "org.varlink.service.MethodNotFound" => true,
+                "org.varlink.service.MethodNotImplemented" => true,
+                _ => false,
+            },
+            _ => false,
         }
     }
 }
@@ -697,9 +721,8 @@ impl<'a> Call<'a> {
 }
 
 pub struct Connection {
-    reader: BufReader<Box<Read + Send + Sync>>,
-    writer: Box<Write + Send + Sync>,
-    last_method: String,
+    reader: Option<BufReader<Box<Read + Send + Sync>>>,
+    writer: Option<Box<Write + Send + Sync>>,
 }
 
 impl Connection {
@@ -708,17 +731,16 @@ impl Connection {
         let (r, w) = stream.split()?;
         let bufreader = BufReader::new(r);
         Ok(Arc::new(RwLock::new(Connection {
-            reader: bufreader,
-            writer: w,
-            last_method: "".into(),
+            reader: Some(bufreader),
+            writer: Some(w),
         })))
     }
 }
 
 pub struct MethodCall<MRequest, MReply, MError> {
     connection: Arc<RwLock<Connection>>,
-    last_method: String,
-    cnt: i32,
+    reader: Option<BufReader<Box<Read + Send + Sync>>>,
+    writer: Option<Box<Write + Send + Sync>>,
     has_more: bool,
     phantom_request: PhantomData<MRequest>,
     phantom_reply: PhantomData<MReply>,
@@ -737,13 +759,13 @@ where
         connection: Arc<RwLock<Connection>>,
         method: String,
         request: MRequest,
-        more: bool
+        more: bool,
     ) -> io::Result<Self> {
-        let s = MethodCall::<MRequest, MReply, MError> {
+        let mut s = MethodCall::<MRequest, MReply, MError> {
             connection,
-            last_method: method.clone().into(),
             has_more: true,
-            cnt: 0,
+            reader: None,
+            writer: None,
             phantom_request: PhantomData,
             phantom_reply: PhantomData,
             phantom_error: PhantomData,
@@ -752,28 +774,54 @@ where
         {
             let mut conn = s.connection.write().unwrap();
             let mut req = Request::create(method.into(), Some(serde_json::to_value(request)?));
+
+            if conn.reader.is_none() || conn.writer.is_none() {
+                return Err(io::Error::new(
+                    ErrorKind::Other,
+                    "Varlink: connection busy with other method",
+                ));
+            }
+
+            s.reader = conn.reader.take();
+
             if more {
                 req.more = Some(more);
             }
-            serde_json::to_writer(&mut *conn.writer, &req)?;
-            conn.writer.write_all(b"\0")?;
-            conn.writer.flush()?;
 
-            conn.last_method = s.last_method.clone();
+            let mut w = conn.writer.take().unwrap();
+
+            serde_json::to_writer(&mut *w, &req)?;
+            w.write_all(b"\0")?;
+            w.flush()?;
+            s.writer = Some(w);
         }
         Ok(s)
     }
 
     pub fn recv(&mut self) -> Result<MReply, MError> {
-        let mut conn = self.connection.write().unwrap();
+        if self.reader.is_none() || self.writer.is_none() {
+            return Err(MError::from(io::Error::new(
+                ErrorKind::Other,
+                "Varlink: Iterator called on \
+                 old reply",
+            )));
+        }
+
         let mut buf = Vec::new();
-        conn.reader.read_until(0, &mut buf)?;
+
+        let mut reader = self.reader.take().unwrap();
+        reader.read_until(0, &mut buf)?;
+        self.reader = Some(reader);
+
         buf.pop();
-        self.cnt += 1;
         let reply: Reply = serde_json::from_slice(&buf)?;
         match reply.continues {
             Some(v) => self.has_more = v,
-            _ => {}
+            _ => {
+                let mut conn = self.connection.write().unwrap();
+                conn.reader = self.reader.take();
+                conn.writer = self.writer.take();
+            }
         }
         if reply.error != None {
             return Err(MError::from(reply));
@@ -798,12 +846,6 @@ where
             return None;
         }
 
-        {
-            let conn = self.connection.read().unwrap();
-            if self.last_method != conn.last_method {
-                return None;
-            }
-        }
         Some(self.recv())
     }
 }

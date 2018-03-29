@@ -12,11 +12,17 @@ mod org_example_ping;
 
 fn run_app(address: String) -> io::Result<()> {
     let connection = varlink::Connection::new(&address)?;
-    let c = VarlinkClient::new(connection);
+    let call = VarlinkClient::new(connection);
     let ping: Option<String> = Some("Test".into());
-    let reply = c.more().ping(ping.clone())?.recv()?;
-    println!("Got {:?}", reply);
+    let reply = call.more().ping(ping.clone())?.recv()?;
     assert_eq!(ping, reply.pong);
+    println!("Pong: '{}'", reply.pong.unwrap());
+    let reply = call.more().ping(ping.clone())?.recv()?;
+    assert_eq!(ping, reply.pong);
+    println!("Pong: '{}'", reply.pong.unwrap());
+    let reply = call.more().ping(ping.clone())?.recv()?;
+    assert_eq!(ping, reply.pong);
+    println!("Pong: '{}'", reply.pong.unwrap());
     Ok(())
 }
 

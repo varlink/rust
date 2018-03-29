@@ -1,5 +1,7 @@
 //! Handle network connections for a varlink service
 
+#![allow(dead_code)]
+
 use std::io;
 use std::io::{Error, ErrorKind, Read, Write};
 use std::net::{Shutdown, TcpStream};

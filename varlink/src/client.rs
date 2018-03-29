@@ -2,11 +2,20 @@
 
 #![allow(dead_code)]
 
+use libc::close;
+use libc::dup2;
+// FIXME
+use libc::getpid;
+use std::env;
 use std::io;
 use std::io::{Error, ErrorKind, Read, Write};
 use std::net::{Shutdown, TcpStream};
 use std::os::unix::io::{FromRawFd, IntoRawFd};
 use std::os::unix::net::UnixStream;
+use std::os::unix::process::CommandExt;
+use std::process::Command;
+use unix_socket::os::linux::SocketAddrExt;
+use unix_socket::UnixListener as AbstractUnixListener;
 // FIXME: abstract unix domains sockets still not in std
 // FIXME: https://github.com/rust-lang/rust/issues/14194
 use unix_socket::UnixStream as AbstractStream;
@@ -16,8 +25,41 @@ pub enum VarlinkStream {
     UNIX(UnixStream),
 }
 
+pub fn varlink_exec(address: String) -> io::Result<String> {
+    let executable = &address[5..];
+    let listener = AbstractUnixListener::bind("")?;
+    let local_addr = listener.local_addr()?;
+    let path = local_addr.as_abstract();
+    let fd = listener.into_raw_fd();
+    Command::new(executable)
+        .arg(format!(
+            "--varlink=unix:@{}",
+            String::from_utf8_lossy(path.unwrap())
+        ))
+        .before_exec(move || {
+            unsafe {
+                if fd != 3 {
+                    close(3);
+                    dup2(fd, 3);
+                }
+                env::set_var("LISTEN_FDS", "1");
+                env::set_var("LISTEN_FDNAMES", "varlink");
+                env::set_var("LISTEN_PID", format!("{}", getpid()));
+            }
+            Ok(())
+        })
+        .spawn()?;
+    Ok(format!("unix:@{}", String::from_utf8_lossy(path.unwrap())))
+}
+
 impl<'a> VarlinkStream {
     pub fn connect(address: &str) -> io::Result<Self> {
+        let mut address: String = address.into();
+
+        if address.starts_with("exec:") {
+            address = varlink_exec(address)?;
+        }
+
         if address.starts_with("tcp:") {
             Ok(VarlinkStream::TCP(TcpStream::connect(&address[4..])?))
         } else if address.starts_with("unix:") {

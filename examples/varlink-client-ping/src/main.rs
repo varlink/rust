@@ -14,15 +14,19 @@ fn run_app(address: String) -> io::Result<()> {
     let connection = varlink::Connection::new(&address)?;
     let call = VarlinkClient::new(connection);
     let ping: Option<String> = Some("Test".into());
+
     let reply = call.more().ping(ping.clone())?.recv()?;
     assert_eq!(ping, reply.pong);
     println!("Pong: '{}'", reply.pong.unwrap());
+
     let reply = call.more().ping(ping.clone())?.recv()?;
     assert_eq!(ping, reply.pong);
     println!("Pong: '{}'", reply.pong.unwrap());
+
     let reply = call.more().ping(ping.clone())?.recv()?;
     assert_eq!(ping, reply.pong);
     println!("Pong: '{}'", reply.pong.unwrap());
+
     Ok(())
 }
 

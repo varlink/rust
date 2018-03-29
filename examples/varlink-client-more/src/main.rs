@@ -23,16 +23,24 @@ fn run_app(address: String) -> io::Result<()> {
         let state = reply.state.unwrap();
         match state {
             State {
-                start: Some(true), ..
+                start: Some(true),
+                end: None,
+                progress: None,
+                ..
             } => {
                 eprintln!("--- Start ---");
             }
             State {
-                end: Some(true), ..
+                start: None,
+                end: Some(true),
+                progress: None,
+                ..
             } => {
                 eprintln!("--- End ---");
             }
             State {
+                start: None,
+                end: None,
                 progress: Some(progress),
                 ..
             } => {
@@ -42,7 +50,7 @@ fn run_app(address: String) -> io::Result<()> {
                     println!("Pong: '{}'", reply.pong.unwrap());
                 }
             }
-            _ => eprintln!("Got unknown state: {:?}", state)
+            _ => eprintln!("Got unknown state: {:?}", state),
         }
     }
 

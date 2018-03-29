@@ -120,7 +120,7 @@ impl<'a> VarlinkStream {
 
 impl Drop for VarlinkStream {
     fn drop(&mut self) {
-        //let _r = self.shutdown();
+        let _r = self.shutdown();
         match *self {
             VarlinkStream::UNIX(_, Some(ref mut child)) => {
                 let _res = child.kill();

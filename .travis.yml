@@ -12,28 +12,8 @@ before_script:
   - cargo install cargo-tarpaulin || echo "cargo-tarpaulin already installed"
   - cargo install-update -a # update outdated cached binaries
 script:
-- pushd varlink_parser
-- cargo build --verbose
-- cargo test --verbose
-- cargo run --example validate ../examples/varlink-server-example/src/io.systemd.network.varlink
-- popd
-- pushd varlink
-- cargo build --verbose
-- cargo test --verbose
-- cargo run --bin varlink-rust-generator ../examples/varlink-server-example/src/io.systemd.network.varlink
-- popd
-- pushd examples/varlink-server-example
-- cargo build --verbose
-- cargo test --verbose
-- popd
-- pushd examples/varlink-server-more
-- cargo build --verbose
-- cargo test --verbose
-- popd
-- pushd examples/varlink-server-ping
-- cargo build --verbose
-- cargo test --verbose
-- popd
+- cargo build --all
+- cargo test --all
 after_success: |
   if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
     cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID

@@ -119,3 +119,70 @@ fn test_tcp() {
         panic!("error: {}", e);
     }
 }
+
+#[test]
+fn test_client() {
+    fn run_client_app(address: String) -> io::Result<()> {
+        let con1 = varlink::Connection::new(&address)?;
+        let new_addr;
+        {
+            let conn = con1.read().unwrap();
+            new_addr = conn.address();
+        }
+        let call = org_example_more::VarlinkClient::new(con1);
+
+        let con2 = varlink::Connection::new(&new_addr)?;
+        let mut pingcall = org_example_more::VarlinkClient::new(con2);
+
+        for reply in call.more().test_more(Some(4))? {
+            let reply = reply?;
+            assert!(reply.state.is_some());
+            let state = reply.state.unwrap();
+            match state {
+                State {
+                    start: Some(true),
+                    end: None,
+                    progress: None,
+                    ..
+                } => {
+                    eprintln!("--- Start ---");
+                }
+                State {
+                    start: None,
+                    end: Some(true),
+                    progress: None,
+                    ..
+                } => {
+                    eprintln!("--- End ---");
+                }
+                State {
+                    start: None,
+                    end: None,
+                    progress: Some(progress),
+                    ..
+                } => {
+                    eprintln!("Progress: {}", progress);
+                    if progress > 50 {
+                        let reply = pingcall.ping(Some("Test".into()))?.recv()?;
+                        println!("Pong: '{}'", reply.pong.unwrap());
+                    }
+                }
+                _ => eprintln!("Got unknown state: {:?}", state),
+            }
+        }
+
+        Ok(())
+    }
+
+    let child = thread::spawn(move || {
+        if let Err(e) = run_app("unix:/tmp/org.example.more_client".into(), 1) {
+            panic!("error: {}", e);
+        }
+    });
+
+    // give server time to start
+    thread::sleep(time::Duration::from_secs(1));
+
+    assert!(run_client_app("unix:/tmp/org.example.more_client".into()).is_ok());
+    assert!(child.join().is_ok());
+}

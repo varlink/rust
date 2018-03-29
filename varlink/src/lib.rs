@@ -723,17 +723,25 @@ impl<'a> Call<'a> {
 pub struct Connection {
     reader: Option<BufReader<Box<Read + Send + Sync>>>,
     writer: Option<Box<Write + Send + Sync>>,
+    address: String,
+    #[allow(dead_code)] // For the stream Drop()
+    stream: client::VarlinkStream,
 }
 
 impl Connection {
     pub fn new(address: &str) -> io::Result<Arc<RwLock<Self>>> {
-        let mut stream = client::VarlinkStream::connect(address)?;
+        let (mut stream, addr) = client::VarlinkStream::connect(address)?;
         let (r, w) = stream.split()?;
         let bufreader = BufReader::new(r);
         Ok(Arc::new(RwLock::new(Connection {
             reader: Some(bufreader),
             writer: Some(w),
+            address: addr,
+            stream: stream,
         })))
+    }
+    pub fn address(&self) -> String {
+        return self.address.clone();
     }
 }
 

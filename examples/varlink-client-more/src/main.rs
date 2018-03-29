@@ -12,9 +12,14 @@ mod org_example_more;
 
 fn run_app(address: String) -> io::Result<()> {
     let con1 = varlink::Connection::new(&address)?;
+    let new_addr;
+    {
+        let conn = con1.read().unwrap();
+        new_addr = conn.address();
+    }
     let call = org_example_more::VarlinkClient::new(con1);
 
-    let con2 = varlink::Connection::new(&address)?;
+    let con2 = varlink::Connection::new(&new_addr)?;
     let mut pingcall = org_example_more::VarlinkClient::new(con2);
 
     for reply in call.more().test_more(Some(10))? {

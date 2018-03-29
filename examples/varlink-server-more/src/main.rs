@@ -26,13 +26,6 @@ impl VarlinkInterface for MyOrgExampleMore {
         Err(Error::new(ErrorKind::ConnectionRefused, "Disconnect"))
     }
 
-    fn test_method_not_implemented(
-        &self,
-        call: &mut _CallTestMethodNotImplemented,
-    ) -> io::Result<()> {
-        return call.reply_method_not_implemented(Some("TestMethodNotImplemented".into()));
-    }
-
     fn test_more(&self, call: &mut _CallTestMore, n: Option<i64>) -> io::Result<()> {
         if n == None {
             return call.reply_invalid_parameter(Some("n".into()));
@@ -82,7 +75,7 @@ fn run_app(address: String, timeout: u64) -> io::Result<()> {
 }
 
 fn main() {
-    let args: Vec<_> = env::args().collect();
+    let mut args: Vec<_> = env::args().collect();
     match args.len() {
         2 => {}
         _ => {
@@ -96,7 +89,7 @@ fn main() {
         exit(1);
     }
 
-    exit(match run_app(args[1][10..].into(), 0) {
+    exit(match run_app(args.swap_remove(1)[10..].into(), 0) {
         Ok(_) => 0,
         Err(err) => {
             eprintln!("error: {}", err);

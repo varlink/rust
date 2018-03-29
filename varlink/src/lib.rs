@@ -268,8 +268,8 @@ impl Reply {
 }
 
 impl<T> From<T> for Reply
-    where
-        T: VarlinkReply + Serialize,
+where
+    T: VarlinkReply + Serialize,
 {
     fn from(a: T) -> Self {
         Reply::parameters(Some(serde_json::to_value(a).unwrap()))
@@ -485,79 +485,79 @@ impl From<Reply> for Error {
             Reply {
                 error: Some(ref t), ..
             } if t == "org.varlink.service.InterfaceNotFound" =>
-                {
-                    match e {
-                        Reply {
-                            parameters: Some(p),
-                            ..
-                        } => match serde_json::from_value(p) {
-                            Ok(v) => Error::InterfaceNotFound(v),
-                            Err(_) => Error::InterfaceNotFound(ErrorInterfaceNotFound {
-                                ..Default::default()
-                            }),
-                        },
-                        _ => Error::InterfaceNotFound(ErrorInterfaceNotFound {
+            {
+                match e {
+                    Reply {
+                        parameters: Some(p),
+                        ..
+                    } => match serde_json::from_value(p) {
+                        Ok(v) => Error::InterfaceNotFound(v),
+                        Err(_) => Error::InterfaceNotFound(ErrorInterfaceNotFound {
                             ..Default::default()
                         }),
-                    }
+                    },
+                    _ => Error::InterfaceNotFound(ErrorInterfaceNotFound {
+                        ..Default::default()
+                    }),
                 }
+            }
             Reply {
                 error: Some(ref t), ..
             } if t == "org.varlink.service.InvalidParameter" =>
-                {
-                    match e {
-                        Reply {
-                            parameters: Some(p),
-                            ..
-                        } => match serde_json::from_value(p) {
-                            Ok(v) => Error::InvalidParameter(v),
-                            Err(_) => Error::InvalidParameter(ErrorInvalidParameter {
-                                ..Default::default()
-                            }),
-                        },
-                        _ => Error::InvalidParameter(ErrorInvalidParameter {
+            {
+                match e {
+                    Reply {
+                        parameters: Some(p),
+                        ..
+                    } => match serde_json::from_value(p) {
+                        Ok(v) => Error::InvalidParameter(v),
+                        Err(_) => Error::InvalidParameter(ErrorInvalidParameter {
                             ..Default::default()
                         }),
-                    }
+                    },
+                    _ => Error::InvalidParameter(ErrorInvalidParameter {
+                        ..Default::default()
+                    }),
                 }
+            }
             Reply {
                 error: Some(ref t), ..
             } if t == "org.varlink.service.MethodNotFound" =>
-                {
-                    match e {
-                        Reply {
-                            parameters: Some(p),
-                            ..
-                        } => match serde_json::from_value(p) {
-                            Ok(v) => Error::MethodNotFound(v),
-                            Err(_) => Error::MethodNotFound(ErrorMethodNotFound {
-                                ..Default::default()
-                            }),
-                        },
-                        _ => Error::MethodNotFound(ErrorMethodNotFound {
+            {
+                match e {
+                    Reply {
+                        parameters: Some(p),
+                        ..
+                    } => match serde_json::from_value(p) {
+                        Ok(v) => Error::MethodNotFound(v),
+                        Err(_) => Error::MethodNotFound(ErrorMethodNotFound {
                             ..Default::default()
                         }),
-                    }
+                    },
+                    _ => Error::MethodNotFound(ErrorMethodNotFound {
+                        ..Default::default()
+                    }),
                 }
+            }
             Reply {
                 error: Some(ref t), ..
             } if t == "org.varlink.service.MethodNotImplemented" =>
-                {
-                    match e {
-                        Reply {
-                            parameters: Some(p),
-                            ..
-                        } => match serde_json::from_value(p) {
-                            Ok(v) => Error::MethodNotImplemented(v),
-                            Err(_) => Error::MethodNotImplemented(ErrorMethodNotImplemented {
-                                ..Default::default()
-                            }),
-                        },
-                        _ => Error::MethodNotImplemented(ErrorMethodNotImplemented {
+            {
+                match e {
+                    Reply {
+                        parameters: Some(p),
+                        ..
+                    } => match serde_json::from_value(p) {
+                        Ok(v) => Error::MethodNotImplemented(v),
+                        Err(_) => Error::MethodNotImplemented(ErrorMethodNotImplemented {
                             ..Default::default()
                         }),
-                    }
+                    },
+                    _ => Error::MethodNotImplemented(ErrorMethodNotImplemented {
+                        ..Default::default()
+                    }),
                 }
+            }
             _ => return Error::UnknownError(e),
         }
     }
@@ -748,10 +748,10 @@ pub struct MethodCall<MRequest, MReply, MError> {
 }
 
 impl<MRequest, MReply, MError> MethodCall<MRequest, MReply, MError>
-    where
-        MRequest: Serialize,
-        MReply: DeserializeOwned,
-        MError: std::convert::From<std::io::Error>
+where
+    MRequest: Serialize,
+    MReply: DeserializeOwned,
+    MError: std::convert::From<std::io::Error>
         + std::convert::From<serde_json::Error>
         + std::convert::From<Reply>,
 {
@@ -834,10 +834,10 @@ impl<MRequest, MReply, MError> MethodCall<MRequest, MReply, MError>
 }
 
 impl<MRequest, MReply, MError> Iterator for MethodCall<MRequest, MReply, MError>
-    where
-        MRequest: Serialize,
-        MReply: DeserializeOwned,
-        MError: std::convert::From<std::io::Error>
+where
+    MRequest: Serialize,
+    MReply: DeserializeOwned,
+    MError: std::convert::From<std::io::Error>
         + std::convert::From<serde_json::Error>
         + std::convert::From<Reply>,
 {

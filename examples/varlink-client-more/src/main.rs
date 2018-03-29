@@ -58,7 +58,7 @@ fn run_app(address: String) -> io::Result<()> {
 }
 
 fn main() {
-    let args: Vec<_> = env::args().collect();
+    let mut args: Vec<_> = env::args().collect();
     match args.len() {
         2 => {}
         _ => {
@@ -67,7 +67,7 @@ fn main() {
         }
     };
 
-    exit(match run_app(args[1].clone()) {
+    exit(match run_app(args.swap_remove(1)) {
         Ok(_) => 0,
         Err(err) => {
             eprintln!("error: {}", err);

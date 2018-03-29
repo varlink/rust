@@ -35,7 +35,7 @@ fn run_app(address: String, timeout: u64) -> io::Result<()> {
 }
 
 fn main() {
-    let args: Vec<_> = env::args().collect();
+    let mut args: Vec<_> = env::args().collect();
     match args.len() {
         2 => {}
         _ => {
@@ -49,7 +49,7 @@ fn main() {
         exit(1);
     }
 
-    exit(match run_app(args[1][10..].into(), 0) {
+    exit(match run_app(args.swap_remove(1)[10..].into(), 0) {
         Ok(_) => 0,
         Err(err) => {
             eprintln!("error: {}", err);

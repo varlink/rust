@@ -39,14 +39,6 @@ impl varlink::VarlinkReply for _StopServingReply {}
 pub struct _StopServingArgs {}
 
 #[derive(Serialize, Deserialize, Debug, Default)]
-pub struct _TestMethodNotImplementedReply {}
-
-impl varlink::VarlinkReply for _TestMethodNotImplementedReply {}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct _TestMethodNotImplementedArgs {}
-
-#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct _TestMoreReply {
     #[serde(skip_serializing_if = "Option::is_none")] pub state: Option<State>,
 }
@@ -168,14 +160,6 @@ pub trait _CallStopServing: _CallErr {
 
 impl<'a> _CallStopServing for varlink::Call<'a> {}
 
-pub trait _CallTestMethodNotImplemented: _CallErr {
-    fn reply(&mut self) -> io::Result<()> {
-        self.reply_struct(varlink::Reply::parameters(None))
-    }
-}
-
-impl<'a> _CallTestMethodNotImplemented for varlink::Call<'a> {}
-
 pub trait _CallTestMore: _CallErr {
     fn reply(&mut self, state: Option<State>) -> io::Result<()> {
         self.reply_struct(_TestMoreReply { state }.into())
@@ -187,10 +171,6 @@ impl<'a> _CallTestMore for varlink::Call<'a> {}
 pub trait VarlinkInterface {
     fn ping(&self, call: &mut _CallPing, ping: Option<String>) -> io::Result<()>;
     fn stop_serving(&self, call: &mut _CallStopServing) -> io::Result<()>;
-    fn test_method_not_implemented(
-        &self,
-        call: &mut _CallTestMethodNotImplemented,
-    ) -> io::Result<()>;
     fn test_more(&self, call: &mut _CallTestMore, n: Option<i64>) -> io::Result<()>;
     fn call_upgraded(&self, _call: &mut varlink::Call) -> io::Result<()> {
         Ok(())
@@ -205,11 +185,6 @@ pub trait VarlinkClientInterface {
     fn stop_serving(
         &mut self,
     ) -> io::Result<varlink::MethodCall<_StopServingArgs, _StopServingReply, _Error>>;
-    fn test_method_not_implemented(
-        &mut self,
-    ) -> io::Result<
-        varlink::MethodCall<_TestMethodNotImplementedArgs, _TestMethodNotImplementedReply, _Error>,
-    >;
     fn test_more(
         &mut self,
         n: Option<i64>,
@@ -258,17 +233,6 @@ impl VarlinkClientInterface for VarlinkClient {
             self.more,
         )
     }
-    fn test_method_not_implemented(
-        &mut self,
-    ) -> io::Result<
-        varlink::MethodCall<_TestMethodNotImplementedArgs, _TestMethodNotImplementedReply, _Error>,
-    > {
-        varlink::MethodCall::<_TestMethodNotImplementedArgs, _TestMethodNotImplementedReply, _Error>::call(
-            self.connection.clone(),
-            "org.example.more.TestMethodNotImplemented".into(),
-            _TestMethodNotImplementedArgs {  },
-        self.more)
-    }
     fn test_more(
         &mut self,
         n: Option<i64>,
@@ -314,9 +278,6 @@ method TestMore(n: int) -> (state: State)
 # Stop serving
 method StopServing() -> ()
 
-# Test for MethodNotImplemented
-method TestMethodNotImplemented() ->()
-
 # Something failed in TestMore
 error TestMoreError (reason: string)
 
@@ -344,10 +305,6 @@ error TestMoreError (reason: string)
             }
             "org.example.more.StopServing" => {
                 return self.inner.stop_serving(call as &mut _CallStopServing);
-            }
-            "org.example.more.TestMethodNotImplemented" => {
-                return self.inner
-                    .test_method_not_implemented(call as &mut _CallTestMethodNotImplemented);
             }
             "org.example.more.TestMore" => {
                 if let Some(args) = req.parameters.clone() {

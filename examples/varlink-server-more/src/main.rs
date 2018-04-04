@@ -167,7 +167,7 @@ fn test_client() {
                         println!("Pong: '{}'", reply.pong.unwrap());
                     }
                 }
-                _ => eprintln!("Got unknown state: {:?}", state),
+                _ => panic!("Got unknown state: {:?}", state),
             }
         }
 

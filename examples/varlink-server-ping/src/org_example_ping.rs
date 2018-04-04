@@ -183,15 +183,13 @@ pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
 
 impl varlink::Interface for _InterfaceProxy {
     fn get_description(&self) -> &'static str {
-        r#"
-# Example service
+        r#"# Example service
 interface org.example.ping
 
 # Returns the same string
 method Ping(ping: string) -> (pong: string)
 
-error PingError(parameter: int)
-"#
+error PingError(parameter: int)"#
     }
 
     fn get_name(&self) -> &'static str {

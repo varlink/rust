@@ -122,6 +122,8 @@ fn test_tcp() {
 
 #[test]
 fn test_client() {
+    use varlink::OrgVarlinkServiceInterface;
+
     fn run_client_app(address: String) -> io::Result<()> {
         let con1 = varlink::Connection::new(&address)?;
         let new_addr;
@@ -129,7 +131,50 @@ fn test_client() {
             let conn = con1.read().unwrap();
             new_addr = conn.address();
         }
-        let call = org_example_more::VarlinkClient::new(con1);
+
+        let mut call = varlink::OrgVarlinkServiceClient::new(con1.clone());
+        let info = call.get_info()?.recv()?;
+        assert_eq!(&info.vendor, "org.varlink");
+        assert_eq!(&info.product, "test service");
+        assert_eq!(&info.version, "0.1");
+        assert_eq!(&info.url, "http://varlink.org");
+        assert_eq!(
+            info.interfaces.get(0).unwrap().as_ref(),
+            "org.varlink.service"
+        );
+
+        let description = call.get_interface_description("org.example.more".into())?
+            .recv()?;
+
+        assert_eq!(
+            &description.description.unwrap(),
+            r#"# Example service
+interface org.example.more
+
+# Enum, returning either start, progress or end
+# progress: [0-100]
+type State (
+  start: bool,
+  progress: int,
+  end: bool
+)
+
+# Returns the same string
+method Ping(ping: string) -> (pong: string)
+
+# Dummy progress method
+# n: number of progress steps
+method TestMore(n: int) -> (state: State)
+
+# Stop serving
+method StopServing() -> ()
+
+# Something failed in TestMore
+error TestMoreError (reason: string)
+"#
+        );
+
+        let mut call = org_example_more::VarlinkClient::new(con1);
 
         let con2 = varlink::Connection::new(&new_addr)?;
         let mut pingcall = org_example_more::VarlinkClient::new(con2);
@@ -171,6 +216,7 @@ fn test_client() {
             }
         }
 
+        let _r = call.stop_serving()?.recv()?;
         Ok(())
     }
 

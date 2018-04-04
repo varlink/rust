@@ -15,18 +15,18 @@ mod org_example_complex;
 struct MyImplementation;
 
 impl org_example_complex::VarlinkInterface for MyImplementation {
-    fn bar(&self, _call: &mut _CallBar) -> Result<(), Error> {
-        unimplemented!()
+    fn bar(&self, call: &mut _CallBar) -> Result<(), Error> {
+        call.reply_method_not_implemented(None)
     }
 
     fn foo(
         &self,
-        _call: &mut _CallFoo,
+        call: &mut _CallFoo,
         _enum_: Option<FooArgs_enum>,
         _foo: Option<TypeFoo>,
         _interface: Option<Interface>,
     ) -> Result<(), Error> {
-        unimplemented!()
+        call.reply_method_not_implemented(None)
     }
 }
 
@@ -69,6 +69,58 @@ fn main() {
 }
 
 #[test]
-fn test_unix() {
-    assert!(run_app("unix:/tmp/org.example.complex_unix".into(), 1).is_ok());
+fn test_client() {
+    use varlink::OrgVarlinkServiceInterface;
+    use std::{thread, time};
+    use org_example_complex::Error_::*;
+
+    fn run_client_app(address: String) -> io::Result<()> {
+        let conn = varlink::Connection::new(&address)?;
+
+        let mut call = varlink::OrgVarlinkServiceClient::new(conn.clone());
+        let info = call.get_info()?.recv()?;
+        assert_eq!(&info.vendor, "org.varlink");
+        assert_eq!(&info.product, "test service");
+        assert_eq!(&info.version, "0.1");
+        assert_eq!(&info.url, "http://varlink.org");
+        assert_eq!(
+            info.interfaces.get(0).unwrap().as_ref(),
+            "org.varlink.service"
+        );
+
+        let description = call.get_interface_description("org.example.complex".into())?
+            .recv()?;
+
+        assert!(description.description.is_some());
+
+        let mut call = org_example_complex::VarlinkClient::new(conn);
+        let r = call.bar()?.recv();
+        match r {
+            Err(VarlinkError_(varlink::Error::MethodNotImplemented(_))) => {}
+            res => panic!("Unknown result {:?}", res),
+        }
+        let r = call.foo(None, None, None)?.recv();
+        match r {
+            Err(VarlinkError_(varlink::Error::MethodNotImplemented(_))) => {}
+            res => panic!("Unknown result {:?}", res),
+        }
+        Ok(())
+    }
+
+    let child = thread::spawn(move || {
+        if let Err(e) = run_app("unix:/tmp/org.example.complex_client".into(), 1) {
+            panic!("error: {}", e);
+        }
+    });
+
+    // give server time to start
+    thread::sleep(time::Duration::from_secs(1));
+
+    let res = run_client_app("unix:/tmp/org.example.complex_client".into());
+    if res.is_err() {
+        eprintln!("{:?}", res);
+    }
+    assert!(res.is_ok());
+
+    assert!(child.join().is_ok());
 }

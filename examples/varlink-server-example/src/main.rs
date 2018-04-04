@@ -114,3 +114,59 @@ fn main() {
 fn test_unix() {
     assert!(run_app("unix:/tmp/io.systemd.network_unix".into(), 1).is_ok());
 }
+
+#[test]
+fn test_client() {
+    use varlink::OrgVarlinkServiceInterface;
+    use std::{thread, time};
+    use org_example_complex::Error_::*;
+
+    fn run_client_app(address: String) -> io::Result<()> {
+        let conn = varlink::Connection::new(&address)?;
+
+        let mut call = varlink::OrgVarlinkServiceClient::new(conn.clone());
+        let info = call.get_info()?.recv()?;
+        assert_eq!(&info.vendor, "org.varlink");
+        assert_eq!(&info.product, "test service");
+        assert_eq!(&info.version, "0.1");
+        assert_eq!(&info.url, "http://varlink.org");
+        assert_eq!(
+            info.interfaces.get(0).unwrap().as_ref(),
+            "org.varlink.service"
+        );
+
+        let description = call.get_interface_description("org.example.complex".into())?
+            .recv()?;
+
+        assert!(description.description.is_some());
+
+        let mut call = org_example_complex::VarlinkClient::new(conn);
+        let r = call.bar()?.recv();
+        match r {
+            Err(VarlinkError_(varlink::Error::MethodNotImplemented(_))) => {}
+            res => panic!("Unknown result {:?}", res),
+        }
+        let r = call.foo(None, None, None)?.recv();
+        match r {
+            Err(VarlinkError_(varlink::Error::MethodNotImplemented(_))) => {}
+            res => panic!("Unknown result {:?}", res),
+        }
+        Ok(())
+    }
+
+    let child = thread::spawn(move || {
+        if let Err(e) = run_app("unix:/tmp/org.example.more_client".into(), 1) {
+            panic!("error: {}", e);
+        }
+    });
+
+    // give server time to start
+    thread::sleep(time::Duration::from_secs(1));
+
+    let res = run_client_app("unix:/tmp/org.example.more_client".into());
+    if res.is_err() {
+        eprintln!("{:?}", res);
+    }
+    assert!(run_client_app("unix:/tmp/org.example.more_client".into()).is_ok());
+    assert!(child.join().is_ok());
+}

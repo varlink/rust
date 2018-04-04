@@ -12,19 +12,19 @@ use varlink;
 use varlink::CallTrait;
 
 #[derive(Serialize, Deserialize, Debug, Default)]
-pub struct _PingReply {
+pub struct PingReply_ {
     #[serde(skip_serializing_if = "Option::is_none")] pub pong: Option<String>,
 }
 
-impl varlink::VarlinkReply for _PingReply {}
+impl varlink::VarlinkReply for PingReply_ {}
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct _PingArgs {
+pub struct PingArgs_ {
     #[serde(skip_serializing_if = "Option::is_none")] pub ping: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
-pub struct _PingErrorArgs {
+pub struct PingErrorArgs_ {
     #[serde(skip_serializing_if = "Option::is_none")] pub parameter: Option<String>,
 }
 
@@ -32,25 +32,26 @@ pub trait _CallErr: varlink::CallTrait {
     fn reply_ping_error(&mut self, parameter: Option<String>) -> io::Result<()> {
         self.reply_struct(varlink::Reply::error(
             "org.example.ping.PingError".into(),
-            Some(serde_json::to_value(_PingErrorArgs { parameter }).unwrap()),
+            Some(serde_json::to_value(PingErrorArgs_ { parameter }).unwrap()),
         ))
     }
 }
 
 impl<'a> _CallErr for varlink::Call<'a> {}
 
-pub enum _Error {
-    PingError(_PingErrorArgs),
+#[derive(Debug)]
+pub enum Error_ {
+    PingError(PingErrorArgs_),
     VarlinkError_(varlink::Error),
     UnknownError_(varlink::Reply),
     IOError_(io::Error),
     JSONError_(serde_json::Error),
 }
 
-impl From<varlink::Reply> for _Error {
+impl From<varlink::Reply> for Error_ {
     fn from(e: varlink::Reply) -> Self {
         if varlink::Error::is_error(&e) {
-            return _Error::VarlinkError_(e.into());
+            return Error_::VarlinkError_(e.into());
         }
 
         match e {
@@ -63,51 +64,51 @@ impl From<varlink::Reply> for _Error {
                         parameters: Some(p),
                         ..
                     } => match serde_json::from_value(p) {
-                        Ok(v) => _Error::PingError(v),
-                        Err(_) => _Error::PingError(_PingErrorArgs {
+                        Ok(v) => Error_::PingError(v),
+                        Err(_) => Error_::PingError(PingErrorArgs_ {
                             ..Default::default()
                         }),
                     },
-                    _ => _Error::PingError(_PingErrorArgs {
+                    _ => Error_::PingError(PingErrorArgs_ {
                         ..Default::default()
                     }),
                 }
             }
-            _ => return _Error::UnknownError_(e),
+            _ => return Error_::UnknownError_(e),
         }
     }
 }
 
-impl From<io::Error> for _Error {
+impl From<io::Error> for Error_ {
     fn from(e: io::Error) -> Self {
-        _Error::IOError_(e)
+        Error_::IOError_(e)
     }
 }
 
-impl From<serde_json::Error> for _Error {
+impl From<serde_json::Error> for Error_ {
     fn from(e: serde_json::Error) -> Self {
         use serde_json::error::Category;
         match e.classify() {
-            Category::Io => _Error::IOError_(e.into()),
-            _ => _Error::JSONError_(e),
+            Category::Io => Error_::IOError_(e.into()),
+            _ => Error_::JSONError_(e),
         }
     }
 }
 
-impl From<_Error> for io::Error {
-    fn from(e: _Error) -> Self {
+impl From<Error_> for io::Error {
+    fn from(e: Error_) -> Self {
         match e {
-            _Error::PingError(e) => io::Error::new(
+            Error_::PingError(e) => io::Error::new(
                 io::ErrorKind::Other,
                 format!(
                     "org.example.ping.PingError: '{}'",
                     serde_json::to_string_pretty(&e).unwrap()
                 ),
             ),
-            _Error::VarlinkError_(e) => e.into(),
-            _Error::IOError_(e) => e,
-            _Error::JSONError_(e) => e.into(),
-            _Error::UnknownError_(e) => io::Error::new(
+            Error_::VarlinkError_(e) => e.into(),
+            Error_::IOError_(e) => e,
+            Error_::JSONError_(e) => e.into(),
+            Error_::UnknownError_(e) => io::Error::new(
                 io::ErrorKind::Other,
                 format!(
                     "unknown varlink error: {}",
@@ -119,7 +120,7 @@ impl From<_Error> for io::Error {
 }
 pub trait _CallPing: _CallErr {
     fn reply(&mut self, pong: Option<String>) -> io::Result<()> {
-        self.reply_struct(_PingReply { pong }.into())
+        self.reply_struct(PingReply_ { pong }.into())
     }
 }
 
@@ -136,7 +137,7 @@ pub trait VarlinkClientInterface {
     fn ping(
         &mut self,
         ping: Option<String>,
-    ) -> io::Result<varlink::MethodCall<_PingArgs, _PingReply, _Error>>;
+    ) -> io::Result<varlink::MethodCall<PingArgs_, PingReply_, Error_>>;
 }
 
 pub struct VarlinkClient {
@@ -163,11 +164,11 @@ impl VarlinkClientInterface for VarlinkClient {
     fn ping(
         &mut self,
         ping: Option<String>,
-    ) -> io::Result<varlink::MethodCall<_PingArgs, _PingReply, _Error>> {
-        varlink::MethodCall::<_PingArgs, _PingReply, _Error>::call(
+    ) -> io::Result<varlink::MethodCall<PingArgs_, PingReply_, Error_>> {
+        varlink::MethodCall::<PingArgs_, PingReply_, Error_>::call(
             self.connection.clone(),
             "org.example.ping.Ping".into(),
-            _PingArgs { ping },
+            PingArgs_ { ping },
             self.more,
         )
     }
@@ -205,7 +206,7 @@ error PingError(parameter: string)"#
         match req.method.as_ref() {
             "org.example.ping.Ping" => {
                 if let Some(args) = req.parameters.clone() {
-                    let args: _PingArgs = serde_json::from_value(args)?;
+                    let args: PingArgs_ = serde_json::from_value(args)?;
                     return self.inner.ping(call as &mut _CallPing, args.ping);
                 } else {
                     return call.reply_invalid_parameter(None);

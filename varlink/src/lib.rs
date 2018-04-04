@@ -469,6 +469,7 @@ pub struct ErrorMethodNotFound {
     pub method: Option<String>,
 }
 
+#[derive(Debug)]
 pub enum Error {
     InterfaceNotFound(ErrorInterfaceNotFound),
     InvalidParameter(ErrorInvalidParameter),
@@ -859,12 +860,12 @@ where
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct GetInterfaceDescriptionArgs {
     interface: Cow<'static, str>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ServiceInfo {
     vendor: Cow<'static, str>,
     product: Cow<'static, str>,
@@ -1006,12 +1007,7 @@ error InvalidParameter (parameter: string)
             },
             _ => {
                 let method: String = req.method.clone().into();
-                let n: usize = match method.rfind('.') {
-                    None => 0,
-                    Some(x) => x + 1,
-                };
-                let m = String::from(&method[n..]);
-                return call.reply_method_not_found(Some(m));
+                return call.reply_method_not_found(Some(method));
             }
         }
     }
@@ -1218,7 +1214,7 @@ fn test_listen() {
 
     fn run_client_app(address: &String) -> io::Result<()> {
         let conn = Connection::new(&address)?;
-        let mut call = OrgVarlinkServiceClient::new(conn);
+        let mut call = OrgVarlinkServiceClient::new(conn.clone());
         let info = call.get_info()?.recv()?;
         assert_eq!(&info.vendor, "org.varlink");
         assert_eq!(&info.product, "test service");
@@ -1228,6 +1224,49 @@ fn test_listen() {
             info.interfaces.get(0).unwrap().as_ref(),
             "org.varlink.service"
         );
+
+        let e = call.get_interface_description("org.varlink.unknown".into())?
+            .recv();
+        assert!(e.is_err());
+
+        match e {
+            Err(Error::InvalidParameter(i)) => assert_eq!(i.parameter, Some("interface".into())),
+            _ => {
+                panic!("Unknown error {:?}", e);
+            }
+        }
+
+        let e = MethodCall::<GetInfoArgs, ServiceInfo, Error>::call(
+            conn.clone(),
+            "org.varlink.service.GetInfos".into(),
+            GetInfoArgs {},
+            false,
+        )?.recv();
+
+        match e {
+            Err(Error::MethodNotFound(i)) => {
+                assert_eq!(i.method, Some("org.varlink.service.GetInfos".into()))
+            }
+            _ => {
+                panic!("Unknown error {:?}", e);
+            }
+        }
+
+        let e = MethodCall::<GetInfoArgs, ServiceInfo, Error>::call(
+            conn.clone(),
+            "org.varlink.unknowninterface.Foo".into(),
+            GetInfoArgs {},
+            false,
+        )?.recv();
+
+        match e {
+            Err(Error::InterfaceNotFound(i)) => {
+                assert_eq!(i.interface, Some("org.varlink.unknowninterface".into()))
+            }
+            _ => {
+                panic!("Unknown error {:?}", e);
+            }
+        }
 
         let description = call.get_interface_description("org.varlink.service".into())?
             .recv()?;

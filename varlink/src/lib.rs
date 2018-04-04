@@ -837,8 +837,21 @@ where
             return Err(MError::from(reply));
         }
 
-        let mreply: MReply = serde_json::from_value(reply.parameters.unwrap())?;
-        Ok(mreply)
+        match reply {
+            Reply {
+                parameters: Some(p),
+                ..
+            } => {
+                let mreply: MReply = serde_json::from_value(p)?;
+                Ok(mreply)
+            }
+            Reply {
+                parameters: None, ..
+            } => {
+                let mreply: MReply = serde_json::from_str("{}")?;
+                Ok(mreply)
+            }
+        }
     }
 }
 

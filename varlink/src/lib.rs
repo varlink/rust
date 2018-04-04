@@ -880,11 +880,11 @@ pub struct GetInterfaceDescriptionArgs {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ServiceInfo {
-    vendor: Cow<'static, str>,
-    product: Cow<'static, str>,
-    version: Cow<'static, str>,
-    url: Cow<'static, str>,
-    interfaces: Vec<Cow<'static, str>>,
+    pub vendor: Cow<'static, str>,
+    pub product: Cow<'static, str>,
+    pub version: Cow<'static, str>,
+    pub url: Cow<'static, str>,
+    pub interfaces: Vec<Cow<'static, str>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

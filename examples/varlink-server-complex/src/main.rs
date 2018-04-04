@@ -84,8 +84,8 @@ fn test_client() {
         assert_eq!(&info.version, "0.1");
         assert_eq!(&info.url, "http://varlink.org");
         assert_eq!(
-            info.interfaces.get(0).unwrap().as_ref(),
-            "org.varlink.service"
+            info.interfaces.get(1).unwrap().as_ref(),
+            "org.example.complex"
         );
 
         let description = call.get_interface_description("org.example.complex".into())?

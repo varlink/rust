@@ -111,15 +111,10 @@ fn main() {
 }
 
 #[test]
-fn test_unix() {
-    assert!(run_app("unix:/tmp/io.systemd.network_unix".into(), 1).is_ok());
-}
-
-#[test]
 fn test_client() {
     use varlink::OrgVarlinkServiceInterface;
     use std::{thread, time};
-    use org_example_complex::Error_::*;
+    use io_systemd_network::*;
 
     fn run_client_app(address: String) -> io::Result<()> {
         let conn = varlink::Connection::new(&address)?;
@@ -131,31 +126,69 @@ fn test_client() {
         assert_eq!(&info.version, "0.1");
         assert_eq!(&info.url, "http://varlink.org");
         assert_eq!(
-            info.interfaces.get(0).unwrap().as_ref(),
-            "org.varlink.service"
+            info.interfaces.get(1).unwrap().as_ref(),
+            "io.systemd.network"
         );
 
-        let description = call.get_interface_description("org.example.complex".into())?
+        let description = call.get_interface_description("io.systemd.network".into())?
             .recv()?;
 
         assert!(description.description.is_some());
 
-        let mut call = org_example_complex::VarlinkClient::new(conn);
-        let r = call.bar()?.recv();
-        match r {
-            Err(VarlinkError_(varlink::Error::MethodNotImplemented(_))) => {}
+        let mut call = VarlinkClient::new(conn);
+
+        match call.list()?.recv() {
+            Ok(ListReply_ { netdevs: Some(vec) }) => {
+                assert_eq!(vec.len(), 2);
+                assert_eq!(vec[0].ifindex, Some(1));
+                assert_eq!(vec[0].ifname, Some(String::from("lo")));
+                assert_eq!(vec[1].ifindex, Some(2));
+                assert_eq!(vec[1].ifname, Some(String::from("eth0")));
+            }
             res => panic!("Unknown result {:?}", res),
         }
-        let r = call.foo(None, None, None)?.recv();
-        match r {
-            Err(VarlinkError_(varlink::Error::MethodNotImplemented(_))) => {}
+
+        match call.info(Some(1))?.recv() {
+            Ok(InfoReply_ {
+                info:
+                    Some(NetdevInfo {
+                        ifindex: Some(1),
+                        ifname: Some(ref p),
+                    }),
+            }) if p == "lo" => {}
             res => panic!("Unknown result {:?}", res),
         }
+
+        match call.info(Some(2))?.recv() {
+            Ok(InfoReply_ {
+                info:
+                    Some(NetdevInfo {
+                        ifindex: Some(2),
+                        ifname: Some(ref p),
+                    }),
+            }) if p == "eth" => {}
+            res => panic!("Unknown result {:?}", res),
+        }
+
+        match call.info(Some(3))?.recv() {
+            Err(Error_::VarlinkError_(varlink::Error::InvalidParameter(
+                varlink::ErrorInvalidParameter {
+                    parameter: Some(ref p),
+                },
+            ))) if p == "ifindex" => {}
+            res => panic!("Unknown result {:?}", res),
+        }
+
+        match call.info(Some(4))?.recv() {
+            Err(Error_::UnknownNetworkIfIndex(UnknownNetworkIfIndexArgs_ { ifindex: Some(4) })) => {}
+            res => panic!("Unknown result {:?}", res),
+        }
+
         Ok(())
     }
 
     let child = thread::spawn(move || {
-        if let Err(e) = run_app("unix:/tmp/org.example.more_client".into(), 1) {
+        if let Err(e) = run_app("unix:/tmp/io.systemd.network_client".into(), 1) {
             panic!("error: {}", e);
         }
     });
@@ -163,10 +196,11 @@ fn test_client() {
     // give server time to start
     thread::sleep(time::Duration::from_secs(1));
 
-    let res = run_client_app("unix:/tmp/org.example.more_client".into());
+    let res = run_client_app("unix:/tmp/io.systemd.network_client".into());
     if res.is_err() {
         eprintln!("{:?}", res);
     }
-    assert!(run_client_app("unix:/tmp/org.example.more_client".into()).is_ok());
+    assert!(res.is_ok());
+
     assert!(child.join().is_ok());
 }

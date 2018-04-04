@@ -303,7 +303,7 @@ error InvalidParameter (parameter: string)
 ",
     ).unwrap();
     assert_eq!(v.interface.name, "org.varlink.service");
-    println!("{}", v.interface.to_string());
+    //println!("{}", v.interface.to_string());
     assert_eq!(
         v.interface.to_string(),
         "interface org.varlink.service\n\
@@ -340,7 +340,7 @@ error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)
 ",
     ).unwrap();
     assert_eq!(v.interface.name, "org.example.complex");
-    println!("{}", v.interface.to_string());
+    //println!("{}", v.interface.to_string());
     assert_eq!(
         v.interface.to_string(),
         "interface org.example.complex\n\

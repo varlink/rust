@@ -2,23 +2,24 @@
 
 #![allow(dead_code)]
 
+use libc::close;
+use libc::dup2;
+use libc::getpid;
+use std::env;
 use std::io;
 use std::io::{Error, ErrorKind, Read, Write};
 use std::net::{Shutdown, TcpStream};
 use std::os::unix::io::{FromRawFd, IntoRawFd};
 use std::os::unix::net::UnixStream;
+use std::os::unix::process::CommandExt;
 use std::process::Child;
 use std::process::Command;
-use std::env;
-use libc::close;
-use libc::dup2;
-use libc::getpid;
-use std::os::unix::process::CommandExt;
-
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+use tempfile::tempdir;
+use tempfile::TempDir;
 // FIXME: abstract unix domains sockets still not in std
 // FIXME: https://github.com/rust-lang/rust/issues/14194
 use unix_socket::UnixStream as AbstractStream;
-use tempfile::{tempdir, TempDir};
 
 pub enum VarlinkStream {
     TCP(TcpStream),

@@ -138,6 +138,8 @@ impl<'a> InterfaceToRust for Interface<'a> {
         let mut enumvec = EnumVec::new();
         let mut structvec = StructVec::new();
 
+        // FIXME: use the quote crate with quote! ??
+
         write!(
             w,
             r#"//! DO NOT EDIT

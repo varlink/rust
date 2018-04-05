@@ -221,7 +221,7 @@ error TestMoreError (reason: string)
     }
 
     let child = thread::spawn(move || {
-        if let Err(e) = run_app("unix:/tmp/org.example.more_client".into(), 1) {
+        if let Err(e) = run_app("unix:/tmp/org.example.more_client".into(), 4) {
             panic!("error: {}", e);
         }
     });

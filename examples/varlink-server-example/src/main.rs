@@ -180,7 +180,8 @@ fn test_client() {
         }
 
         match call.info(Some(4))?.recv() {
-            Err(Error_::UnknownNetworkIfIndex(UnknownNetworkIfIndexArgs_ { ifindex: Some(4) })) => {}
+            Err(Error_::UnknownNetworkIfIndex(UnknownNetworkIfIndexArgs_ { ifindex: Some(4) })) => {
+            }
             res => panic!("Unknown result {:?}", res),
         }
 
@@ -188,7 +189,7 @@ fn test_client() {
     }
 
     let child = thread::spawn(move || {
-        if let Err(e) = run_app("unix:/tmp/io.systemd.network_client".into(), 1) {
+        if let Err(e) = run_app("unix:/tmp/io.systemd.network_client".into(), 4) {
             panic!("error: {}", e);
         }
     });

@@ -2,20 +2,12 @@
 
 #![allow(dead_code)]
 
-use libc::close;
-use libc::dup2;
-// FIXME
-use libc::getpid;
-use std::env;
 use std::io;
 use std::io::{Error, ErrorKind, Read, Write};
 use std::net::{Shutdown, TcpStream};
 use std::os::unix::io::{FromRawFd, IntoRawFd};
 use std::os::unix::net::UnixStream;
-use std::os::unix::process::CommandExt;
-use std::process::{Child, Command};
-use unix_socket::os::linux::SocketAddrExt;
-use unix_socket::UnixListener as AbstractUnixListener;
+use std::process::Child;
 // FIXME: abstract unix domains sockets still not in std
 // FIXME: https://github.com/rust-lang/rust/issues/14194
 use unix_socket::UnixStream as AbstractStream;
@@ -25,7 +17,22 @@ pub enum VarlinkStream {
     UNIX(UnixStream, Option<Child>),
 }
 
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn varlink_exec(_address: String) -> io::Result<(Child, String)> {
+    unimplemented!();
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn varlink_exec(address: String) -> io::Result<(Child, String)> {
+    use unix_socket::os::linux::SocketAddrExt;
+    use libc::close;
+    use libc::dup2;
+    use libc::getpid;
+    use std::env;
+    use std::os::unix::process::CommandExt;
+    use std::process::Command;
+    use unix_socket::UnixListener as AbstractUnixListener;
+
     let executable = &address[5..];
     let listener = AbstractUnixListener::bind("")?;
     let local_addr = listener.local_addr()?;

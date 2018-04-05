@@ -177,6 +177,7 @@ extern crate serde;
 extern crate serde_derive;
 #[macro_use]
 extern crate serde_json;
+extern crate tempfile;
 extern crate unix_socket;
 extern crate varlink_parser;
 

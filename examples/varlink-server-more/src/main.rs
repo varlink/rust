@@ -27,10 +27,18 @@ impl VarlinkInterface for MyOrgExampleMore {
     }
 
     fn test_more(&self, call: &mut _CallTestMore, n: Option<i64>) -> io::Result<()> {
+        if !call.wants_more() {
+            return call.reply_test_more_error(Some("called without more".into()));
+        }
+
         if n == None {
             return call.reply_invalid_parameter(Some("n".into()));
         }
         let n = n.unwrap();
+
+        if n == 0 {
+            return call.reply_test_more_error(Some("n == 0".into()));
+        }
 
         call.set_continues(true);
 
@@ -98,30 +106,13 @@ fn main() {
     });
 }
 
-#[test]
-fn test_unix() {
-    if let Err(e) = run_app("unix:/tmp/org.example.more_unix".into(), 1) {
-        panic!("error: {}", e);
-    }
-}
-
-#[test]
-#[cfg(any(target_os = "linux", target_os = "android"))]
-fn test_unix_abstract() {
-    if let Err(e) = run_app("unix:@org.example.more_unix".into(), 1) {
-        panic!("error: {}", e);
-    }
-}
-
-#[test]
-fn test_tcp() {
-    if let Err(e) = run_app("tcp:0.0.0.0:12345".into(), 1) {
-        panic!("error: {}", e);
-    }
-}
-
-#[test]
-fn test_client() {
+#[cfg(test)]
+mod test {
+    use org_example_more::*;
+    use org_example_more;
+    use std::{thread, time};
+    use std::io;
+    use varlink;
     use varlink::OrgVarlinkServiceInterface;
 
     fn run_client_app(address: String) -> io::Result<()> {
@@ -216,19 +207,89 @@ error TestMoreError (reason: string)
             }
         }
 
+        {
+            let reply = call.test_more(Some(0))?.recv();
+            assert!(reply.is_err());
+            match reply {
+                Err(Error_::TestMoreError(TestMoreErrorArgs_ {
+                    reason: Some(ref e),
+                })) if e == "called without more" => {}
+                r => panic!("Unknown reply {:#?}", r),
+            }
+        }
+
+        for reply in call.more().test_more(Some(0))? {
+            assert!(reply.is_err());
+            match reply {
+                Err(Error_::TestMoreError(TestMoreErrorArgs_ {
+                    reason: Some(ref e),
+                })) if e == "n == 0" => {}
+                r => panic!("Unknown reply {:#?}", r),
+            }
+        }
+
         let _r = call.stop_serving()?.recv()?;
         Ok(())
     }
 
-    let child = thread::spawn(move || {
-        if let Err(e) = run_app("unix:/tmp/org.example.more_client".into(), 4) {
-            panic!("error: {}", e);
+    fn run_client(address: String) -> io::Result<()> {
+        let client_address = address.clone();
+
+        let child = thread::spawn(move || {
+            if let Err(e) = ::run_app(address, 4) {
+                panic!("error: {}", e);
+            }
+        });
+
+        // give server time to start
+        thread::sleep(time::Duration::from_secs(1));
+
+        assert!(run_client_app(client_address).is_ok());
+        if let Err(e) = child.join() {
+            Err(io::Error::new(
+                io::ErrorKind::ConnectionRefused,
+                format!("{:#?}", e),
+            ))
+        } else {
+            Ok(())
         }
-    });
+    }
 
-    // give server time to start
-    thread::sleep(time::Duration::from_secs(1));
+    #[test]
+    fn test_unix() {
+        assert!(run_client("unix:/tmp/org.example.more_client".into()).is_ok());
+    }
 
-    assert!(run_client_app("unix:/tmp/org.example.more_client".into()).is_ok());
-    assert!(child.join().is_ok());
+    #[test]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    fn test_unix_abstract() {
+        assert!(run_client("unix:@org.example.more_unix".into()).is_ok());
+    }
+
+    #[test]
+    fn test_tcp() {
+        assert!(run_client("tcp:0.0.0.0:12345".into()).is_ok());
+    }
+
+    #[test]
+    fn test_exec() {
+        let address: String;
+
+        if ::std::path::Path::new("../../target/debug/varlink-server-more").exists() {
+            address = "exec:../../target/debug/varlink-server-more".into();
+        } else if ::std::path::Path::new("./target/debug/varlink-server-more").exists() {
+            address = "exec:./target/debug/varlink-server-more".into();
+        } else {
+            eprintln!("Skipping test, no varlink-server-more");
+            return;
+        }
+
+        assert!(run_client_app(address.clone()).is_ok());
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_wrong_address_1() {
+        assert!(run_client("tcpd:0.0.0.0:12345".into()).is_ok());
+    }
 }

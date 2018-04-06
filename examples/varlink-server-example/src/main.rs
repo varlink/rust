@@ -24,7 +24,7 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
 
             *number += 1;
 
-            println!("{}", *number);
+            eprintln!("{}", *number);
         }
 
         match ifindex {
@@ -56,7 +56,7 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
 
             *number -= 1;
 
-            println!("{}", *number);
+            eprintln!("{}", *number);
         }
         return call.reply(Some(vec![
             Netdev {
@@ -198,10 +198,7 @@ fn test_client() {
     thread::sleep(time::Duration::from_secs(1));
 
     let res = run_client_app("unix:/tmp/io.systemd.network_client".into());
-    if res.is_err() {
-        eprintln!("{:?}", res);
-    }
-    assert!(res.is_ok());
+    assert!(res.is_ok(), "{:?}", res);
 
     assert!(child.join().is_ok());
 }

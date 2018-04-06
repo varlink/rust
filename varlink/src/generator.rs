@@ -193,78 +193,65 @@ use varlink::CallTrait;
         }
 
         for t in self.methods.values() {
-            if true
-            /*t.output.elts.len() > 0*/
-            {
-                write!(w, "#[derive(Serialize, Deserialize, Debug, Default)]\n")?;
-                write!(w, "pub struct {}Reply_ {{\n", t.name)?;
-                for e in &t.output.elts {
-                    write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
-                    let ename = replace_if_rust_keyword_annotate(e.name, w)?;
-                    write!(
-                        w,
-                        " pub {}: Option<{}>,\n",
-                        ename,
-                        e.vtype.to_rust(
-                            format!("{}Reply_{}", t.name, e.name).as_ref(),
-                            &mut enumvec,
-                            &mut structvec
-                        )?
-                    )?;
-                }
-                write!(w, "}}\n\n")?;
+            write!(w, "#[derive(Serialize, Deserialize, Debug, Default)]\n")?;
+            write!(w, "pub struct {}Reply_ {{\n", t.name)?;
+            for e in &t.output.elts {
+                write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
+                let ename = replace_if_rust_keyword_annotate(e.name, w)?;
                 write!(
                     w,
-                    "impl varlink::VarlinkReply for {}Reply_ {{}}\n\n",
-                    t.name
+                    " pub {}: Option<{}>,\n",
+                    ename,
+                    e.vtype.to_rust(
+                        format!("{}Reply_{}", t.name, e.name).as_ref(),
+                        &mut enumvec,
+                        &mut structvec
+                    )?
                 )?;
             }
-
-            if true
-            /* t.input.elts.len() > 0 */
-            {
-                write!(w, "#[derive(Serialize, Deserialize, Debug)]\n")?;
-                write!(w, "pub struct {}Args_ {{\n", t.name)?;
-                for e in &t.input.elts {
-                    write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
-                    let ename = replace_if_rust_keyword_annotate(e.name, w)?;
-                    write!(
-                        w,
-                        " pub {}: Option<{}>,\n",
-                        ename,
-                        e.vtype.to_rust(
-                            format!("{}Args_{}", t.name, e.name).as_ref(),
-                            &mut enumvec,
-                            &mut structvec
-                        )?
-                    )?;
-                }
-                write!(w, "}}\n\n")?;
+            write!(w, "}}\n\n")?;
+            write!(
+                w,
+                "impl varlink::VarlinkReply for {}Reply_ {{}}\n\n",
+                t.name
+            )?;
+            write!(w, "#[derive(Serialize, Deserialize, Debug)]\n")?;
+            write!(w, "pub struct {}Args_ {{\n", t.name)?;
+            for e in &t.input.elts {
+                write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
+                let ename = replace_if_rust_keyword_annotate(e.name, w)?;
+                write!(
+                    w,
+                    " pub {}: Option<{}>,\n",
+                    ename,
+                    e.vtype.to_rust(
+                        format!("{}Args_{}", t.name, e.name).as_ref(),
+                        &mut enumvec,
+                        &mut structvec
+                    )?
+                )?;
             }
+            write!(w, "}}\n\n")?;
         }
 
         for t in self.errors.values() {
-            if true
-            /* t.parm.elts.len() > 0 */
-            {
-                write!(w, "#[derive(Serialize, Deserialize, Debug, Default)]\n")?;
-                write!(w, "pub struct {}Args_ {{\n", t.name)?;
-                for e in &t.parm.elts {
-                    write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
-                    let ename = replace_if_rust_keyword_annotate(e.name, w)?;
-                    write!(
-                        w,
-                        " pub {}: Option<{}>,\n",
-                        ename,
-                        e.vtype.to_rust(
-                            format!("{}Args_{}", t.name, e.name).as_ref(),
-                            &mut enumvec,
-                            &mut structvec
-                        )?
-                    )?;
-                }
-                write!(w, "}}\n\n")?;
+            write!(w, "#[derive(Serialize, Deserialize, Debug, Default)]\n")?;
+            write!(w, "pub struct {}Args_ {{\n", t.name)?;
+            for e in &t.parm.elts {
+                write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
+                let ename = replace_if_rust_keyword_annotate(e.name, w)?;
+                write!(
+                    w,
+                    " pub {}: Option<{}>,\n",
+                    ename,
+                    e.vtype.to_rust(
+                        format!("{}Args_{}", t.name, e.name).as_ref(),
+                        &mut enumvec,
+                        &mut structvec
+                    )?
+                )?;
             }
+            write!(w, "}}\n\n")?;
         }
 
         loop {
@@ -312,63 +299,59 @@ use varlink::CallTrait;
         }
 
         write!(w, "pub trait _CallErr: varlink::CallTrait {{\n")?;
-        if true
-        /* self.errors.len() > 0 */
-        {
-            for t in self.errors.values() {
-                let mut inparms: String = "".to_owned();
-                let mut innames: String = "".to_owned();
-                if t.parm.elts.len() > 0 {
-                    for e in &t.parm.elts {
-                        inparms += format!(
-                            ", {}: Option<{}>",
-                            replace_if_rust_keyword(e.name),
-                            e.vtype.to_rust(
-                                format!("{}Args_{}", t.name, e.name).as_ref(),
-                                &mut enumvec,
-                                &mut structvec
-                            )?
-                        ).as_ref();
-                        innames += format!("{}, ", replace_if_rust_keyword(e.name)).as_ref();
-                    }
-                    innames.pop();
-                    innames.pop();
+        for t in self.errors.values() {
+            let mut inparms: String = "".to_owned();
+            let mut innames: String = "".to_owned();
+            if t.parm.elts.len() > 0 {
+                for e in &t.parm.elts {
+                    inparms += format!(
+                        ", {}: Option<{}>",
+                        replace_if_rust_keyword(e.name),
+                        e.vtype.to_rust(
+                            format!("{}Args_{}", t.name, e.name).as_ref(),
+                            &mut enumvec,
+                            &mut structvec
+                        )?
+                    ).as_ref();
+                    innames += format!("{}, ", replace_if_rust_keyword(e.name)).as_ref();
                 }
-                write!(
-                    w,
-                    r#"    fn reply_{}(&mut self{}) -> io::Result<()> {{
+                innames.pop();
+                innames.pop();
+            }
+            write!(
+                w,
+                r#"    fn reply_{sname}(&mut self{inparms}) -> io::Result<()> {{
         self.reply_struct(varlink::Reply::error(
-            "{}.{}".into(),
+            "{iname}.{ename}".into(),
 "#,
-                    to_snake_case(t.name),
-                    inparms,
-                    self.name,
-                    t.name,
-                )?;
-                if t.parm.elts.len() > 0 {
-                    write!(
-                        w,
-                        "            Some(serde_json::to_value({}Args_ {{ {} }}).unwrap()),",
-                        t.name, innames
-                    )?;
-                } else {
-                    write!(w, "        None,\n")?;
-                }
-
+                sname = to_snake_case(t.name),
+                inparms = inparms,
+                iname = self.name,
+                ename = t.name,
+            )?;
+            if t.parm.elts.len() > 0 {
                 write!(
                     w,
-                    r#"
+                    "            Some(serde_json::to_value({}Args_ {{ {} }}).unwrap()),",
+                    t.name, innames
+                )?;
+            } else {
+                write!(w, "        None,\n")?;
+            }
+
+            write!(
+                w,
+                r#"
         ))
     }}
 "#
-                )?;
-            }
+            )?;
         }
         write!(w, "}}\n\nimpl<'a> _CallErr for varlink::Call<'a> {{}}\n\n")?;
 
         write!(w, "\n#[derive(Debug)]\npub enum Error_ {{\n")?;
         for t in self.errors.values() {
-            write!(w, "    {}({}Args_),\n", t.name, t.name)?;
+            write!(w, "    {ename}({ename}Args_),\n", ename = t.name)?;
         }
         write!(
             w,
@@ -397,25 +380,26 @@ impl From<varlink::Reply> for Error_ {{
                 w,
                 r#"            varlink::Reply {{
                      error: Some(ref t), ..
-                }} if t == "{}.{}" =>
+                }} if t == "{iname}.{ename}" =>
                 {{
                    match e {{
                        varlink::Reply {{
                            parameters: Some(p),
                            ..
                        }} => match serde_json::from_value(p) {{
-                           Ok(v) => Error_::{}(v),
-                           Err(_) => Error_::{}({}Args_ {{
+                           Ok(v) => Error_::{ename}(v),
+                           Err(_) => Error_::{ename}({ename}Args_ {{
                                ..Default::default()
                            }}),
                        }},
-                       _ => Error_::{}({}Args_ {{
+                       _ => Error_::{ename}({ename}Args_ {{
                            ..Default::default()
                        }}),
                    }}
                }}
 "#,
-                self.name, t.name, t.name, t.name, t.name, t.name, t.name
+                iname = self.name,
+                ename = t.name
             )?;
         }
 
@@ -456,14 +440,15 @@ impl From<Error_> for io::Error {{
         for t in self.errors.values() {
             write!(
                 w,
-                r#"            Error_::{}(e) => io::Error::new(
+                r#"            Error_::{ename}(e) => io::Error::new(
                 io::ErrorKind::Other,
                 format!(
-                    "{}.{}: '{{}}'",
+                    "{iname}.{ename}: '{{}}'",
                     serde_json::to_string_pretty(&e).unwrap()
                 ),
             ),"#,
-                t.name, self.name, t.name
+                ename = t.name,
+                iname = self.name
             )?;
         }
 
@@ -599,12 +584,12 @@ impl From<Error_> for io::Error {{
 
             write!(
                 w,
-                "    fn {}(&mut self{}) -> io::Result<varlink::MethodCall<{}Args_, {}Reply_, Error_>>;\
+                "    fn {sname}(&mut self{inparms}) -> io::Result<varlink::MethodCall<{mname}Args_, \
+                {mname}Reply_, Error_>>;\
                 \n",
-                to_snake_case(t.name),
-                inparms,
-                t.name,
-                t.name
+                sname = to_snake_case(t.name),
+                inparms = inparms,
+                mname = t.name
             )?;
         }
 
@@ -657,37 +642,27 @@ impl VarlinkClientInterface for VarlinkClient {{
             }
             write!(
                 w,
-                "    fn {}(&mut self{}) -> io::Result<varlink::MethodCall<{}Args_, {}Reply_, Error_>> \
+                "    fn {sname}(&mut self{inparms}) -> io::Result<varlink::MethodCall<{mname}Args_, \
+                {mname}Reply_, \
+                Error_>> \
                 {{\n",
-                to_snake_case(t.name),
-                inparms,
-                t.name, t.name
+                sname = to_snake_case(t.name),
+                inparms = inparms,
+                mname = t.name
             )?;
 
-            if true
-            /* t.input.elts.len() > 0 */
-            {
-                write!(
-                    w,
-                    "            \
-                     varlink::MethodCall::<{}Args_, {}Reply_, Error_>::call(\n            \
-                     self.connection.clone(),\n            \
-                     \"{}.{}\".into(),\n            \
-                     {}Args_ {{ {} }},\n        \
-                     self.more)\n",
-                    t.name, t.name, self.name, t.name, t.name, innames
-                )?;
-            } /* else {
-                write!(
-                    w,
-                    "        \
-                     let mut conn = self.connection.write().unwrap();\n        \
-                     let _reply = conn.call(\n            \
-                     \"{}.{}\".into(),\n            \
-                     None)?;\n",
-                    self.name, t.name
-                )?;
-            }*/
+            write!(
+                w,
+                "            \
+                 varlink::MethodCall::<{mname}Args_, {mname}Reply_, Error_>::call(\n            \
+                 self.connection.clone(),\n            \
+                 \"{iname}.{mname}\".into(),\n            \
+                 {mname}Args_ {{ {innames} }},\n        \
+                 self.more)\n",
+                mname = t.name,
+                iname = self.name,
+                innames = innames
+            )?;
             write!(w, "    }}\n")?;
         }
         write!(w, "}}\n")?;
@@ -705,15 +680,16 @@ pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {{
 
 impl varlink::Interface for _InterfaceProxy {{
     fn get_description(&self) -> &'static str {{
-        r#"{}"#
+        r#"{description}"#
     }}
 
     fn get_name(&self) -> &'static str {{
-        "{}"
+        "{iname}"
     }}
 
 "####,
-            description, self.name
+            description = description,
+            iname = self.name
         )?;
 
         write!(
@@ -734,28 +710,40 @@ impl varlink::Interface for _InterfaceProxy {{
                 inparms += format!(", args.{}", replace_if_rust_keyword(e.name)).as_ref();
             }
 
-            write!(w, "            \"{}.{}\" => {{", self.name, t.name)?;
+            write!(
+                w,
+                "            \"{iname}.{mname}\" => {{",
+                iname = self.name,
+                mname = t.name
+            )?;
             if t.input.elts.len() > 0 {
                 write!(
                     w,
                     concat!(
-                        "\n                if let Some(args) = req.parameters.clone() {{\n",
-                        "                    let args: {}Args_ = serde_json::from_value(args)?;\n",
-                        "                    return self.inner.{}(call as &mut _Call{}{});\n",
+                        "\n",
+                        "                if let Some(args) = req.parameters.clone() {{\n",
+                        "                    let args: {mname}Args_ = serde_json::from_value(args)?;\n",
+                        "                    return self.inner.{sname}(call as &mut \
+                        _Call{mname}{inparms});\n",
                         "                }} else {{\n",
                         "                    return call.reply_invalid_parameter(None);\n",
                         "                }}\n",
                         "            }}\n"
                     ),
-                    t.name,
-                    to_snake_case(t.name),
-                    t.name,
-                    inparms
+                    mname = t.name,
+                    sname = to_snake_case(t.name),
+                    inparms = inparms
                 )?;
             } else {
-                write!(w,
-                       "\n                return self.inner.{}(call as &mut _Call{});\n            }}\n",
-                       to_snake_case(t.name), t.name
+                write!(
+                    w,
+                    concat!(
+                        "\n",
+                        "                return self.inner.{sname}(call as &mut _Call{mname});\n",
+                        "            }}\n"
+                    ),
+                    sname = to_snake_case(t.name),
+                    mname = t.name
                 )?;
             }
         }

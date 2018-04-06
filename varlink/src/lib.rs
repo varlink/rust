@@ -407,6 +407,12 @@ pub trait CallTrait {
     ///```
     fn set_continues(&mut self, cont: bool);
 
+    /// True, if this request does not want a reply.
+    fn is_oneshot(&self) -> bool;
+
+    /// True, if this request accepts more than one reply.
+    fn wants_more(&self) -> bool;
+
     /// reply with the standard varlink `org.varlink.service.MethodNotFound` error
     fn reply_method_not_found(&mut self, method_name: Option<String>) -> io::Result<()> {
         self.reply_struct(Reply::error(
@@ -659,6 +665,27 @@ impl<'a> CallTrait for Call<'a> {
     fn set_continues(&mut self, cont: bool) {
         self.continues = cont;
     }
+
+    /// True, if this request does not want a reply.
+    fn is_oneshot(&self) -> bool {
+        match self.request {
+            Some(&Request {
+                oneshot: Some(true),
+                ..
+            }) => true,
+            _ => false,
+        }
+    }
+
+    /// True, if this request accepts more than one reply.
+    fn wants_more(&self) -> bool {
+        match self.request {
+            Some(&Request {
+                more: Some(true), ..
+            }) => true,
+            _ => false,
+        }
+    }
 }
 
 impl<'a> Call<'a> {
@@ -676,27 +703,6 @@ impl<'a> Call<'a> {
             request: None,
             continues: false,
             upgraded: false,
-        }
-    }
-
-    /// True, if this request does not want a reply.
-    pub fn is_oneshot(&self) -> bool {
-        match self.request {
-            Some(&Request {
-                oneshot: Some(true),
-                ..
-            }) => true,
-            _ => false,
-        }
-    }
-
-    /// True, if this request accepts more than one reply.
-    pub fn wants_more(&self) -> bool {
-        match self.request {
-            Some(&Request {
-                more: Some(true), ..
-            }) => true,
-            _ => false,
         }
     }
 

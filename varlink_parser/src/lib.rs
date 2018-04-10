@@ -25,9 +25,10 @@ pub enum VType<'a> {
     VEnum(Box<VEnum<'a>>),
 }
 
-pub struct VTypeExt<'a> {
-    pub vtype: VType<'a>,
-    pub isarray: bool,
+pub enum VTypeExt<'a> {
+    Array(Box<VTypeExt<'a>>),
+    Option(Box<VTypeExt<'a>>),
+    Plain(VType<'a>),
 }
 
 pub struct Argument<'a> {
@@ -81,24 +82,15 @@ pub struct Interface<'a> {
 macro_rules! printVTypeExt {
 	($s:ident, $f:ident, $t:expr) => {{
                 write!($f, "{}", $t)?;
-                if $s.isarray {
-					write!($f, "[]")?;
-                };
 	}};
 	($s:ident, $f:ident, $v:ident, $t:expr) => {{
                 write!($f, "{}", $t)?;
-                if $s.isarray {
-					write!($f, "[]")?;
-                };
                 if let Some(val) = *$v {
                     write!($f, " = {}", val)?;
                 }
 	}};
 	($s:ident, $f:ident, $v:ident, $t:expr, $k:expr) => {{
                 write!($f, "{}", $t)?;
-                if $s.isarray {
-					write!($f, "[]")?;
-                };
                 if let Some(val) = *$v {
                     write!($f, " = {s}{}{s}", val, s=$k)?;
                 }
@@ -107,16 +99,17 @@ macro_rules! printVTypeExt {
 
 impl<'a> fmt::Display for VTypeExt<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.vtype {
-            VType::Bool(ref v) => printVTypeExt!(self, f, v, "bool"),
-            VType::Int(ref v) => printVTypeExt!(self, f, v, "int"),
-            VType::Float(ref v) => printVTypeExt!(self, f, v, "float"),
-            VType::VString(ref v) => printVTypeExt!(self, f, v, "string", "\""),
-            VType::VTypename(ref v) => printVTypeExt!(self, f, v),
-            VType::VStruct(ref v) => printVTypeExt!(self, f, v),
-            VType::VEnum(ref v) => printVTypeExt!(self, f, v),
+        match self {
+            &VTypeExt::Plain(VType::Bool( ref v)) => printVTypeExt!(self, f, v, "bool"),
+            &VTypeExt::Plain(VType::Int( ref v)) => printVTypeExt!(self, f, v, "int"),
+            &VTypeExt::Plain(VType::Float( ref v)) => printVTypeExt!(self, f, v, "float"),
+            &VTypeExt::Plain(VType::VString( ref v)) => printVTypeExt!(self, f, v, "string", "\""),
+            &VTypeExt::Plain(VType::VTypename( ref v)) => printVTypeExt!(self, f, v),
+            &VTypeExt::Plain(VType::VStruct( ref v)) => printVTypeExt!(self, f, v),
+            &VTypeExt::Plain(VType::VEnum( ref v)) => printVTypeExt!(self, f, v),
+            &VTypeExt::Array(ref v) => write!(f, "[]{}", v)?,
+            &VTypeExt::Option(ref v) => write!(f, "?{}", v)?,
         }
-
         Ok(())
     }
 }
@@ -127,7 +120,6 @@ impl<'a> fmt::Display for VStructOrEnum<'a> {
             VStructOrEnum::VStruct(ref v) => write!(f, "{}", v)?,
             VStructOrEnum::VEnum(ref v) => write!(f, "{}", v)?,
         }
-
         Ok(())
     }
 }
@@ -282,7 +274,7 @@ method GetInfo() -> (
   product: string,
   version: string,
   url: string,
-  interfaces: string[]
+  interfaces: []string
 )
 
 # Get the description of an interface that is implemented by this service.
@@ -308,7 +300,7 @@ error InvalidParameter (parameter: string)
         v.interface.to_string(),
         "interface org.varlink.service\n\
          method GetInfo() -> (vendor: string, product: string, \
-         version: string, url: string, interfaces: string[])\n\
+         version: string, url: string, interfaces: []string)\n\
          method GetInterfaceDescription(interface: string) \
          -> (description: string)\n\
          error InterfaceNotFound (interface: string)\n\
@@ -391,7 +383,7 @@ fn test_no_method() {
         Varlink::from_string(
             "
 interface org.varlink.service
-  type Interface (name: string, types: Type[], methods: Method[])
+  type Interface (name: string, types: []Type, methods: []Method)
   type Property (key: string, value: string)
 ",
         ).is_err()
@@ -433,30 +425,33 @@ fn test_type_float() {
 
 #[test]
 fn test_type_one_array() {
-    assert!(Varlink::from_string("interface foo.bar\n type I (b:bool[])\nmethod  F()->()").is_ok());
+    assert!(Varlink::from_string("interface foo.bar\n type I (b:[]bool)\nmethod  F()->()").is_ok());
     assert!(
         Varlink::from_string("interface foo.bar\n type I (b:bool[ ])\nmethod  F()->()").is_err()
     );
     assert!(
-        Varlink::from_string("interface foo.bar\n type I (b:bool[1])\nmethod  F()->()").is_err()
+        Varlink::from_string("interface foo.bar\n type I (b:[ ]bool)\nmethod  F()->()").is_err()
     );
     assert!(
-        Varlink::from_string("interface foo.bar\n type I (b:bool[ 1 ])\nmethod  F()->()").is_err()
+        Varlink::from_string("interface foo.bar\n type I (b:[1]bool)\nmethod  F()->()").is_err()
     );
     assert!(
-        Varlink::from_string("interface foo.bar\n type I (b:bool[ 1 1 ])\nmethod  F()->()")
+        Varlink::from_string("interface foo.bar\n type I (b:[ 1 ]bool)\nmethod  F()->()").is_err()
+    );
+    assert!(
+        Varlink::from_string("interface foo.bar\n type I (b:[ 1 1 ]bool)\nmethod  F()->()")
             .is_err()
     );
 }
 
 #[test]
 fn test_format() {
-    let v = Varlink::from_string("interface foo.bar\ntype I(b:bool[])\nmethod  F()->()").unwrap();
+    let v = Varlink::from_string("interface foo.bar\ntype I(b:[]bool)\nmethod  F()->()").unwrap();
     assert_eq!(
         v.interface.to_string(),
         "\
 interface foo.bar
-type I (b: bool[])
+type I (b: []bool)
 method F() -> ()
 "
     );

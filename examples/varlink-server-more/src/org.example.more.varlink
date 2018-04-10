@@ -4,9 +4,9 @@ interface org.example.more
 # Enum, returning either start, progress or end
 # progress: [0-100]
 type State (
-  start: bool,
-  progress: int,
-  end: bool
+  start: ?bool,
+  progress: ?int,
+  end: ?bool
 )
 
 # Returns the same string

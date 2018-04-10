@@ -15,7 +15,7 @@ mod org_example_ping;
 struct MyOrgExamplePing;
 
 impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
-    fn ping(&self, call: &mut _CallPing, ping: Option<String>) -> io::Result<()> {
+    fn ping(&self, call: &mut _CallPing, ping: String) -> io::Result<()> {
         return call.reply(ping);
     }
 }

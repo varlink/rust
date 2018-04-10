@@ -11,58 +11,59 @@ use std::sync::{Arc, RwLock};
 use varlink;
 use varlink::CallTrait;
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Netdev {
-    #[serde(skip_serializing_if = "Option::is_none")] pub ifindex: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")] pub ifname: Option<String>,
+ pub ifindex: i64,
+ pub ifname: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct NetdevInfo {
-    #[serde(skip_serializing_if = "Option::is_none")] pub ifindex: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")] pub ifname: Option<String>,
+ pub ifindex: i64,
+ pub ifname: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct InfoReply_ {
-    #[serde(skip_serializing_if = "Option::is_none")] pub info: Option<NetdevInfo>,
+ pub info: NetdevInfo,
 }
 
 impl varlink::VarlinkReply for InfoReply_ {}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct InfoArgs_ {
-    #[serde(skip_serializing_if = "Option::is_none")] pub ifindex: Option<i64>,
+ pub ifindex: i64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ListReply_ {
-    #[serde(skip_serializing_if = "Option::is_none")] pub netdevs: Option<Vec<Netdev>>,
+ pub netdevs: Vec<Netdev>,
 }
 
 impl varlink::VarlinkReply for ListReply_ {}
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ListArgs_ {}
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-pub struct UnknownErrorArgs_ {
-    #[serde(skip_serializing_if = "Option::is_none")] pub text: Option<String>,
+pub struct ListArgs_ {
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UnknownErrorArgs_ {
+ pub text: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct UnknownNetworkIfIndexArgs_ {
-    #[serde(skip_serializing_if = "Option::is_none")] pub ifindex: Option<i64>,
+ pub ifindex: i64,
 }
 
 pub trait _CallErr: varlink::CallTrait {
-    fn reply_unknown_error(&mut self, text: Option<String>) -> io::Result<()> {
+    fn reply_unknown_error(&mut self, text: String) -> io::Result<()> {
         self.reply_struct(varlink::Reply::error(
             "io.systemd.network.UnknownError".into(),
             Some(serde_json::to_value(UnknownErrorArgs_ { text }).unwrap()),
         ))
     }
-    fn reply_unknown_network_if_index(&mut self, ifindex: Option<i64>) -> io::Result<()> {
+    fn reply_unknown_network_if_index(&mut self, ifindex: i64) -> io::Result<()> {
         self.reply_struct(varlink::Reply::error(
             "io.systemd.network.UnknownNetworkIfIndex".into(),
             Some(serde_json::to_value(UnknownNetworkIfIndexArgs_ { ifindex }).unwrap()),
@@ -72,10 +73,11 @@ pub trait _CallErr: varlink::CallTrait {
 
 impl<'a> _CallErr for varlink::Call<'a> {}
 
+
 #[derive(Debug)]
 pub enum Error_ {
-    UnknownError(UnknownErrorArgs_),
-    UnknownNetworkIfIndex(UnknownNetworkIfIndexArgs_),
+    UnknownError(Option<UnknownErrorArgs_>),
+    UnknownNetworkIfIndex(Option<UnknownNetworkIfIndexArgs_>),
     VarlinkError_(varlink::Error),
     UnknownError_(varlink::Reply),
     IOError_(io::Error),
@@ -90,43 +92,35 @@ impl From<varlink::Reply> for Error_ {
 
         match e {
             varlink::Reply {
-                error: Some(ref t), ..
-            } if t == "io.systemd.network.UnknownError" =>
-            {
-                match e {
-                    varlink::Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value(p) {
-                        Ok(v) => Error_::UnknownError(v),
-                        Err(_) => Error_::UnknownError(UnknownErrorArgs_ {
-                            ..Default::default()
-                        }),
-                    },
-                    _ => Error_::UnknownError(UnknownErrorArgs_ {
-                        ..Default::default()
-                    }),
-                }
-            }
+                     error: Some(ref t), ..
+                } if t == "io.systemd.network.UnknownError" =>
+                {
+                   match e {
+                       varlink::Reply {
+                           parameters: Some(p),
+                           ..
+                       } => match serde_json::from_value(p) {
+                           Ok(v) => Error_::UnknownError(v),
+                           Err(_) => Error_::UnknownError(None),
+                       },
+                       _ => Error_::UnknownError(None),
+                   }
+               }
             varlink::Reply {
-                error: Some(ref t), ..
-            } if t == "io.systemd.network.UnknownNetworkIfIndex" =>
-            {
-                match e {
-                    varlink::Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value(p) {
-                        Ok(v) => Error_::UnknownNetworkIfIndex(v),
-                        Err(_) => Error_::UnknownNetworkIfIndex(UnknownNetworkIfIndexArgs_ {
-                            ..Default::default()
-                        }),
-                    },
-                    _ => Error_::UnknownNetworkIfIndex(UnknownNetworkIfIndexArgs_ {
-                        ..Default::default()
-                    }),
-                }
-            }
+                     error: Some(ref t), ..
+                } if t == "io.systemd.network.UnknownNetworkIfIndex" =>
+                {
+                   match e {
+                       varlink::Reply {
+                           parameters: Some(p),
+                           ..
+                       } => match serde_json::from_value(p) {
+                           Ok(v) => Error_::UnknownNetworkIfIndex(v),
+                           Err(_) => Error_::UnknownNetworkIfIndex(None),
+                       },
+                       _ => Error_::UnknownNetworkIfIndex(None),
+                   }
+               }
             _ => return Error_::UnknownError_(e),
         }
     }
@@ -157,15 +151,13 @@ impl From<Error_> for io::Error {
                     "io.systemd.network.UnknownError: '{}'",
                     serde_json::to_string_pretty(&e).unwrap()
                 ),
-            ),
-            Error_::UnknownNetworkIfIndex(e) => io::Error::new(
+            ),            Error_::UnknownNetworkIfIndex(e) => io::Error::new(
                 io::ErrorKind::Other,
                 format!(
                     "io.systemd.network.UnknownNetworkIfIndex: '{}'",
                     serde_json::to_string_pretty(&e).unwrap()
                 ),
-            ),
-            Error_::VarlinkError_(e) => e.into(),
+            ),            Error_::VarlinkError_(e) => e.into(),
             Error_::IOError_(e) => e,
             Error_::JSONError_(e) => e.into(),
             Error_::UnknownError_(e) => io::Error::new(
@@ -179,7 +171,7 @@ impl From<Error_> for io::Error {
     }
 }
 pub trait _CallInfo: _CallErr {
-    fn reply(&mut self, info: Option<NetdevInfo>) -> io::Result<()> {
+    fn reply(&mut self, info: NetdevInfo) -> io::Result<()> {
         self.reply_struct(InfoReply_ { info }.into())
     }
 }
@@ -187,7 +179,7 @@ pub trait _CallInfo: _CallErr {
 impl<'a> _CallInfo for varlink::Call<'a> {}
 
 pub trait _CallList: _CallErr {
-    fn reply(&mut self, netdevs: Option<Vec<Netdev>>) -> io::Result<()> {
+    fn reply(&mut self, netdevs: Vec<Netdev>) -> io::Result<()> {
         self.reply_struct(ListReply_ { netdevs }.into())
     }
 }
@@ -195,7 +187,7 @@ pub trait _CallList: _CallErr {
 impl<'a> _CallList for varlink::Call<'a> {}
 
 pub trait VarlinkInterface {
-    fn info(&self, call: &mut _CallInfo, ifindex: Option<i64>) -> io::Result<()>;
+    fn info(&self, call: &mut _CallInfo, ifindex: i64) -> io::Result<()>;
     fn list(&self, call: &mut _CallList) -> io::Result<()>;
     fn call_upgraded(&self, _call: &mut varlink::Call) -> io::Result<()> {
         Ok(())
@@ -203,10 +195,7 @@ pub trait VarlinkInterface {
 }
 
 pub trait VarlinkClientInterface {
-    fn info(
-        &mut self,
-        ifindex: Option<i64>,
-    ) -> io::Result<varlink::MethodCall<InfoArgs_, InfoReply_, Error_>>;
+    fn info(&mut self, ifindex: i64) -> io::Result<varlink::MethodCall<InfoArgs_, InfoReply_, Error_>>;
     fn list(&mut self) -> io::Result<varlink::MethodCall<ListArgs_, ListReply_, Error_>>;
 }
 
@@ -231,24 +220,19 @@ impl VarlinkClient {
 }
 
 impl VarlinkClientInterface for VarlinkClient {
-    fn info(
-        &mut self,
-        ifindex: Option<i64>,
-    ) -> io::Result<varlink::MethodCall<InfoArgs_, InfoReply_, Error_>> {
-        varlink::MethodCall::<InfoArgs_, InfoReply_, Error_>::call(
+    fn info(&mut self, ifindex: i64) -> io::Result<varlink::MethodCall<InfoArgs_, InfoReply_, Error_>> {
+            varlink::MethodCall::<InfoArgs_, InfoReply_, Error_>::call(
             self.connection.clone(),
             "io.systemd.network.Info".into(),
             InfoArgs_ { ifindex },
-            self.more,
-        )
+        self.more)
     }
     fn list(&mut self) -> io::Result<varlink::MethodCall<ListArgs_, ListReply_, Error_>> {
-        varlink::MethodCall::<ListArgs_, ListReply_, Error_>::call(
+            varlink::MethodCall::<ListArgs_, ListReply_, Error_>::call(
             self.connection.clone(),
             "io.systemd.network.List".into(),
-            ListArgs_ {},
-            self.more,
-        )
+            ListArgs_ {  },
+        self.more)
     }
 }
 
@@ -280,7 +264,7 @@ type Netdev (
 method Info(ifindex: int) -> (info: NetdevInfo)
 
 # Lists all network devices
-method List() -> (netdevs: Netdev[])
+method List() -> (netdevs: []Netdev)
 
 error UnknownNetworkIfIndex (ifindex: int)
 error UnknownError (text: string)"#

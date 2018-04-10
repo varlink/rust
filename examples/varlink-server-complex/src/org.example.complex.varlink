@@ -14,12 +14,12 @@ type TypeFoo (
   int: int,
   float: float,
   string: string,
-  enum: (foo, bar, baz)[],
+  enum: [](foo, bar, baz),
   type: TypeEnum,
   anon: (
     foo: bool,
     bar: int,
-    baz: (a: int, b: int)[]
+    baz: [](a: int, b: int)
   )
 )
 
@@ -28,7 +28,7 @@ method Foo(
   foo: TypeFoo,
   interface: Interface
 ) -> (
-  a: (b: bool, c: int)[],
+  a: [](b: bool, c: int),
   foo: TypeFoo,
   interface: Interface
 )

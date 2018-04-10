@@ -970,7 +970,7 @@ method GetInfo() -> (
   product: string,
   version: string,
   url: string,
-  interfaces: string[]
+  interfaces: []string
 )
 
 # Get the description of an interface that is implemented by this service.
@@ -1304,7 +1304,7 @@ method GetInfo() -> (
   product: string,
   version: string,
   url: string,
-  interfaces: string[]
+  interfaces: []string
 )
 
 # Get the description of an interface that is implemented by this service.

@@ -59,12 +59,10 @@ impl<'short, 'long: 'short> ToRust<'short, 'long> for VTypeExt<'long> {
         enumvec: &mut EnumVec,
         structvec: &mut StructVec<'short>,
     ) -> io::Result<String> {
-        let v = self.vtype.to_rust(parent, enumvec, structvec)?;
-
-        if self.isarray {
-            Ok(format!("Vec<{}>", v).into())
-        } else {
-            Ok(v.into())
+        match self {
+            &VTypeExt::Plain(ref vtype) => vtype.to_rust(parent, enumvec, structvec),
+            &VTypeExt::Array(ref v) => Ok(format!("Vec<{}>", v.to_rust(parent, enumvec, structvec)?)),
+            &VTypeExt::Option(ref v) => Ok(format!("Option<{}>", v.to_rust(parent, enumvec, structvec)?)),
         }
     }
 }
@@ -161,14 +159,14 @@ use varlink::CallTrait;
         for t in self.typedefs.values() {
             match t.elt {
                 VStructOrEnum::VStruct(ref v) => {
-                    write!(w, "#[derive(Serialize, Deserialize, Debug, Default)]\n")?;
+                    write!(w, "#[derive(Serialize, Deserialize, Debug)]\n")?;
                     write!(w, "pub struct {} {{\n", replace_if_rust_keyword(t.name))?;
                     for e in &v.elts {
-                        write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
+                        //write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
                         let ename = replace_if_rust_keyword_annotate(e.name, w)?;
                         write!(
                             w,
-                            " pub {}: Option<{}>,\n",
+                            " pub {}: {},\n",
                             ename,
                             e.vtype.to_rust(
                                 format!("{}_{}", t.name, e.name).as_ref(),
@@ -193,14 +191,14 @@ use varlink::CallTrait;
         }
 
         for t in self.methods.values() {
-            write!(w, "#[derive(Serialize, Deserialize, Debug, Default)]\n")?;
+            write!(w, "#[derive(Serialize, Deserialize, Debug)]\n")?;
             write!(w, "pub struct {}Reply_ {{\n", t.name)?;
             for e in &t.output.elts {
-                write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
+                //write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
                 let ename = replace_if_rust_keyword_annotate(e.name, w)?;
                 write!(
                     w,
-                    " pub {}: Option<{}>,\n",
+                    " pub {}: {},\n",
                     ename,
                     e.vtype.to_rust(
                         format!("{}Reply_{}", t.name, e.name).as_ref(),
@@ -218,11 +216,11 @@ use varlink::CallTrait;
             write!(w, "#[derive(Serialize, Deserialize, Debug)]\n")?;
             write!(w, "pub struct {}Args_ {{\n", t.name)?;
             for e in &t.input.elts {
-                write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
+                //write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
                 let ename = replace_if_rust_keyword_annotate(e.name, w)?;
                 write!(
                     w,
-                    " pub {}: Option<{}>,\n",
+                    " pub {}: {},\n",
                     ename,
                     e.vtype.to_rust(
                         format!("{}Args_{}", t.name, e.name).as_ref(),
@@ -235,14 +233,14 @@ use varlink::CallTrait;
         }
 
         for t in self.errors.values() {
-            write!(w, "#[derive(Serialize, Deserialize, Debug, Default)]\n")?;
+            write!(w, "#[derive(Serialize, Deserialize, Debug)]\n")?;
             write!(w, "pub struct {}Args_ {{\n", t.name)?;
             for e in &t.parm.elts {
-                write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
+                //write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
                 let ename = replace_if_rust_keyword_annotate(e.name, w)?;
                 write!(
                     w,
-                    " pub {}: Option<{}>,\n",
+                    " pub {}: {},\n",
                     ename,
                     e.vtype.to_rust(
                         format!("{}Args_{}", t.name, e.name).as_ref(),
@@ -257,14 +255,14 @@ use varlink::CallTrait;
         loop {
             let mut nstructvec = StructVec::new();
             for (name, v) in structvec.drain(..) {
-                write!(w, "#[derive(Serialize, Deserialize, Debug, Default)]\n")?;
+                write!(w, "#[derive(Serialize, Deserialize, Debug)]\n")?;
                 write!(w, "pub struct {} {{\n", replace_if_rust_keyword(&name))?;
                 for e in &v.elts {
-                    write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
+                    //write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
                     let ename = replace_if_rust_keyword_annotate(e.name, w)?;
                     write!(
                         w,
-                        " pub {}: Option<{}>,\n",
+                        " pub {}: {},\n",
                         ename,
                         e.vtype
                             .to_rust(
@@ -305,7 +303,7 @@ use varlink::CallTrait;
             if t.parm.elts.len() > 0 {
                 for e in &t.parm.elts {
                     inparms += format!(
-                        ", {}: Option<{}>",
+                        ", {}: {}",
                         replace_if_rust_keyword(e.name),
                         e.vtype.to_rust(
                             format!("{}Args_{}", t.name, e.name).as_ref(),
@@ -351,7 +349,7 @@ use varlink::CallTrait;
 
         write!(w, "\n#[derive(Debug)]\npub enum Error_ {{\n")?;
         for t in self.errors.values() {
-            write!(w, "    {ename}({ename}Args_),\n", ename = t.name)?;
+            write!(w, "    {ename}(Option<{ename}Args_>),\n", ename = t.name)?;
         }
         write!(
             w,
@@ -388,13 +386,9 @@ impl From<varlink::Reply> for Error_ {{
                            ..
                        }} => match serde_json::from_value(p) {{
                            Ok(v) => Error_::{ename}(v),
-                           Err(_) => Error_::{ename}({ename}Args_ {{
-                               ..Default::default()
-                           }}),
+                           Err(_) => Error_::{ename}(None),
                        }},
-                       _ => Error_::{ename}({ename}Args_ {{
-                           ..Default::default()
-                       }}),
+                       _ => Error_::{ename}(None),
                    }}
                }}
 "#,
@@ -476,7 +470,7 @@ impl From<Error_> for io::Error {{
             if t.output.elts.len() > 0 {
                 for e in &t.output.elts {
                     inparms += format!(
-                        ", {}: Option<{}>",
+                        ", {}: {}",
                         replace_if_rust_keyword(e.name),
                         e.vtype.to_rust(
                             format!("{}Reply_{}", t.name, e.name).as_ref(),
@@ -520,7 +514,7 @@ impl From<Error_> for io::Error {{
             if t.input.elts.len() > 0 {
                 for e in &t.input.elts {
                     inparms += format!(
-                        ", {}: Option<{}>",
+                        ", {}: {}",
                         replace_if_rust_keyword(e.name),
                         e.vtype.to_rust(
                             format!("{}Args_{}", t.name, e.name).as_ref(),
@@ -557,7 +551,7 @@ impl From<Error_> for io::Error {{
             if t.input.elts.len() > 0 {
                 for e in &t.input.elts {
                     inparms += format!(
-                        ", {}: Option<{}>",
+                        ", {}: {}",
                         replace_if_rust_keyword(e.name),
                         e.vtype.to_rust(
                             format!("{}Args_{}", t.name, e.name).as_ref(),
@@ -570,7 +564,7 @@ impl From<Error_> for io::Error {{
             if t.output.elts.len() > 0 {
                 for e in &t.output.elts {
                     outparms += format!(
-                        "Option<{}>, ",
+                        "{}, ",
                         e.vtype.to_rust(
                             format!("{}Reply_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
@@ -627,7 +621,7 @@ impl VarlinkClientInterface for VarlinkClient {{
             if t.input.elts.len() > 0 {
                 for e in &t.input.elts {
                     inparms += format!(
-                        ", {}: Option<{}>",
+                        ", {}: {}",
                         replace_if_rust_keyword(e.name),
                         e.vtype.to_rust(
                             format!("{}Args_{}", t.name, e.name).as_ref(),

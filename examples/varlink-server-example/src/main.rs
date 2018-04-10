@@ -17,7 +17,7 @@ struct MyIoSystemdNetwork {
 }
 
 impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
-    fn info(&self, call: &mut _CallInfo, ifindex: Option<i64>) -> io::Result<()> {
+    fn info(&self, call: &mut _CallInfo, ifindex: i64) -> io::Result<()> {
         // State example
         {
             let mut number = self.state.write().unwrap();
@@ -28,19 +28,19 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
         }
 
         match ifindex {
-            Some(1) => {
-                return call.reply(Some(NetdevInfo {
-                    ifindex: Some(1),
-                    ifname: Some("lo".into()),
-                }));
+            1 => {
+                return call.reply(NetdevInfo {
+                    ifindex: 1,
+                    ifname: "lo".into(),
+                });
             }
-            Some(2) => {
-                return call.reply(Some(NetdevInfo {
-                    ifindex: Some(2),
-                    ifname: Some("eth".into()),
-                }));
+            2 => {
+                return call.reply(NetdevInfo {
+                    ifindex: 2,
+                    ifname: "eth".into(),
+                });
             }
-            Some(3) => {
+            3 => {
                 return call.reply_invalid_parameter(Some("ifindex".into()));
             }
             _ => {
@@ -58,16 +58,16 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
 
             eprintln!("{}", *number);
         }
-        return call.reply(Some(vec![
+        return call.reply(vec![
             Netdev {
-                ifindex: Some(1),
-                ifname: Some("lo".into()),
+                ifindex: 1,
+                ifname: "lo".into(),
             },
             Netdev {
-                ifindex: Some(2),
-                ifname: Some("eth0".into()),
+                ifindex: 2,
+                ifname: "eth0".into(),
             },
-        ]));
+        ]);
     }
 }
 
@@ -138,39 +138,39 @@ fn test_client() {
         let mut call = VarlinkClient::new(conn);
 
         match call.list()?.recv() {
-            Ok(ListReply_ { netdevs: Some(vec) }) => {
+            Ok(ListReply_ { netdevs: vec }) => {
                 assert_eq!(vec.len(), 2);
-                assert_eq!(vec[0].ifindex, Some(1));
-                assert_eq!(vec[0].ifname, Some(String::from("lo")));
-                assert_eq!(vec[1].ifindex, Some(2));
-                assert_eq!(vec[1].ifname, Some(String::from("eth0")));
+                assert_eq!(vec[0].ifindex, 1);
+                assert_eq!(vec[0].ifname, String::from("lo"));
+                assert_eq!(vec[1].ifindex, 2);
+                assert_eq!(vec[1].ifname, String::from("eth0"));
             }
             res => panic!("Unknown result {:?}", res),
         }
 
-        match call.info(Some(1))?.recv() {
+        match call.info(1)?.recv() {
             Ok(InfoReply_ {
                 info:
-                    Some(NetdevInfo {
-                        ifindex: Some(1),
-                        ifname: Some(ref p),
-                    }),
+                    NetdevInfo {
+                        ifindex: 1,
+                        ifname: ref p,
+                    },
             }) if p == "lo" => {}
             res => panic!("Unknown result {:?}", res),
         }
 
-        match call.info(Some(2))?.recv() {
+        match call.info(2)?.recv() {
             Ok(InfoReply_ {
                 info:
-                    Some(NetdevInfo {
-                        ifindex: Some(2),
-                        ifname: Some(ref p),
-                    }),
+                    NetdevInfo {
+                        ifindex: 2,
+                        ifname: ref p,
+                    },
             }) if p == "eth" => {}
             res => panic!("Unknown result {:?}", res),
         }
 
-        match call.info(Some(3))?.recv() {
+        match call.info(3)?.recv() {
             Err(Error_::VarlinkError_(varlink::Error::InvalidParameter(
                 varlink::ErrorInvalidParameter {
                     parameter: Some(ref p),
@@ -179,8 +179,8 @@ fn test_client() {
             res => panic!("Unknown result {:?}", res),
         }
 
-        match call.info(Some(4))?.recv() {
-            Err(Error_::UnknownNetworkIfIndex(UnknownNetworkIfIndexArgs_ { ifindex: Some(4) })) => {
+        match call.info(4)?.recv() {
+            Err(Error_::UnknownNetworkIfIndex(Some(UnknownNetworkIfIndexArgs_ { ifindex: 4 }))) => {
             }
             res => panic!("Unknown result {:?}", res),
         }

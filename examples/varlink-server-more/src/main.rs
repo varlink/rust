@@ -17,7 +17,7 @@ mod org_example_more;
 struct MyOrgExampleMore;
 
 impl VarlinkInterface for MyOrgExampleMore {
-    fn ping(&self, call: &mut _CallPing, ping: Option<String>) -> io::Result<()> {
+    fn ping(&self, call: &mut _CallPing, ping: String) -> io::Result<()> {
         return call.reply(ping);
     }
 
@@ -26,46 +26,45 @@ impl VarlinkInterface for MyOrgExampleMore {
         Err(Error::new(ErrorKind::ConnectionRefused, "Disconnect"))
     }
 
-    fn test_more(&self, call: &mut _CallTestMore, n: Option<i64>) -> io::Result<()> {
+    fn test_more(&self, call: &mut _CallTestMore, n: i64) -> io::Result<()> {
         if !call.wants_more() {
-            return call.reply_test_more_error(Some("called without more".into()));
+            return call.reply_test_more_error("called without more".into());
         }
-
-        if n == None {
-            return call.reply_invalid_parameter(Some("n".into()));
-        }
-        let n = n.unwrap();
 
         if n == 0 {
-            return call.reply_test_more_error(Some("n == 0".into()));
+            return call.reply_test_more_error("n == 0".into());
         }
 
         call.set_continues(true);
 
-        call.reply(Some(State {
+        call.reply(State {
             start: Some(true),
-            ..Default::default()
-        }))?;
+            end: None,
+            progress: None,
+        })?;
 
         for i in 0..n {
             thread::sleep(time::Duration::from_secs(1));
-            call.reply(Some(State {
+            call.reply(State {
                 progress: Some(i * 100 / n),
-                ..Default::default()
-            }))?;
+                start: None,
+                end: None,
+            })?;
         }
 
-        call.reply(Some(State {
+        call.reply(State {
             progress: Some(100),
-            ..Default::default()
-        }))?;
+            start: None,
+            end: None,
+        })?;
 
         call.set_continues(false);
 
-        call.reply(Some(State {
+        call.reply(State {
             end: Some(true),
-            ..Default::default()
-        }))
+            progress: None,
+            start: None,
+        })
     }
 }
 
@@ -145,9 +144,9 @@ interface org.example.more
 # Enum, returning either start, progress or end
 # progress: [0-100]
 type State (
-  start: bool,
-  progress: int,
-  end: bool
+  start: ?bool,
+  progress: ?int,
+  end: ?bool
 )
 
 # Returns the same string
@@ -170,11 +169,9 @@ error TestMoreError (reason: string)
         let con2 = varlink::Connection::new(&new_addr)?;
         let mut pingcall = org_example_more::VarlinkClient::new(con2);
 
-        for reply in call.more().test_more(Some(4))? {
+        for reply in call.more().test_more(4)? {
             let reply = reply?;
-            assert!(reply.state.is_some());
-            let state = reply.state.unwrap();
-            match state {
+            match reply.state {
                 State {
                     start: Some(true),
                     end: None,
@@ -199,31 +196,31 @@ error TestMoreError (reason: string)
                 } => {
                     eprintln!("Progress: {}", progress);
                     if progress > 50 {
-                        let reply = pingcall.ping(Some("Test".into()))?.recv()?;
-                        println!("Pong: '{}'", reply.pong.unwrap());
+                        let reply = pingcall.ping("Test".into())?.recv()?;
+                        println!("Pong: '{}'", reply.pong);
                     }
                 }
-                _ => panic!("Got unknown state: {:?}", state),
+                _ => panic!("Got unknown state: {:?}", reply.state),
             }
         }
 
         {
-            let reply = call.test_more(Some(0))?.recv();
+            let reply = call.test_more(0)?.recv();
             assert!(reply.is_err());
             match reply {
-                Err(Error_::TestMoreError(TestMoreErrorArgs_ {
-                    reason: Some(ref e),
-                })) if e == "called without more" => {}
+                Err(Error_::TestMoreError(Some(TestMoreErrorArgs_ {
+                    reason: ref e,
+                }))) if e == "called without more" => {}
                 r => panic!("Unknown reply {:#?}", r),
             }
         }
 
-        for reply in call.more().test_more(Some(0))? {
+        for reply in call.more().test_more(0)? {
             assert!(reply.is_err());
             match reply {
-                Err(Error_::TestMoreError(TestMoreErrorArgs_ {
-                    reason: Some(ref e),
-                })) if e == "n == 0" => {}
+                Err(Error_::TestMoreError(Some(TestMoreErrorArgs_ {
+                    reason: ref e,
+                }))) if e == "n == 0" => {}
                 r => panic!("Unknown reply {:#?}", r),
             }
         }

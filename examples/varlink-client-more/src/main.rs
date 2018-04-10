@@ -22,10 +22,10 @@ fn run_app(address: String) -> io::Result<()> {
     let con2 = varlink::Connection::new(&new_addr)?;
     let mut pingcall = org_example_more::VarlinkClient::new(con2);
 
-    for reply in call.more().test_more(Some(10))? {
+    for reply in call.more().test_more(10)? {
         let reply = reply?;
-        assert!(reply.state.is_some());
-        let state = reply.state.unwrap();
+        //assert!(reply.state.is_some());
+        let state = reply.state;
         match state {
             State {
                 start: Some(true),
@@ -51,8 +51,8 @@ fn run_app(address: String) -> io::Result<()> {
             } => {
                 eprintln!("Progress: {}", progress);
                 if progress > 50 {
-                    let reply = pingcall.ping(Some("Test".into()))?.recv()?;
-                    println!("Pong: '{}'", reply.pong.unwrap());
+                    let reply = pingcall.ping("Test".into())?.recv()?;
+                    println!("Pong: '{}'", reply.pong);
                 }
             }
             _ => eprintln!("Got unknown state: {:?}", state),

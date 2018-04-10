@@ -14,8 +14,8 @@ type TypeFoo (
   int: int,
   float: float,
   string: string,
-  enum: [](foo, bar, baz),
-  type: TypeEnum,
+  enum: ?[]?(foo, bar, baz),
+  type: ?TypeEnum,
   anon: (
     foo: bool,
     bar: int,

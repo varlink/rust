@@ -13,155 +13,161 @@ use varlink::CallTrait;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Enum {
- #[serde(rename = "enum")]   enum_,
-   b,
-   c,
-
+    #[serde(rename = "enum")] enum_,
+    b,
+    c,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Interface {
-   interface,
-   b,
-   c,
-
+    interface,
+    b,
+    c,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Type {
- #[serde(rename = "type")]   type_,
-   b,
-   c,
-
+    #[serde(rename = "type")] type_,
+    b,
+    c,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum TypeEnum {
- #[serde(rename = "type")]   type_,
-   b,
-   c,
-
+    #[serde(rename = "type")] type_,
+    b,
+    c,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TypeFoo {
- pub bool: bool,
- pub int: i64,
- pub float: f64,
- pub string: String,
- #[serde(rename = "enum")] pub enum_: Vec<TypeFoo_enum>,
- #[serde(rename = "type")] pub type_: TypeEnum,
- pub anon: TypeFoo_anon,
+    pub bool: bool,
+    pub int: i64,
+    pub float: f64,
+    pub string: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "enum")]
+    pub enum_: Option<Vec<Option<TypeFoo_enum>>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "type")]
+    pub type_: Option<TypeEnum>,
+    pub anon: TypeFoo_anon,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct BarReply_ {
-}
+pub struct BarReply_ {}
 
 impl varlink::VarlinkReply for BarReply_ {}
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct BarArgs_ {
-}
+pub struct BarArgs_ {}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FooReply_ {
- pub a: Vec<FooReply_a>,
- pub foo: TypeFoo,
- pub interface: Interface,
+    pub a: Vec<FooReply_a>,
+    pub foo: TypeFoo,
+    pub interface: Interface,
 }
 
 impl varlink::VarlinkReply for FooReply_ {}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FooArgs_ {
- #[serde(rename = "enum")] pub enum_: FooArgs_enum,
- pub foo: TypeFoo,
- pub interface: Interface,
+    #[serde(rename = "enum")] pub enum_: FooArgs_enum,
+    pub foo: TypeFoo,
+    pub interface: Interface,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ErrorBarArgs_ {
-}
+pub struct ErrorBarArgs_ {}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ErrorFooArgs_ {
- #[serde(rename = "enum")] pub enum_: ErrorFooArgs_enum,
- pub foo: TypeFoo,
- pub bar: ErrorFooArgs_bar,
- pub interface: Interface,
+    #[serde(rename = "enum")] pub enum_: ErrorFooArgs_enum,
+    pub foo: TypeFoo,
+    pub bar: ErrorFooArgs_bar,
+    pub interface: Interface,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TypeFoo_anon {
- pub foo: bool,
- pub bar: i64,
- pub baz: Vec<TypeFoo_anon_baz>,
+    pub foo: bool,
+    pub bar: i64,
+    pub baz: Vec<TypeFoo_anon_baz>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FooReply_a {
- pub b: bool,
- pub c: i64,
+    pub b: bool,
+    pub c: i64,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FooArgs_enum {
- pub b: bool,
- pub c: i64,
+    pub b: bool,
+    pub c: i64,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ErrorFooArgs_enum {
- pub b: bool,
- pub c: i64,
- pub interface: Interface,
+    pub b: bool,
+    pub c: i64,
+    pub interface: Interface,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum TypeFoo_enum {
-   foo,
-   bar,
-   baz,
-
+    foo,
+    bar,
+    baz,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ErrorFooArgs_bar {
- #[serde(rename = "type")]   type_,
- #[serde(rename = "enum")]   enum_,
-   int,
-   bool,
-   string,
- #[serde(rename = "if")]   if_,
- #[serde(rename = "let")]   let_,
-
+    #[serde(rename = "type")] type_,
+    #[serde(rename = "enum")] enum_,
+    int,
+    bool,
+    string,
+    #[serde(rename = "if")] if_,
+    #[serde(rename = "let")] let_,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TypeFoo_anon_baz {
- pub a: i64,
- pub b: i64,
+    pub a: i64,
+    pub b: i64,
 }
 
 pub trait _CallErr: varlink::CallTrait {
     fn reply_error_bar(&mut self) -> io::Result<()> {
         self.reply_struct(varlink::Reply::error(
             "org.example.complex.ErrorBar".into(),
-        None,
-
+            None,
         ))
     }
-    fn reply_error_foo(&mut self, enum_: ErrorFooArgs_enum, foo: TypeFoo, bar: ErrorFooArgs_bar, interface: Interface) -> io::Result<()> {
+    fn reply_error_foo(
+        &mut self,
+        enum_: ErrorFooArgs_enum,
+        foo: TypeFoo,
+        bar: ErrorFooArgs_bar,
+        interface: Interface,
+    ) -> io::Result<()> {
         self.reply_struct(varlink::Reply::error(
             "org.example.complex.ErrorFoo".into(),
-            Some(serde_json::to_value(ErrorFooArgs_ { enum_, foo, bar, interface }).unwrap()),
+            Some(
+                serde_json::to_value(ErrorFooArgs_ {
+                    enum_,
+                    foo,
+                    bar,
+                    interface,
+                }).unwrap(),
+            ),
         ))
     }
 }
 
 impl<'a> _CallErr for varlink::Call<'a> {}
-
 
 #[derive(Debug)]
 pub enum Error_ {
@@ -181,35 +187,35 @@ impl From<varlink::Reply> for Error_ {
 
         match e {
             varlink::Reply {
-                     error: Some(ref t), ..
-                } if t == "org.example.complex.ErrorBar" =>
-                {
-                   match e {
-                       varlink::Reply {
-                           parameters: Some(p),
-                           ..
-                       } => match serde_json::from_value(p) {
-                           Ok(v) => Error_::ErrorBar(v),
-                           Err(_) => Error_::ErrorBar(None),
-                       },
-                       _ => Error_::ErrorBar(None),
-                   }
-               }
+                error: Some(ref t), ..
+            } if t == "org.example.complex.ErrorBar" =>
+            {
+                match e {
+                    varlink::Reply {
+                        parameters: Some(p),
+                        ..
+                    } => match serde_json::from_value(p) {
+                        Ok(v) => Error_::ErrorBar(v),
+                        Err(_) => Error_::ErrorBar(None),
+                    },
+                    _ => Error_::ErrorBar(None),
+                }
+            }
             varlink::Reply {
-                     error: Some(ref t), ..
-                } if t == "org.example.complex.ErrorFoo" =>
-                {
-                   match e {
-                       varlink::Reply {
-                           parameters: Some(p),
-                           ..
-                       } => match serde_json::from_value(p) {
-                           Ok(v) => Error_::ErrorFoo(v),
-                           Err(_) => Error_::ErrorFoo(None),
-                       },
-                       _ => Error_::ErrorFoo(None),
-                   }
-               }
+                error: Some(ref t), ..
+            } if t == "org.example.complex.ErrorFoo" =>
+            {
+                match e {
+                    varlink::Reply {
+                        parameters: Some(p),
+                        ..
+                    } => match serde_json::from_value(p) {
+                        Ok(v) => Error_::ErrorFoo(v),
+                        Err(_) => Error_::ErrorFoo(None),
+                    },
+                    _ => Error_::ErrorFoo(None),
+                }
+            }
             _ => return Error_::UnknownError_(e),
         }
     }
@@ -240,13 +246,15 @@ impl From<Error_> for io::Error {
                     "org.example.complex.ErrorBar: '{}'",
                     serde_json::to_string_pretty(&e).unwrap()
                 ),
-            ),            Error_::ErrorFoo(e) => io::Error::new(
+            ),
+            Error_::ErrorFoo(e) => io::Error::new(
                 io::ErrorKind::Other,
                 format!(
                     "org.example.complex.ErrorFoo: '{}'",
                     serde_json::to_string_pretty(&e).unwrap()
                 ),
-            ),            Error_::VarlinkError_(e) => e.into(),
+            ),
+            Error_::VarlinkError_(e) => e.into(),
             Error_::IOError_(e) => e,
             Error_::JSONError_(e) => e.into(),
             Error_::UnknownError_(e) => io::Error::new(
@@ -277,7 +285,13 @@ impl<'a> _CallFoo for varlink::Call<'a> {}
 
 pub trait VarlinkInterface {
     fn bar(&self, call: &mut _CallBar) -> io::Result<()>;
-    fn foo(&self, call: &mut _CallFoo, enum_: FooArgs_enum, foo: TypeFoo, interface: Interface) -> io::Result<()>;
+    fn foo(
+        &self,
+        call: &mut _CallFoo,
+        enum_: FooArgs_enum,
+        foo: TypeFoo,
+        interface: Interface,
+    ) -> io::Result<()>;
     fn call_upgraded(&self, _call: &mut varlink::Call) -> io::Result<()> {
         Ok(())
     }
@@ -285,7 +299,12 @@ pub trait VarlinkInterface {
 
 pub trait VarlinkClientInterface {
     fn bar(&mut self) -> io::Result<varlink::MethodCall<BarArgs_, BarReply_, Error_>>;
-    fn foo(&mut self, enum_: FooArgs_enum, foo: TypeFoo, interface: Interface) -> io::Result<varlink::MethodCall<FooArgs_, FooReply_, Error_>>;
+    fn foo(
+        &mut self,
+        enum_: FooArgs_enum,
+        foo: TypeFoo,
+        interface: Interface,
+    ) -> io::Result<varlink::MethodCall<FooArgs_, FooReply_, Error_>>;
 }
 
 pub struct VarlinkClient {
@@ -310,18 +329,29 @@ impl VarlinkClient {
 
 impl VarlinkClientInterface for VarlinkClient {
     fn bar(&mut self) -> io::Result<varlink::MethodCall<BarArgs_, BarReply_, Error_>> {
-            varlink::MethodCall::<BarArgs_, BarReply_, Error_>::call(
+        varlink::MethodCall::<BarArgs_, BarReply_, Error_>::call(
             self.connection.clone(),
             "org.example.complex.Bar".into(),
-            BarArgs_ {  },
-        self.more)
+            BarArgs_ {},
+            self.more,
+        )
     }
-    fn foo(&mut self, enum_: FooArgs_enum, foo: TypeFoo, interface: Interface) -> io::Result<varlink::MethodCall<FooArgs_, FooReply_, Error_>> {
-            varlink::MethodCall::<FooArgs_, FooReply_, Error_>::call(
+    fn foo(
+        &mut self,
+        enum_: FooArgs_enum,
+        foo: TypeFoo,
+        interface: Interface,
+    ) -> io::Result<varlink::MethodCall<FooArgs_, FooReply_, Error_>> {
+        varlink::MethodCall::<FooArgs_, FooReply_, Error_>::call(
             self.connection.clone(),
             "org.example.complex.Foo".into(),
-            FooArgs_ { enum_, foo, interface },
-        self.more)
+            FooArgs_ {
+                enum_,
+                foo,
+                interface,
+            },
+            self.more,
+        )
     }
 }
 
@@ -351,8 +381,8 @@ type TypeFoo (
   int: int,
   float: float,
   string: string,
-  enum: [](foo, bar, baz),
-  type: TypeEnum,
+  enum: ?[]?(foo, bar, baz),
+  type: ?TypeEnum,
   anon: (
     foo: bool,
     bar: int,
@@ -404,7 +434,12 @@ error ErrorBar ()
             "org.example.complex.Foo" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: FooArgs_ = serde_json::from_value(args)?;
-                    return self.inner.foo(call as &mut _CallFoo, args.enum_, args.foo, args.interface);
+                    return self.inner.foo(
+                        call as &mut _CallFoo,
+                        args.enum_,
+                        args.foo,
+                        args.interface,
+                    );
                 } else {
                     return call.reply_invalid_parameter(None);
                 }

@@ -208,9 +208,8 @@ error TestMoreError (reason: string)
             let reply = call.test_more(0)?.recv();
             assert!(reply.is_err());
             match reply {
-                Err(Error_::TestMoreError(Some(TestMoreErrorArgs_ {
-                    reason: ref e,
-                }))) if e == "called without more" => {}
+                Err(Error_::TestMoreError(Some(TestMoreErrorArgs_ { reason: ref e })))
+                    if e == "called without more" => {}
                 r => panic!("Unknown reply {:#?}", r),
             }
         }
@@ -218,9 +217,8 @@ error TestMoreError (reason: string)
         for reply in call.more().test_more(0)? {
             assert!(reply.is_err());
             match reply {
-                Err(Error_::TestMoreError(Some(TestMoreErrorArgs_ {
-                    reason: ref e,
-                }))) if e == "n == 0" => {}
+                Err(Error_::TestMoreError(Some(TestMoreErrorArgs_ { reason: ref e })))
+                    if e == "n == 0" => {}
                 r => panic!("Unknown reply {:#?}", r),
             }
         }

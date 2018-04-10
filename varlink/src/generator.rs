@@ -61,8 +61,13 @@ impl<'short, 'long: 'short> ToRust<'short, 'long> for VTypeExt<'long> {
     ) -> io::Result<String> {
         match self {
             &VTypeExt::Plain(ref vtype) => vtype.to_rust(parent, enumvec, structvec),
-            &VTypeExt::Array(ref v) => Ok(format!("Vec<{}>", v.to_rust(parent, enumvec, structvec)?)),
-            &VTypeExt::Option(ref v) => Ok(format!("Option<{}>", v.to_rust(parent, enumvec, structvec)?)),
+            &VTypeExt::Array(ref v) => {
+                Ok(format!("Vec<{}>", v.to_rust(parent, enumvec, structvec)?))
+            }
+            &VTypeExt::Option(ref v) => Ok(format!(
+                "Option<{}>",
+                v.to_rust(parent, enumvec, structvec)?
+            )),
         }
     }
 }
@@ -162,7 +167,9 @@ use varlink::CallTrait;
                     write!(w, "#[derive(Serialize, Deserialize, Debug)]\n")?;
                     write!(w, "pub struct {} {{\n", replace_if_rust_keyword(t.name))?;
                     for e in &v.elts {
-                        //write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
+                        if let VTypeExt::Option(_) = e.vtype {
+                            write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
+                        }
                         let ename = replace_if_rust_keyword_annotate(e.name, w)?;
                         write!(
                             w,
@@ -194,7 +201,9 @@ use varlink::CallTrait;
             write!(w, "#[derive(Serialize, Deserialize, Debug)]\n")?;
             write!(w, "pub struct {}Reply_ {{\n", t.name)?;
             for e in &t.output.elts {
-                //write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
+                if let VTypeExt::Option(_) = e.vtype {
+                    write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
+                }
                 let ename = replace_if_rust_keyword_annotate(e.name, w)?;
                 write!(
                     w,
@@ -216,7 +225,9 @@ use varlink::CallTrait;
             write!(w, "#[derive(Serialize, Deserialize, Debug)]\n")?;
             write!(w, "pub struct {}Args_ {{\n", t.name)?;
             for e in &t.input.elts {
-                //write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
+                if let VTypeExt::Option(_) = e.vtype {
+                    write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
+                }
                 let ename = replace_if_rust_keyword_annotate(e.name, w)?;
                 write!(
                     w,
@@ -236,7 +247,9 @@ use varlink::CallTrait;
             write!(w, "#[derive(Serialize, Deserialize, Debug)]\n")?;
             write!(w, "pub struct {}Args_ {{\n", t.name)?;
             for e in &t.parm.elts {
-                //write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
+                if let VTypeExt::Option(_) = e.vtype {
+                    write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
+                }
                 let ename = replace_if_rust_keyword_annotate(e.name, w)?;
                 write!(
                     w,
@@ -258,7 +271,9 @@ use varlink::CallTrait;
                 write!(w, "#[derive(Serialize, Deserialize, Debug)]\n")?;
                 write!(w, "pub struct {} {{\n", replace_if_rust_keyword(&name))?;
                 for e in &v.elts {
-                    //write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
+                    if let VTypeExt::Option(_) = e.vtype {
+                        write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
+                    }
                     let ename = replace_if_rust_keyword_annotate(e.name, w)?;
                     write!(
                         w,

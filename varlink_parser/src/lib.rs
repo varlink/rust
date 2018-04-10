@@ -100,13 +100,13 @@ macro_rules! printVTypeExt {
 impl<'a> fmt::Display for VTypeExt<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            &VTypeExt::Plain(VType::Bool( ref v)) => printVTypeExt!(self, f, v, "bool"),
-            &VTypeExt::Plain(VType::Int( ref v)) => printVTypeExt!(self, f, v, "int"),
-            &VTypeExt::Plain(VType::Float( ref v)) => printVTypeExt!(self, f, v, "float"),
-            &VTypeExt::Plain(VType::VString( ref v)) => printVTypeExt!(self, f, v, "string", "\""),
-            &VTypeExt::Plain(VType::VTypename( ref v)) => printVTypeExt!(self, f, v),
-            &VTypeExt::Plain(VType::VStruct( ref v)) => printVTypeExt!(self, f, v),
-            &VTypeExt::Plain(VType::VEnum( ref v)) => printVTypeExt!(self, f, v),
+            &VTypeExt::Plain(VType::Bool(ref v)) => printVTypeExt!(self, f, v, "bool"),
+            &VTypeExt::Plain(VType::Int(ref v)) => printVTypeExt!(self, f, v, "int"),
+            &VTypeExt::Plain(VType::Float(ref v)) => printVTypeExt!(self, f, v, "float"),
+            &VTypeExt::Plain(VType::VString(ref v)) => printVTypeExt!(self, f, v, "string", "\""),
+            &VTypeExt::Plain(VType::VTypename(ref v)) => printVTypeExt!(self, f, v),
+            &VTypeExt::Plain(VType::VStruct(ref v)) => printVTypeExt!(self, f, v),
+            &VTypeExt::Plain(VType::VEnum(ref v)) => printVTypeExt!(self, f, v),
             &VTypeExt::Array(ref v) => write!(f, "[]{}", v)?,
             &VTypeExt::Option(ref v) => write!(f, "?{}", v)?,
         }

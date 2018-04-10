@@ -49,8 +49,8 @@ pub struct TypeFoo {
  pub int: i64,
  pub float: f64,
  pub string: String,
- #[serde(rename = "enum")] pub enum_: Vec<TypeFoo_enum>,
- #[serde(rename = "type")] pub type_: TypeEnum,
+    #[serde(skip_serializing_if = "Option::is_none")] #[serde(rename = "enum")] pub enum_: Option<Vec<Option<TypeFoo_enum>>>,
+    #[serde(skip_serializing_if = "Option::is_none")] #[serde(rename = "type")] pub type_: Option<TypeEnum>,
  pub anon: TypeFoo_anon,
 }
 
@@ -350,8 +350,8 @@ type TypeFoo (
   int: int,
   float: float,
   string: string,
-  enum: [](foo, bar, baz),
-  type: TypeEnum,
+  enum: ?[]?(foo, bar, baz),
+  type: ?TypeEnum,
   anon: (
     foo: bool,
     bar: int,

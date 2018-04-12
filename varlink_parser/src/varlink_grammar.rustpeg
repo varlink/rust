@@ -38,6 +38,9 @@ interface_name -> &'input str /* no hyphen at begin and end */
 array -> ()
     = "[]"
 
+dict -> ()
+    = "[string]"
+
 option -> ()
     = "?"
 
@@ -45,19 +48,22 @@ use super::VType;
 use super::VTypeExt;
 
 btype -> VTypeExt<'input>
-    = "bool"    { VTypeExt::Plain(VType::Bool(None))}
-    / "int"     { VTypeExt::Plain(VType::Int(None))}
-    / "float"   { VTypeExt::Plain(VType::Float(None))}
-    / "string"  { VTypeExt::Plain(VType::VString(None))}
-    / t:$(name) { VTypeExt::Plain(VType::VTypename(t))}
-    / v:vstruct { VTypeExt::Plain(VType::VStruct(Box::new(v)))}
-    / v:venum   { VTypeExt::Plain(VType::VEnum(Box::new(v)))}
+    = "bool"    { VTypeExt::Plain(VType::Bool)}
+    / "int"     { VTypeExt::Plain(VType::Int)}
+    / "float"   { VTypeExt::Plain(VType::Float)}
+    / "string"  { VTypeExt::Plain(VType::String)}
+    / "object"  { VTypeExt::Plain(VType::Object)}
+    / t:$(name) { VTypeExt::Plain(VType::Typename(t))}
+    / v:vstruct { VTypeExt::Plain(VType::Struct(Box::new(v)))}
+    / v:venum   { VTypeExt::Plain(VType::Enum(Box::new(v)))}
 
 type -> VTypeExt<'input>
     = v:btype { v }
     / a:array v:type { VTypeExt::Array(Box::new(v)) }
+    / a:dict  v:type { VTypeExt::Dict(Box::new(v)) }
     / o:option v:btype { VTypeExt::Option(Box::new(v)) }
     / o:option a:array v:type { VTypeExt::Option(Box::new(VTypeExt::Array(Box::new(v)))) }
+    / o:option a:dict v:type { VTypeExt::Option(Box::new(VTypeExt::Dict(Box::new(v)))) }
 
 use super::Argument;
 object_field -> Argument<'input>

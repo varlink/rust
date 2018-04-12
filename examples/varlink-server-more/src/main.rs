@@ -66,6 +66,24 @@ impl VarlinkInterface for MyOrgExampleMore {
             start: None,
         })
     }
+    fn test_map(
+        &self,
+        call: &mut _CallTestMap,
+        map: ::std::collections::HashMap<String, String>,
+    ) -> Result<(), Error> {
+        let mut i = 1;
+        let mut retmap = ::std::collections::HashMap::new();
+        let ordered: ::std::collections::BTreeMap<_, _> = map.iter().collect();
+        for (k, v) in ordered {
+            let r = org_example_more::TestMapReply_map {
+                i: i,
+                val: v.clone(),
+            };
+            i += 1;
+            retmap.insert(k.clone(), r);
+        }
+        call.reply(retmap)
+    }
 }
 
 fn run_app(address: String, timeout: u64) -> io::Result<()> {
@@ -138,7 +156,7 @@ mod test {
 
         assert_eq!(
             &description.description.unwrap(),
-            r#"# Example service
+            r#"# Example Varlink service
 interface org.example.more
 
 # Enum, returning either start, progress or end
@@ -148,6 +166,8 @@ type State (
   progress: ?int,
   end: ?bool
 )
+
+method TestMap(map: [string]string) -> (map: [string](i: int, val: string))
 
 # Returns the same string
 method Ping(ping: string) -> (pong: string)
@@ -168,6 +188,38 @@ error TestMoreError (reason: string)
 
         let con2 = varlink::Connection::new(&new_addr)?;
         let mut pingcall = org_example_more::VarlinkClient::new(con2);
+
+        let mut map = ::std::collections::HashMap::new();
+        map.insert(String::from("one"), String::from("one"));
+        map.insert(String::from("two"), String::from("two"));
+
+        let reply = call.test_map(map)?.recv()?;
+
+        let mut should = ::std::collections::HashMap::new();
+        should.insert(
+            String::from("one"),
+            TestMapReply_map {
+                i: 1,
+                val: String::from("one"),
+            },
+        );
+        should.insert(
+            String::from("two"),
+            TestMapReply_map {
+                i: 2,
+                val: String::from("two"),
+            },
+        );
+        assert_eq!(reply.map, should);
+
+        match reply.map.get(&String::from("one")) {
+            Some(&TestMapReply_map { i: 1, val: ref v }) if *v == String::from("one") => {}
+            _ => panic!("TestMapReply failed {:?}", reply.map),
+        }
+        match reply.map.get(&String::from("two")) {
+            Some(&TestMapReply_map { i: 2, val: ref v }) if *v == String::from("two") => {}
+            _ => panic!("TestMapReply failed {:?}", reply.map),
+        }
 
         for reply in call.more().test_more(4)? {
             let reply = reply?;

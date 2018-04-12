@@ -4,55 +4,74 @@
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
+#![allow(unused_imports)]
 
-use serde_json;
+use serde_json::{self, Value};
 use std::io;
 use std::sync::{Arc, RwLock};
 use varlink;
 use varlink::CallTrait;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct State {
     #[serde(skip_serializing_if = "Option::is_none")] pub start: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")] pub progress: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")] pub end: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct PingReply_ {
     pub pong: String,
 }
 
 impl varlink::VarlinkReply for PingReply_ {}
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct PingArgs_ {
     pub ping: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct StopServingReply_ {}
 
 impl varlink::VarlinkReply for StopServingReply_ {}
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct StopServingArgs_ {}
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct TestMapReply_ {
+    pub map: ::std::collections::HashMap<String, TestMapReply_map>,
+}
+
+impl varlink::VarlinkReply for TestMapReply_ {}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct TestMapArgs_ {
+    pub map: ::std::collections::HashMap<String, String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct TestMoreReply_ {
     pub state: State,
 }
 
 impl varlink::VarlinkReply for TestMoreReply_ {}
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct TestMoreArgs_ {
     pub n: i64,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct TestMoreErrorArgs_ {
     pub reason: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct TestMapReply_map {
+    pub i: i64,
+    pub val: String,
 }
 
 pub trait _CallErr: varlink::CallTrait {
@@ -157,6 +176,17 @@ pub trait _CallStopServing: _CallErr {
 
 impl<'a> _CallStopServing for varlink::Call<'a> {}
 
+pub trait _CallTestMap: _CallErr {
+    fn reply(
+        &mut self,
+        map: ::std::collections::HashMap<String, TestMapReply_map>,
+    ) -> io::Result<()> {
+        self.reply_struct(TestMapReply_ { map }.into())
+    }
+}
+
+impl<'a> _CallTestMap for varlink::Call<'a> {}
+
 pub trait _CallTestMore: _CallErr {
     fn reply(&mut self, state: State) -> io::Result<()> {
         self.reply_struct(TestMoreReply_ { state }.into())
@@ -168,6 +198,11 @@ impl<'a> _CallTestMore for varlink::Call<'a> {}
 pub trait VarlinkInterface {
     fn ping(&self, call: &mut _CallPing, ping: String) -> io::Result<()>;
     fn stop_serving(&self, call: &mut _CallStopServing) -> io::Result<()>;
+    fn test_map(
+        &self,
+        call: &mut _CallTestMap,
+        map: ::std::collections::HashMap<String, String>,
+    ) -> io::Result<()>;
     fn test_more(&self, call: &mut _CallTestMore, n: i64) -> io::Result<()>;
     fn call_upgraded(&self, _call: &mut varlink::Call) -> io::Result<()> {
         Ok(())
@@ -182,6 +217,10 @@ pub trait VarlinkClientInterface {
     fn stop_serving(
         &mut self,
     ) -> io::Result<varlink::MethodCall<StopServingArgs_, StopServingReply_, Error_>>;
+    fn test_map(
+        &mut self,
+        map: ::std::collections::HashMap<String, String>,
+    ) -> io::Result<varlink::MethodCall<TestMapArgs_, TestMapReply_, Error_>>;
     fn test_more(
         &mut self,
         n: i64,
@@ -230,6 +269,17 @@ impl VarlinkClientInterface for VarlinkClient {
             self.more,
         )
     }
+    fn test_map(
+        &mut self,
+        map: ::std::collections::HashMap<String, String>,
+    ) -> io::Result<varlink::MethodCall<TestMapArgs_, TestMapReply_, Error_>> {
+        varlink::MethodCall::<TestMapArgs_, TestMapReply_, Error_>::call(
+            self.connection.clone(),
+            "org.example.more.TestMap".into(),
+            TestMapArgs_ { map },
+            self.more,
+        )
+    }
     fn test_more(
         &mut self,
         n: i64,
@@ -253,7 +303,7 @@ pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
 
 impl varlink::Interface for _InterfaceProxy {
     fn get_description(&self) -> &'static str {
-        r#"# Example service
+        r#"# Example Varlink service
 interface org.example.more
 
 # Enum, returning either start, progress or end
@@ -263,6 +313,8 @@ type State (
   progress: ?int,
   end: ?bool
 )
+
+method TestMap(map: [string]string) -> (map: [string](i: int, val: string))
 
 # Returns the same string
 method Ping(ping: string) -> (pong: string)
@@ -300,6 +352,14 @@ error TestMoreError (reason: string)
             }
             "org.example.more.StopServing" => {
                 return self.inner.stop_serving(call as &mut _CallStopServing);
+            }
+            "org.example.more.TestMap" => {
+                if let Some(args) = req.parameters.clone() {
+                    let args: TestMapArgs_ = serde_json::from_value(args)?;
+                    return self.inner.test_map(call as &mut _CallTestMap, args.map);
+                } else {
+                    return call.reply_invalid_parameter(None);
+                }
             }
             "org.example.more.TestMore" => {
                 if let Some(args) = req.parameters.clone() {

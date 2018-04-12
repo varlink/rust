@@ -4,53 +4,54 @@
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
+#![allow(unused_imports)]
 
-use serde_json;
+use serde_json::{self, Value};
 use std::io;
 use std::sync::{Arc, RwLock};
 use varlink;
 use varlink::CallTrait;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Netdev {
     pub ifindex: i64,
     pub ifname: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct NetdevInfo {
     pub ifindex: i64,
     pub ifname: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct InfoReply_ {
     pub info: NetdevInfo,
 }
 
 impl varlink::VarlinkReply for InfoReply_ {}
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct InfoArgs_ {
     pub ifindex: i64,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct ListReply_ {
     pub netdevs: Vec<Netdev>,
 }
 
 impl varlink::VarlinkReply for ListReply_ {}
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct ListArgs_ {}
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct UnknownErrorArgs_ {
     pub text: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct UnknownNetworkIfIndexArgs_ {
     pub ifindex: i64,
 }

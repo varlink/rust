@@ -32,19 +32,20 @@ impl<'short, 'long: 'short> ToRust<'short, 'long> for VType<'long> {
         structvec: &mut StructVec<'short>,
     ) -> io::Result<String> {
         match self {
-            &VType::Bool(_) => Ok("bool".into()),
-            &VType::Int(_) => Ok("i64".into()),
-            &VType::Float(_) => Ok("f64".into()),
-            &VType::VString(_) => Ok("String".into()),
-            &VType::VTypename(v) => Ok(v.into()),
-            &VType::VEnum(ref v) => {
+            &VType::Bool => Ok("bool".into()),
+            &VType::Int => Ok("i64".into()),
+            &VType::Float => Ok("f64".into()),
+            &VType::String => Ok("String".into()),
+            &VType::Object => Ok("Value".into()),
+            &VType::Typename(v) => Ok(v.into()),
+            &VType::Enum(ref v) => {
                 enumvec.push((
                     parent.into(),
                     Vec::from_iter(v.elts.iter().map(|s| String::from(*s))),
                 ));
                 Ok(format!("{}", parent).into())
             }
-            &VType::VStruct(ref v) => {
+            &VType::Struct(ref v) => {
                 structvec.push((String::from(parent), v.as_ref()));
                 Ok(format!("{}", parent).into())
             }
@@ -64,6 +65,10 @@ impl<'short, 'long: 'short> ToRust<'short, 'long> for VTypeExt<'long> {
             &VTypeExt::Array(ref v) => {
                 Ok(format!("Vec<{}>", v.to_rust(parent, enumvec, structvec)?))
             }
+            &VTypeExt::Dict(ref v) => Ok(format!(
+                "::std::collections::HashMap<String, {}>",
+                v.to_rust(parent, enumvec, structvec)?
+            )),
             &VTypeExt::Option(ref v) => Ok(format!(
                 "Option<{}>",
                 v.to_rust(parent, enumvec, structvec)?
@@ -151,8 +156,9 @@ impl<'a> InterfaceToRust for Interface<'a> {
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
+#![allow(unused_imports)]
 
-use serde_json;
+use serde_json::{{self, Value}};
 use std::io;
 use std::sync::{{Arc, RwLock}};
 use varlink;
@@ -164,7 +170,7 @@ use varlink::CallTrait;
         for t in self.typedefs.values() {
             match t.elt {
                 VStructOrEnum::VStruct(ref v) => {
-                    write!(w, "#[derive(Serialize, Deserialize, Debug)]\n")?;
+                    write!(w, "#[derive(Serialize, Deserialize, Debug, PartialEq)]\n")?;
                     write!(w, "pub struct {} {{\n", replace_if_rust_keyword(t.name))?;
                     for e in &v.elts {
                         if let VTypeExt::Option(_) = e.vtype {
@@ -184,7 +190,7 @@ use varlink::CallTrait;
                     }
                 }
                 VStructOrEnum::VEnum(ref v) => {
-                    write!(w, "#[derive(Serialize, Deserialize, Debug)]\n")?;
+                    write!(w, "#[derive(Serialize, Deserialize, Debug, PartialEq)]\n")?;
                     write!(w, "pub enum {} {{\n", t.name)?;
                     let mut iter = v.elts.iter();
                     for elt in iter {
@@ -198,7 +204,7 @@ use varlink::CallTrait;
         }
 
         for t in self.methods.values() {
-            write!(w, "#[derive(Serialize, Deserialize, Debug)]\n")?;
+            write!(w, "#[derive(Serialize, Deserialize, Debug, PartialEq)]\n")?;
             write!(w, "pub struct {}Reply_ {{\n", t.name)?;
             for e in &t.output.elts {
                 if let VTypeExt::Option(_) = e.vtype {
@@ -222,7 +228,7 @@ use varlink::CallTrait;
                 "impl varlink::VarlinkReply for {}Reply_ {{}}\n\n",
                 t.name
             )?;
-            write!(w, "#[derive(Serialize, Deserialize, Debug)]\n")?;
+            write!(w, "#[derive(Serialize, Deserialize, Debug, PartialEq)]\n")?;
             write!(w, "pub struct {}Args_ {{\n", t.name)?;
             for e in &t.input.elts {
                 if let VTypeExt::Option(_) = e.vtype {
@@ -244,7 +250,7 @@ use varlink::CallTrait;
         }
 
         for t in self.errors.values() {
-            write!(w, "#[derive(Serialize, Deserialize, Debug)]\n")?;
+            write!(w, "#[derive(Serialize, Deserialize, Debug, PartialEq)]\n")?;
             write!(w, "pub struct {}Args_ {{\n", t.name)?;
             for e in &t.parm.elts {
                 if let VTypeExt::Option(_) = e.vtype {
@@ -268,7 +274,7 @@ use varlink::CallTrait;
         loop {
             let mut nstructvec = StructVec::new();
             for (name, v) in structvec.drain(..) {
-                write!(w, "#[derive(Serialize, Deserialize, Debug)]\n")?;
+                write!(w, "#[derive(Serialize, Deserialize, Debug, PartialEq)]\n")?;
                 write!(w, "pub struct {} {{\n", replace_if_rust_keyword(&name))?;
                 for e in &v.elts {
                     if let VTypeExt::Option(_) = e.vtype {
@@ -293,7 +299,7 @@ use varlink::CallTrait;
             for (name, v) in enumvec.drain(..) {
                 write!(
                     w,
-                    "#[derive(Serialize, Deserialize, Debug)]\n\
+                    "#[derive(Serialize, Deserialize, Debug, PartialEq)]\n\
                      pub enum {} {{\n",
                     replace_if_rust_keyword(name.as_str())
                 )?;

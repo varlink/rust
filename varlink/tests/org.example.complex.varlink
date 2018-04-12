@@ -13,13 +13,14 @@ type TypeFoo (
   int: int,
   float: float,
   string: string,
-  enum: ?[]?(foo, bar, baz),
+  enum: ?[string]?(foo, bar, baz),
   type: ?TypeEnum,
   anon: (
     foo: bool,
     bar: int,
     baz: [](a: int, b: int)
-  )
+  ),
+  object: object
 )
 
 method Foo(

@@ -4,26 +4,27 @@
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
+#![allow(unused_imports)]
 
-use serde_json;
+use serde_json::{self, Value};
 use std::io;
 use std::sync::{Arc, RwLock};
 use varlink;
 use varlink::CallTrait;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct PingReply_ {
     pub pong: String,
 }
 
 impl varlink::VarlinkReply for PingReply_ {}
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct PingArgs_ {
     pub ping: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct PingErrorArgs_ {
     pub parameter: String,
 }

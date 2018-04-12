@@ -4,42 +4,43 @@
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
+#![allow(unused_imports)]
 
-use serde_json;
+use serde_json::{self, Value};
 use std::io;
 use std::sync::{Arc, RwLock};
 use varlink;
 use varlink::CallTrait;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum Enum {
     #[serde(rename = "enum")] enum_,
     b,
     c,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum Interface {
     interface,
     b,
     c,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum Type {
     #[serde(rename = "type")] type_,
     b,
     c,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum TypeEnum {
     #[serde(rename = "type")] type_,
     b,
     c,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct TypeFoo {
     pub bool: bool,
     pub int: i64,
@@ -52,17 +53,18 @@ pub struct TypeFoo {
     #[serde(rename = "type")]
     pub type_: Option<TypeEnum>,
     pub anon: TypeFoo_anon,
+    pub object: Value,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct BarReply_ {}
 
 impl varlink::VarlinkReply for BarReply_ {}
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct BarArgs_ {}
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct FooReply_ {
     pub a: Vec<FooReply_a>,
     pub foo: TypeFoo,
@@ -71,17 +73,17 @@ pub struct FooReply_ {
 
 impl varlink::VarlinkReply for FooReply_ {}
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct FooArgs_ {
     #[serde(rename = "enum")] pub enum_: FooArgs_enum,
     pub foo: TypeFoo,
     pub interface: Interface,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct ErrorBarArgs_ {}
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct ErrorFooArgs_ {
     #[serde(rename = "enum")] pub enum_: ErrorFooArgs_enum,
     pub foo: TypeFoo,
@@ -89,40 +91,40 @@ pub struct ErrorFooArgs_ {
     pub interface: Interface,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct TypeFoo_anon {
     pub foo: bool,
     pub bar: i64,
     pub baz: Vec<TypeFoo_anon_baz>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct FooReply_a {
     pub b: bool,
     pub c: i64,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct FooArgs_enum {
     pub b: bool,
     pub c: i64,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct ErrorFooArgs_enum {
     pub b: bool,
     pub c: i64,
     pub interface: Interface,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum TypeFoo_enum {
     foo,
     bar,
     baz,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum ErrorFooArgs_bar {
     #[serde(rename = "type")] type_,
     #[serde(rename = "enum")] enum_,
@@ -133,7 +135,7 @@ pub enum ErrorFooArgs_bar {
     #[serde(rename = "let")] let_,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct TypeFoo_anon_baz {
     pub a: i64,
     pub b: i64,
@@ -387,7 +389,8 @@ type TypeFoo (
     foo: bool,
     bar: int,
     baz: [](a: int, b: int)
-  )
+  ),
+  object: object
 )
 
 method Foo(

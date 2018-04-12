@@ -16,17 +16,19 @@ mod varlink_grammar {
 }
 
 pub enum VType<'a> {
-    Bool(Option<bool>),
-    Int(Option<i64>),
-    Float(Option<f64>),
-    VString(Option<&'a str>),
-    VTypename(&'a str),
-    VStruct(Box<VStruct<'a>>),
-    VEnum(Box<VEnum<'a>>),
+    Bool,
+    Int,
+    Float,
+    String,
+    Object,
+    Typename(&'a str),
+    Struct(Box<VStruct<'a>>),
+    Enum(Box<VEnum<'a>>),
 }
 
 pub enum VTypeExt<'a> {
     Array(Box<VTypeExt<'a>>),
+    Dict(Box<VTypeExt<'a>>),
     Option(Box<VTypeExt<'a>>),
     Plain(VType<'a>),
 }
@@ -83,31 +85,21 @@ macro_rules! printVTypeExt {
 	($s:ident, $f:ident, $t:expr) => {{
                 write!($f, "{}", $t)?;
 	}};
-	($s:ident, $f:ident, $v:ident, $t:expr) => {{
-                write!($f, "{}", $t)?;
-                if let Some(val) = *$v {
-                    write!($f, " = {}", val)?;
-                }
-	}};
-	($s:ident, $f:ident, $v:ident, $t:expr, $k:expr) => {{
-                write!($f, "{}", $t)?;
-                if let Some(val) = *$v {
-                    write!($f, " = {s}{}{s}", val, s=$k)?;
-                }
-	}};
 }
 
 impl<'a> fmt::Display for VTypeExt<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            &VTypeExt::Plain(VType::Bool(ref v)) => printVTypeExt!(self, f, v, "bool"),
-            &VTypeExt::Plain(VType::Int(ref v)) => printVTypeExt!(self, f, v, "int"),
-            &VTypeExt::Plain(VType::Float(ref v)) => printVTypeExt!(self, f, v, "float"),
-            &VTypeExt::Plain(VType::VString(ref v)) => printVTypeExt!(self, f, v, "string", "\""),
-            &VTypeExt::Plain(VType::VTypename(ref v)) => printVTypeExt!(self, f, v),
-            &VTypeExt::Plain(VType::VStruct(ref v)) => printVTypeExt!(self, f, v),
-            &VTypeExt::Plain(VType::VEnum(ref v)) => printVTypeExt!(self, f, v),
+            &VTypeExt::Plain(VType::Bool) => printVTypeExt!(self, f, "bool"),
+            &VTypeExt::Plain(VType::Int) => printVTypeExt!(self, f, "int"),
+            &VTypeExt::Plain(VType::Float) => printVTypeExt!(self, f, "float"),
+            &VTypeExt::Plain(VType::String) => printVTypeExt!(self, f, "string"),
+            &VTypeExt::Plain(VType::Object) => printVTypeExt!(self, f, "object"),
+            &VTypeExt::Plain(VType::Typename(ref v)) => printVTypeExt!(self, f, v),
+            &VTypeExt::Plain(VType::Struct(ref v)) => printVTypeExt!(self, f, v),
+            &VTypeExt::Plain(VType::Enum(ref v)) => printVTypeExt!(self, f, v),
             &VTypeExt::Array(ref v) => write!(f, "[]{}", v)?,
+            &VTypeExt::Dict(ref v) => write!(f, "[dict]{}", v)?,
             &VTypeExt::Option(ref v) => write!(f, "?{}", v)?,
         }
         Ok(())
@@ -411,6 +403,11 @@ fn test_type_enum() {
 #[test]
 fn test_type_string() {
     assert!(Varlink::from_string("interface foo.bar\n type I (b: string)\nmethod F()->()").is_ok());
+}
+
+#[test]
+fn test_type_object() {
+    assert!(Varlink::from_string("interface foo.bar\n type I (b: object)\nmethod F()->()").is_ok());
 }
 
 #[test]

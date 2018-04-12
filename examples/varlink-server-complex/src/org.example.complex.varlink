@@ -20,7 +20,8 @@ type TypeFoo (
     foo: bool,
     bar: int,
     baz: [](a: int, b: int)
-  )
+  ),
+  object: object
 )
 
 method Foo(

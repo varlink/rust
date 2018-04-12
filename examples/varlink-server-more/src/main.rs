@@ -26,6 +26,24 @@ impl VarlinkInterface for MyOrgExampleMore {
         Err(Error::new(ErrorKind::ConnectionRefused, "Disconnect"))
     }
 
+    fn test_map(
+        &self,
+        call: &mut _CallTestMap,
+        map: ::std::collections::HashMap<String, String>,
+    ) -> Result<(), Error> {
+        let mut i = 1;
+        let mut retmap = ::std::collections::HashMap::new();
+        let ordered: ::std::collections::BTreeMap<_, _> = map.iter().collect();
+        for (k, v) in ordered {
+            let r = org_example_more::TestMapReply_map {
+                i: i,
+                val: v.clone(),
+            };
+            i += 1;
+            retmap.insert(k.clone(), r);
+        }
+        call.reply(retmap)
+    }
     fn test_more(&self, call: &mut _CallTestMore, n: i64) -> io::Result<()> {
         if !call.wants_more() {
             return call.reply_test_more_error("called without more".into());
@@ -66,23 +84,12 @@ impl VarlinkInterface for MyOrgExampleMore {
             start: None,
         })
     }
-    fn test_map(
+    fn test_object(
         &self,
-        call: &mut _CallTestMap,
-        map: ::std::collections::HashMap<String, String>,
+        call: &mut _CallTestObject,
+        object: serde_json::Value,
     ) -> Result<(), Error> {
-        let mut i = 1;
-        let mut retmap = ::std::collections::HashMap::new();
-        let ordered: ::std::collections::BTreeMap<_, _> = map.iter().collect();
-        for (k, v) in ordered {
-            let r = org_example_more::TestMapReply_map {
-                i: i,
-                val: v.clone(),
-            };
-            i += 1;
-            retmap.insert(k.clone(), r);
-        }
-        call.reply(retmap)
+        call.reply(object)
     }
 }
 
@@ -169,6 +176,8 @@ type State (
 
 method TestMap(map: [string]string) -> (map: [string](i: int, val: string))
 
+method TestObject(object: object) -> (object: object)
+
 # Returns the same string
 method Ping(ping: string) -> (pong: string)
 
@@ -193,7 +202,7 @@ error TestMoreError (reason: string)
         map.insert(String::from("one"), String::from("one"));
         map.insert(String::from("two"), String::from("two"));
 
-        let reply = call.test_map(map)?.recv()?;
+        let reply = call.test_map(map.clone())?.recv()?;
 
         let mut should = ::std::collections::HashMap::new();
         should.insert(
@@ -211,15 +220,12 @@ error TestMoreError (reason: string)
             },
         );
         assert_eq!(reply.map, should);
+        use serde_json;
+        let object = serde_json::to_value(map)?;
 
-        match reply.map.get(&String::from("one")) {
-            Some(&TestMapReply_map { i: 1, val: ref v }) if *v == String::from("one") => {}
-            _ => panic!("TestMapReply failed {:?}", reply.map),
-        }
-        match reply.map.get(&String::from("two")) {
-            Some(&TestMapReply_map { i: 2, val: ref v }) if *v == String::from("two") => {}
-            _ => panic!("TestMapReply failed {:?}", reply.map),
-        }
+        let ret = call.test_object(object.clone())?.recv()?;
+
+        assert_eq!(ret.object, object);
 
         for reply in call.more().test_more(4)? {
             let reply = reply?;

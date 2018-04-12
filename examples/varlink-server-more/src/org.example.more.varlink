@@ -11,6 +11,8 @@ type State (
 
 method TestMap(map: [string]string) -> (map: [string](i: int, val: string))
 
+method TestObject(object: object) -> (object: object)
+
 # Returns the same string
 method Ping(ping: string) -> (pong: string)
 

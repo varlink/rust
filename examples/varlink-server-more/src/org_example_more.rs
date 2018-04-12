@@ -64,6 +64,18 @@ pub struct TestMoreArgs_ {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct TestObjectReply_ {
+    pub object: Value,
+}
+
+impl varlink::VarlinkReply for TestObjectReply_ {}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct TestObjectArgs_ {
+    pub object: Value,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct TestMoreErrorArgs_ {
     pub reason: String,
 }
@@ -195,6 +207,14 @@ pub trait _CallTestMore: _CallErr {
 
 impl<'a> _CallTestMore for varlink::Call<'a> {}
 
+pub trait _CallTestObject: _CallErr {
+    fn reply(&mut self, object: Value) -> io::Result<()> {
+        self.reply_struct(TestObjectReply_ { object }.into())
+    }
+}
+
+impl<'a> _CallTestObject for varlink::Call<'a> {}
+
 pub trait VarlinkInterface {
     fn ping(&self, call: &mut _CallPing, ping: String) -> io::Result<()>;
     fn stop_serving(&self, call: &mut _CallStopServing) -> io::Result<()>;
@@ -204,6 +224,7 @@ pub trait VarlinkInterface {
         map: ::std::collections::HashMap<String, String>,
     ) -> io::Result<()>;
     fn test_more(&self, call: &mut _CallTestMore, n: i64) -> io::Result<()>;
+    fn test_object(&self, call: &mut _CallTestObject, object: Value) -> io::Result<()>;
     fn call_upgraded(&self, _call: &mut varlink::Call) -> io::Result<()> {
         Ok(())
     }
@@ -225,6 +246,10 @@ pub trait VarlinkClientInterface {
         &mut self,
         n: i64,
     ) -> io::Result<varlink::MethodCall<TestMoreArgs_, TestMoreReply_, Error_>>;
+    fn test_object(
+        &mut self,
+        object: Value,
+    ) -> io::Result<varlink::MethodCall<TestObjectArgs_, TestObjectReply_, Error_>>;
 }
 
 pub struct VarlinkClient {
@@ -291,6 +316,17 @@ impl VarlinkClientInterface for VarlinkClient {
             self.more,
         )
     }
+    fn test_object(
+        &mut self,
+        object: Value,
+    ) -> io::Result<varlink::MethodCall<TestObjectArgs_, TestObjectReply_, Error_>> {
+        varlink::MethodCall::<TestObjectArgs_, TestObjectReply_, Error_>::call(
+            self.connection.clone(),
+            "org.example.more.TestObject".into(),
+            TestObjectArgs_ { object },
+            self.more,
+        )
+    }
 }
 
 pub struct _InterfaceProxy {
@@ -315,6 +351,8 @@ type State (
 )
 
 method TestMap(map: [string]string) -> (map: [string](i: int, val: string))
+
+method TestObject(object: object) -> (object: object)
 
 # Returns the same string
 method Ping(ping: string) -> (pong: string)
@@ -365,6 +403,15 @@ error TestMoreError (reason: string)
                 if let Some(args) = req.parameters.clone() {
                     let args: TestMoreArgs_ = serde_json::from_value(args)?;
                     return self.inner.test_more(call as &mut _CallTestMore, args.n);
+                } else {
+                    return call.reply_invalid_parameter("parameters".into());
+                }
+            }
+            "org.example.more.TestObject" => {
+                if let Some(args) = req.parameters.clone() {
+                    let args: TestObjectArgs_ = serde_json::from_value(args)?;
+                    return self.inner
+                        .test_object(call as &mut _CallTestObject, args.object);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
                 }

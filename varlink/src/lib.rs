@@ -40,17 +40,17 @@
 //!# use std::io;
 //!# use varlink;
 //!# use varlink::CallTrait;
-//!# struct _PingReply {pong: Option<String>}
+//!# struct _PingReply {pong: String}
 //!# impl varlink::VarlinkReply for _PingReply {}
-//!# struct _PingArgs {ping: Option<String>}
+//!# struct _PingArgs {ping: String}
 //!# pub trait _CallErr: varlink::CallTrait {}
 //!# impl<'a> _CallErr for varlink::Call<'a> {}
 //!# pub trait _CallPing: _CallErr {
-//!#     fn reply(&mut self, pong: Option<String>) -> io::Result<()> { Ok(()) }
+//!#     fn reply(&mut self, pong: String) -> io::Result<()> { Ok(()) }
 //!# }
 //!# impl<'a> _CallPing for varlink::Call<'a> {}
 //!# pub trait VarlinkInterface {
-//!#     fn ping(&self, call: &mut _CallPing, ping: Option<String>) -> io::Result<()>;
+//!#     fn ping(&self, call: &mut _CallPing, ping: String) -> io::Result<()>;
 //!#     fn call_upgraded(&self, _call: &mut varlink::Call) -> io::Result<()> {Ok(())}
 //!# }
 //!# pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
@@ -67,7 +67,7 @@
 //!struct MyOrgExamplePing;
 //!
 //!impl VarlinkInterface for MyOrgExamplePing {
-//!    fn ping(&self, call: &mut _CallPing, ping: Option<String>) -> io::Result<()> {
+//!    fn ping(&self, call: &mut _CallPing, ping: String) -> io::Result<()> {
 //!        return call.reply(ping);
 //!    }
 //!}
@@ -104,17 +104,17 @@
 //!# mod org_example_ping {
 //!# use std::io;
 //!# use varlink;
-//!# struct _PingReply {pong: Option<String>}
+//!# struct _PingReply {pong: String}
 //!# impl varlink::VarlinkReply for _PingReply {}
-//!# struct _PingArgs {ping: Option<String>}
+//!# struct _PingArgs {ping: String}
 //!# pub trait _CallErr: varlink::CallTrait {}
 //!# impl<'a> _CallErr for varlink::Call<'a> {}
 //!# pub trait _CallPing: _CallErr {
-//!#     fn reply(&mut self, pong: Option<String>) -> io::Result<()> { Ok(()) }
+//!#     fn reply(&mut self, pong: String) -> io::Result<()> { Ok(()) }
 //!# }
 //!# impl<'a> _CallPing for varlink::Call<'a> {}
 //!# pub trait VarlinkInterface {
-//!#     fn ping(&self, call: &mut _CallPing, ping: Option<String>) -> io::Result<()>;
+//!#     fn ping(&self, call: &mut _CallPing, ping: String) -> io::Result<()>;
 //!#     fn call_upgraded(&self, _call: &mut varlink::Call) -> io::Result<()> {Ok(())}
 //!# }
 //!# pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
@@ -133,7 +133,7 @@
 //!# struct MyOrgExamplePing;
 //!#
 //!# impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
-//!#     fn ping(&self, call: &mut _CallPing, ping: Option<String>) -> io::Result<()> {
+//!#     fn ping(&self, call: &mut _CallPing, ping: String) -> io::Result<()> {
 //!#         return call.reply(ping);
 //!#     }
 //!# }
@@ -337,12 +337,10 @@ pub struct Call<'a> {
 ///# impl<'a> _CallTestMethod for varlink::Call<'a> {}
 ///# struct TestService;
 ///# impl TestService {
-///fn test_method(&self, call: &mut _CallTestMethod, testparam: Option<i64>) -> io::Result<()> {
+///fn test_method(&self, call: &mut _CallTestMethod, testparam: i64) -> io::Result<()> {
 ///    match testparam {
-///        Some(i) => if i > 100 {
-///            return call.reply_invalid_parameter(Some("testparam".into()));
-///        },
-///        None => {
+///        0 ... 100 => {},
+///        _ => {
 ///            return call.reply_invalid_parameter(Some("testparam".into()));
 ///        }
 ///    }

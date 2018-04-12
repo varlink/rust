@@ -41,7 +41,7 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
                 });
             }
             3 => {
-                return call.reply_invalid_parameter(Some("ifindex".into()));
+                return call.reply_invalid_parameter("ifindex".into());
             }
             _ => {
                 return call.reply_unknown_network_if_index(ifindex);

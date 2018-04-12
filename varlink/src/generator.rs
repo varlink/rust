@@ -741,7 +741,8 @@ impl varlink::Interface for _InterfaceProxy {{
                         "                    return self.inner.{sname}(call as &mut \
                         _Call{mname}{inparms});\n",
                         "                }} else {{\n",
-                        "                    return call.reply_invalid_parameter(None);\n",
+                        "                    return call.reply_invalid_parameter(\"parameters\".into());\
+                        \n",
                         "                }}\n",
                         "            }}\n"
                     ),
@@ -767,7 +768,7 @@ impl varlink::Interface for _InterfaceProxy {{
             concat!(
                 "\n",
                 "            m => {{\n",
-                "                return call.reply_method_not_found(Some(String::from(m)));\n",
+                "                return call.reply_method_not_found(String::from(m));\n",
                 "            }}\n",
                 "        }}\n",
                 "    }}\n",

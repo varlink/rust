@@ -341,7 +341,7 @@ pub struct Call<'a> {
 ///    match testparam {
 ///        0 ... 100 => {},
 ///        _ => {
-///            return call.reply_invalid_parameter(Some("testparam".into()));
+///            return call.reply_invalid_parameter("testparam".into());
 ///        }
 ///    }
 ///    /* ... */
@@ -368,7 +368,7 @@ pub struct Call<'a> {
 ///# impl TestService {
 ///fn test_method_not_implemented(&self,
 ///                               call: &mut _CallTestMethodNotImplemented) -> io::Result<()> {
-///    return call.reply_method_not_implemented(Some("TestMethodNotImplemented".into()));
+///    return call.reply_method_not_implemented("TestMethodNotImplemented".into());
 ///}
 ///# }
 /// ```
@@ -412,43 +412,31 @@ pub trait CallTrait {
     fn wants_more(&self) -> bool;
 
     /// reply with the standard varlink `org.varlink.service.MethodNotFound` error
-    fn reply_method_not_found(&mut self, method_name: Option<String>) -> io::Result<()> {
-        self.reply_struct(Reply::error(
-            "org.varlink.service.MethodNotFound".into(),
-            match method_name {
-                Some(a) => {
-                    let s = format!("{{  \"method\" : \"{}\" }}", a);
-                    Some(serde_json::from_str(s.as_ref()).unwrap())
-                }
-                None => None,
-            },
-        ))
+    fn reply_method_not_found(&mut self, method_name: String) -> io::Result<()> {
+        self.reply_struct(Reply::error("org.varlink.service.MethodNotFound".into(), {
+            let s = format!("{{  \"method\" : \"{}\" }}", method_name);
+            Some(serde_json::from_str(s.as_ref()).unwrap())
+        }))
     }
 
     /// reply with the standard varlink `org.varlink.service.MethodNotImplemented` error
-    fn reply_method_not_implemented(&mut self, method_name: Option<String>) -> io::Result<()> {
+    fn reply_method_not_implemented(&mut self, method_name: String) -> io::Result<()> {
         self.reply_struct(Reply::error(
             "org.varlink.service.MethodNotImplemented".into(),
-            match method_name {
-                Some(a) => {
-                    let s = format!("{{  \"method\" : \"{}\" }}", a);
-                    Some(serde_json::from_str(s.as_ref()).unwrap())
-                }
-                None => None,
+            {
+                let s = format!("{{  \"method\" : \"{}\" }}", method_name);
+                Some(serde_json::from_str(s.as_ref()).unwrap())
             },
         ))
     }
 
     /// reply with the standard varlink `org.varlink.service.InvalidParameter` error
-    fn reply_invalid_parameter(&mut self, parameter_name: Option<String>) -> io::Result<()> {
+    fn reply_invalid_parameter(&mut self, parameter_name: String) -> io::Result<()> {
         self.reply_struct(Reply::error(
             "org.varlink.service.InvalidParameter".into(),
-            match parameter_name {
-                Some(a) => {
-                    let s = format!("{{  \"parameter\" : \"{}\" }}", a);
-                    Some(serde_json::from_str(s.as_ref()).unwrap())
-                }
-                None => None,
+            {
+                let s = format!("{{  \"parameter\" : \"{}\" }}", parameter_name);
+                Some(serde_json::from_str(s.as_ref()).unwrap())
             },
         ))
     }
@@ -646,7 +634,7 @@ impl Error {
 
 impl<'a> CallTrait for Call<'a> {
     fn reply_struct(&mut self, mut reply: Reply) -> io::Result<()> {
-        if self.continues && !self.wants_more() {
+        if self.continues & &!self.wants_more() {
             return Err(io::Error::new(
                 ErrorKind::Other,
                 "Call::reply() called with continues, but without more in the request",
@@ -1001,7 +989,7 @@ error InvalidParameter (parameter: string)
             }
             "org.varlink.service.GetInterfaceDescription" => match req.parameters.as_ref() {
                 None => {
-                    return call.reply_invalid_parameter(None);
+                    return call.reply_invalid_parameter("parameters".into());
                 }
                 Some(val) => {
                     let args: GetInterfaceDescriptionArgs = serde_json::from_value(val.clone())?;
@@ -1017,15 +1005,14 @@ error InvalidParameter (parameter: string)
                                     json!({"description": self.ifaces[key].get_description()}),
                                 );
                             } else {
-                                return call.reply_invalid_parameter(Some("interface".into()));
+                                return call.reply_invalid_parameter("interface".into());
                             }
                         }
                     }
                 }
             },
             _ => {
-                let method: String = req.method.clone().into();
-                return call.reply_method_not_found(Some(method));
+                return call.reply_method_not_found(req.method.clone().into());
             }
         }
     }

@@ -295,7 +295,7 @@ error UnknownError (text: string)"#
                     let args: InfoArgs_ = serde_json::from_value(args)?;
                     return self.inner.info(call as &mut _CallInfo, args.ifindex);
                 } else {
-                    return call.reply_invalid_parameter(None);
+                    return call.reply_invalid_parameter("parameters".into());
                 }
             }
             "io.systemd.network.List" => {
@@ -303,7 +303,7 @@ error UnknownError (text: string)"#
             }
 
             m => {
-                return call.reply_method_not_found(Some(String::from(m)));
+                return call.reply_method_not_found(String::from(m));
             }
         }
     }

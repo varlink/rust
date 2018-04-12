@@ -347,7 +347,7 @@ error TestMoreError (reason: string)
                     let args: PingArgs_ = serde_json::from_value(args)?;
                     return self.inner.ping(call as &mut _CallPing, args.ping);
                 } else {
-                    return call.reply_invalid_parameter(None);
+                    return call.reply_invalid_parameter("parameters".into());
                 }
             }
             "org.example.more.StopServing" => {
@@ -358,7 +358,7 @@ error TestMoreError (reason: string)
                     let args: TestMapArgs_ = serde_json::from_value(args)?;
                     return self.inner.test_map(call as &mut _CallTestMap, args.map);
                 } else {
-                    return call.reply_invalid_parameter(None);
+                    return call.reply_invalid_parameter("parameters".into());
                 }
             }
             "org.example.more.TestMore" => {
@@ -366,12 +366,12 @@ error TestMoreError (reason: string)
                     let args: TestMoreArgs_ = serde_json::from_value(args)?;
                     return self.inner.test_more(call as &mut _CallTestMore, args.n);
                 } else {
-                    return call.reply_invalid_parameter(None);
+                    return call.reply_invalid_parameter("parameters".into());
                 }
             }
 
             m => {
-                return call.reply_method_not_found(Some(String::from(m)));
+                return call.reply_method_not_found(String::from(m));
             }
         }
     }

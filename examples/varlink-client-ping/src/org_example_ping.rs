@@ -206,12 +206,12 @@ error PingError(parameter: string)"#
                     let args: PingArgs_ = serde_json::from_value(args)?;
                     return self.inner.ping(call as &mut _CallPing, args.ping);
                 } else {
-                    return call.reply_invalid_parameter(None);
+                    return call.reply_invalid_parameter("parameters".into());
                 }
             }
 
             m => {
-                return call.reply_method_not_found(Some(String::from(m)));
+                return call.reply_method_not_found(String::from(m));
             }
         }
     }

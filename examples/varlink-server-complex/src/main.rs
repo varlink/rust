@@ -16,7 +16,7 @@ struct MyImplementation;
 
 impl org_example_complex::VarlinkInterface for MyImplementation {
     fn bar(&self, call: &mut _CallBar) -> Result<(), Error> {
-        call.reply_method_not_implemented(None)
+        call.reply_method_not_implemented("org.example.complex.Bar".into())
     }
 
     fn foo(
@@ -26,7 +26,7 @@ impl org_example_complex::VarlinkInterface for MyImplementation {
         _foo: TypeFoo,
         _interface: Interface,
     ) -> Result<(), Error> {
-        call.reply_method_not_implemented(None)
+        call.reply_method_not_implemented("org.example.complex.Foo".into())
     }
 }
 

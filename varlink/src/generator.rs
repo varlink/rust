@@ -65,10 +65,15 @@ impl<'short, 'long: 'short> ToRust<'short, 'long> for VTypeExt<'long> {
             &VTypeExt::Array(ref v) => {
                 Ok(format!("Vec<{}>", v.to_rust(parent, enumvec, structvec)?))
             }
-            &VTypeExt::Dict(ref v) => Ok(format!(
-                "::std::collections::HashMap<String, {}>",
-                v.to_rust(parent, enumvec, structvec)?
-            )),
+            &VTypeExt::Dict(ref v) => match v.as_ref() {
+                &VTypeExt::Plain(VType::Struct(ref s)) if s.elts.len() == 0 => {
+                    Ok(format!("::std::collections::HashSet<String>"))
+                }
+                _ => Ok(format!(
+                    "::std::collections::HashMap<String, {}>",
+                    v.to_rust(parent, enumvec, structvec)?
+                )),
+            },
             &VTypeExt::Option(ref v) => Ok(format!(
                 "Option<{}>",
                 v.to_rust(parent, enumvec, structvec)?

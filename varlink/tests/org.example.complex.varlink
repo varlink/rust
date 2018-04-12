@@ -20,7 +20,8 @@ type TypeFoo (
     bar: int,
     baz: [](a: int, b: int)
   ),
-  object: object
+  object: object,
+  stringset: [string]()
 )
 
 method Foo(

@@ -54,6 +54,7 @@ pub struct TypeFoo {
     #[serde(skip_serializing_if = "Option::is_none")] #[serde(rename = "type")] pub type_: Option<TypeEnum>,
  pub anon: TypeFoo_anon,
  pub object: Value,
+ pub stringset: ::std::collections::HashSet<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -359,7 +360,8 @@ type TypeFoo (
     bar: int,
     baz: [](a: int, b: int)
   ),
-  object: object
+  object: object,
+  stringset: [string]()
 )
 
 method Foo(

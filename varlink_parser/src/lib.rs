@@ -406,6 +406,21 @@ fn test_type_string() {
 }
 
 #[test]
+fn test_type_stringmap() {
+    assert!(
+        Varlink::from_string("interface foo.bar\n type I (b: [string]string)\nmethod F()->()")
+            .is_ok()
+    );
+}
+
+#[test]
+fn test_type_stringmap_set() {
+    assert!(
+        Varlink::from_string("interface foo.bar\n type I (b: [string]())\nmethod F()->()").is_ok()
+    );
+}
+
+#[test]
 fn test_type_object() {
     assert!(Varlink::from_string("interface foo.bar\n type I (b: object)\nmethod F()->()").is_ok());
 }

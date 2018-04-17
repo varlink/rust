@@ -50,11 +50,11 @@ pub struct TypeFoo {
  pub int: i64,
  pub float: f64,
  pub string: String,
-    #[serde(skip_serializing_if = "Option::is_none")] #[serde(rename = "enum")] pub enum_: Option<::std::collections::HashMap<String, Option<TypeFoo_enum>>>,
+    #[serde(skip_serializing_if = "Option::is_none")] #[serde(rename = "enum")] pub enum_: Option<varlink::StringHashMap<Option<TypeFoo_enum>>>,
     #[serde(skip_serializing_if = "Option::is_none")] #[serde(rename = "type")] pub type_: Option<TypeEnum>,
  pub anon: TypeFoo_anon,
  pub object: Value,
- pub stringset: ::std::collections::HashSet<String>,
+ pub stringset: varlink::StringHashSet,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]

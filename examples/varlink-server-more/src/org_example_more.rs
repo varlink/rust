@@ -41,14 +41,14 @@ pub struct StopServingArgs_ {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct TestMapReply_ {
-    pub map: ::std::collections::HashMap<String, TestMapReply_map>,
+    pub map: varlink::StringHashMap<TestMapReply_map>,
 }
 
 impl varlink::VarlinkReply for TestMapReply_ {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct TestMapArgs_ {
-    pub map: ::std::collections::HashMap<String, String>,
+    pub map: varlink::StringHashMap<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -189,10 +189,7 @@ pub trait _CallStopServing: _CallErr {
 impl<'a> _CallStopServing for varlink::Call<'a> {}
 
 pub trait _CallTestMap: _CallErr {
-    fn reply(
-        &mut self,
-        map: ::std::collections::HashMap<String, TestMapReply_map>,
-    ) -> io::Result<()> {
+    fn reply(&mut self, map: varlink::StringHashMap<TestMapReply_map>) -> io::Result<()> {
         self.reply_struct(TestMapReply_ { map }.into())
     }
 }
@@ -221,7 +218,7 @@ pub trait VarlinkInterface {
     fn test_map(
         &self,
         call: &mut _CallTestMap,
-        map: ::std::collections::HashMap<String, String>,
+        map: varlink::StringHashMap<String>,
     ) -> io::Result<()>;
     fn test_more(&self, call: &mut _CallTestMore, n: i64) -> io::Result<()>;
     fn test_object(&self, call: &mut _CallTestObject, object: Value) -> io::Result<()>;
@@ -240,7 +237,7 @@ pub trait VarlinkClientInterface {
     ) -> io::Result<varlink::MethodCall<StopServingArgs_, StopServingReply_, Error_>>;
     fn test_map(
         &mut self,
-        map: ::std::collections::HashMap<String, String>,
+        map: varlink::StringHashMap<String>,
     ) -> io::Result<varlink::MethodCall<TestMapArgs_, TestMapReply_, Error_>>;
     fn test_more(
         &mut self,
@@ -296,7 +293,7 @@ impl VarlinkClientInterface for VarlinkClient {
     }
     fn test_map(
         &mut self,
-        map: ::std::collections::HashMap<String, String>,
+        map: varlink::StringHashMap<String>,
     ) -> io::Result<varlink::MethodCall<TestMapArgs_, TestMapReply_, Error_>> {
         varlink::MethodCall::<TestMapArgs_, TestMapReply_, Error_>::call(
             self.connection.clone(),

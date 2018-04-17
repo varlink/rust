@@ -1,0 +1,66 @@
+interface org.varlink.certification
+
+type Interface (
+  foo: ?[]?[string](foo, bar, baz),
+  anon: (foo: bool, bar: bool)
+)
+
+type MyType (
+  object: object,
+  enum: (one, two, three),
+  struct: (first: int, second: string),
+  array: []string,
+  dictionary: [string]string,
+  stringset: [string](),
+  nullable: ?string,
+  nullable_array_struct: ?[](first: int, second: string),
+  interface: Interface
+)
+
+method Start() -> ()
+
+method Test01() -> (bool: bool)
+
+method Test02(bool: bool) -> (int: int)
+
+method Test03(int: int) -> (float: float)
+
+method Test04(float: float) -> (string: string)
+
+method Test05(string: string) -> (
+  bool: bool,
+  int: int,
+  float: float,
+  string: string
+)
+
+method Test06(
+  bool: bool,
+  int: int,
+  float: float,
+  string: string
+) -> (
+  struct: (
+    bool: bool,
+    int: int,
+    float: float,
+    string: string
+  )
+)
+
+method Test07(
+  struct: (
+    bool: bool,
+    int: int,
+    float: float,
+    string: string
+  )
+) -> (map: [string]string)
+
+method Test08(map: [string]string) -> (set: [string]())
+
+method Test09(set: [string]()) -> (mytype: MyType)
+
+method End(mytype: MyType) -> ()
+
+error CertificationError (wants: string, got: string)

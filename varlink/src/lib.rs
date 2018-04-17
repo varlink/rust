@@ -239,6 +239,7 @@ pub struct StringHashSet {
 
 impl StringHashSet {
     pub fn new() -> StringHashSet {
+
         StringHashSet {
             inner: HashSet::new(),
         }
@@ -270,10 +271,11 @@ impl Serialize for StringHashSet {
     where
         S: Serializer,
     {
+        let null_obj: serde_json::Value = serde_json::Value::Object(serde_json::Map::new());
+
         let mut map = serializer.serialize_map(Some(self.inner.len()))?;
         for k in &self.inner {
-            let t: Option<bool> = None;
-            map.serialize_entry(k, &t)?;
+            map.serialize_entry(k, &null_obj)?;
         }
         map.end()
     }
@@ -937,7 +939,7 @@ where
             Reply {
                 parameters: None, ..
             } => {
-                let mreply: MReply = serde_json::from_str("{}")?;
+                let mreply: MReply = serde_json::from_value(serde_json::Value::Object(serde_json::Map::new()))?;
                 Ok(mreply)
             }
         }

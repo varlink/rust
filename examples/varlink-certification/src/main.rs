@@ -286,7 +286,7 @@ fn main() {
             if args[2] != "client" {
                 usage(&args[0]);
             }
-            exit(match run_client(args.swap_remove(2)[10..].into()) {
+            exit(match run_client(args.swap_remove(1)[10..].into()) {
                 Ok(_) => 0,
                 Err(err) => {
                     eprintln!("error: {}", err);

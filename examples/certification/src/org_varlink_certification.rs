@@ -22,12 +22,15 @@ pub struct Interface {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct MyType {
     pub object: Value,
-    #[serde(rename = "enum")] pub enum_: MyType_enum,
-    #[serde(rename = "struct")] pub struct_: MyType_struct,
+    #[serde(rename = "enum")]
+    pub enum_: MyType_enum,
+    #[serde(rename = "struct")]
+    pub struct_: MyType_struct,
     pub array: Vec<String>,
     pub dictionary: varlink::StringHashMap<String>,
     pub stringset: varlink::StringHashSet,
-    #[serde(skip_serializing_if = "Option::is_none")] pub nullable: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nullable: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nullable_array_struct: Option<Vec<MyType_nullable_array_struct>>,
     pub interface: Interface,
@@ -114,7 +117,8 @@ pub struct Test05Args_ {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Test06Reply_ {
-    #[serde(rename = "struct")] pub struct_: Test06Reply_struct,
+    #[serde(rename = "struct")]
+    pub struct_: Test06Reply_struct,
 }
 
 impl varlink::VarlinkReply for Test06Reply_ {}
@@ -136,7 +140,8 @@ impl varlink::VarlinkReply for Test07Reply_ {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Test07Args_ {
-    #[serde(rename = "struct")] pub struct_: Test07Args_struct,
+    #[serde(rename = "struct")]
+    pub struct_: Test07Args_struct,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]

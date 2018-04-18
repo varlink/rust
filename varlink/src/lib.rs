@@ -13,7 +13,7 @@
 //!
 //!Then create a `build.rs` file in your project directory:
 //!
-//!```rust,no_run
+//!```rust,ignore
 //!extern crate varlink;
 //!
 //!fn main() {
@@ -36,9 +36,8 @@
 //!```
 //!and then implement the interface:
 //!
-//!```no_run
+//!```rust
 //!# use std::io;
-//!# use varlink;
 //!# use varlink::CallTrait;
 //!# struct _PingReply {pong: String}
 //!# impl varlink::VarlinkReply for _PingReply {}
@@ -64,6 +63,7 @@
 //!#     fn call_upgraded(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
 //!#     fn call(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
 //!# }
+//!# fn main() {}
 //!struct MyOrgExamplePing;
 //!
 //!impl VarlinkInterface for MyOrgExamplePing {
@@ -77,7 +77,7 @@
 //!If your varlink method is called `TestMethod`, the rust method to be implemented is called
 //!`test_method`. The first parameter is of type `_CallTestMethod`, which has the method `reply()`.
 //!
-//!```no_run
+//!```rust
 //!# use std::io;
 //!# use varlink::CallTrait;
 //!# pub trait _CallErr: varlink::CallTrait {}
@@ -95,11 +95,12 @@
 //!    return call.reply( /* more arguments */ );
 //!}
 //!# }
+//!# fn main() {}
 //!```
 //!
 //!A typical server creates a `VarlinkService` and starts a server via `varlink::listen()`
 //!
-//!```no_run
+//!```rust
 //!# use std::io;
 //!# mod org_example_ping {
 //!# use std::io;
@@ -137,7 +138,7 @@
 //!#         return call.reply(ping);
 //!#     }
 //!# }
-//!# fn main() {
+//!# fn main_func() {
 //!let args: Vec<_> = std::env::args().collect();
 //!let myorgexampleping = MyOrgExamplePing;
 //!let myorgexampleping_interface = org_example_ping::new(Box::new(myorgexampleping));
@@ -155,6 +156,7 @@
 //!
 //!varlink::listen(service, &args[1], 10, 0);
 //!# }
+//!# fn main() {}
 //!```
 //!
 //!where args[1] would follow the varlink
@@ -211,11 +213,15 @@ pub trait Interface {
 ///
 #[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
 pub struct Request {
-    #[serde(skip_serializing_if = "Option::is_none")] pub more: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")] pub oneshot: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")] pub upgrade: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub more: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub oneshot: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub upgrade: Option<bool>,
     pub method: Cow<'static, str>,
-    #[serde(skip_serializing_if = "Option::is_none")] pub parameters: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parameters: Option<Value>,
 }
 
 impl Request {
@@ -334,10 +340,14 @@ pub trait VarlinkReply {}
 /// See the [CallTrait](trait.CallTrait.html) to use with the first Call parameter
 #[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
 pub struct Reply {
-    #[serde(skip_serializing_if = "Option::is_none")] pub continues: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")] pub upgraded: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")] pub error: Option<Cow<'static, str>>,
-    #[serde(skip_serializing_if = "Option::is_none")] pub parameters: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub continues: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub upgraded: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<Cow<'static, str>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parameters: Option<Value>,
 }
 
 impl Reply {
@@ -381,10 +391,8 @@ where
 ///
 ///# Examples
 ///
-/// ```rust,no_run
+///```rust
 ///# use std::io;
-///# use varlink;
-///# use varlink::CallTrait;
 ///# pub trait _CallErr: varlink::CallTrait {}
 ///# impl<'a> _CallErr for varlink::Call<'a> {}
 ///# pub trait _CallTestMethod: _CallErr {
@@ -400,6 +408,7 @@ where
 ///    return call.reply( /* more arguments */ );
 ///}
 ///# }
+///# fn main() {}
 /// ```
 pub struct Call<'a> {
     writer: &'a mut Write,
@@ -415,10 +424,8 @@ pub struct Call<'a> {
 ///
 /// For an invalid parameter:
 ///
-/// ```rust,no_run
+/// ```rust
 ///# use std::io;
-///# use varlink;
-///# use varlink::CallTrait;
 ///# pub trait _CallErr: varlink::CallTrait {}
 ///# impl<'a> _CallErr for varlink::Call<'a> {}
 ///# pub trait _CallTestMethod: _CallErr {
@@ -440,14 +447,13 @@ pub struct Call<'a> {
 ///    Ok(())
 ///}
 ///# }
+///# fn main() {}
 /// ```
 ///
 /// For not yet implemented methods:
 ///
-/// ```rust,no_run
+/// ```rust
 ///# use std::io;
-///# use varlink;
-///# use varlink::CallTrait;
 ///# pub trait _CallErr: varlink::CallTrait {}
 ///# impl<'a> _CallErr for varlink::Call<'a> {}
 ///# pub trait _CallTestMethodNotImplemented: _CallErr {
@@ -463,6 +469,7 @@ pub struct Call<'a> {
 ///    return call.reply_method_not_implemented("TestMethodNotImplemented".into());
 ///}
 ///# }
+///# fn main() {}
 /// ```
 pub trait CallTrait {
     /// Don't use this directly. Rather use the standard `reply()` method.
@@ -472,9 +479,8 @@ pub trait CallTrait {
     ///
     ///# Examples
     ///
-    ///```rust,no_run
+    ///```rust
     ///# use std::io;
-    ///# use varlink::CallTrait;
     ///# pub trait _CallErr: varlink::CallTrait {}
     ///# impl<'a> _CallErr for varlink::Call<'a> {}
     ///# pub trait _CallTestMethod: _CallErr {
@@ -494,7 +500,8 @@ pub trait CallTrait {
     ///    return call.reply( /* more args*/ );
     ///}
     ///# }
-    ///```
+    ///# fn main() {}
+    /// ```
     fn set_continues(&mut self, cont: bool);
 
     /// True, if this request does not want a reply.
@@ -983,7 +990,8 @@ pub struct GetInfoArgs;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
 pub struct GetInterfaceDescriptionReply {
-    #[serde(skip_serializing_if = "Option::is_none")] pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
 }
 
 impl VarlinkReply for GetInterfaceDescriptionReply {}
@@ -1130,8 +1138,7 @@ impl VarlinkService {
     ///
     ///# Examples
     ///
-    ///```rust,no_run
-    ///# use varlink;
+    ///```rust
     ///# use std::io;
     ///# struct Interface;
     ///# impl varlink::Interface for Interface {
@@ -1141,9 +1148,10 @@ impl VarlinkService {
     ///# fn call_upgraded(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
     ///# fn call(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
     ///# }
-    ///# let interface_foo = Interface;
-    ///# let interface_bar = Interface;
-    ///# let interface_baz = Interface;
+    ///# fn main_f() {
+    ///# let interface_foo = Interface{};
+    ///# let interface_bar = Interface{};
+    ///# let interface_baz = Interface{};
     ///let service = varlink::VarlinkService::new(
     ///    "org.varlink",
     ///    "test service",
@@ -1155,6 +1163,8 @@ impl VarlinkService {
     ///        Box::new(interface_baz),
     ///    ],
     ///);
+    ///# }
+    ///# fn main() {}
     ///```
     pub fn new(
         vendor: &str,

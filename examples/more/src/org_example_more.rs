@@ -14,9 +14,12 @@ use varlink::CallTrait;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct State {
-    #[serde(skip_serializing_if = "Option::is_none")] pub start: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")] pub progress: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")] pub end: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub progress: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -40,18 +43,6 @@ impl varlink::VarlinkReply for StopServingReply_ {}
 pub struct StopServingArgs_ {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct TestMapReply_ {
-    pub map: varlink::StringHashMap<TestMapReply_map>,
-}
-
-impl varlink::VarlinkReply for TestMapReply_ {}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct TestMapArgs_ {
-    pub map: varlink::StringHashMap<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct TestMoreReply_ {
     pub state: State,
 }
@@ -64,26 +55,8 @@ pub struct TestMoreArgs_ {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct TestObjectReply_ {
-    pub object: Value,
-}
-
-impl varlink::VarlinkReply for TestObjectReply_ {}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct TestObjectArgs_ {
-    pub object: Value,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct TestMoreErrorArgs_ {
     pub reason: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct TestMapReply_map {
-    pub i: i64,
-    pub val: String,
 }
 
 pub trait _CallErr: varlink::CallTrait {
@@ -188,14 +161,6 @@ pub trait _CallStopServing: _CallErr {
 
 impl<'a> _CallStopServing for varlink::Call<'a> {}
 
-pub trait _CallTestMap: _CallErr {
-    fn reply(&mut self, map: varlink::StringHashMap<TestMapReply_map>) -> io::Result<()> {
-        self.reply_struct(TestMapReply_ { map }.into())
-    }
-}
-
-impl<'a> _CallTestMap for varlink::Call<'a> {}
-
 pub trait _CallTestMore: _CallErr {
     fn reply(&mut self, state: State) -> io::Result<()> {
         self.reply_struct(TestMoreReply_ { state }.into())
@@ -204,24 +169,10 @@ pub trait _CallTestMore: _CallErr {
 
 impl<'a> _CallTestMore for varlink::Call<'a> {}
 
-pub trait _CallTestObject: _CallErr {
-    fn reply(&mut self, object: Value) -> io::Result<()> {
-        self.reply_struct(TestObjectReply_ { object }.into())
-    }
-}
-
-impl<'a> _CallTestObject for varlink::Call<'a> {}
-
 pub trait VarlinkInterface {
     fn ping(&self, call: &mut _CallPing, ping: String) -> io::Result<()>;
     fn stop_serving(&self, call: &mut _CallStopServing) -> io::Result<()>;
-    fn test_map(
-        &self,
-        call: &mut _CallTestMap,
-        map: varlink::StringHashMap<String>,
-    ) -> io::Result<()>;
     fn test_more(&self, call: &mut _CallTestMore, n: i64) -> io::Result<()>;
-    fn test_object(&self, call: &mut _CallTestObject, object: Value) -> io::Result<()>;
     fn call_upgraded(&self, _call: &mut varlink::Call) -> io::Result<()> {
         Ok(())
     }
@@ -235,18 +186,10 @@ pub trait VarlinkClientInterface {
     fn stop_serving(
         &mut self,
     ) -> io::Result<varlink::MethodCall<StopServingArgs_, StopServingReply_, Error_>>;
-    fn test_map(
-        &mut self,
-        map: varlink::StringHashMap<String>,
-    ) -> io::Result<varlink::MethodCall<TestMapArgs_, TestMapReply_, Error_>>;
     fn test_more(
         &mut self,
         n: i64,
     ) -> io::Result<varlink::MethodCall<TestMoreArgs_, TestMoreReply_, Error_>>;
-    fn test_object(
-        &mut self,
-        object: Value,
-    ) -> io::Result<varlink::MethodCall<TestObjectArgs_, TestObjectReply_, Error_>>;
 }
 
 pub struct VarlinkClient {
@@ -291,17 +234,6 @@ impl VarlinkClientInterface for VarlinkClient {
             self.more,
         )
     }
-    fn test_map(
-        &mut self,
-        map: varlink::StringHashMap<String>,
-    ) -> io::Result<varlink::MethodCall<TestMapArgs_, TestMapReply_, Error_>> {
-        varlink::MethodCall::<TestMapArgs_, TestMapReply_, Error_>::call(
-            self.connection.clone(),
-            "org.example.more.TestMap".into(),
-            TestMapArgs_ { map },
-            self.more,
-        )
-    }
     fn test_more(
         &mut self,
         n: i64,
@@ -310,17 +242,6 @@ impl VarlinkClientInterface for VarlinkClient {
             self.connection.clone(),
             "org.example.more.TestMore".into(),
             TestMoreArgs_ { n },
-            self.more,
-        )
-    }
-    fn test_object(
-        &mut self,
-        object: Value,
-    ) -> io::Result<varlink::MethodCall<TestObjectArgs_, TestObjectReply_, Error_>> {
-        varlink::MethodCall::<TestObjectArgs_, TestObjectReply_, Error_>::call(
-            self.connection.clone(),
-            "org.example.more.TestObject".into(),
-            TestObjectArgs_ { object },
             self.more,
         )
     }
@@ -346,10 +267,6 @@ type State (
   progress: ?int,
   end: ?bool
 )
-
-method TestMap(map: [string]string) -> (map: [string](i: int, val: string))
-
-method TestObject(object: object) -> (object: object)
 
 # Returns the same string
 method Ping(ping: string) -> (pong: string)
@@ -388,27 +305,10 @@ error TestMoreError (reason: string)
             "org.example.more.StopServing" => {
                 return self.inner.stop_serving(call as &mut _CallStopServing);
             }
-            "org.example.more.TestMap" => {
-                if let Some(args) = req.parameters.clone() {
-                    let args: TestMapArgs_ = serde_json::from_value(args)?;
-                    return self.inner.test_map(call as &mut _CallTestMap, args.map);
-                } else {
-                    return call.reply_invalid_parameter("parameters".into());
-                }
-            }
             "org.example.more.TestMore" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: TestMoreArgs_ = serde_json::from_value(args)?;
                     return self.inner.test_more(call as &mut _CallTestMore, args.n);
-                } else {
-                    return call.reply_invalid_parameter("parameters".into());
-                }
-            }
-            "org.example.more.TestObject" => {
-                if let Some(args) = req.parameters.clone() {
-                    let args: TestObjectArgs_ = serde_json::from_value(args)?;
-                    return self.inner
-                        .test_object(call as &mut _CallTestObject, args.object);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
                 }

@@ -1,7 +1,0 @@
-# Example service
-interface org.example.ping
-
-# Returns the same string
-method Ping(ping: string) -> (pong: string)
-
-error PingError(parameter: string)

@@ -1,3 +1,4 @@
+extern crate getopts;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
@@ -10,6 +11,114 @@ use std::process::exit;
 use varlink::{StringHashMap, StringHashSet, VarlinkService};
 
 mod org_varlink_certification;
+
+// Main
+
+fn print_usage(program: &str, opts: getopts::Options) {
+    let brief = format!("Usage: {} [--varlink=<address>] [--client]", program);
+    print!("{}", opts.usage(&brief));
+}
+
+fn main() {
+    let args: Vec<_> = env::args().collect();
+    let program = args[0].clone();
+
+    let mut opts = getopts::Options::new();
+    opts.optopt("", "varlink", "varlink address URL", "<address>");
+    opts.optflag("", "client", "run in client mode");
+    opts.optflag("h", "help", "print this help menu");
+
+    let matches = match opts.parse(&args[1..]) {
+        Ok(m) => m,
+        Err(f) => {
+            eprintln!("{}", f.to_string());
+            print_usage(&program, opts);
+            return;
+        }
+    };
+
+    if matches.opt_present("h") {
+        print_usage(&program, opts);
+        return;
+    }
+
+    let client_mode = matches.opt_present("client");
+
+    let address = match matches.opt_str("varlink") {
+        None => {
+            if !client_mode {
+                eprintln!("Need varlink address in server mode.");
+                print_usage(&program, opts);
+                return;
+            }
+            format!("exec:{}", program)
+        }
+        Some(a) => a,
+    };
+
+    let ret = match client_mode {
+        true => run_client(address),
+        false => run_server(address, 0),
+    };
+
+    exit(match ret {
+        Ok(_) => 0,
+        Err(err) => {
+            eprintln!("error: {}", err);
+            1
+        }
+    });
+}
+
+// Client
+
+fn run_client(address: String) -> io::Result<()> {
+    let connection = varlink::Connection::new(&address)?;
+    let mut call = VarlinkClient::new(connection);
+
+    let _ret = call.start()?.recv()?;
+
+    let ret = call.test01()?.recv()?;
+    println!("{:#?}", ret);
+
+    let ret = call.test02(ret.bool)?.recv()?;
+    println!("{:#?}", ret);
+
+    let ret = call.test03(ret.int)?.recv()?;
+    println!("{:#?}", ret);
+
+    let ret = call.test04(ret.float)?.recv()?;
+    println!("{:#?}", ret);
+
+    let ret = call.test05(ret.string)?.recv()?;
+    println!("{:#?}", ret);
+
+    let ret = call.test06(ret.bool, ret.int, ret.float, ret.string)?
+        .recv()?;
+    println!("{:#?}", ret);
+
+    let ret = call.test07(Test07Args_struct {
+        bool: ret.struct_.bool,
+        int: ret.struct_.int,
+        float: ret.struct_.float,
+        string: ret.struct_.string,
+    })?
+        .recv()?;
+    println!("{:#?}", ret);
+
+    let ret = call.test08(ret.map)?.recv()?;
+    println!("{:#?}", ret);
+
+    let ret = call.test09(ret.set)?.recv()?;
+    println!("{:#?}", ret);
+
+    let ret = call.end(ret.mytype)?.recv()?;
+    println!("{:#?}", ret);
+
+    Ok(())
+}
+
+// Server
 
 struct CertInterface;
 
@@ -213,91 +322,6 @@ fn run_server(address: String, timeout: u64) -> io::Result<()> {
     varlink::listen(service, &address, 10, timeout)
 }
 
-fn run_client(address: String) -> io::Result<()> {
-    let connection = varlink::Connection::new(&address)?;
-    let mut call = VarlinkClient::new(connection);
-
-    let _ret = call.start()?.recv()?;
-
-    let ret = call.test01()?.recv()?;
-    println!("{:#?}", ret);
-
-    let ret = call.test02(ret.bool)?.recv()?;
-    println!("{:#?}", ret);
-
-    let ret = call.test03(ret.int)?.recv()?;
-    println!("{:#?}", ret);
-
-    let ret = call.test04(ret.float)?.recv()?;
-    println!("{:#?}", ret);
-
-    let ret = call.test05(ret.string)?.recv()?;
-    println!("{:#?}", ret);
-
-    let ret = call.test06(ret.bool, ret.int, ret.float, ret.string)?
-        .recv()?;
-    println!("{:#?}", ret);
-
-    let ret = call.test07(Test07Args_struct {
-        bool: ret.struct_.bool,
-        int: ret.struct_.int,
-        float: ret.struct_.float,
-        string: ret.struct_.string,
-    })?
-        .recv()?;
-    println!("{:#?}", ret);
-
-    let ret = call.test08(ret.map)?.recv()?;
-    println!("{:#?}", ret);
-
-    let ret = call.test09(ret.set)?.recv()?;
-    println!("{:#?}", ret);
-
-    let ret = call.end(ret.mytype)?.recv()?;
-    println!("{:#?}", ret);
-
-    Ok(())
-}
-
-fn usage(name: &String) -> ! {
-    eprintln!("Usage: {} --varlink=<varlink address> [client]", name);
-    exit(1);
-}
-
-fn main() {
-    let mut args: Vec<_> = env::args().collect();
-    match args.len() {
-        2 => {
-            if !args[1].starts_with("--varlink") {
-                usage(&args[0]);
-            }
-            exit(match run_server(args.swap_remove(1)[10..].into(), 0) {
-                Ok(_) => 0,
-                Err(err) => {
-                    eprintln!("error: {}", err);
-                    1
-                }
-            });
-        }
-        3 => {
-            if !args[1].starts_with("--varlink") {
-                usage(&args[0]);
-            }
-            if args[2] != "client" {
-                usage(&args[0]);
-            }
-            exit(match run_client(args.swap_remove(1)[10..].into()) {
-                Ok(_) => 0,
-                Err(err) => {
-                    eprintln!("error: {}", err);
-                    1
-                }
-            });
-        }
-        _ => usage(&args[0]),
-    };
-}
-
 #[cfg(test)]
 mod test {
     use std::io;
@@ -331,6 +355,6 @@ mod test {
 
     #[test]
     fn test_unix() {
-        assert!(run_self_test("unix:/tmp/org.example.more_client".into()).is_ok());
+        assert!(run_self_test("unix:/tmp/org.varlink.certification".into()).is_ok());
     }
 }

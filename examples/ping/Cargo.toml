@@ -1,5 +1,5 @@
 [package]
-name = "varlink-certification"
+name = "ping"
 version = "0.1.0"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 build = "build.rs"
@@ -9,6 +9,7 @@ varlink = { path = "../../varlink" }
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
+getopts = "0"
 
 [build-dependencies]
 varlink = { path = "../../varlink" }

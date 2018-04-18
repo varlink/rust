@@ -1,6 +1,6 @@
 # Interface to test varlink implementations against.
 # First you write a varlink client calling:
-# Start, Test01, Test02, …, Test09, End
+# Start, Test01, Test02, …, Testxx, End
 # The return value of the previous call should be the argument of the next call.
 # Then you test this client against well known servers like python or rust from
 # https://github.com/varlink/

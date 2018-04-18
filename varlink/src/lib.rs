@@ -239,7 +239,6 @@ pub struct StringHashSet {
 
 impl StringHashSet {
     pub fn new() -> StringHashSet {
-
         StringHashSet {
             inner: HashSet::new(),
         }
@@ -939,7 +938,8 @@ where
             Reply {
                 parameters: None, ..
             } => {
-                let mreply: MReply = serde_json::from_value(serde_json::Value::Object(serde_json::Map::new()))?;
+                let mreply: MReply =
+                    serde_json::from_value(serde_json::Value::Object(serde_json::Map::new()))?;
                 Ok(mreply)
             }
         }

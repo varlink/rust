@@ -1,8 +1,8 @@
+extern crate getopts;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
 extern crate varlink;
-extern crate getopts;
 
 use io_systemd_network::*;
 use std::env;

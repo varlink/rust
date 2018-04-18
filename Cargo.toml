@@ -2,7 +2,7 @@
 members = [
     "varlink_parser",
     "varlink",
-    "examples/certification",
+    "varlink-certification",
     "examples/example",
     "examples/more",
     "examples/ping",

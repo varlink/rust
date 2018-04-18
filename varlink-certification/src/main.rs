@@ -357,4 +357,37 @@ mod test {
     fn test_unix() {
         assert!(run_self_test("unix:/tmp/org.varlink.certification".into()).is_ok());
     }
+
+    #[test]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    fn test_unix_abstract() {
+        assert!(run_self_test("unix:@org.varlink.certification".into()).is_ok());
+    }
+
+    #[test]
+    fn test_tcp() {
+        assert!(run_self_test("tcp:0.0.0.0:23456".into()).is_ok());
+    }
+
+    #[test]
+    fn test_exec() {
+        let address: String;
+
+        if ::std::path::Path::new("../../target/debug/varlink-certification").exists() {
+            address = "exec:../../target/debug/varlink-certification".into();
+        } else if ::std::path::Path::new("./target/debug/varlink-certification").exists() {
+            address = "exec:./target/debug/varlink-certification".into();
+        } else {
+            eprintln!("Skipping test, no varlink-certification");
+            return;
+        }
+
+        assert!(::run_client(address.clone()).is_ok());
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_wrong_address_1() {
+        assert!(run_self_test("tcpd:0.0.0.0:12345".into()).is_ok());
+    }
 }

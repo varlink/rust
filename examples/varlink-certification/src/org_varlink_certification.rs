@@ -623,7 +623,18 @@ pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
 
 impl varlink::Interface for _InterfaceProxy {
     fn get_description(&self) -> &'static str {
-        r#"interface org.varlink.certification
+        r#"# Interface to test varlink implementations against.
+# First you write a varlink client calling:
+# Start, Test01, Test02, …, Testxx, End
+# The return value of the previous call should be the argument of the next call.
+# Then you test this client against well known servers like python or rust from
+# https://github.com/varlink/
+#
+# Next you write a varlink server providing the same service as the well known ones.
+# Now run your client against it and run well known clients like python or rust
+# from https://github.com/varlink/ against your server. If all works out, then
+# your new language bindings should be varlink certified.
+interface org.varlink.certification
 
 type Interface (
   foo: ?[]?[string](foo, bar, baz),

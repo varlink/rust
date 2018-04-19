@@ -1,6 +1,6 @@
 # Interface to test varlink implementations against.
 # First you write a varlink client calling:
-# Start, Test01, Test02, …, Testxx, End
+# Start, Test01, Test02, …, Test09, End
 # The return value of the previous call should be the argument of the next call.
 # Then you test this client against well known servers like python or rust from
 # https://github.com/varlink/
@@ -28,6 +28,7 @@ type MyType (
   interface: Interface
 )
 
+# should be a oneshot call
 method Start() -> ()
 
 method Test01() -> (bool: bool)
@@ -72,6 +73,11 @@ method Test08(map: [string]string) -> (set: [string]())
 
 method Test09(set: [string]()) -> (mytype: MyType)
 
-method End(mytype: MyType) -> ()
+# returns more than one reply with "continues"
+method Test10(mytype: MyType) -> (string: string)
+
+method Test11(last_more_replies: []string) -> ()
+
+method End() -> (all_ok: bool)
 
 error CertificationError (wants: string, got: string)

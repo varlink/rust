@@ -76,26 +76,26 @@ fn run_client(address: String) -> io::Result<()> {
     let connection = varlink::Connection::new(&address)?;
     let mut call = VarlinkClient::new(connection);
 
-    let _ret = call.start()?.recv()?;
+    let _ret = call.oneway().start()?;
 
     let ret = call.test01()?.recv()?;
-    println!("{:#?}", ret);
+    eprintln!("{:#?}", ret);
 
     let ret = call.test02(ret.bool)?.recv()?;
-    println!("{:#?}", ret);
+    eprintln!("{:#?}", ret);
 
     let ret = call.test03(ret.int)?.recv()?;
-    println!("{:#?}", ret);
+    eprintln!("{:#?}", ret);
 
     let ret = call.test04(ret.float)?.recv()?;
-    println!("{:#?}", ret);
+    eprintln!("{:#?}", ret);
 
     let ret = call.test05(ret.string)?.recv()?;
-    println!("{:#?}", ret);
+    eprintln!("{:#?}", ret);
 
     let ret = call.test06(ret.bool, ret.int, ret.float, ret.string)?
         .recv()?;
-    println!("{:#?}", ret);
+    eprintln!("{:#?}", ret);
 
     let ret = call.test07(Test07Args_struct {
         bool: ret.struct_.bool,
@@ -104,16 +104,27 @@ fn run_client(address: String) -> io::Result<()> {
         string: ret.struct_.string,
     })?
         .recv()?;
-    println!("{:#?}", ret);
+    eprintln!("{:#?}", ret);
 
     let ret = call.test08(ret.map)?.recv()?;
-    println!("{:#?}", ret);
+    eprintln!("{:#?}", ret);
 
     let ret = call.test09(ret.set)?.recv()?;
-    println!("{:#?}", ret);
+    eprintln!("{:#?}", ret);
 
-    let ret = call.end(ret.mytype)?.recv()?;
-    println!("{:#?}", ret);
+    let mut ret_array = Vec::new();
+
+    for ret in call.more().test10(ret.mytype)? {
+        let ret = ret?;
+        eprintln!("{:#?}", ret);
+        ret_array.push(ret.string.clone());
+    }
+
+    let ret = call.test11(ret_array)?.recv()?;
+    eprintln!("{:#?}", ret);
+
+    let ret = call.end()?.recv()?;
+    eprintln!("{:#?}", ret);
 
     Ok(())
 }
@@ -124,7 +135,14 @@ struct CertInterface;
 
 impl VarlinkInterface for CertInterface {
     fn start(&self, call: &mut _CallStart) -> io::Result<()> {
-        call.reply()
+        if !call.is_oneway() {
+            call.reply_certification_error(
+                "Need a oneway call".into(),
+                "Got a call expecting a reply".into(),
+            )
+        } else {
+            Ok(())
+        }
     }
 
     fn test01(&self, call: &mut _CallTest01) -> io::Result<()> {
@@ -283,7 +301,7 @@ impl VarlinkInterface for CertInterface {
         call.reply(mytype)
     }
 
-    fn end(&self, call: &mut _CallEnd, mytype: MyType) -> io::Result<()> {
+    fn test10(&self, call: &mut _CallTest10, mytype: MyType) -> io::Result<()> {
         if mytype.dictionary.len() != 2
             || mytype.dictionary.get("bar".into()) != Some(&String::from("Bar"))
             || mytype.dictionary.get("foo".into()) != Some(&String::from("Foo"))
@@ -305,7 +323,31 @@ impl VarlinkInterface for CertInterface {
             return call.reply_invalid_parameter("mytype.array".into());
         }
 
+        call.set_continues(true);
+        for i in 1..11 {
+            if i == 10 {
+                call.set_continues(false);
+            }
+            call.reply(format!("Reply number {}", i))?
+        }
+        Ok(())
+    }
+
+    fn test11(&self, call: &mut _CallTest11, last_more_replies: Vec<String>) -> io::Result<()> {
+        if last_more_replies.len() != 10 {
+            return call.reply_invalid_parameter("last_more_replies".into());
+        }
+        for i in 0..10 {
+            match last_more_replies.get(i) {
+                Some(s) if *s == format!("Reply number {}", i + 1) => {}
+                _ => return call.reply_invalid_parameter("last_more_replies".into()),
+            }
+        }
         call.reply()
+    }
+
+    fn end(&self, call: &mut _CallEnd) -> io::Result<()> {
+        call.reply(true)
     }
 }
 

@@ -216,7 +216,7 @@ pub struct Request {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub more: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub oneshot: Option<bool>,
+    pub oneway: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub upgrade: Option<bool>,
     pub method: Cow<'static, str>,
@@ -228,7 +228,7 @@ impl Request {
     pub fn create(method: Cow<'static, str>, parameters: Option<Value>) -> Self {
         Request {
             more: None,
-            oneshot: None,
+            oneway: None,
             upgrade: None,
             method: method.into(),
             parameters,
@@ -505,7 +505,7 @@ pub trait CallTrait {
     fn set_continues(&mut self, cont: bool);
 
     /// True, if this request does not want a reply.
-    fn is_oneshot(&self) -> bool;
+    fn is_oneway(&self) -> bool;
 
     /// True, if this request accepts more than one reply.
     fn wants_more(&self) -> bool;
@@ -754,11 +754,10 @@ impl<'a> CallTrait for Call<'a> {
     }
 
     /// True, if this request does not want a reply.
-    fn is_oneshot(&self) -> bool {
+    fn is_oneway(&self) -> bool {
         match self.request {
             Some(&Request {
-                oneshot: Some(true),
-                ..
+                oneway: Some(true), ..
             }) => true,
             _ => false,
         }
@@ -846,6 +845,7 @@ pub struct MethodCall<MRequest, MReply, MError> {
     reader: Option<BufReader<Box<Read + Send + Sync>>>,
     writer: Option<Box<Write + Send + Sync>>,
     continues: bool,
+    oneway: bool,
     phantom_request: PhantomData<MRequest>,
     phantom_reply: PhantomData<MReply>,
     phantom_error: PhantomData<MError>,
@@ -864,10 +864,12 @@ where
         method: String,
         request: MRequest,
         more: bool,
+        oneway: bool,
     ) -> io::Result<Self> {
         let mut s = MethodCall::<MRequest, MReply, MError> {
             connection,
             continues: true,
+            oneway: false,
             reader: None,
             writer: None,
             phantom_request: PhantomData,
@@ -886,10 +888,22 @@ where
                 ));
             }
 
-            s.reader = conn.reader.take();
+            if more && oneway {
+                return Err(io::Error::new(
+                    ErrorKind::Other,
+                    "Varlink: oneway and more both set",
+                ));
+            }
 
             if more {
                 req.more = Some(more);
+            }
+
+            if oneway {
+                req.oneway = Some(oneway);
+                s.oneway = true;
+            } else {
+                s.reader = conn.reader.take();
             }
 
             let mut w = conn.writer.take().unwrap();
@@ -899,7 +913,11 @@ where
 
             w.write_all(b.as_bytes())?;
             w.flush()?;
-            s.writer = Some(w);
+            if oneway {
+                conn.writer = Some(w);
+            } else {
+                s.writer = Some(w);
+            }
         }
         Ok(s)
     }
@@ -913,6 +931,13 @@ where
             )));
         }
 
+        if self.oneway {
+            return Err(MError::from(io::Error::new(
+                ErrorKind::Other,
+                "Varlink: recv() called on oneway",
+            )));
+        }
+
         let mut buf = Vec::new();
 
         let mut reader = self.reader.take().unwrap();
@@ -922,7 +947,7 @@ where
         buf.pop();
         let reply: Reply = serde_json::from_slice(&buf)?;
         match reply.continues {
-            Some(v) => self.continues = v,
+            Some(true) => self.continues = true,
             _ => {
                 self.continues = false;
                 let mut conn = self.connection.write().unwrap();
@@ -1025,6 +1050,7 @@ impl OrgVarlinkServiceInterface for OrgVarlinkServiceClient {
             "org.varlink.service.GetInfo".into(),
             GetInfoArgs {},
             self.more,
+            false,
         )
     }
     fn get_interface_description(
@@ -1039,6 +1065,7 @@ impl OrgVarlinkServiceInterface for OrgVarlinkServiceClient {
                 interface: interface.into(),
             },
             self.more,
+            false,
         )
     }
 }
@@ -1354,6 +1381,7 @@ fn test_listen() {
             "org.varlink.service.GetInfos".into(),
             GetInfoArgs {},
             false,
+            false,
         )?.recv();
 
         match e {
@@ -1369,6 +1397,7 @@ fn test_listen() {
             conn.clone(),
             "org.varlink.unknowninterface.Foo".into(),
             GetInfoArgs {},
+            false,
             false,
         )?.recv();
 

@@ -206,6 +206,7 @@ pub trait VarlinkClientInterface {
 pub struct VarlinkClient {
     connection: Arc<RwLock<varlink::Connection>>,
     more: bool,
+    oneway: bool,
 }
 
 impl VarlinkClient {
@@ -213,12 +214,21 @@ impl VarlinkClient {
         VarlinkClient {
             connection,
             more: false,
+            oneway: false,
         }
     }
     pub fn more(&self) -> Self {
         VarlinkClient {
             connection: self.connection.clone(),
             more: true,
+            oneway: false,
+        }
+    }
+    pub fn oneway(&self) -> Self {
+        VarlinkClient {
+            connection: self.connection.clone(),
+            more: false,
+            oneway: true,
         }
     }
 }
@@ -233,6 +243,7 @@ impl VarlinkClientInterface for VarlinkClient {
             "io.systemd.network.Info".into(),
             InfoArgs_ { ifindex },
             self.more,
+            self.oneway,
         )
     }
     fn list(&mut self) -> io::Result<varlink::MethodCall<ListArgs_, ListReply_, Error_>> {
@@ -241,6 +252,7 @@ impl VarlinkClientInterface for VarlinkClient {
             "io.systemd.network.List".into(),
             ListArgs_ {},
             self.more,
+            self.oneway,
         )
     }
 }

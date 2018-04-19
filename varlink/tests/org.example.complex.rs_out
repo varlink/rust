@@ -294,6 +294,7 @@ pub trait VarlinkClientInterface {
 pub struct VarlinkClient {
     connection: Arc<RwLock<varlink::Connection>>,
     more: bool,
+    oneway: bool,
 }
 
 impl VarlinkClient {
@@ -301,12 +302,21 @@ impl VarlinkClient {
         VarlinkClient {
             connection,
             more: false,
+            oneway: false,
         }
     }
     pub fn more(&self) -> Self {
         VarlinkClient {
             connection: self.connection.clone(),
             more: true,
+            oneway: false,
+        }
+    }
+    pub fn oneway(&self) -> Self {
+        VarlinkClient {
+            connection: self.connection.clone(),
+            more: false,
+            oneway: true,
         }
     }
 }
@@ -317,14 +327,14 @@ impl VarlinkClientInterface for VarlinkClient {
             self.connection.clone(),
             "org.example.complex.Bar".into(),
             BarArgs_ {  },
-        self.more)
+        self.more, self.oneway)
     }
     fn foo(&mut self, enum_: FooArgs_enum, foo: TypeFoo, interface: Interface) -> io::Result<varlink::MethodCall<FooArgs_, FooReply_, Error_>> {
             varlink::MethodCall::<FooArgs_, FooReply_, Error_>::call(
             self.connection.clone(),
             "org.example.complex.Foo".into(),
             FooArgs_ { enum_, foo, interface },
-        self.more)
+        self.more, self.oneway)
     }
 }
 

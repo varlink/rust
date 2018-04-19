@@ -140,6 +140,7 @@ pub trait VarlinkClientInterface {
 pub struct VarlinkClient {
     connection: Arc<RwLock<varlink::Connection>>,
     more: bool,
+    oneway: bool,
 }
 
 impl VarlinkClient {
@@ -147,12 +148,21 @@ impl VarlinkClient {
         VarlinkClient {
             connection,
             more: false,
+            oneway: false,
         }
     }
     pub fn more(&self) -> Self {
         VarlinkClient {
             connection: self.connection.clone(),
             more: true,
+            oneway: false,
+        }
+    }
+    pub fn oneway(&self) -> Self {
+        VarlinkClient {
+            connection: self.connection.clone(),
+            more: false,
+            oneway: true,
         }
     }
 }
@@ -167,6 +177,7 @@ impl VarlinkClientInterface for VarlinkClient {
             "org.example.ping.Ping".into(),
             PingArgs_ { ping },
             self.more,
+            self.oneway,
         )
     }
 }

@@ -621,6 +621,7 @@ impl From<Error_> for io::Error {{
 pub struct VarlinkClient {{
     connection: Arc<RwLock<varlink::Connection>>,
     more: bool,
+    oneway: bool,
 }}
 
 impl VarlinkClient {{
@@ -628,12 +629,21 @@ impl VarlinkClient {{
         VarlinkClient {{
             connection,
             more: false,
+            oneway: false,
         }}
     }}
     pub fn more(&self) -> Self {{
         VarlinkClient {{
             connection: self.connection.clone(),
             more: true,
+            oneway: false,
+        }}
+    }}
+    pub fn oneway(&self) -> Self {{
+        VarlinkClient {{
+            connection: self.connection.clone(),
+            more: false,
+            oneway: true,
         }}
     }}
 }}
@@ -678,7 +688,7 @@ impl VarlinkClientInterface for VarlinkClient {{
                  self.connection.clone(),\n            \
                  \"{iname}.{mname}\".into(),\n            \
                  {mname}Args_ {{ {innames} }},\n        \
-                 self.more)\n",
+                 self.more, self.oneway)\n",
                 mname = t.name,
                 iname = self.name,
                 innames = innames

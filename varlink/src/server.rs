@@ -67,17 +67,17 @@ fn activation_listener() -> io::Result<Option<i32>> {
         }
     }
 
+    if nfds == 1 {
+        return Ok(Some(3));
+    }
+
     let fdnames: String;
 
     match env::var("LISTEN_FDNAMES") {
         Ok(n) => {
             fdnames = n;
         }
-        _ => if nfds == 1 {
-            return Ok(Some(3));
-        } else {
-            return Ok(None);
-        },
+        _ => return Ok(None),
     }
 
     for (i, v) in fdnames.split(":").enumerate() {

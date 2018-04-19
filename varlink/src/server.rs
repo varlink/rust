@@ -49,8 +49,13 @@ impl<'a> VarlinkStream {
 }
 
 fn activation_listener() -> io::Result<Option<i32>> {
+    let nfds: u32;
+
     match env::var("LISTEN_FDS") {
-        Ok(ref nfds) if nfds.parse::<u32>() == Ok(1) => {}
+        Ok(ref n) => match n.parse::<u32>() {
+            Ok(n) if n >= 1 => nfds = n,
+            _ => return Ok(None),
+        },
         _ => return Ok(None),
     }
 
@@ -60,14 +65,28 @@ fn activation_listener() -> io::Result<Option<i32>> {
             Ok(ref pid) if pid.parse::<i32>() == Ok(getpid()) => {}
             _ => return Ok(None),
         }
-
-        //syscall.CloseOnExec(3)
-        //let listener = UnixListener::from_raw_fd(3);
-        env::remove_var("LISTEN_PID");
-        env::remove_var("LISTEN_FDS");
-
-        Ok(Some(3))
     }
+
+    let fdnames: String;
+
+    match env::var("LISTEN_FDNAMES") {
+        Ok(n) => {
+            fdnames = n;
+        }
+        _ => if nfds == 1 {
+            return Ok(Some(3));
+        } else {
+            return Ok(None);
+        },
+    }
+
+    for (i, v) in fdnames.split(":").enumerate() {
+        if v == "varlink" {
+            return Ok(Some(3 + i as i32));
+        }
+    }
+
+    Ok(None)
 }
 
 //FIXME: add Drop with shutdown() and unix file removal

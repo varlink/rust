@@ -48,7 +48,7 @@ impl<'a> VarlinkStream {
     }
 }
 
-fn activation_listener() -> io::Result<Option<UnixListener>> {
+fn activation_listener() -> io::Result<Option<i32>> {
     match env::var("LISTEN_FDS") {
         Ok(ref nfds) if nfds.parse::<u32>() == Ok(1) => {}
         _ => return Ok(None),
@@ -62,11 +62,11 @@ fn activation_listener() -> io::Result<Option<UnixListener>> {
         }
 
         //syscall.CloseOnExec(3)
-        let listener = UnixListener::from_raw_fd(3);
+        //let listener = UnixListener::from_raw_fd(3);
         env::remove_var("LISTEN_PID");
         env::remove_var("LISTEN_FDS");
 
-        Ok(Some(listener))
+        Ok(Some(3))
     }
 }
 
@@ -74,7 +74,17 @@ fn activation_listener() -> io::Result<Option<UnixListener>> {
 impl VarlinkListener {
     pub fn new(address: &str) -> io::Result<Self> {
         if let Some(l) = activation_listener()? {
-            return Ok(VarlinkListener::UNIX(l));
+            if address.starts_with("tcp:") {
+                unsafe {
+                    return Ok(VarlinkListener::TCP(TcpListener::from_raw_fd(l)));
+                }
+            } else if address.starts_with("unix:") {
+                unsafe {
+                    return Ok(VarlinkListener::UNIX(UnixListener::from_raw_fd(l)));
+                }
+            } else {
+                return Err(Error::new(ErrorKind::Other, "unknown varlink address"));
+            }
         }
 
         if address.starts_with("tcp:") {

@@ -7,6 +7,7 @@ extern crate varlink;
 use org_varlink_certification::*;
 use std::env;
 use std::io;
+
 use std::process::exit;
 use varlink::{StringHashMap, StringHashSet, VarlinkService};
 
@@ -133,73 +134,239 @@ fn run_client(address: String) -> io::Result<()> {
 
 struct CertInterface;
 
+fn new_mytype() -> io::Result<MyType> {
+    let mut mytype_dictionary: StringHashMap<String> = StringHashMap::new();
+    mytype_dictionary.insert("foo".into(), "Foo".into());
+    mytype_dictionary.insert("bar".into(), "Bar".into());
+
+    let mut mytype_stringset = varlink::StringHashSet::new();
+    mytype_stringset.insert("one".into());
+    mytype_stringset.insert("two".into());
+    mytype_stringset.insert("three".into());
+
+    let mut ele1: StringHashMap<Interface_foo> = StringHashMap::new();
+    ele1.insert("foo".into(), Interface_foo::foo);
+    ele1.insert("bar".into(), Interface_foo::bar);
+
+    let mut ele2: StringHashMap<Interface_foo> = StringHashMap::new();
+    ele2.insert("one".into(), Interface_foo::foo);
+    ele2.insert("two".into(), Interface_foo::bar);
+
+    Ok(MyType {
+        object: serde_json::from_str(
+            r#"{"method": "org.varlink.certification.Test09",
+                       "parameters": {"map": {"foo": "Foo", "bar": "Bar"}}}"#,
+        )?,
+        enum_: MyType_enum::two,
+        struct_: MyType_struct {
+            first: 1,
+            second: "2".into(),
+        },
+        array: vec!["one".into(), "two".into(), "three".into()],
+        dictionary: mytype_dictionary,
+        stringset: mytype_stringset,
+        nullable: None,
+        nullable_array_struct: None,
+        interface: Interface {
+            foo: Some(vec![None, Some(ele1), None, Some(ele2)]),
+            anon: Interface_anon {
+                foo: true,
+                bar: false,
+            },
+        },
+    })
+}
+
+macro_rules! check_call_expr {
+	($c:ident, $pat:expr, $wants:expr) => {{
+	    let check = $pat;
+        if !check {
+            let got: serde_json::Value = serde_json::to_value($c.get_request().unwrap())?;
+            return $c.reply_certification_error(
+                serde_json::to_value($wants)?,
+                got,
+            );
+        }
+	}};
+}
+macro_rules! check_call_normal {
+	($c:ident, $test:expr, $wants:expr) => {{
+	    let wants = serde_json::to_value($wants)?;
+	    let check = match $c.get_request() {
+            Some(&varlink::Request {
+                more: Some(true), ..
+            })
+            | Some(&varlink::Request {
+                oneway: Some(true), ..
+            })
+            | Some(&varlink::Request {
+                upgrade: Some(true),
+                ..
+            }) => false,
+            Some(&varlink::Request {
+                method: ref m,
+                parameters: Some(ref p),
+                ..
+            }) if m == $test
+                && p == &wants =>
+            {
+                true
+            }
+
+            _ => false,
+        };
+        if !check {
+            let got: serde_json::Value = serde_json::to_value($c.get_request().unwrap())?;
+            return $c.reply_certification_error(
+                    serde_json::to_value(varlink::Request {
+                    more: None,
+                    oneway: None,
+                    upgrade: None,
+                    method: "org.varlink.certification.$test".into(),
+                    parameters: Some(wants),
+                    }) ?,
+                got,
+            );
+        }
+	}};
+}
+
 impl VarlinkInterface for CertInterface {
     fn start(&self, call: &mut _CallStart) -> io::Result<()> {
-        if !call.is_oneway() {
-            call.reply_certification_error(
-                "Need a oneway call".into(),
-                "Got a call expecting a reply".into(),
-            )
-        } else {
-            Ok(())
-        }
+        check_call_expr!(
+            call,
+            match call.get_request() {
+                Some(&varlink::Request {
+                    more: Some(true), ..
+                })
+                | Some(&varlink::Request {
+                    upgrade: Some(true),
+                    ..
+                }) => false,
+                Some(&varlink::Request {
+                    oneway: Some(true),
+                    method: ref m,
+                    parameters: ref p,
+                    ..
+                }) if m == "org.varlink.certification.Start"
+                    && (*p == None
+                        || *p == Some(serde_json::Value::Object(serde_json::Map::new()))) =>
+                {
+                    true
+                }
+
+                _ => false,
+            },
+            varlink::Request {
+                more: None,
+                oneway: Some(true),
+                upgrade: None,
+                method: "org.varlink.certification.Start".into(),
+                parameters: None,
+            }
+        );
+
+        Ok(())
     }
 
     fn test01(&self, call: &mut _CallTest01) -> io::Result<()> {
+        check_call_expr!(
+            call,
+            match call.get_request() {
+                Some(&varlink::Request {
+                    more: Some(true), ..
+                })
+                | Some(&varlink::Request {
+                    oneway: Some(true), ..
+                })
+                | Some(&varlink::Request {
+                    upgrade: Some(true),
+                    ..
+                }) => false,
+                Some(&varlink::Request {
+                    method: ref m,
+                    parameters: ref p,
+                    ..
+                }) if m == "org.varlink.certification.Test01"
+                    && (*p == None
+                        || *p == Some(serde_json::Value::Object(serde_json::Map::new()))) =>
+                {
+                    true
+                }
+
+                _ => false,
+            },
+            varlink::Request {
+                more: None,
+                oneway: None,
+                upgrade: None,
+                method: "org.varlink.certification.Test01".into(),
+                parameters: None,
+            }
+        );
+
         call.reply(true)
     }
 
-    fn test02(&self, call: &mut _CallTest02, bool_: bool) -> io::Result<()> {
-        if bool_ != true {
-            return call.reply_invalid_parameter("bool".into());
-        }
+    fn test02(&self, call: &mut _CallTest02, _bool_: bool) -> io::Result<()> {
+        check_call_normal!(
+            call,
+            "org.varlink.certification.Test02",
+            Test02Args_ { bool: true }
+        );
         call.reply(1)
     }
 
-    fn test03(&self, call: &mut _CallTest03, int: i64) -> io::Result<()> {
-        if int != 1 {
-            return call.reply_invalid_parameter("int".into());
-        }
+    fn test03(&self, call: &mut _CallTest03, _int: i64) -> io::Result<()> {
+        check_call_normal!(
+            call,
+            "org.varlink.certification.Test03",
+            Test03Args_ { int: 1 }
+        );
+
         call.reply(1.0)
     }
 
-    fn test04(&self, call: &mut _CallTest04, float: f64) -> io::Result<()> {
-        if float != 1.0 {
-            return call.reply_invalid_parameter("float".into());
-        }
+    fn test04(&self, call: &mut _CallTest04, _float: f64) -> io::Result<()> {
+        check_call_normal!(
+            call,
+            "org.varlink.certification.Test04",
+            Test04Args_ { float: 1.0 }
+        );
+
         call.reply("ping".into())
     }
 
-    fn test05(&self, call: &mut _CallTest05, string: String) -> io::Result<()> {
-        if string != "ping" {
-            return call.reply_invalid_parameter("string".into());
-        }
+    fn test05(&self, call: &mut _CallTest05, _string: String) -> io::Result<()> {
+        check_call_normal!(
+            call,
+            "org.varlink.certification.Test05",
+            Test05Args_ {
+                string: "ping".into(),
+            }
+        );
+
         call.reply(false, 2, std::f64::consts::PI, "a lot of string".into())
     }
 
     fn test06(
         &self,
         call: &mut _CallTest06,
-        bool_: bool,
-        int: i64,
-        float: f64,
-        string: String,
+        _bool_: bool,
+        _int: i64,
+        _float: f64,
+        _string: String,
     ) -> io::Result<()> {
-        if bool_ != false {
-            return call.reply_invalid_parameter("bool".into());
-        }
-
-        if int != 2 {
-            return call.reply_invalid_parameter("int".into());
-        }
-
-        if float != std::f64::consts::PI {
-            return call.reply_invalid_parameter("float".into());
-        }
-
-        if string != "a lot of string" {
-            return call.reply_invalid_parameter("string".into());
-        }
+        check_call_normal!(
+            call,
+            "org.varlink.certification.Test06",
+            Test06Args_ {
+                bool: false,
+                int: 2,
+                float: std::f64::consts::PI,
+                string: "a lot of string".into(),
+            }
+        );
 
         call.reply(Test06Reply_struct {
             bool: false,
@@ -209,22 +376,19 @@ impl VarlinkInterface for CertInterface {
         })
     }
 
-    fn test07(&self, call: &mut _CallTest07, struct_: Test07Args_struct) -> io::Result<()> {
-        if struct_.bool != false {
-            return call.reply_invalid_parameter("struct.bool".into());
-        }
-
-        if struct_.int != 2 {
-            return call.reply_invalid_parameter("struct.int".into());
-        }
-
-        if struct_.float != std::f64::consts::PI {
-            return call.reply_invalid_parameter("struct.float".into());
-        }
-
-        if struct_.string != "a lot of string" {
-            return call.reply_invalid_parameter("struct.string".into());
-        }
+    fn test07(&self, call: &mut _CallTest07, _struct_: Test07Args_struct) -> io::Result<()> {
+        check_call_normal!(
+            call,
+            "org.varlink.certification.Test07",
+            Test07Args_ {
+                struct_: Test07Args_struct {
+                    bool: false,
+                    int: 2,
+                    float: std::f64::consts::PI,
+                    string: "a lot of string".into(),
+                },
+            }
+        );
 
         let mut map: StringHashMap<String> = StringHashMap::new();
         map.insert("bar".into(), "Bar".into());
@@ -235,13 +399,17 @@ impl VarlinkInterface for CertInterface {
     fn test08(
         &self,
         call: &mut _CallTest08,
-        map: ::std::collections::HashMap<String, String>,
+        _map: ::std::collections::HashMap<String, String>,
     ) -> io::Result<()> {
-        if map.len() != 2 || map.get("bar".into()) != Some(&String::from("Bar"))
-            || map.get("foo".into()) != Some(&String::from("Foo"))
-        {
-            return call.reply_invalid_parameter("map".into());
-        }
+        let mut map: StringHashMap<String> = StringHashMap::new();
+        map.insert("bar".into(), "Bar".into());
+        map.insert("foo".into(), "Foo".into());
+
+        check_call_normal!(
+            call,
+            "org.varlink.certification.Test08",
+            Test08Args_ { map: map }
+        );
 
         let mut set = StringHashSet::new();
         set.insert("one".into());
@@ -257,70 +425,24 @@ impl VarlinkInterface for CertInterface {
             return call.reply_invalid_parameter("set".into());
         }
 
-        let mut mytype_dictionary: StringHashMap<String> = StringHashMap::new();
-        mytype_dictionary.insert("foo".into(), "Foo".into());
-        mytype_dictionary.insert("bar".into(), "Bar".into());
-
-        let mut mytype_stringset = varlink::StringHashSet::new();
-        mytype_stringset.insert("one".into());
-        mytype_stringset.insert("two".into());
-        mytype_stringset.insert("three".into());
-
-        let mut ele1: StringHashMap<Interface_foo> = StringHashMap::new();
-        ele1.insert("foo".into(), Interface_foo::foo);
-        ele1.insert("bar".into(), Interface_foo::bar);
-
-        let mut ele2: StringHashMap<Interface_foo> = StringHashMap::new();
-        ele2.insert("one".into(), Interface_foo::foo);
-        ele2.insert("two".into(), Interface_foo::bar);
-
-        let mytype = MyType {
-            object: serde_json::from_str(
-                r#"{"method": "org.varlink.certification.Test09",
-                       "parameters": {"map": {"foo": "Foo", "bar": "Bar"}}}"#,
-            )?,
-            enum_: MyType_enum::two,
-            struct_: MyType_struct {
-                first: 1,
-                second: "2".into(),
-            },
-            array: vec!["one".into(), "two".into(), "three".into()],
-            dictionary: mytype_dictionary,
-            stringset: mytype_stringset,
-            nullable: None,
-            nullable_array_struct: None,
-            interface: Interface {
-                foo: Some(vec![None, Some(ele1), None, Some(ele2)]),
-                anon: Interface_anon {
-                    foo: true,
-                    bar: false,
-                },
-            },
-        };
-
-        call.reply(mytype)
+        call.reply(new_mytype()?)
     }
 
     fn test10(&self, call: &mut _CallTest10, mytype: MyType) -> io::Result<()> {
-        if mytype.dictionary.len() != 2
-            || mytype.dictionary.get("bar".into()) != Some(&String::from("Bar"))
-            || mytype.dictionary.get("foo".into()) != Some(&String::from("Foo"))
-        {
-            return call.reply_invalid_parameter("mytype.dictionary".into());
-        }
+        let mytype_wants = new_mytype()?;
 
-        if mytype.stringset.len() != 3 || mytype.stringset.get("one") == None
-            || mytype.stringset.get("two") == None
-            || mytype.stringset.get("three") == None
-        {
-            return call.reply_invalid_parameter("mytype.stringset".into());
-        }
-
-        if mytype.array.len() != 3 || mytype.array.get(0) != Some(&String::from("one"))
-            || mytype.array.get(1) != Some(&String::from("two"))
-            || mytype.array.get(2) != Some(&String::from("three"))
-        {
-            return call.reply_invalid_parameter("mytype.array".into());
+        if mytype != mytype_wants || !call.wants_more() {
+            let got: serde_json::Value = serde_json::to_value(call.get_request().unwrap())?;
+            return call.reply_certification_error(
+                serde_json::to_value(varlink::Request {
+                    more: Some(true),
+                    oneway: None,
+                    upgrade: None,
+                    method: "org.varlink.certification.Test10".into(),
+                    parameters: Some(serde_json::to_value(mytype_wants)?),
+                })?,
+                got,
+            );
         }
 
         call.set_continues(true);

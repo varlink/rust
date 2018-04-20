@@ -80,4 +80,4 @@ method Test11(last_more_replies: []string) -> ()
 
 method End() -> (all_ok: bool)
 
-error CertificationError (wants: string, got: string)
+error CertificationError (wants: object, got: object)

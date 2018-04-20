@@ -192,8 +192,8 @@ pub struct Test11Args_ {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct CertificationErrorArgs_ {
-    pub wants: String,
-    pub got: String,
+    pub wants: Value,
+    pub got: Value,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -245,7 +245,7 @@ pub enum MyType_enum {
 }
 
 pub trait _CallErr: varlink::CallTrait {
-    fn reply_certification_error(&mut self, wants: String, got: String) -> io::Result<()> {
+    fn reply_certification_error(&mut self, wants: Value, got: Value) -> io::Result<()> {
         self.reply_struct(varlink::Reply::error(
             "org.varlink.certification.CertificationError".into(),
             Some(serde_json::to_value(CertificationErrorArgs_ { wants, got }).unwrap()),
@@ -797,7 +797,7 @@ method Test11(last_more_replies: []string) -> ()
 
 method End() -> (all_ok: bool)
 
-error CertificationError (wants: string, got: string)
+error CertificationError (wants: object, got: object)
 "#
     }
 

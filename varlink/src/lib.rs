@@ -22,7 +22,7 @@
 //!}
 //!```
 //!
-//!Add to your `Cargo.toml`:
+//!Add to your ```Cargo.toml```:
 //!
 //!```toml
 //![package]
@@ -409,7 +409,7 @@ where
 ///}
 ///# }
 ///# fn main() {}
-/// ```
+///```
 pub struct Call<'a> {
     writer: &'a mut Write,
     pub request: Option<&'a Request>,
@@ -501,7 +501,7 @@ pub trait CallTrait {
     ///}
     ///# }
     ///# fn main() {}
-    /// ```
+    ///```
     fn set_continues(&mut self, cont: bool);
 
     /// True, if this request does not want a reply.

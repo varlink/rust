@@ -510,6 +510,8 @@ pub trait CallTrait {
     /// True, if this request accepts more than one reply.
     fn wants_more(&self) -> bool;
 
+    fn get_request(&self) -> Option<&Request>;
+
     /// reply with the standard varlink `org.varlink.service.MethodNotFound` error
     fn reply_method_not_found(&mut self, method_name: String) -> io::Result<()> {
         self.reply_struct(Reply::error(
@@ -771,6 +773,9 @@ impl<'a> CallTrait for Call<'a> {
             }) => true,
             _ => false,
         }
+    }
+    fn get_request(&self) -> Option<&Request> {
+        self.request
     }
 }
 

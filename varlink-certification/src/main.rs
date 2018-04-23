@@ -189,6 +189,7 @@ macro_rules! check_call_expr {
         }
 	}};
 }
+
 macro_rules! check_call_normal {
 	($c:ident, $test:expr, $wants:expr) => {{
 	    let wants = serde_json::to_value($wants)?;
@@ -222,7 +223,47 @@ macro_rules! check_call_normal {
                     more: None,
                     oneway: None,
                     upgrade: None,
-                    method: "org.varlink.certification.$test".into(),
+                    method: $test.into(),
+                    parameters: Some(wants),
+                    }) ?,
+                got,
+            );
+        }
+	}};
+}
+
+macro_rules! check_call_more {
+	($c:ident, $test:expr, $wants:expr) => {{
+	    let wants = serde_json::to_value($wants)?;
+	    let check = match $c.get_request() {
+            Some(&varlink::Request {
+                oneway: Some(true), ..
+            })
+            | Some(&varlink::Request {
+                upgrade: Some(true),
+                ..
+            }) => false,
+            Some(&varlink::Request {
+                            more: Some(true),
+                method: ref m,
+                parameters: Some(ref p),
+                ..
+            }) if m == $test
+                && p == &wants =>
+            {
+                true
+            }
+
+            _ => false,
+        };
+        if !check {
+            let got: serde_json::Value = serde_json::to_value($c.get_request().unwrap())?;
+            return $c.reply_certification_error(
+                    serde_json::to_value(varlink::Request {
+                    more: None,
+                    oneway: None,
+                    upgrade: None,
+                    method: $test.into(),
                     parameters: Some(wants),
                     }) ?,
                 got,
@@ -418,32 +459,29 @@ impl VarlinkInterface for CertInterface {
         call.reply(set)
     }
 
-    fn test09(&self, call: &mut _CallTest09, set: varlink::StringHashSet) -> io::Result<()> {
-        if set.len() != 3 || set.get("one") == None || set.get("two") == None
-            || set.get("three") == None
-        {
-            return call.reply_invalid_parameter("set".into());
-        }
+    fn test09(&self, call: &mut _CallTest09, _set: varlink::StringHashSet) -> io::Result<()> {
+        let mut set = StringHashSet::new();
+        set.insert("one".into());
+        set.insert("two".into());
+        set.insert("three".into());
+
+        check_call_normal!(
+            call,
+            "org.varlink.certification.Test09",
+            Test09Args_ { set: set }
+        );
 
         call.reply(new_mytype()?)
     }
 
-    fn test10(&self, call: &mut _CallTest10, mytype: MyType) -> io::Result<()> {
-        let mytype_wants = new_mytype()?;
-
-        if mytype != mytype_wants || !call.wants_more() {
-            let got: serde_json::Value = serde_json::to_value(call.get_request().unwrap())?;
-            return call.reply_certification_error(
-                serde_json::to_value(varlink::Request {
-                    more: Some(true),
-                    oneway: None,
-                    upgrade: None,
-                    method: "org.varlink.certification.Test10".into(),
-                    parameters: Some(serde_json::to_value(mytype_wants)?),
-                })?,
-                got,
-            );
-        }
+    fn test10(&self, call: &mut _CallTest10, _mytype: MyType) -> io::Result<()> {
+        check_call_more!(
+            call,
+            "org.varlink.certification.Test10",
+            Test10Args_ {
+                mytype: new_mytype()?,
+            }
+        );
 
         call.set_continues(true);
         for i in 1..11 {
@@ -455,20 +493,60 @@ impl VarlinkInterface for CertInterface {
         Ok(())
     }
 
-    fn test11(&self, call: &mut _CallTest11, last_more_replies: Vec<String>) -> io::Result<()> {
-        if last_more_replies.len() != 10 {
-            return call.reply_invalid_parameter("last_more_replies".into());
-        }
+    fn test11(&self, call: &mut _CallTest11, _last_more_replies: Vec<String>) -> io::Result<()> {
+        let mut more_replies: Vec<String> = Vec::new();
+
         for i in 0..10 {
-            match last_more_replies.get(i) {
-                Some(s) if *s == format!("Reply number {}", i + 1) => {}
-                _ => return call.reply_invalid_parameter("last_more_replies".into()),
-            }
+            more_replies.push(format!("Reply number {}", i + 1));
         }
+
+        check_call_normal!(
+            call,
+            "org.varlink.certification.Test11",
+            Test11Args_ {
+                last_more_replies: more_replies,
+            }
+        );
+
         call.reply()
     }
 
     fn end(&self, call: &mut _CallEnd) -> io::Result<()> {
+        check_call_expr!(
+            call,
+            match call.get_request() {
+                Some(&varlink::Request {
+                    more: Some(true), ..
+                })
+                | Some(&varlink::Request {
+                    oneway: Some(true), ..
+                })
+                | Some(&varlink::Request {
+                    upgrade: Some(true),
+                    ..
+                }) => false,
+                Some(&varlink::Request {
+                    method: ref m,
+                    parameters: ref p,
+                    ..
+                }) if m == "org.varlink.certification.End"
+                    && (*p == None
+                        || *p == Some(serde_json::Value::Object(serde_json::Map::new()))) =>
+                {
+                    true
+                }
+
+                _ => false,
+            },
+            varlink::Request {
+                more: None,
+                oneway: None,
+                upgrade: None,
+                method: "org.varlink.certification.End".into(),
+                parameters: None,
+            }
+        );
+
         call.reply(true)
     }
 }

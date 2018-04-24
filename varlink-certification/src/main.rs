@@ -10,7 +10,11 @@ use std::io;
 
 use std::process::exit;
 use varlink::{StringHashMap, StringHashSet, VarlinkService};
-
+use std::collections::VecDeque;
+use std::time::Instant;
+use std::sync::{Arc, RwLock};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 mod org_varlink_certification;
 
 // Main
@@ -77,62 +81,66 @@ fn run_client(address: String) -> io::Result<()> {
     let connection = varlink::Connection::new(&address)?;
     let mut call = VarlinkClient::new(connection);
 
-    let _ret = call.oneway().start()?;
-
-    let ret = call.test01()?.recv()?;
+    let ret = call.start()?.recv()?;
     eprintln!("{:#?}", ret);
 
-    let ret = call.test02(ret.bool)?.recv()?;
+    let client_id = ret.client_id;
+
+    let ret = call.test01(client_id.clone())?.recv()?;
     eprintln!("{:#?}", ret);
 
-    let ret = call.test03(ret.int)?.recv()?;
+    let ret = call.test02(client_id.clone(), ret.bool)?.recv()?;
     eprintln!("{:#?}", ret);
 
-    let ret = call.test04(ret.float)?.recv()?;
+    let ret = call.test03(client_id.clone(), ret.int)?.recv()?;
     eprintln!("{:#?}", ret);
 
-    let ret = call.test05(ret.string)?.recv()?;
+    let ret = call.test04(client_id.clone(), ret.float)?.recv()?;
     eprintln!("{:#?}", ret);
 
-    let ret = call.test06(ret.bool, ret.int, ret.float, ret.string)?
+    let ret = call.test05(client_id.clone(), ret.string)?.recv()?;
+    eprintln!("{:#?}", ret);
+
+    let ret = call.test06(client_id.clone(), ret.bool, ret.int, ret.float, ret.string)?
         .recv()?;
     eprintln!("{:#?}", ret);
 
-    let ret = call.test07(Test07Args_struct {
-        bool: ret.struct_.bool,
-        int: ret.struct_.int,
-        float: ret.struct_.float,
-        string: ret.struct_.string,
-    })?
+    let ret = call.test07(
+        client_id.clone(),
+        Test07Args_struct {
+            bool: ret.struct_.bool,
+            int: ret.struct_.int,
+            float: ret.struct_.float,
+            string: ret.struct_.string,
+        },
+    )?
         .recv()?;
     eprintln!("{:#?}", ret);
 
-    let ret = call.test08(ret.map)?.recv()?;
+    let ret = call.test08(client_id.clone(), ret.map)?.recv()?;
     eprintln!("{:#?}", ret);
 
-    let ret = call.test09(ret.set)?.recv()?;
+    let ret = call.test09(client_id.clone(), ret.set)?.recv()?;
     eprintln!("{:#?}", ret);
 
     let mut ret_array = Vec::new();
 
-    for ret in call.more().test10(ret.mytype)? {
+    for ret in call.more().test10(client_id.clone(), ret.mytype)? {
         let ret = ret?;
         eprintln!("{:#?}", ret);
         ret_array.push(ret.string.clone());
     }
 
-    let ret = call.test11(ret_array)?.recv()?;
+    let ret = call.test11(client_id.clone(), ret_array)?.recv()?;
     eprintln!("{:#?}", ret);
 
-    let ret = call.end()?.recv()?;
+    let ret = call.end(client_id.clone())?.recv()?;
     eprintln!("{:#?}", ret);
 
     Ok(())
 }
 
 // Server
-
-struct CertInterface;
 
 fn new_mytype() -> io::Result<MyType> {
     let mut mytype_dictionary: StringHashMap<String> = StringHashMap::new();
@@ -283,9 +291,11 @@ impl VarlinkInterface for CertInterface {
                 | Some(&varlink::Request {
                     upgrade: Some(true),
                     ..
+                })
+                | Some(&varlink::Request {
+                    oneway: Some(true), ..
                 }) => false,
                 Some(&varlink::Request {
-                    oneway: Some(true),
                     method: ref m,
                     parameters: ref p,
                     ..
@@ -307,82 +317,80 @@ impl VarlinkInterface for CertInterface {
             }
         );
 
-        Ok(())
+        call.reply(self.new_client_id())
     }
 
-    fn test01(&self, call: &mut _CallTest01) -> io::Result<()> {
-        check_call_expr!(
-            call,
-            match call.get_request() {
-                Some(&varlink::Request {
-                    more: Some(true), ..
-                })
-                | Some(&varlink::Request {
-                    oneway: Some(true), ..
-                })
-                | Some(&varlink::Request {
-                    upgrade: Some(true),
-                    ..
-                }) => false,
-                Some(&varlink::Request {
-                    method: ref m,
-                    parameters: ref p,
-                    ..
-                }) if m == "org.varlink.certification.Test01"
-                    && (*p == None
-                        || *p == Some(serde_json::Value::Object(serde_json::Map::new()))) =>
-                {
-                    true
-                }
+    fn test01(&self, call: &mut _CallTest01, client_id: String) -> io::Result<()> {
+        if !self.check_client_id(&client_id, "Test01".into(), "Test02".into()) {
+            return call.reply_client_id_error();
+        }
 
-                _ => false,
-            },
-            varlink::Request {
-                more: None,
-                oneway: None,
-                upgrade: None,
-                method: "org.varlink.certification.Test01".into(),
-                parameters: None,
-            }
+        check_call_normal!(
+            call,
+            "org.varlink.certification.Test01",
+            Test01Args_ { client_id: client_id }
         );
 
         call.reply(true)
     }
 
-    fn test02(&self, call: &mut _CallTest02, _bool_: bool) -> io::Result<()> {
+    fn test02(&self, call: &mut _CallTest02, client_id: String, _bool_: bool) -> io::Result<()> {
+        if !self.check_client_id(&client_id, "Test02".into(), "Test03".into()) {
+            return call.reply_client_id_error();
+        }
+
         check_call_normal!(
             call,
             "org.varlink.certification.Test02",
-            Test02Args_ { bool: true }
+            Test02Args_ {
+                client_id: client_id,
+                bool: true,
+            }
         );
         call.reply(1)
     }
 
-    fn test03(&self, call: &mut _CallTest03, _int: i64) -> io::Result<()> {
+    fn test03(&self, call: &mut _CallTest03, client_id: String, _int: i64) -> io::Result<()> {
+        if !self.check_client_id(&client_id, "Test03".into(), "Test04".into()) {
+            return call.reply_client_id_error();
+        }
         check_call_normal!(
             call,
             "org.varlink.certification.Test03",
-            Test03Args_ { int: 1 }
+            Test03Args_ {
+                client_id: client_id,
+                int: 1,
+            }
         );
 
         call.reply(1.0)
     }
 
-    fn test04(&self, call: &mut _CallTest04, _float: f64) -> io::Result<()> {
+    fn test04(&self, call: &mut _CallTest04, client_id: String, _float: f64) -> io::Result<()> {
+        if !self.check_client_id(&client_id, "Test04".into(), "Test05".into()) {
+            return call.reply_client_id_error();
+        }
         check_call_normal!(
             call,
             "org.varlink.certification.Test04",
-            Test04Args_ { float: 1.0 }
+            Test04Args_ {
+                client_id: client_id,
+                float: 1.0,
+            }
         );
 
         call.reply("ping".into())
     }
 
-    fn test05(&self, call: &mut _CallTest05, _string: String) -> io::Result<()> {
+    fn test05(&self, call: &mut _CallTest05, client_id: String, _string: String) -> io::Result<()> {
+        if !self.check_client_id(&client_id, "Test05".into(), "Test06".into()) {
+            return call.reply_client_id_error();
+        }
         check_call_normal!(
             call,
             "org.varlink.certification.Test05",
             Test05Args_ {
+                client_id: client_id,
                 string: "ping".into(),
             }
         );
@@ -393,15 +401,20 @@ impl VarlinkInterface for CertInterface {
     fn test06(
         &self,
         call: &mut _CallTest06,
+        client_id: String,
         _bool_: bool,
         _int: i64,
         _float: f64,
         _string: String,
     ) -> io::Result<()> {
+        if !self.check_client_id(&client_id, "Test06".into(), "Test07".into()) {
+            return call.reply_client_id_error();
+        }
         check_call_normal!(
             call,
             "org.varlink.certification.Test06",
             Test06Args_ {
+                client_id: client_id,
                 bool: false,
                 int: 2,
                 float: std::f64::consts::PI,
@@ -417,11 +430,20 @@ impl VarlinkInterface for CertInterface {
         })
     }
 
-    fn test07(&self, call: &mut _CallTest07, _struct_: Test07Args_struct) -> io::Result<()> {
+    fn test07(
+        &self,
+        call: &mut _CallTest07,
+        client_id: String,
+        _struct_: Test07Args_struct,
+    ) -> io::Result<()> {
+        if !self.check_client_id(&client_id, "Test07".into(), "Test08".into()) {
+            return call.reply_client_id_error();
+        }
         check_call_normal!(
             call,
             "org.varlink.certification.Test07",
             Test07Args_ {
+                client_id: client_id,
                 struct_: Test07Args_struct {
                     bool: false,
                     int: 2,
@@ -440,8 +462,12 @@ impl VarlinkInterface for CertInterface {
     fn test08(
         &self,
         call: &mut _CallTest08,
+        client_id: String,
         _map: ::std::collections::HashMap<String, String>,
     ) -> io::Result<()> {
+        if !self.check_client_id(&client_id, "Test08".into(), "Test09".into()) {
+            return call.reply_client_id_error();
+        }
         let mut map: StringHashMap<String> = StringHashMap::new();
         map.insert("bar".into(), "Bar".into());
         map.insert("foo".into(), "Foo".into());
@@ -449,7 +475,10 @@ impl VarlinkInterface for CertInterface {
         check_call_normal!(
             call,
             "org.varlink.certification.Test08",
-            Test08Args_ { map: map }
+            Test08Args_ {
+                client_id: client_id,
+                map: map,
+            }
         );
 
         let mut set = StringHashSet::new();
@@ -459,7 +488,15 @@ impl VarlinkInterface for CertInterface {
         call.reply(set)
     }
 
-    fn test09(&self, call: &mut _CallTest09, _set: varlink::StringHashSet) -> io::Result<()> {
+    fn test09(
+        &self,
+        call: &mut _CallTest09,
+        client_id: String,
+        _set: varlink::StringHashSet,
+    ) -> io::Result<()> {
+        if !self.check_client_id(&client_id, "Test09".into(), "Test10".into()) {
+            return call.reply_client_id_error();
+        }
         let mut set = StringHashSet::new();
         set.insert("one".into());
         set.insert("two".into());
@@ -468,17 +505,24 @@ impl VarlinkInterface for CertInterface {
         check_call_normal!(
             call,
             "org.varlink.certification.Test09",
-            Test09Args_ { set: set }
+            Test09Args_ {
+                client_id: client_id,
+                set: set,
+            }
         );
 
         call.reply(new_mytype()?)
     }
 
-    fn test10(&self, call: &mut _CallTest10, _mytype: MyType) -> io::Result<()> {
+    fn test10(&self, call: &mut _CallTest10, client_id: String, _mytype: MyType) -> io::Result<()> {
+        if !self.check_client_id(&client_id, "Test10".into(), "Test11".into()) {
+            return call.reply_client_id_error();
+        }
         check_call_more!(
             call,
             "org.varlink.certification.Test10",
             Test10Args_ {
+                client_id: client_id,
                 mytype: new_mytype()?,
             }
         );
@@ -493,7 +537,15 @@ impl VarlinkInterface for CertInterface {
         Ok(())
     }
 
-    fn test11(&self, call: &mut _CallTest11, _last_more_replies: Vec<String>) -> io::Result<()> {
+    fn test11(
+        &self,
+        call: &mut _CallTest11,
+        client_id: String,
+        _last_more_replies: Vec<String>,
+    ) -> io::Result<()> {
+        if !self.check_client_id(&client_id, "Test11".into(), "End".into()) {
+            return call.reply_client_id_error();
+        }
         let mut more_replies: Vec<String> = Vec::new();
 
         for i in 0..10 {
@@ -504,6 +556,7 @@ impl VarlinkInterface for CertInterface {
             call,
             "org.varlink.certification.Test11",
             Test11Args_ {
+                client_id: client_id,
                 last_more_replies: more_replies,
             }
         );
@@ -511,48 +564,110 @@ impl VarlinkInterface for CertInterface {
         call.reply()
     }
 
-    fn end(&self, call: &mut _CallEnd) -> io::Result<()> {
-        check_call_expr!(
+    fn end(&self, call: &mut _CallEnd, client_id: String) -> io::Result<()> {
+        if !self.check_client_id(&client_id, "End".into(), "End".into()) {
+            return call.reply_client_id_error();
+        }
+        check_call_normal!(
             call,
-            match call.get_request() {
-                Some(&varlink::Request {
-                    more: Some(true), ..
-                })
-                | Some(&varlink::Request {
-                    oneway: Some(true), ..
-                })
-                | Some(&varlink::Request {
-                    upgrade: Some(true),
-                    ..
-                }) => false,
-                Some(&varlink::Request {
-                    method: ref m,
-                    parameters: ref p,
-                    ..
-                }) if m == "org.varlink.certification.End"
-                    && (*p == None
-                        || *p == Some(serde_json::Value::Object(serde_json::Map::new()))) =>
-                {
-                    true
-                }
-
-                _ => false,
-            },
-            varlink::Request {
-                more: None,
-                oneway: None,
-                upgrade: None,
-                method: "org.varlink.certification.End".into(),
-                parameters: None,
-            }
+            "org.varlink.certification.End",
+            EndArgs_ { client_id: client_id }
         );
 
         call.reply(true)
     }
 }
 
+struct Context {
+    // data goes here
+    test: String,
+}
+
+struct ClientIds {
+    lifetimes: VecDeque<(Instant, String)>,
+    contexts: StringHashMap<Context>,
+    max_lifetime: u64,
+}
+
+impl ClientIds {
+    fn check_client_id(&mut self, client_id: &String, test: String, next_test: String) -> bool {
+        self.check_lifetimes();
+        match self.contexts.get_mut(client_id) {
+            Some(context) => {
+                if context.test != test {
+                    false
+                } else {
+                    context.test = next_test;
+                    true
+                }
+            }
+            _ => false,
+        }
+    }
+
+    fn check_lifetimes(&mut self) {
+        loop {
+            let pop = match self.lifetimes.front() {
+                None => false,
+
+                Some(&(ref instant, ref client_id)) => {
+                    if instant.elapsed().as_secs() > self.max_lifetime {
+                        self.contexts.remove(client_id);
+                        true
+                    } else {
+                        false
+                    }
+                }
+            };
+
+            if !pop {
+                break;
+            }
+            self.lifetimes.pop_front();
+        }
+    }
+
+    fn new_client_id(&mut self) -> String {
+        let now = Instant::now();
+        let mut hasher = DefaultHasher::new();
+        format!("{:?}", now).hash(&mut hasher);
+        let client_id = format!("{:x}", hasher.finish());
+        self.contexts.insert(
+            client_id.clone(),
+            Context {
+                test: "Test01".into(),
+            },
+        );
+        self.lifetimes.push_back((now, client_id.clone()));
+        client_id
+    }
+}
+
+struct CertInterface {
+    pub client_ids: Arc<RwLock<ClientIds>>,
+}
+
+impl CertInterface {
+    fn check_client_id(&self, client_id: &String, test: String, next_test: String) -> bool {
+        let mut client_ids = self.client_ids.write().unwrap();
+        client_ids.check_client_id(client_id, test, next_test)
+    }
+
+    fn new_client_id(&self) -> String {
+        let mut client_ids = self.client_ids.write().unwrap();
+        client_ids.new_client_id()
+    }
+}
+
 fn run_server(address: String, timeout: u64) -> io::Result<()> {
-    let certinterface = CertInterface;
+    let certinterface = CertInterface {
+        client_ids: Arc::new(RwLock::new(ClientIds {
+            lifetimes: VecDeque::new(),
+            contexts: StringHashMap::new(),
+            max_lifetime: 60 * 60 * 12,
+        })),
+    };
+
     let myinterface = new(Box::new(certinterface));
     let service = VarlinkService::new(
         "org.varlink",

@@ -579,7 +579,6 @@ impl VarlinkInterface for CertInterface {
 }
 
 struct Context {
-    // data goes here
     test: String,
 }
 
@@ -591,7 +590,8 @@ struct ClientIds {
 
 impl ClientIds {
     fn check_client_id(&mut self, client_id: &String, test: String, next_test: String) -> bool {
-        self.check_lifetimes();
+        self.check_lifetime_timeout();
+
         match self.contexts.get_mut(client_id) {
             Some(context) => {
                 if context.test != test {
@@ -605,7 +605,7 @@ impl ClientIds {
         }
     }
 
-    fn check_lifetimes(&mut self) {
+    fn check_lifetime_timeout(&mut self) {
         loop {
             let pop = match self.lifetimes.front() {
                 None => false,

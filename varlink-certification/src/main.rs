@@ -199,8 +199,8 @@ macro_rules! check_call_expr {
 }
 
 macro_rules! check_call_normal {
-	($c:ident, $test:expr, $wants:expr) => {{
-	    let wants = serde_json::to_value($wants)?;
+	($c:ident, $test:expr, $got: ty, $wants:expr) => {{
+		let wants = $wants;
 	    let check = match $c.get_request() {
             Some(&varlink::Request {
                 more: Some(true), ..
@@ -216,16 +216,20 @@ macro_rules! check_call_normal {
                 method: ref m,
                 parameters: Some(ref p),
                 ..
-            }) if m == $test
-                && p == &wants =>
+            }) if m == $test =>
             {
-                true
+                let v : Result<$got, serde_json::Error> = serde_json::from_value(p.clone());
+                match v {
+                    Ok(w) => wants == w,
+                    _ => false
+                }
             }
 
             _ => false,
         };
         if !check {
             let got: serde_json::Value = serde_json::to_value($c.get_request().unwrap())?;
+	        let wants = serde_json::to_value(wants)?;
             return $c.reply_certification_error(
                     serde_json::to_value(varlink::Request {
                     more: None,
@@ -241,8 +245,8 @@ macro_rules! check_call_normal {
 }
 
 macro_rules! check_call_more {
-	($c:ident, $test:expr, $wants:expr) => {{
-	    let wants = serde_json::to_value($wants)?;
+	($c:ident, $test:expr, $got: ty, $wants:expr) => {{
+		let wants = $wants;
 	    let check = match $c.get_request() {
             Some(&varlink::Request {
                 oneway: Some(true), ..
@@ -256,16 +260,20 @@ macro_rules! check_call_more {
                 method: ref m,
                 parameters: Some(ref p),
                 ..
-            }) if m == $test
-                && p == &wants =>
+            }) if m == $test =>
             {
-                true
+                let v : Result<$got, serde_json::Error> = serde_json::from_value(p.clone());
+                match v {
+                    Ok(w) => wants == w,
+                    _ => false
+                }
             }
 
             _ => false,
         };
         if !check {
             let got: serde_json::Value = serde_json::to_value($c.get_request().unwrap())?;
+	        let wants = serde_json::to_value(wants)?;
             return $c.reply_certification_error(
                     serde_json::to_value(varlink::Request {
                     more: None,
@@ -328,7 +336,10 @@ impl VarlinkInterface for CertInterface {
         check_call_normal!(
             call,
             "org.varlink.certification.Test01",
-            Test01Args_ { client_id: client_id }
+            Test01Args_,
+            Test01Args_ {
+                client_id: client_id,
+            }
         );
 
         call.reply(true)
@@ -342,6 +353,7 @@ impl VarlinkInterface for CertInterface {
         check_call_normal!(
             call,
             "org.varlink.certification.Test02",
+            Test02Args_,
             Test02Args_ {
                 client_id: client_id,
                 bool: true,
@@ -357,6 +369,7 @@ impl VarlinkInterface for CertInterface {
         check_call_normal!(
             call,
             "org.varlink.certification.Test03",
+            Test03Args_,
             Test03Args_ {
                 client_id: client_id,
                 int: 1,
@@ -373,6 +386,7 @@ impl VarlinkInterface for CertInterface {
         check_call_normal!(
             call,
             "org.varlink.certification.Test04",
+            Test04Args_,
             Test04Args_ {
                 client_id: client_id,
                 float: 1.0,
@@ -389,6 +403,7 @@ impl VarlinkInterface for CertInterface {
         check_call_normal!(
             call,
             "org.varlink.certification.Test05",
+            Test05Args_,
             Test05Args_ {
                 client_id: client_id,
                 string: "ping".into(),
@@ -413,6 +428,7 @@ impl VarlinkInterface for CertInterface {
         check_call_normal!(
             call,
             "org.varlink.certification.Test06",
+            Test06Args_,
             Test06Args_ {
                 client_id: client_id,
                 bool: false,
@@ -442,6 +458,7 @@ impl VarlinkInterface for CertInterface {
         check_call_normal!(
             call,
             "org.varlink.certification.Test07",
+            Test07Args_,
             Test07Args_ {
                 client_id: client_id,
                 struct_: Test07Args_struct {
@@ -475,6 +492,7 @@ impl VarlinkInterface for CertInterface {
         check_call_normal!(
             call,
             "org.varlink.certification.Test08",
+            Test08Args_,
             Test08Args_ {
                 client_id: client_id,
                 map: map,
@@ -505,6 +523,7 @@ impl VarlinkInterface for CertInterface {
         check_call_normal!(
             call,
             "org.varlink.certification.Test09",
+            Test09Args_,
             Test09Args_ {
                 client_id: client_id,
                 set: set,
@@ -521,6 +540,7 @@ impl VarlinkInterface for CertInterface {
         check_call_more!(
             call,
             "org.varlink.certification.Test10",
+            Test10Args_,
             Test10Args_ {
                 client_id: client_id,
                 mytype: new_mytype()?,
@@ -555,6 +575,7 @@ impl VarlinkInterface for CertInterface {
         check_call_normal!(
             call,
             "org.varlink.certification.Test11",
+            Test11Args_,
             Test11Args_ {
                 client_id: client_id,
                 last_more_replies: more_replies,
@@ -571,7 +592,10 @@ impl VarlinkInterface for CertInterface {
         check_call_normal!(
             call,
             "org.varlink.certification.End",
-            EndArgs_ { client_id: client_id }
+            EndArgs_,
+            EndArgs_ {
+                client_id: client_id,
+            }
         );
 
         call.reply(true)

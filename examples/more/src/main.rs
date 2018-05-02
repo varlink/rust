@@ -82,12 +82,12 @@ fn run_client(address: String) -> io::Result<()> {
         let conn = con1.read().unwrap();
         new_addr = conn.address();
     }
-    let call = org_example_more::VarlinkClient::new(con1);
+    let mut iface = org_example_more::VarlinkClient::new(con1);
 
     let con2 = varlink::Connection::new(&new_addr)?;
-    let mut pingcall = org_example_more::VarlinkClient::new(con2);
+    let mut pingiface = org_example_more::VarlinkClient::new(con2);
 
-    for reply in call.more().test_more(10)? {
+    for reply in iface.test_more(10).more()? {
         let reply = reply?;
         //assert!(reply.state.is_some());
         let state = reply.state;
@@ -116,7 +116,7 @@ fn run_client(address: String) -> io::Result<()> {
             } => {
                 eprintln!("Progress: {}", progress);
                 if progress > 50 {
-                    let reply = pingcall.ping("Test".into())?.recv()?;
+                    let reply = pingiface.ping("Test".into()).call()?;
                     println!("Pong: '{}'", reply.pong);
                 }
             }

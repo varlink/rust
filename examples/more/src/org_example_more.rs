@@ -179,17 +179,9 @@ pub trait VarlinkInterface {
 }
 
 pub trait VarlinkClientInterface {
-    fn ping(
-        &mut self,
-        ping: String,
-    ) -> io::Result<varlink::MethodCall<PingArgs_, PingReply_, Error_>>;
-    fn stop_serving(
-        &mut self,
-    ) -> io::Result<varlink::MethodCall<StopServingArgs_, StopServingReply_, Error_>>;
-    fn test_more(
-        &mut self,
-        n: i64,
-    ) -> io::Result<varlink::MethodCall<TestMoreArgs_, TestMoreReply_, Error_>>;
+    fn ping(&mut self, ping: String) -> varlink::MethodCall<PingArgs_, PingReply_, Error_>;
+    fn stop_serving(&mut self) -> varlink::MethodCall<StopServingArgs_, StopServingReply_, Error_>;
+    fn test_more(&mut self, n: i64) -> varlink::MethodCall<TestMoreArgs_, TestMoreReply_, Error_>;
 }
 
 pub struct VarlinkClient {
@@ -223,39 +215,25 @@ impl VarlinkClient {
 }
 
 impl VarlinkClientInterface for VarlinkClient {
-    fn ping(
-        &mut self,
-        ping: String,
-    ) -> io::Result<varlink::MethodCall<PingArgs_, PingReply_, Error_>> {
-        varlink::MethodCall::<PingArgs_, PingReply_, Error_>::call(
+    fn ping(&mut self, ping: String) -> varlink::MethodCall<PingArgs_, PingReply_, Error_> {
+        varlink::MethodCall::<PingArgs_, PingReply_, Error_>::new(
             self.connection.clone(),
             "org.example.more.Ping".into(),
             PingArgs_ { ping },
-            self.more,
-            self.oneway,
         )
     }
-    fn stop_serving(
-        &mut self,
-    ) -> io::Result<varlink::MethodCall<StopServingArgs_, StopServingReply_, Error_>> {
-        varlink::MethodCall::<StopServingArgs_, StopServingReply_, Error_>::call(
+    fn stop_serving(&mut self) -> varlink::MethodCall<StopServingArgs_, StopServingReply_, Error_> {
+        varlink::MethodCall::<StopServingArgs_, StopServingReply_, Error_>::new(
             self.connection.clone(),
             "org.example.more.StopServing".into(),
             StopServingArgs_ {},
-            self.more,
-            self.oneway,
         )
     }
-    fn test_more(
-        &mut self,
-        n: i64,
-    ) -> io::Result<varlink::MethodCall<TestMoreArgs_, TestMoreReply_, Error_>> {
-        varlink::MethodCall::<TestMoreArgs_, TestMoreReply_, Error_>::call(
+    fn test_more(&mut self, n: i64) -> varlink::MethodCall<TestMoreArgs_, TestMoreReply_, Error_> {
+        varlink::MethodCall::<TestMoreArgs_, TestMoreReply_, Error_>::new(
             self.connection.clone(),
             "org.example.more.TestMore".into(),
             TestMoreArgs_ { n },
-            self.more,
-            self.oneway,
         )
     }
 }

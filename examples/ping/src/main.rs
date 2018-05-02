@@ -75,18 +75,18 @@ fn main() {
 
 fn run_client(address: String) -> io::Result<()> {
     let connection = varlink::Connection::new(&address)?;
-    let call = VarlinkClient::new(connection);
+    let mut iface = VarlinkClient::new(connection);
     let ping: String = "Test".into();
 
-    let reply = call.more().ping(ping.clone())?.recv()?;
+    let reply = iface.ping(ping.clone()).call()?;
     assert_eq!(ping, reply.pong);
     println!("Pong: '{}'", reply.pong);
 
-    let reply = call.more().ping(ping.clone())?.recv()?;
+    let reply = iface.ping(ping.clone()).call()?;
     assert_eq!(ping, reply.pong);
     println!("Pong: '{}'", reply.pong);
 
-    let reply = call.more().ping(ping.clone())?.recv()?;
+    let reply = iface.ping(ping.clone()).call()?;
     assert_eq!(ping, reply.pong);
     println!("Pong: '{}'", reply.pong);
 

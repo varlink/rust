@@ -15,6 +15,7 @@ use std::time::Instant;
 use std::sync::{Arc, RwLock};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+
 mod org_varlink_certification;
 
 // Main
@@ -79,33 +80,33 @@ fn main() {
 
 fn run_client(address: String) -> io::Result<()> {
     let connection = varlink::Connection::new(&address)?;
-    let mut call = VarlinkClient::new(connection);
+    let mut iface = VarlinkClient::new(connection);
 
-    let ret = call.start()?.recv()?;
+    let ret = iface.start().call()?;
     eprintln!("{:#?}", ret);
 
     let client_id = ret.client_id;
 
-    let ret = call.test01(client_id.clone())?.recv()?;
+    let ret = iface.test01(client_id.clone()).call()?;
     eprintln!("{:#?}", ret);
 
-    let ret = call.test02(client_id.clone(), ret.bool)?.recv()?;
+    let ret = iface.test02(client_id.clone(), ret.bool).call()?;
     eprintln!("{:#?}", ret);
 
-    let ret = call.test03(client_id.clone(), ret.int)?.recv()?;
+    let ret = iface.test03(client_id.clone(), ret.int).call()?;
     eprintln!("{:#?}", ret);
 
-    let ret = call.test04(client_id.clone(), ret.float)?.recv()?;
+    let ret = iface.test04(client_id.clone(), ret.float).call()?;
     eprintln!("{:#?}", ret);
 
-    let ret = call.test05(client_id.clone(), ret.string)?.recv()?;
+    let ret = iface.test05(client_id.clone(), ret.string).call()?;
     eprintln!("{:#?}", ret);
 
-    let ret = call.test06(client_id.clone(), ret.bool, ret.int, ret.float, ret.string)?
-        .recv()?;
+    let ret = iface.test06(client_id.clone(), ret.bool, ret.int, ret.float, ret.string)
+        .call()?;
     eprintln!("{:#?}", ret);
 
-    let ret = call.test07(
+    let ret = iface.test07(
         client_id.clone(),
         Test07Args_struct {
             bool: ret.struct_.bool,
@@ -113,27 +114,26 @@ fn run_client(address: String) -> io::Result<()> {
             float: ret.struct_.float,
             string: ret.struct_.string,
         },
-    )?
-        .recv()?;
+    ).call()?;
     eprintln!("{:#?}", ret);
 
-    let ret = call.test08(client_id.clone(), ret.map)?.recv()?;
+    let ret = iface.test08(client_id.clone(), ret.map).call()?;
     eprintln!("{:#?}", ret);
 
-    let ret = call.test09(client_id.clone(), ret.set)?.recv()?;
+    let ret = iface.test09(client_id.clone(), ret.set).call()?;
     eprintln!("{:#?}", ret);
 
     let mut ret_array = Vec::new();
 
-    for ret in call.more().test10(client_id.clone(), ret.mytype)? {
+    for ret in iface.test10(client_id.clone(), ret.mytype).more()? {
         let ret = ret?;
         eprintln!("{:#?}", ret);
         ret_array.push(ret.string.clone());
     }
+    eprintln!("Test10 over");
+    iface.test11(client_id.clone(), ret_array).oneway()?;
 
-    call.oneway().test11(client_id.clone(), ret_array)?;
-
-    let ret = call.end(client_id.clone())?.recv()?;
+    let ret = iface.end(client_id.clone()).call()?;
     eprintln!("{:#?}", ret);
 
     Ok(())

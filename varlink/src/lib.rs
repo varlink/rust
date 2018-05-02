@@ -845,13 +845,20 @@ impl Connection {
     }
 }
 
-pub struct MethodCall<MRequest, MReply, MError> {
+pub struct MethodCall<MRequest, MReply, MError>
+where
+    MRequest: Serialize,
+    MReply: DeserializeOwned,
+    MError: std::convert::From<std::io::Error>
+        + std::convert::From<serde_json::Error>
+        + std::convert::From<Reply>,
+{
     connection: Arc<RwLock<Connection>>,
+    request: Option<MRequest>,
+    method: Option<String>,
     reader: Option<BufReader<Box<Read + Send + Sync>>>,
     writer: Option<Box<Write + Send + Sync>>,
     continues: bool,
-    oneway: bool,
-    phantom_request: PhantomData<MRequest>,
     phantom_reply: PhantomData<MReply>,
     phantom_error: PhantomData<MError>,
 }
@@ -864,51 +871,42 @@ where
         + std::convert::From<serde_json::Error>
         + std::convert::From<Reply>,
 {
-    pub fn call(
-        connection: Arc<RwLock<Connection>>,
-        method: String,
-        request: MRequest,
-        more: bool,
-        oneway: bool,
-    ) -> io::Result<Self> {
-        let mut s = MethodCall::<MRequest, MReply, MError> {
+    pub fn new(connection: Arc<RwLock<Connection>>, method: String, request: MRequest) -> Self {
+        MethodCall::<MRequest, MReply, MError> {
             connection,
-            continues: true,
-            oneway: false,
+            request: Some(request),
+            method: Some(method),
+            continues: false,
             reader: None,
             writer: None,
-            phantom_request: PhantomData,
             phantom_reply: PhantomData,
             phantom_error: PhantomData,
-        };
+        }
+    }
 
+    fn send(&mut self, oneway: bool, more: bool) -> Result<(), MError> {
         {
-            let mut conn = s.connection.write().unwrap();
-            let mut req = Request::create(method.into(), Some(serde_json::to_value(request)?));
+            let mut conn = self.connection.write().unwrap();
+            let mut req = Request::create(
+                self.method.take().unwrap().into(),
+                Some(serde_json::to_value(self.request.take().unwrap())?),
+            );
 
             if conn.reader.is_none() || conn.writer.is_none() {
                 return Err(io::Error::new(
                     ErrorKind::Other,
                     "Varlink: connection busy with other method",
-                ));
-            }
-
-            if more && oneway {
-                return Err(io::Error::new(
-                    ErrorKind::Other,
-                    "Varlink: oneway and more both set",
-                ));
-            }
-
-            if more {
-                req.more = Some(more);
+                ).into());
             }
 
             if oneway {
-                req.oneway = Some(oneway);
-                s.oneway = true;
+                req.oneway = Some(true);
             } else {
-                s.reader = conn.reader.take();
+                self.reader = conn.reader.take();
+            }
+
+            if more {
+                req.more = Some(true);
             }
 
             let mut w = conn.writer.take().unwrap();
@@ -921,10 +919,25 @@ where
             if oneway {
                 conn.writer = Some(w);
             } else {
-                s.writer = Some(w);
+                self.writer = Some(w);
             }
         }
-        Ok(s)
+        Ok(())
+    }
+
+    pub fn call(&mut self) -> Result<MReply, MError> {
+        self.send(false, false)?;
+        self.recv()
+    }
+
+    pub fn oneway(&mut self) -> Result<(), MError> {
+        self.send(true, false)
+    }
+
+    pub fn more(&mut self) -> Result<&mut Self, MError> {
+        self.continues = true;
+        self.send(false, true)?;
+        Ok(self)
     }
 
     pub fn recv(&mut self) -> Result<MReply, MError> {
@@ -933,13 +946,6 @@ where
                 ErrorKind::Other,
                 "Varlink: Iterator called on \
                  old reply",
-            )));
-        }
-
-        if self.oneway {
-            return Err(MError::from(io::Error::new(
-                ErrorKind::Other,
-                "Varlink: recv() called on oneway",
             )));
         }
 
@@ -1001,12 +1007,12 @@ where
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Default, Clone)]
 pub struct GetInterfaceDescriptionArgs {
     interface: Cow<'static, str>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Default, Clone)]
 pub struct ServiceInfo {
     pub vendor: Cow<'static, str>,
     pub product: Cow<'static, str>,
@@ -1015,10 +1021,10 @@ pub struct ServiceInfo {
     pub interfaces: Vec<Cow<'static, str>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Default, Clone)]
 pub struct GetInfoArgs;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Default, Clone)]
 pub struct GetInterfaceDescriptionReply {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
@@ -1028,50 +1034,41 @@ impl VarlinkReply for GetInterfaceDescriptionReply {}
 
 pub struct OrgVarlinkServiceClient {
     connection: Arc<RwLock<Connection>>,
-    more: bool,
 }
 
 impl OrgVarlinkServiceClient {
     pub fn new(connection: Arc<RwLock<Connection>>) -> Self {
-        OrgVarlinkServiceClient {
-            connection,
-            more: false,
-        }
+        OrgVarlinkServiceClient { connection }
     }
 }
 
 pub trait OrgVarlinkServiceInterface {
-    fn get_info(&mut self) -> io::Result<MethodCall<GetInfoArgs, ServiceInfo, Error>>;
+    fn get_info(&mut self) -> Result<ServiceInfo, Error>;
     fn get_interface_description(
         &mut self,
         interface: String,
-    ) -> io::Result<MethodCall<GetInterfaceDescriptionArgs, GetInterfaceDescriptionReply, Error>>;
+    ) -> Result<GetInterfaceDescriptionReply, Error>;
 }
 
 impl OrgVarlinkServiceInterface for OrgVarlinkServiceClient {
-    fn get_info(&mut self) -> io::Result<MethodCall<GetInfoArgs, ServiceInfo, Error>> {
-        MethodCall::<GetInfoArgs, ServiceInfo, Error>::call(
+    fn get_info(&mut self) -> Result<ServiceInfo, Error> {
+        MethodCall::<GetInfoArgs, ServiceInfo, Error>::new(
             self.connection.clone(),
             "org.varlink.service.GetInfo".into(),
             GetInfoArgs {},
-            self.more,
-            false,
-        )
+        ).call()
     }
     fn get_interface_description(
         &mut self,
         interface: String,
-    ) -> io::Result<MethodCall<GetInterfaceDescriptionArgs, GetInterfaceDescriptionReply, Error>>
-    {
-        MethodCall::<GetInterfaceDescriptionArgs, GetInterfaceDescriptionReply, Error>::call(
+    ) -> Result<GetInterfaceDescriptionReply, Error> {
+        MethodCall::<GetInterfaceDescriptionArgs, GetInterfaceDescriptionReply, Error>::new(
             self.connection.clone(),
             "org.varlink.service.GetInterfaceDescription".into(),
             GetInterfaceDescriptionArgs {
                 interface: interface.into(),
             },
-            self.more,
-            false,
-        )
+        ).call()
     }
 }
 
@@ -1360,7 +1357,7 @@ fn test_listen() {
     fn run_client_app(address: &String) -> io::Result<()> {
         let conn = Connection::new(&address)?;
         let mut call = OrgVarlinkServiceClient::new(conn.clone());
-        let info = call.get_info()?.recv()?;
+        let info = call.get_info()?;
         assert_eq!(&info.vendor, "org.varlink");
         assert_eq!(&info.product, "test service");
         assert_eq!(&info.version, "0.1");
@@ -1370,8 +1367,7 @@ fn test_listen() {
             "org.varlink.service"
         );
 
-        let e = call.get_interface_description("org.varlink.unknown".into())?
-            .recv();
+        let e = call.get_interface_description("org.varlink.unknown".into());
         assert!(e.is_err());
 
         match e {
@@ -1381,13 +1377,11 @@ fn test_listen() {
             }
         }
 
-        let e = MethodCall::<GetInfoArgs, ServiceInfo, Error>::call(
+        let e = MethodCall::<GetInfoArgs, ServiceInfo, Error>::new(
             conn.clone(),
             "org.varlink.service.GetInfos".into(),
             GetInfoArgs {},
-            false,
-            false,
-        )?.recv();
+        ).call();
 
         match e {
             Err(Error::MethodNotFound(i)) => {
@@ -1398,13 +1392,11 @@ fn test_listen() {
             }
         }
 
-        let e = MethodCall::<GetInfoArgs, ServiceInfo, Error>::call(
+        let e = MethodCall::<GetInfoArgs, ServiceInfo, Error>::new(
             conn.clone(),
             "org.varlink.unknowninterface.Foo".into(),
             GetInfoArgs {},
-            false,
-            false,
-        )?.recv();
+        ).call();
 
         match e {
             Err(Error::InterfaceNotFound(i)) => {
@@ -1415,8 +1407,7 @@ fn test_listen() {
             }
         }
 
-        let description = call.get_interface_description("org.varlink.service".into())?
-            .recv()?;
+        let description = call.get_interface_description("org.varlink.service".into())?;
 
         assert_eq!(
             &description.description.unwrap(),

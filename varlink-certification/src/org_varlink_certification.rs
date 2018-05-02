@@ -537,35 +537,32 @@ pub trait VarlinkInterface {
 }
 
 pub trait VarlinkClientInterface {
-    fn end(
-        &mut self,
-        client_id: String,
-    ) -> io::Result<varlink::MethodCall<EndArgs_, EndReply_, Error_>>;
-    fn start(&mut self) -> io::Result<varlink::MethodCall<StartArgs_, StartReply_, Error_>>;
+    fn end(&mut self, client_id: String) -> varlink::MethodCall<EndArgs_, EndReply_, Error_>;
+    fn start(&mut self) -> varlink::MethodCall<StartArgs_, StartReply_, Error_>;
     fn test01(
         &mut self,
         client_id: String,
-    ) -> io::Result<varlink::MethodCall<Test01Args_, Test01Reply_, Error_>>;
+    ) -> varlink::MethodCall<Test01Args_, Test01Reply_, Error_>;
     fn test02(
         &mut self,
         client_id: String,
         bool: bool,
-    ) -> io::Result<varlink::MethodCall<Test02Args_, Test02Reply_, Error_>>;
+    ) -> varlink::MethodCall<Test02Args_, Test02Reply_, Error_>;
     fn test03(
         &mut self,
         client_id: String,
         int: i64,
-    ) -> io::Result<varlink::MethodCall<Test03Args_, Test03Reply_, Error_>>;
+    ) -> varlink::MethodCall<Test03Args_, Test03Reply_, Error_>;
     fn test04(
         &mut self,
         client_id: String,
         float: f64,
-    ) -> io::Result<varlink::MethodCall<Test04Args_, Test04Reply_, Error_>>;
+    ) -> varlink::MethodCall<Test04Args_, Test04Reply_, Error_>;
     fn test05(
         &mut self,
         client_id: String,
         string: String,
-    ) -> io::Result<varlink::MethodCall<Test05Args_, Test05Reply_, Error_>>;
+    ) -> varlink::MethodCall<Test05Args_, Test05Reply_, Error_>;
     fn test06(
         &mut self,
         client_id: String,
@@ -573,32 +570,32 @@ pub trait VarlinkClientInterface {
         int: i64,
         float: f64,
         string: String,
-    ) -> io::Result<varlink::MethodCall<Test06Args_, Test06Reply_, Error_>>;
+    ) -> varlink::MethodCall<Test06Args_, Test06Reply_, Error_>;
     fn test07(
         &mut self,
         client_id: String,
         struct_: Test07Args_struct,
-    ) -> io::Result<varlink::MethodCall<Test07Args_, Test07Reply_, Error_>>;
+    ) -> varlink::MethodCall<Test07Args_, Test07Reply_, Error_>;
     fn test08(
         &mut self,
         client_id: String,
         map: varlink::StringHashMap<String>,
-    ) -> io::Result<varlink::MethodCall<Test08Args_, Test08Reply_, Error_>>;
+    ) -> varlink::MethodCall<Test08Args_, Test08Reply_, Error_>;
     fn test09(
         &mut self,
         client_id: String,
         set: varlink::StringHashSet,
-    ) -> io::Result<varlink::MethodCall<Test09Args_, Test09Reply_, Error_>>;
+    ) -> varlink::MethodCall<Test09Args_, Test09Reply_, Error_>;
     fn test10(
         &mut self,
         client_id: String,
         mytype: MyType,
-    ) -> io::Result<varlink::MethodCall<Test10Args_, Test10Reply_, Error_>>;
+    ) -> varlink::MethodCall<Test10Args_, Test10Reply_, Error_>;
     fn test11(
         &mut self,
         client_id: String,
         last_more_replies: Vec<String>,
-    ) -> io::Result<varlink::MethodCall<Test11Args_, Test11Reply_, Error_>>;
+    ) -> varlink::MethodCall<Test11Args_, Test11Reply_, Error_>;
 }
 
 pub struct VarlinkClient {
@@ -632,89 +629,72 @@ impl VarlinkClient {
 }
 
 impl VarlinkClientInterface for VarlinkClient {
-    fn end(
-        &mut self,
-        client_id: String,
-    ) -> io::Result<varlink::MethodCall<EndArgs_, EndReply_, Error_>> {
-        varlink::MethodCall::<EndArgs_, EndReply_, Error_>::call(
+    fn end(&mut self, client_id: String) -> varlink::MethodCall<EndArgs_, EndReply_, Error_> {
+        varlink::MethodCall::<EndArgs_, EndReply_, Error_>::new(
             self.connection.clone(),
             "org.varlink.certification.End".into(),
             EndArgs_ { client_id },
-            self.more,
-            self.oneway,
         )
     }
-    fn start(&mut self) -> io::Result<varlink::MethodCall<StartArgs_, StartReply_, Error_>> {
-        varlink::MethodCall::<StartArgs_, StartReply_, Error_>::call(
+    fn start(&mut self) -> varlink::MethodCall<StartArgs_, StartReply_, Error_> {
+        varlink::MethodCall::<StartArgs_, StartReply_, Error_>::new(
             self.connection.clone(),
             "org.varlink.certification.Start".into(),
             StartArgs_ {},
-            self.more,
-            self.oneway,
         )
     }
     fn test01(
         &mut self,
         client_id: String,
-    ) -> io::Result<varlink::MethodCall<Test01Args_, Test01Reply_, Error_>> {
-        varlink::MethodCall::<Test01Args_, Test01Reply_, Error_>::call(
+    ) -> varlink::MethodCall<Test01Args_, Test01Reply_, Error_> {
+        varlink::MethodCall::<Test01Args_, Test01Reply_, Error_>::new(
             self.connection.clone(),
             "org.varlink.certification.Test01".into(),
             Test01Args_ { client_id },
-            self.more,
-            self.oneway,
         )
     }
     fn test02(
         &mut self,
         client_id: String,
         bool: bool,
-    ) -> io::Result<varlink::MethodCall<Test02Args_, Test02Reply_, Error_>> {
-        varlink::MethodCall::<Test02Args_, Test02Reply_, Error_>::call(
+    ) -> varlink::MethodCall<Test02Args_, Test02Reply_, Error_> {
+        varlink::MethodCall::<Test02Args_, Test02Reply_, Error_>::new(
             self.connection.clone(),
             "org.varlink.certification.Test02".into(),
             Test02Args_ { client_id, bool },
-            self.more,
-            self.oneway,
         )
     }
     fn test03(
         &mut self,
         client_id: String,
         int: i64,
-    ) -> io::Result<varlink::MethodCall<Test03Args_, Test03Reply_, Error_>> {
-        varlink::MethodCall::<Test03Args_, Test03Reply_, Error_>::call(
+    ) -> varlink::MethodCall<Test03Args_, Test03Reply_, Error_> {
+        varlink::MethodCall::<Test03Args_, Test03Reply_, Error_>::new(
             self.connection.clone(),
             "org.varlink.certification.Test03".into(),
             Test03Args_ { client_id, int },
-            self.more,
-            self.oneway,
         )
     }
     fn test04(
         &mut self,
         client_id: String,
         float: f64,
-    ) -> io::Result<varlink::MethodCall<Test04Args_, Test04Reply_, Error_>> {
-        varlink::MethodCall::<Test04Args_, Test04Reply_, Error_>::call(
+    ) -> varlink::MethodCall<Test04Args_, Test04Reply_, Error_> {
+        varlink::MethodCall::<Test04Args_, Test04Reply_, Error_>::new(
             self.connection.clone(),
             "org.varlink.certification.Test04".into(),
             Test04Args_ { client_id, float },
-            self.more,
-            self.oneway,
         )
     }
     fn test05(
         &mut self,
         client_id: String,
         string: String,
-    ) -> io::Result<varlink::MethodCall<Test05Args_, Test05Reply_, Error_>> {
-        varlink::MethodCall::<Test05Args_, Test05Reply_, Error_>::call(
+    ) -> varlink::MethodCall<Test05Args_, Test05Reply_, Error_> {
+        varlink::MethodCall::<Test05Args_, Test05Reply_, Error_>::new(
             self.connection.clone(),
             "org.varlink.certification.Test05".into(),
             Test05Args_ { client_id, string },
-            self.more,
-            self.oneway,
         )
     }
     fn test06(
@@ -724,8 +704,8 @@ impl VarlinkClientInterface for VarlinkClient {
         int: i64,
         float: f64,
         string: String,
-    ) -> io::Result<varlink::MethodCall<Test06Args_, Test06Reply_, Error_>> {
-        varlink::MethodCall::<Test06Args_, Test06Reply_, Error_>::call(
+    ) -> varlink::MethodCall<Test06Args_, Test06Reply_, Error_> {
+        varlink::MethodCall::<Test06Args_, Test06Reply_, Error_>::new(
             self.connection.clone(),
             "org.varlink.certification.Test06".into(),
             Test06Args_ {
@@ -735,76 +715,64 @@ impl VarlinkClientInterface for VarlinkClient {
                 float,
                 string,
             },
-            self.more,
-            self.oneway,
         )
     }
     fn test07(
         &mut self,
         client_id: String,
         struct_: Test07Args_struct,
-    ) -> io::Result<varlink::MethodCall<Test07Args_, Test07Reply_, Error_>> {
-        varlink::MethodCall::<Test07Args_, Test07Reply_, Error_>::call(
+    ) -> varlink::MethodCall<Test07Args_, Test07Reply_, Error_> {
+        varlink::MethodCall::<Test07Args_, Test07Reply_, Error_>::new(
             self.connection.clone(),
             "org.varlink.certification.Test07".into(),
             Test07Args_ { client_id, struct_ },
-            self.more,
-            self.oneway,
         )
     }
     fn test08(
         &mut self,
         client_id: String,
         map: varlink::StringHashMap<String>,
-    ) -> io::Result<varlink::MethodCall<Test08Args_, Test08Reply_, Error_>> {
-        varlink::MethodCall::<Test08Args_, Test08Reply_, Error_>::call(
+    ) -> varlink::MethodCall<Test08Args_, Test08Reply_, Error_> {
+        varlink::MethodCall::<Test08Args_, Test08Reply_, Error_>::new(
             self.connection.clone(),
             "org.varlink.certification.Test08".into(),
             Test08Args_ { client_id, map },
-            self.more,
-            self.oneway,
         )
     }
     fn test09(
         &mut self,
         client_id: String,
         set: varlink::StringHashSet,
-    ) -> io::Result<varlink::MethodCall<Test09Args_, Test09Reply_, Error_>> {
-        varlink::MethodCall::<Test09Args_, Test09Reply_, Error_>::call(
+    ) -> varlink::MethodCall<Test09Args_, Test09Reply_, Error_> {
+        varlink::MethodCall::<Test09Args_, Test09Reply_, Error_>::new(
             self.connection.clone(),
             "org.varlink.certification.Test09".into(),
             Test09Args_ { client_id, set },
-            self.more,
-            self.oneway,
         )
     }
     fn test10(
         &mut self,
         client_id: String,
         mytype: MyType,
-    ) -> io::Result<varlink::MethodCall<Test10Args_, Test10Reply_, Error_>> {
-        varlink::MethodCall::<Test10Args_, Test10Reply_, Error_>::call(
+    ) -> varlink::MethodCall<Test10Args_, Test10Reply_, Error_> {
+        varlink::MethodCall::<Test10Args_, Test10Reply_, Error_>::new(
             self.connection.clone(),
             "org.varlink.certification.Test10".into(),
             Test10Args_ { client_id, mytype },
-            self.more,
-            self.oneway,
         )
     }
     fn test11(
         &mut self,
         client_id: String,
         last_more_replies: Vec<String>,
-    ) -> io::Result<varlink::MethodCall<Test11Args_, Test11Reply_, Error_>> {
-        varlink::MethodCall::<Test11Args_, Test11Reply_, Error_>::call(
+    ) -> varlink::MethodCall<Test11Args_, Test11Reply_, Error_> {
+        varlink::MethodCall::<Test11Args_, Test11Reply_, Error_>::new(
             self.connection.clone(),
             "org.varlink.certification.Test11".into(),
             Test11Args_ {
                 client_id,
                 last_more_replies,
             },
-            self.more,
-            self.oneway,
         )
     }
 }

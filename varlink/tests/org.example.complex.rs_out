@@ -287,8 +287,8 @@ pub trait VarlinkInterface {
 }
 
 pub trait VarlinkClientInterface {
-    fn bar(&mut self) -> io::Result<varlink::MethodCall<BarArgs_, BarReply_, Error_>>;
-    fn foo(&mut self, enum_: FooArgs_enum, foo: TypeFoo, interface: Interface) -> io::Result<varlink::MethodCall<FooArgs_, FooReply_, Error_>>;
+    fn bar(&mut self) -> varlink::MethodCall<BarArgs_, BarReply_, Error_>;
+    fn foo(&mut self, enum_: FooArgs_enum, foo: TypeFoo, interface: Interface) -> varlink::MethodCall<FooArgs_, FooReply_, Error_>;
 }
 
 pub struct VarlinkClient {
@@ -322,19 +322,19 @@ impl VarlinkClient {
 }
 
 impl VarlinkClientInterface for VarlinkClient {
-    fn bar(&mut self) -> io::Result<varlink::MethodCall<BarArgs_, BarReply_, Error_>> {
-            varlink::MethodCall::<BarArgs_, BarReply_, Error_>::call(
+    fn bar(&mut self) -> varlink::MethodCall<BarArgs_, BarReply_, Error_> {
+            varlink::MethodCall::<BarArgs_, BarReply_, Error_>::new(
             self.connection.clone(),
             "org.example.complex.Bar".into(),
             BarArgs_ {  },
-        self.more, self.oneway)
+        )
     }
-    fn foo(&mut self, enum_: FooArgs_enum, foo: TypeFoo, interface: Interface) -> io::Result<varlink::MethodCall<FooArgs_, FooReply_, Error_>> {
-            varlink::MethodCall::<FooArgs_, FooReply_, Error_>::call(
+    fn foo(&mut self, enum_: FooArgs_enum, foo: TypeFoo, interface: Interface) -> varlink::MethodCall<FooArgs_, FooReply_, Error_> {
+            varlink::MethodCall::<FooArgs_, FooReply_, Error_>::new(
             self.connection.clone(),
             "org.example.complex.Foo".into(),
             FooArgs_ { enum_, foo, interface },
-        self.more, self.oneway)
+        )
     }
 }
 

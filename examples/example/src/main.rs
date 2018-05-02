@@ -77,8 +77,8 @@ fn main() {
 fn run_client(address: String) -> io::Result<()> {
     let conn = varlink::Connection::new(&address)?;
 
-    let mut call = varlink::OrgVarlinkServiceClient::new(conn.clone());
-    let info = call.get_info()?.recv()?;
+    let mut iface = varlink::OrgVarlinkServiceClient::new(conn.clone());
+    let info = iface.get_info()?;
     assert_eq!(&info.vendor, "org.varlink");
     assert_eq!(&info.product, "test service");
     assert_eq!(&info.version, "0.1");
@@ -88,14 +88,13 @@ fn run_client(address: String) -> io::Result<()> {
         "io.systemd.network"
     );
 
-    let description = call.get_interface_description("io.systemd.network".into())?
-        .recv()?;
+    let description = iface.get_interface_description("io.systemd.network".into())?;
 
     assert!(description.description.is_some());
 
-    let mut call = VarlinkClient::new(conn);
+    let mut iface = VarlinkClient::new(conn);
 
-    match call.list()?.recv() {
+    match iface.list().call() {
         Ok(ListReply_ { netdevs: vec }) => {
             assert_eq!(vec.len(), 2);
             assert_eq!(vec[0].ifindex, 1);
@@ -106,7 +105,7 @@ fn run_client(address: String) -> io::Result<()> {
         res => panic!("Unknown result {:?}", res),
     }
 
-    match call.info(1)?.recv() {
+    match iface.info(1).call() {
         Ok(InfoReply_ {
             info:
                 NetdevInfo {
@@ -117,7 +116,7 @@ fn run_client(address: String) -> io::Result<()> {
         res => panic!("Unknown result {:?}", res),
     }
 
-    match call.info(2)?.recv() {
+    match iface.info(2).call() {
         Ok(InfoReply_ {
             info:
                 NetdevInfo {
@@ -128,7 +127,7 @@ fn run_client(address: String) -> io::Result<()> {
         res => panic!("Unknown result {:?}", res),
     }
 
-    match call.info(3)?.recv() {
+    match iface.info(3).call() {
         Err(Error_::VarlinkError_(varlink::Error::InvalidParameter(
             varlink::ErrorInvalidParameter {
                 parameter: Some(ref p),
@@ -137,7 +136,7 @@ fn run_client(address: String) -> io::Result<()> {
         res => panic!("Unknown result {:?}", res),
     }
 
-    match call.info(4)?.recv() {
+    match iface.info(4).call() {
         Err(Error_::UnknownNetworkIfIndex(Some(UnknownNetworkIfIndexArgs_ { ifindex: 4 }))) => {}
         res => panic!("Unknown result {:?}", res),
     }

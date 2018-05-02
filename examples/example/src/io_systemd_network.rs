@@ -196,11 +196,8 @@ pub trait VarlinkInterface {
 }
 
 pub trait VarlinkClientInterface {
-    fn info(
-        &mut self,
-        ifindex: i64,
-    ) -> io::Result<varlink::MethodCall<InfoArgs_, InfoReply_, Error_>>;
-    fn list(&mut self) -> io::Result<varlink::MethodCall<ListArgs_, ListReply_, Error_>>;
+    fn info(&mut self, ifindex: i64) -> varlink::MethodCall<InfoArgs_, InfoReply_, Error_>;
+    fn list(&mut self) -> varlink::MethodCall<ListArgs_, ListReply_, Error_>;
 }
 
 pub struct VarlinkClient {
@@ -234,25 +231,18 @@ impl VarlinkClient {
 }
 
 impl VarlinkClientInterface for VarlinkClient {
-    fn info(
-        &mut self,
-        ifindex: i64,
-    ) -> io::Result<varlink::MethodCall<InfoArgs_, InfoReply_, Error_>> {
-        varlink::MethodCall::<InfoArgs_, InfoReply_, Error_>::call(
+    fn info(&mut self, ifindex: i64) -> varlink::MethodCall<InfoArgs_, InfoReply_, Error_> {
+        varlink::MethodCall::<InfoArgs_, InfoReply_, Error_>::new(
             self.connection.clone(),
             "io.systemd.network.Info".into(),
             InfoArgs_ { ifindex },
-            self.more,
-            self.oneway,
         )
     }
-    fn list(&mut self) -> io::Result<varlink::MethodCall<ListArgs_, ListReply_, Error_>> {
-        varlink::MethodCall::<ListArgs_, ListReply_, Error_>::call(
+    fn list(&mut self) -> varlink::MethodCall<ListArgs_, ListReply_, Error_> {
+        varlink::MethodCall::<ListArgs_, ListReply_, Error_>::new(
             self.connection.clone(),
             "io.systemd.network.List".into(),
             ListArgs_ {},
-            self.more,
-            self.oneway,
         )
     }
 }

@@ -604,8 +604,8 @@ impl From<Error_> for io::Error {{
 
             write!(
                 w,
-                "    fn {sname}(&mut self{inparms}) -> io::Result<varlink::MethodCall<{mname}Args_, \
-                {mname}Reply_, Error_>>;\
+                "    fn {sname}(&mut self{inparms}) -> varlink::MethodCall<{mname}Args_, \
+                {mname}Reply_, Error_>;\
                 \n",
                 sname = to_snake_case(t.name),
                 inparms = inparms,
@@ -672,10 +672,10 @@ impl VarlinkClientInterface for VarlinkClient {{
             }
             write!(
                 w,
-                "    fn {sname}(&mut self{inparms}) -> io::Result<varlink::MethodCall<{mname}Args_, \
-                {mname}Reply_, \
-                Error_>> \
-                {{\n",
+                "    fn {sname}(&mut self{inparms}) -> varlink::MethodCall<{mname}Args_, \
+                 {mname}Reply_, \
+                 Error_> \
+                 {{\n",
                 sname = to_snake_case(t.name),
                 inparms = inparms,
                 mname = t.name
@@ -684,11 +684,11 @@ impl VarlinkClientInterface for VarlinkClient {{
             write!(
                 w,
                 "            \
-                 varlink::MethodCall::<{mname}Args_, {mname}Reply_, Error_>::call(\n            \
+                 varlink::MethodCall::<{mname}Args_, {mname}Reply_, Error_>::new(\n            \
                  self.connection.clone(),\n            \
                  \"{iname}.{mname}\".into(),\n            \
                  {mname}Args_ {{ {innames} }},\n        \
-                 self.more, self.oneway)\n",
+                 )\n",
                 mname = t.name,
                 iname = self.name,
                 innames = innames

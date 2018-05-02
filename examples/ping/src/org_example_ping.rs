@@ -131,10 +131,7 @@ pub trait VarlinkInterface {
 }
 
 pub trait VarlinkClientInterface {
-    fn ping(
-        &mut self,
-        ping: String,
-    ) -> io::Result<varlink::MethodCall<PingArgs_, PingReply_, Error_>>;
+    fn ping(&mut self, ping: String) -> varlink::MethodCall<PingArgs_, PingReply_, Error_>;
 }
 
 pub struct VarlinkClient {
@@ -168,16 +165,11 @@ impl VarlinkClient {
 }
 
 impl VarlinkClientInterface for VarlinkClient {
-    fn ping(
-        &mut self,
-        ping: String,
-    ) -> io::Result<varlink::MethodCall<PingArgs_, PingReply_, Error_>> {
-        varlink::MethodCall::<PingArgs_, PingReply_, Error_>::call(
+    fn ping(&mut self, ping: String) -> varlink::MethodCall<PingArgs_, PingReply_, Error_> {
+        varlink::MethodCall::<PingArgs_, PingReply_, Error_>::new(
             self.connection.clone(),
             "org.example.ping.Ping".into(),
             PingArgs_ { ping },
-            self.more,
-            self.oneway,
         )
     }
 }

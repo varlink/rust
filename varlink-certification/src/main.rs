@@ -131,8 +131,7 @@ fn run_client(address: String) -> io::Result<()> {
         ret_array.push(ret.string.clone());
     }
 
-    let ret = call.test11(client_id.clone(), ret_array)?.recv()?;
-    eprintln!("{:#?}", ret);
+    call.oneway().test11(client_id.clone(), ret_array)?;
 
     let ret = call.end(client_id.clone())?.recv()?;
     eprintln!("{:#?}", ret);
@@ -256,7 +255,51 @@ macro_rules! check_call_more {
                 ..
             }) => false,
             Some(&varlink::Request {
-                            more: Some(true),
+                more: Some(true),
+                method: ref m,
+                parameters: Some(ref p),
+                ..
+            }) if m == $test =>
+            {
+                let v : Result<$got, serde_json::Error> = serde_json::from_value(p.clone());
+                match v {
+                    Ok(w) => wants == w,
+                    _ => false
+                }
+            }
+
+            _ => false,
+        };
+        if !check {
+            let got: serde_json::Value = serde_json::to_value($c.get_request().unwrap())?;
+	        let wants = serde_json::to_value(wants)?;
+            return $c.reply_certification_error(
+                    serde_json::to_value(varlink::Request {
+                    more: None,
+                    oneway: None,
+                    upgrade: None,
+                    method: $test.into(),
+                    parameters: Some(wants),
+                    }) ?,
+                got,
+            );
+        }
+	}};
+}
+
+macro_rules! check_call_oneway {
+	($c:ident, $test:expr, $got: ty, $wants:expr) => {{
+		let wants = $wants;
+	    let check = match $c.get_request() {
+            Some(&varlink::Request {
+                more: Some(true), ..
+            })
+            | Some(&varlink::Request {
+                upgrade: Some(true),
+                ..
+            }) => false,
+            Some(&varlink::Request {
+                oneway: Some(true),
                 method: ref m,
                 parameters: Some(ref p),
                 ..
@@ -572,7 +615,7 @@ impl VarlinkInterface for CertInterface {
             more_replies.push(format!("Reply number {}", i + 1));
         }
 
-        check_call_normal!(
+        check_call_oneway!(
             call,
             "org.varlink.certification.Test11",
             Test11Args_,
@@ -582,7 +625,7 @@ impl VarlinkInterface for CertInterface {
             }
         );
 
-        call.reply()
+        Ok(())
     }
 
     fn end(&self, call: &mut _CallEnd, client_id: String) -> io::Result<()> {

@@ -102,19 +102,22 @@ fn run_client(address: String) -> io::Result<()> {
     let ret = iface.test05(client_id.clone(), ret.string).call()?;
     eprintln!("{:#?}", ret);
 
-    let ret = iface.test06(client_id.clone(), ret.bool, ret.int, ret.float, ret.string)
+    let ret = iface
+        .test06(client_id.clone(), ret.bool, ret.int, ret.float, ret.string)
         .call()?;
     eprintln!("{:#?}", ret);
 
-    let ret = iface.test07(
-        client_id.clone(),
-        Test07Args_struct {
-            bool: ret.struct_.bool,
-            int: ret.struct_.int,
-            float: ret.struct_.float,
-            string: ret.struct_.string,
-        },
-    ).call()?;
+    let ret = iface
+        .test07(
+            client_id.clone(),
+            Test07Args_struct {
+                bool: ret.struct_.bool,
+                int: ret.struct_.int,
+                float: ret.struct_.float,
+                string: ret.struct_.string,
+            },
+        )
+        .call()?;
     eprintln!("{:#?}", ret);
 
     let ret = iface.test08(client_id.clone(), ret.map).call()?;
@@ -130,7 +133,7 @@ fn run_client(address: String) -> io::Result<()> {
         eprintln!("{:#?}", ret);
         ret_array.push(ret.string.clone());
     }
-    eprintln!("Test10 over");
+
     iface.test11(client_id.clone(), ret_array).oneway()?;
 
     let ret = iface.end(client_id.clone()).call()?;

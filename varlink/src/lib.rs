@@ -855,7 +855,7 @@ where
 {
     connection: Arc<RwLock<Connection>>,
     request: Option<MRequest>,
-    method: Option<String>,
+    method: Option<Cow<'static, str>>,
     reader: Option<BufReader<Box<Read + Send + Sync>>>,
     writer: Option<Box<Write + Send + Sync>>,
     continues: bool,
@@ -871,7 +871,7 @@ where
         + std::convert::From<serde_json::Error>
         + std::convert::From<Reply>,
 {
-    pub fn new(connection: Arc<RwLock<Connection>>, method: String, request: MRequest) -> Self {
+    pub fn new(connection: Arc<RwLock<Connection>>, method: Cow<'static, str>, request: MRequest) -> Self {
         MethodCall::<MRequest, MReply, MError> {
             connection,
             request: Some(request),
@@ -888,7 +888,7 @@ where
         {
             let mut conn = self.connection.write().unwrap();
             let mut req = Request::create(
-                self.method.take().unwrap().into(),
+                self.method.take().unwrap(),
                 Some(serde_json::to_value(self.request.take().unwrap())?),
             );
 

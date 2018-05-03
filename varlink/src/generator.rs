@@ -4,12 +4,12 @@ extern crate varlink_parser;
 
 use std::env;
 use std::fs::File;
-use std::io::{Read, Write};
 use std::io;
+use std::io::{Read, Write};
 use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::process::exit;
+use std::process::Command;
 use varlink_parser::{Interface, VStruct, VStructOrEnum, VType, VTypeExt, Varlink};
 
 type EnumVec<'a> = Vec<(String, Vec<String>)>;
@@ -605,8 +605,8 @@ impl From<Error_> for io::Error {{
             write!(
                 w,
                 "    fn {sname}(&mut self{inparms}) -> varlink::MethodCall<{mname}Args_, \
-                {mname}Reply_, Error_>;\
-                \n",
+                 {mname}Reply_, Error_>;\
+                 \n",
                 sname = to_snake_case(t.name),
                 inparms = inparms,
                 mname = t.name

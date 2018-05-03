@@ -13,6 +13,9 @@ use varlink::VarlinkService;
 // Dynamically build the varlink rust code.
 mod org_example_ping;
 
+#[cfg(test)]
+mod test;
+
 // Main
 
 fn print_usage(program: &str, opts: getopts::Options) {
@@ -115,41 +118,4 @@ fn run_server(address: String, timeout: u64) -> io::Result<()> {
     );
 
     varlink::listen(service, &address, 10, timeout)
-}
-
-#[cfg(test)]
-mod test {
-    use std::io;
-    use std::{thread, time};
-
-    fn run_self_test(address: String) -> io::Result<()> {
-        let client_address = address.clone();
-
-        let child = thread::spawn(move || {
-            if let Err(e) = ::run_server(address, 4) {
-                panic!("error: {}", e);
-            }
-        });
-
-        // give server time to start
-        thread::sleep(time::Duration::from_secs(1));
-
-        let ret = ::run_client(client_address);
-        if let Err(e) = ret {
-            panic!("error: {}", e);
-        }
-        if let Err(e) = child.join() {
-            Err(io::Error::new(
-                io::ErrorKind::ConnectionRefused,
-                format!("{:#?}", e),
-            ))
-        } else {
-            Ok(())
-        }
-    }
-
-    #[test]
-    fn test_unix() {
-        assert!(run_self_test("unix:/tmp/org.example.ping".into()).is_ok());
-    }
 }

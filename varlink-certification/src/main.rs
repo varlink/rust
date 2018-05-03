@@ -5,18 +5,20 @@ extern crate serde_json;
 extern crate varlink;
 
 use org_varlink_certification::*;
-use std::env;
-use std::io;
-
-use std::process::exit;
-use varlink::{StringHashMap, StringHashSet, VarlinkService};
-use std::collections::VecDeque;
-use std::time::Instant;
-use std::sync::{Arc, RwLock};
 use std::collections::hash_map::DefaultHasher;
+use std::collections::VecDeque;
+use std::env;
 use std::hash::{Hash, Hasher};
+use std::io;
+use std::process::exit;
+use std::sync::{Arc, RwLock};
+use std::time::Instant;
+use varlink::{StringHashMap, StringHashSet, VarlinkService};
 
 mod org_varlink_certification;
+
+#[cfg(test)]
+mod test;
 
 // Main
 
@@ -188,22 +190,19 @@ fn new_mytype() -> io::Result<MyType> {
 }
 
 macro_rules! check_call_expr {
-	($c:ident, $pat:expr, $wants:expr) => {{
-	    let check = $pat;
+    ($c:ident, $pat:expr, $wants:expr) => {{
+        let check = $pat;
         if !check {
             let got: serde_json::Value = serde_json::to_value($c.get_request().unwrap())?;
-            return $c.reply_certification_error(
-                serde_json::to_value($wants)?,
-                got,
-            );
+            return $c.reply_certification_error(serde_json::to_value($wants)?, got);
         }
-	}};
+    }};
 }
 
 macro_rules! check_call_normal {
-	($c:ident, $test:expr, $got: ty, $wants:expr) => {{
-		let wants = $wants;
-	    let check = match $c.get_request() {
+    ($c:ident, $test:expr, $got:ty, $wants:expr) => {{
+        let wants = $wants;
+        let check = match $c.get_request() {
             Some(&varlink::Request {
                 more: Some(true), ..
             })
@@ -220,10 +219,10 @@ macro_rules! check_call_normal {
                 ..
             }) if m == $test =>
             {
-                let v : Result<$got, serde_json::Error> = serde_json::from_value(p.clone());
+                let v: Result<$got, serde_json::Error> = serde_json::from_value(p.clone());
                 match v {
                     Ok(w) => wants == w,
-                    _ => false
+                    _ => false,
                 }
             }
 
@@ -231,25 +230,25 @@ macro_rules! check_call_normal {
         };
         if !check {
             let got: serde_json::Value = serde_json::to_value($c.get_request().unwrap())?;
-	        let wants = serde_json::to_value(wants)?;
+            let wants = serde_json::to_value(wants)?;
             return $c.reply_certification_error(
-                    serde_json::to_value(varlink::Request {
+                serde_json::to_value(varlink::Request {
                     more: None,
                     oneway: None,
                     upgrade: None,
                     method: $test.into(),
                     parameters: Some(wants),
-                    }) ?,
+                })?,
                 got,
             );
         }
-	}};
+    }};
 }
 
 macro_rules! check_call_more {
-	($c:ident, $test:expr, $got: ty, $wants:expr) => {{
-		let wants = $wants;
-	    let check = match $c.get_request() {
+    ($c:ident, $test:expr, $got:ty, $wants:expr) => {{
+        let wants = $wants;
+        let check = match $c.get_request() {
             Some(&varlink::Request {
                 oneway: Some(true), ..
             })
@@ -264,10 +263,10 @@ macro_rules! check_call_more {
                 ..
             }) if m == $test =>
             {
-                let v : Result<$got, serde_json::Error> = serde_json::from_value(p.clone());
+                let v: Result<$got, serde_json::Error> = serde_json::from_value(p.clone());
                 match v {
                     Ok(w) => wants == w,
-                    _ => false
+                    _ => false,
                 }
             }
 
@@ -275,25 +274,25 @@ macro_rules! check_call_more {
         };
         if !check {
             let got: serde_json::Value = serde_json::to_value($c.get_request().unwrap())?;
-	        let wants = serde_json::to_value(wants)?;
+            let wants = serde_json::to_value(wants)?;
             return $c.reply_certification_error(
-                    serde_json::to_value(varlink::Request {
+                serde_json::to_value(varlink::Request {
                     more: None,
                     oneway: None,
                     upgrade: None,
                     method: $test.into(),
                     parameters: Some(wants),
-                    }) ?,
+                })?,
                 got,
             );
         }
-	}};
+    }};
 }
 
 macro_rules! check_call_oneway {
-	($c:ident, $test:expr, $got: ty, $wants:expr) => {{
-		let wants = $wants;
-	    let check = match $c.get_request() {
+    ($c:ident, $test:expr, $got:ty, $wants:expr) => {{
+        let wants = $wants;
+        let check = match $c.get_request() {
             Some(&varlink::Request {
                 more: Some(true), ..
             })
@@ -308,10 +307,10 @@ macro_rules! check_call_oneway {
                 ..
             }) if m == $test =>
             {
-                let v : Result<$got, serde_json::Error> = serde_json::from_value(p.clone());
+                let v: Result<$got, serde_json::Error> = serde_json::from_value(p.clone());
                 match v {
                     Ok(w) => wants == w,
-                    _ => false
+                    _ => false,
                 }
             }
 
@@ -319,19 +318,19 @@ macro_rules! check_call_oneway {
         };
         if !check {
             let got: serde_json::Value = serde_json::to_value($c.get_request().unwrap())?;
-	        let wants = serde_json::to_value(wants)?;
+            let wants = serde_json::to_value(wants)?;
             return $c.reply_certification_error(
-                    serde_json::to_value(varlink::Request {
+                serde_json::to_value(varlink::Request {
                     more: None,
                     oneway: None,
                     upgrade: None,
                     method: $test.into(),
                     parameters: Some(wants),
-                    }) ?,
+                })?,
                 got,
             );
         }
-	}};
+    }};
 }
 
 impl VarlinkInterface for CertInterface {
@@ -747,74 +746,4 @@ fn run_server(address: String, timeout: u64) -> io::Result<()> {
         vec![Box::new(myinterface)],
     );
     varlink::listen(service, &address, 10, timeout)
-}
-
-#[cfg(test)]
-mod test {
-    use std::io;
-    use std::{thread, time};
-
-    fn run_self_test(address: String) -> io::Result<()> {
-        let client_address = address.clone();
-
-        let child = thread::spawn(move || {
-            if let Err(e) = ::run_server(address, 4) {
-                panic!("error: {}", e);
-            }
-        });
-
-        // give server time to start
-        thread::sleep(time::Duration::from_secs(1));
-
-        let ret = ::run_client(client_address);
-        if let Err(e) = ret {
-            panic!("error: {}", e);
-        }
-        if let Err(e) = child.join() {
-            Err(io::Error::new(
-                io::ErrorKind::ConnectionRefused,
-                format!("{:#?}", e),
-            ))
-        } else {
-            Ok(())
-        }
-    }
-
-    #[test]
-    fn test_unix() {
-        assert!(run_self_test("unix:/tmp/org.varlink.certification".into()).is_ok());
-    }
-
-    #[test]
-    #[cfg(any(target_os = "linux", target_os = "android"))]
-    fn test_unix_abstract() {
-        assert!(run_self_test("unix:@org.varlink.certification".into()).is_ok());
-    }
-
-    #[test]
-    fn test_tcp() {
-        assert!(run_self_test("tcp:0.0.0.0:23456".into()).is_ok());
-    }
-
-    #[test]
-    fn test_exec() {
-        let address: String;
-
-        if ::std::path::Path::new("../../target/debug/varlink-certification").exists() {
-            address = "exec:../../target/debug/varlink-certification".into();
-        } else if ::std::path::Path::new("./target/debug/varlink-certification").exists() {
-            address = "exec:./target/debug/varlink-certification".into();
-        } else {
-            eprintln!("Skipping test, no varlink-certification");
-            return;
-        }
-
-        assert!(::run_client(address.clone()).is_ok());
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_wrong_address_1() {
-        assert!(run_self_test("tcpd:0.0.0.0:12345".into()).is_ok());
-    }
 }

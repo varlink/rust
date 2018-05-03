@@ -3,13 +3,16 @@
 extern crate bytes;
 extern crate itertools;
 
-use itertools::Itertools;
 use self::varlink_grammar::VInterface;
+use itertools::Itertools;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::fmt;
 use std::io::{self, Error, ErrorKind};
+
+#[cfg(test)]
+mod test;
 
 mod varlink_grammar {
     include!(concat!(env!("OUT_DIR"), "/varlink_grammar.rs"));
@@ -82,9 +85,9 @@ pub struct Interface<'a> {
 }
 
 macro_rules! printVTypeExt {
-	($s:ident, $f:ident, $t:expr) => {{
-                write!($f, "{}", $t)?;
-	}};
+    ($s:ident, $f:ident, $t:expr) => {{
+        write!($f, "{}", $t)?;
+    }};
 }
 
 impl<'a> fmt::Display for VTypeExt<'a> {
@@ -249,245 +252,4 @@ impl<'a> Varlink<'a> {
             })
         }
     }
-}
-
-#[test]
-fn test_standard() {
-    let v = Varlink::from_string(
-        "
-# The Varlink Service Interface is provided by every varlink service. It
-# describes the service and the interfaces it implements.
-interface org.varlink.service
-
-# Get a list of all the interfaces a service provides and information
-# about the implementation.
-method GetInfo() -> (
-  vendor: string,
-  product: string,
-  version: string,
-  url: string,
-  interfaces: []string
-)
-
-# Get the description of an interface that is implemented by this service.
-method GetInterfaceDescription(interface: string) -> (description: string)
-
-# The requested interface was not found.
-error InterfaceNotFound (interface: string)
-
-# The requested method was not found
-error MethodNotFound (method: string)
-
-# The interface defines the requested method, but the service does not
-# implement it.
-error MethodNotImplemented (method: string)
-
-# One of the passed parameters is invalid.
-error InvalidParameter (parameter: string)
-",
-    ).unwrap();
-    assert_eq!(v.interface.name, "org.varlink.service");
-    //println!("{}", v.interface.to_string());
-    assert_eq!(
-        v.interface.to_string(),
-        "interface org.varlink.service\n\
-         method GetInfo() -> (vendor: string, product: string, \
-         version: string, url: string, interfaces: []string)\n\
-         method GetInterfaceDescription(interface: string) \
-         -> (description: string)\n\
-         error InterfaceNotFound (interface: string)\n\
-         error InvalidParameter (parameter: string)\n\
-         error MethodNotFound (method: string)\n\
-         error MethodNotImplemented (method: string)\n"
-    );
-}
-
-#[test]
-fn test_complex() {
-    let v = Varlink::from_string(
-        "interface org.example.complex
-type TypeEnum ( a, b, c )
-
-type TypeFoo (
-    bool: bool,
-    int: int,
-    float: float,
-    string: string,
-    enum: ( foo, bar, baz ),
-    type: TypeEnum,
-    anon: ( foo: bool, bar: int, baz: ( a: int, b: int) )
-)
-
-method Foo(a: (b: bool, c: int), foo: TypeFoo) -> (a: (b: bool, c: int), foo: TypeFoo)
-
-error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)
-",
-    ).unwrap();
-    assert_eq!(v.interface.name, "org.example.complex");
-    //println!("{}", v.interface.to_string());
-    assert_eq!(
-        v.interface.to_string(),
-        "interface org.example.complex\n\
-         type TypeEnum (a, b, c)\n\
-         type TypeFoo (bool: bool, int: int, float: float, \
-         string: string, enum: (foo, bar, baz), \
-         type: TypeEnum, anon: (foo: bool, bar: int, baz: (a: int, b: int)))\n\
-         method Foo(a: (b: bool, c: int), foo: TypeFoo) \
-         -> (a: (b: bool, c: int), foo: TypeFoo)\n\
-         error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)\n"
-    );
-}
-
-#[test]
-fn test_one_method() {
-    let v = Varlink::from_string("interface foo.bar\nmethod Foo()->()");
-    assert!(v.is_ok());
-}
-
-#[test]
-fn test_one_method_no_type() {
-    assert!(VInterface("interface foo.bar\nmethod Foo()->(b:)").is_err());
-}
-
-#[test]
-fn test_domainnames() {
-    assert!(Varlink::from_string("interface org.varlink.service\nmethod F()->()").is_ok());
-    assert!(Varlink::from_string("interface com.example.0example\nmethod F()->()").is_ok());
-    assert!(Varlink::from_string("interface com.example.example-dash\nmethod F()->()").is_ok());
-    assert!(
-        Varlink::from_string("interface xn--lgbbat1ad8j.example.algeria\nmethod F()->()").is_ok()
-    );
-    assert!(Varlink::from_string("interface com.-example.leadinghyphen\nmethod F()->()").is_err());
-    assert!(
-        Varlink::from_string("interface com.example-.danglinghyphen-\nmethod F()->()").is_err()
-    );
-    assert!(
-        Varlink::from_string("interface Com.example.uppercase-toplevel\nmethod F()->()").is_err()
-    );
-    assert!(Varlink::from_string("interface Co9.example.number-toplevel\nmethod F()->()").is_err());
-    assert!(Varlink::from_string("interface 1om.example.number-toplevel\nmethod F()->()").is_err());
-    assert!(Varlink::from_string("interface com.Example\nmethod F()->()").is_err());
-}
-
-#[test]
-fn test_no_method() {
-    assert!(
-        Varlink::from_string(
-            "
-interface org.varlink.service
-  type Interface (name: string, types: []Type, methods: []Method)
-  type Property (key: string, value: string)
-",
-        ).is_err()
-    );
-}
-
-#[test]
-fn test_type_no_args() {
-    assert!(Varlink::from_string("interface foo.bar\n type I ()\nmethod F()->()").is_ok());
-}
-
-#[test]
-fn test_type_one_arg() {
-    assert!(Varlink::from_string("interface foo.bar\n type I (b:bool)\nmethod F()->()").is_ok());
-}
-
-#[test]
-fn test_type_enum() {
-    assert!(
-        Varlink::from_string("interface foo.bar\n type I (b: (foo, bar, baz))\nmethod F()->()")
-            .is_ok()
-    );
-}
-
-#[test]
-fn test_type_string() {
-    assert!(Varlink::from_string("interface foo.bar\n type I (b: string)\nmethod F()->()").is_ok());
-}
-
-#[test]
-fn test_type_stringmap() {
-    assert!(
-        Varlink::from_string("interface foo.bar\n type I (b: [string]string)\nmethod F()->()")
-            .is_ok()
-    );
-}
-
-#[test]
-fn test_type_stringmap_set() {
-    assert!(
-        Varlink::from_string("interface foo.bar\n type I (b: [string]())\nmethod F()->()").is_ok()
-    );
-}
-
-#[test]
-fn test_type_object() {
-    assert!(Varlink::from_string("interface foo.bar\n type I (b: object)\nmethod F()->()").is_ok());
-}
-
-#[test]
-fn test_type_int() {
-    assert!(Varlink::from_string("interface foo.bar\n type I (b: int)\nmethod F()->()").is_ok());
-}
-
-#[test]
-fn test_type_float() {
-    assert!(Varlink::from_string("interface foo.bar\n type I (b: float)\nmethod F()->()").is_ok());
-}
-
-#[test]
-fn test_type_one_array() {
-    assert!(Varlink::from_string("interface foo.bar\n type I (b:[]bool)\nmethod  F()->()").is_ok());
-    assert!(
-        Varlink::from_string("interface foo.bar\n type I (b:bool[ ])\nmethod  F()->()").is_err()
-    );
-    assert!(
-        Varlink::from_string("interface foo.bar\n type I (b:[ ]bool)\nmethod  F()->()").is_err()
-    );
-    assert!(
-        Varlink::from_string("interface foo.bar\n type I (b:[1]bool)\nmethod  F()->()").is_err()
-    );
-    assert!(
-        Varlink::from_string("interface foo.bar\n type I (b:[ 1 ]bool)\nmethod  F()->()").is_err()
-    );
-    assert!(
-        Varlink::from_string("interface foo.bar\n type I (b:[ 1 1 ]bool)\nmethod  F()->()")
-            .is_err()
-    );
-}
-
-#[test]
-fn test_format() {
-    let v = Varlink::from_string("interface foo.bar\ntype I(b:[]bool)\nmethod  F()->()").unwrap();
-    assert_eq!(
-        v.interface.to_string(),
-        "\
-interface foo.bar
-type I (b: []bool)
-method F() -> ()
-"
-    );
-}
-
-#[test]
-fn test_duplicate() {
-    let e = Varlink::from_string(
-        "
-interface foo.example
-	type Device()
-	type Device()
-	type T()
-	type T()
-	method F() -> ()
-	method F() -> ()
-",
-    ).err()
-        .unwrap();
-    assert_eq!(
-        e.to_string(),
-        "\
-Interface `foo.example`: multiple definitions of type `Device`!
-Interface `foo.example`: multiple definitions of type `F`!
-Interface `foo.example`: multiple definitions of type `T`!"
-    );
 }

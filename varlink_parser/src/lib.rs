@@ -51,6 +51,7 @@ pub struct VEnum<'a> {
 
 pub struct VError<'a> {
     pub name: &'a str,
+    pub doc: &'a str,
     pub parm: VStruct<'a>,
 }
 
@@ -61,11 +62,13 @@ pub enum VStructOrEnum<'a> {
 
 pub struct Typedef<'a> {
     pub name: &'a str,
+    pub doc: &'a str,
     pub elt: VStructOrEnum<'a>,
 }
 
 pub struct Method<'a> {
     pub name: &'a str,
+    pub doc: &'a str,
     pub input: VStruct<'a>,
     pub output: VStruct<'a>,
 }
@@ -78,6 +81,7 @@ enum MethodOrTypedefOrError<'a> {
 
 pub struct Interface<'a> {
     pub name: &'a str,
+    pub doc: &'a str,
     pub methods: BTreeMap<&'a str, Method<'a>>,
     pub typedefs: BTreeMap<&'a str, Typedef<'a>>,
     pub errors: BTreeMap<&'a str, VError<'a>>,
@@ -156,17 +160,29 @@ impl<'a> fmt::Display for VEnum<'a> {
 
 impl<'a> fmt::Display for Interface<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.doc.len() > 0 {
+            write!(f, "{}\n", self.doc)?;
+        }
         write!(f, "interface {}\n", self.name)?;
 
         for t in self.typedefs.values() {
+            if t.doc.len() > 0 {
+                write!(f, "\n{}\n", t.doc)?;
+            }
             write!(f, "type {} {}\n", t.name, t.elt)?;
         }
 
         for m in self.methods.values() {
+            if m.doc.len() > 0 {
+                write!(f, "\n{}\n", m.doc)?;
+            }
             write!(f, "method {}{} -> {}\n", m.name, m.input, m.output)?;
         }
 
         for e in self.errors.values() {
+            if e.doc.len() > 0 {
+                write!(f, "\n{}\n", e.doc)?;
+            }
             write!(f, "error {} {}\n", e.name, e.parm)?;
         }
         Ok(())
@@ -174,9 +190,10 @@ impl<'a> fmt::Display for Interface<'a> {
 }
 
 impl<'a> Interface<'a> {
-    fn from_token(n: &'a str, mt: Vec<MethodOrTypedefOrError<'a>>) -> Interface<'a> {
+    fn from_token(n: &'a str, mt: Vec<MethodOrTypedefOrError<'a>>, doc: &'a str) -> Interface<'a> {
         let mut i = Interface {
             name: n,
+            doc: doc,
             methods: BTreeMap::new(),
             typedefs: BTreeMap::new(),
             errors: BTreeMap::new(),

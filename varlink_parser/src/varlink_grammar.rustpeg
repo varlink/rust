@@ -1,27 +1,27 @@
 /* Modeled after ECMA-262, 5th ed., 7.2. */
-whitespace -> ()
-  = #quiet<[ \t\u{00A0}\u{FEFF}\u{1680}\u{180E}\u{2000}-\u{200A}\u{202F}\u{205F}\u{3000}]> // \v\f removed
+whitespace -> &'input str
+  = #quiet<$([ \t\u{00A0}\u{FEFF}\u{1680}\u{180E}\u{2000}-\u{200A}\u{202F}\u{205F}\u{3000}])>
   / #expected("whitespace")
 
 /* Modeled after ECMA-262, 5th ed., 7.3. */
-eol_r -> ()
-  = "\n"
-  / "\r\n"
-  / "\r"
-  / "\u{2028}"
-  / "\u{2029}"
+eol_r -> &'input str
+  = $( "\n" )
+  / $( "\r\n" )
+  / $( "\r" )
+  / $( "\u{2028}" )
+  / $( "\u{2029}" )
 
-comment -> ()
-    = #quiet<"#" [^\n\r\u{2028}\u{2029}]* eol_r >
+comment -> &'input str
+    = #quiet< $( "#" [^\n\r\u{2028}\u{2029}]* eol_r ) >
     / #expected("<comment>")
 
-eol -> ()
-    = #quiet<whitespace* eol_r>
-    / #quiet<comment>
+eol -> &'input str
+    = #quiet< $( whitespace* eol_r ) >
+    / #quiet< $( comment ) >
     / #expected("<newline>")
 
-_ -> ()
-    = #quiet<whitespace / comment / eol_r>
+_ -> &'input str
+    = #quiet< $( whitespace / comment / eol_r ) >
     / #expected("<newline> <whitespace> or <comment>")
 
 field_name -> &'input str
@@ -80,23 +80,36 @@ venum -> VEnum<'input>
 use super::Typedef;
 use super::VStructOrEnum;
 vtypedef -> Typedef<'input>
-    = "type" _+ n:$(name) _* v:vstruct { Typedef{name: n, elt: VStructOrEnum::VStruct(Box::new(v))} }
-    / "type" _+ n:$(name) _* v:venum { Typedef{name: n, elt: VStructOrEnum::VEnum(Box::new(v))} }
+    = d:$(_*) "type" _+ n:$(name) _* v:vstruct {
+        Typedef{name: n, doc: d.trim_matches(&[' ', '\n', '\r'] as &[_]), elt: VStructOrEnum::VStruct(Box::new(v))}
+    }
+    / d:$(_*) "type" _+ n:$(name) _* v:venum {
+        Typedef{name: n, doc: d.trim_matches(&[' ', '\n', '\r'] as &[_]), elt: VStructOrEnum::VEnum(Box::new(v))}
+    }
 
 use super::VError;
 error -> VError<'input>
-    = "error" _+ n:$(name) _* p:vstruct { VError{name: n, parm: p} }
+    = d:$(_*) "error" _+ n:$(name) _* p:vstruct { VError{name: n, doc: d.trim_matches(&[' ', '\n', '\r'] as &[_]), parm: p} }
 
 use super::Method;
 method -> Method<'input>
-    = "method" _+ n:$(name) _* i:vstruct _* "->" _* o:vstruct { Method{name: n, input: i, output: o} }
+    = d:$(_*) "method" _+ n:$(name) _* i:vstruct _* "->" _* o:vstruct {
+        Method {
+            name: n,
+            doc: d.trim_matches(&[' ', '\n', '\r'] as &[_]),
+            input: i,
+            output: o
+        }
+     }
 
 use super::MethodOrTypedefOrError;
 member -> MethodOrTypedefOrError<'input>
-    = _* m:method { MethodOrTypedefOrError::Method(m) }
-    / _* t:vtypedef { MethodOrTypedefOrError::Typedef(t) }
-    / _* e:error { MethodOrTypedefOrError::Error(e) }
+    = m:method { MethodOrTypedefOrError::Method(m) }
+    / t:vtypedef { MethodOrTypedefOrError::Typedef(t) }
+    / e:error { MethodOrTypedefOrError::Error(e) }
 
 use super::Interface;
 pub VInterface -> Interface<'input>
-	= _* "interface" _+ n:$interface_name eol mt:(member++ eol) _*  { Interface::from_token(n, mt) }
+	= d:$(_*) "interface" _+ n:$interface_name eol mt:(member++ eol) _*  {
+	    Interface::from_token(n, mt, d.trim_matches(&[' ', '\n', '\r'] as &[_]))
+	 }

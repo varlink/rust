@@ -108,11 +108,11 @@ error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)
     //println!("{}", v.interface.to_string());
     assert_eq!(
         v.interface.to_string(), "\
-        interface org.example.complex\n\
-        type TypeEnum (a, b, c)\n\
+        interface org.example.complex\n\n\
+        type TypeEnum (a, b, c)\n\n\
         type TypeFoo (bool: bool, int: int, float: float, string: string, enum: (foo, bar, baz), type: \
-        TypeEnum, anon: (foo: bool, bar: int, baz: (a: int, b: int)))\n\
-        method Foo(a: (b: bool, c: int), foo: TypeFoo) -> (a: (b: bool, c: int), foo: TypeFoo)\n\
+        TypeEnum, anon: (foo: bool, bar: int, baz: (a: int, b: int)))\n\n\
+        method Foo(a: (b: bool, c: int), foo: TypeFoo) -> (a: (b: bool, c: int), foo: TypeFoo)\n\n\
         error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)\n"
     );
 }
@@ -240,7 +240,7 @@ fn test_format() {
     let v = Varlink::from_string("interface foo.bar\ntype I(b:[]bool)\nmethod  F()->()").unwrap();
     assert_eq!(
         v.interface.to_string(),
-        "interface foo.bar\ntype I (b: []bool)\nmethod F() -> ()\n"
+        "interface foo.bar\n\ntype I (b: []bool)\n\nmethod F() -> ()\n"
     );
 }
 

@@ -166,22 +166,25 @@ impl<'a> fmt::Display for Interface<'a> {
         write!(f, "interface {}\n", self.name)?;
 
         for t in self.typedefs.values() {
+            write!(f, "\n")?;
             if t.doc.len() > 0 {
-                write!(f, "\n{}\n", t.doc)?;
+                write!(f, "{}\n", t.doc)?;
             }
             write!(f, "type {} {}\n", t.name, t.elt)?;
         }
 
         for m in self.methods.values() {
+            write!(f, "\n")?;
             if m.doc.len() > 0 {
-                write!(f, "\n{}\n", m.doc)?;
+                write!(f, "{}\n", m.doc)?;
             }
             write!(f, "method {}{} -> {}\n", m.name, m.input, m.output)?;
         }
 
         for e in self.errors.values() {
+            write!(f, "\n")?;
             if e.doc.len() > 0 {
-                write!(f, "\n{}\n", e.doc)?;
+                write!(f, "{}\n", e.doc)?;
             }
             write!(f, "error {} {}\n", e.name, e.parm)?;
         }

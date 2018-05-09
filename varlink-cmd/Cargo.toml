@@ -1,0 +1,19 @@
+[package]
+name = "varlink-cmd"
+version = "0.1.0"
+authors = ["Harald Hoyer <harald@redhat.com>"]
+
+[[bin]]
+name = "varlink"
+path = "src/main.rs"
+
+[dependencies]
+varlink = { path = "../varlink" }
+varlink_parser = { path = "../varlink_parser" }
+serde = "1"
+serde_derive = "1"
+serde_json = "1"
+clap = "2"
+
+[build-dependencies]
+varlink = { path = "../varlink" }

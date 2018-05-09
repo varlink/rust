@@ -257,7 +257,7 @@ pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
 
 impl varlink::Interface for _InterfaceProxy {
     fn get_description(&self) -> &'static str {
-        r#"# Provides information about network state
+        r#####################################"# Provides information about network state
 #
 interface io.systemd.network
 
@@ -278,7 +278,7 @@ method Info(ifindex: int) -> (info: NetdevInfo)
 method List() -> (netdevs: []Netdev)
 
 error UnknownNetworkIfIndex (ifindex: int)
-error UnknownError (text: string)"#
+error UnknownError (text: string)"#####################################
     }
 
     fn get_name(&self) -> &'static str {

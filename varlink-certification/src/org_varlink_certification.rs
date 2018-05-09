@@ -787,7 +787,7 @@ pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
 
 impl varlink::Interface for _InterfaceProxy {
     fn get_description(&self) -> &'static str {
-        r#"# Interface to test varlink implementations against.
+        r#####################################"# Interface to test varlink implementations against.
 # First you write a varlink client calling:
 # Start, Test01, Test02, …, Test09, End
 # The return value of the previous call should be the argument of the next call.
@@ -873,7 +873,7 @@ method End(client_id: string) -> (all_ok: bool)
 
 error ClientIdError ()
 error CertificationError (wants: object, got: object)
-"#
+"#####################################
     }
 
     fn get_name(&self) -> &'static str {

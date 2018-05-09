@@ -79,24 +79,26 @@ venum -> VEnum<'input>
 
 use super::Typedef;
 use super::VStructOrEnum;
+use super::trim_doc;
+
 vtypedef -> Typedef<'input>
     = d:$(_*) "type" _+ n:$(name) _* v:vstruct {
-        Typedef{name: n, doc: d.trim_matches(&[' ', '\n', '\r'] as &[_]), elt: VStructOrEnum::VStruct(Box::new(v))}
+        Typedef{name: n, doc: trim_doc(d), elt: VStructOrEnum::VStruct(Box::new(v))}
     }
     / d:$(_*) "type" _+ n:$(name) _* v:venum {
-        Typedef{name: n, doc: d.trim_matches(&[' ', '\n', '\r'] as &[_]), elt: VStructOrEnum::VEnum(Box::new(v))}
+        Typedef{name: n, doc: trim_doc(d), elt: VStructOrEnum::VEnum(Box::new(v))}
     }
 
 use super::VError;
 error -> VError<'input>
-    = d:$(_*) "error" _+ n:$(name) _* p:vstruct { VError{name: n, doc: d.trim_matches(&[' ', '\n', '\r'] as &[_]), parm: p} }
+    = d:$(_*) "error" _+ n:$(name) _* p:vstruct { VError{name: n, doc: trim_doc(d), parm: p} }
 
 use super::Method;
 method -> Method<'input>
     = d:$(_*) "method" _+ n:$(name) _* i:vstruct _* "->" _* o:vstruct {
         Method {
             name: n,
-            doc: d.trim_matches(&[' ', '\n', '\r'] as &[_]),
+            doc: trim_doc(d),
             input: i,
             output: o
         }
@@ -111,5 +113,5 @@ member -> MethodOrTypedefOrError<'input>
 use super::Interface;
 pub VInterface -> Interface<'input>
 	= d:$(_*) "interface" _+ n:$interface_name eol mt:(member++ eol) _*  {
-	    Interface::from_token(n, mt, d.trim_matches(&[' ', '\n', '\r'] as &[_]))
+	    Interface::from_token(n, mt, trim_doc(d))
 	 }

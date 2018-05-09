@@ -37,7 +37,6 @@ fn do_main() -> Result<(), IOError> {
 
     match Varlink::from_string(&buffer) {
         Ok(v) => {
-            println!("Syntax check passed!\n");
             println!("{}", v.interface);
             exit(0);
         }

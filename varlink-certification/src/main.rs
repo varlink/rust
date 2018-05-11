@@ -26,7 +26,7 @@ fn print_usage(program: &str, opts: getopts::Options) {
     print!("{}", opts.usage(&brief));
 }
 
-fn main() {
+fn main() -> Result<()> {
     let args: Vec<_> = env::args().collect();
     let program = args[0].clone();
 
@@ -38,15 +38,15 @@ fn main() {
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
         Err(f) => {
-            eprintln!("{}", f.to_string());
             print_usage(&program, opts);
-            return;
+            eprintln!("{}", f.to_string());
+            exit(1);
         }
     };
 
     if matches.opt_present("h") {
         print_usage(&program, opts);
-        return;
+        return Ok(());
     }
 
     let client_mode = matches.opt_present("client");
@@ -54,27 +54,20 @@ fn main() {
     let address = match matches.opt_str("varlink") {
         None => {
             if !client_mode {
-                eprintln!("Need varlink address in server mode.");
                 print_usage(&program, opts);
-                return;
+                eprintln!("Need varlink address in server mode.");
+                exit(1);
             }
             format!("exec:{}", program)
         }
         Some(a) => a,
     };
 
-    let ret = match client_mode {
-        true => run_client(address),
-        false => run_server(address, 0),
+    match client_mode {
+        true => run_client(address)?,
+        false => run_server(address, 0)?,
     };
-
-    exit(match ret {
-        Ok(_) => 0,
-        Err(err) => {
-            eprintln!("error: {}", err);
-            1
-        }
-    });
+    Ok(())
 }
 
 // Client

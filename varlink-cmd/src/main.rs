@@ -20,10 +20,12 @@ mod errors {
     error_chain! {
         foreign_links {
             Io(::std::io::Error);
-            Clap(::clap::Error);
-            Varlink(::varlink::Error);
             Fmt(::std::fmt::Error);
             SerdeJson(::serde_json::Error);
+            Clap(::clap::Error);
+        }
+        links {
+            Varlink(::varlink::Error, ::varlink::ErrorKind);
         }
         errors {
             NotImplemented(t: String) {
@@ -223,26 +225,26 @@ fn main() -> Result<()> {
         ("completions", Some(sub_matches)) => {
             let shell = sub_matches.value_of("SHELL").unwrap();
             app.gen_completions_to("varlink", shell.parse().unwrap(), &mut io::stdout());
-            Ok(())
         }
         ("format", Some(sub_matches)) => {
             let filename = sub_matches.value_of("FILE").unwrap();
-            varlink_format(filename)
+            varlink_format(filename)?
         }
         ("info", Some(sub_matches)) => {
             let address = sub_matches.value_of("ADDRESS").unwrap();
-            varlink_info(address)
+            varlink_info(address)?
         }
         ("help", Some(sub_matches)) => {
             let interface = sub_matches.value_of("INTERFACE").unwrap();
-            varlink_help(interface)
+            varlink_help(interface)?
         }
         ("call", Some(sub_matches)) => {
             let method = sub_matches.value_of("METHOD").unwrap();
             let args = sub_matches.value_of("ARGUMENTS");
             let more = sub_matches.is_present("more");
-            varlink_call(method, args, more)
+            varlink_call(method, args, more)?
         }
-        (_, _) => app.print_help().map_err(|e| e.into()),
+        (_, _) => app.print_help()?,
     }
+    Ok(())
 }

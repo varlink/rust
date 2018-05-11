@@ -13,6 +13,7 @@ Look into the examples directory. ```build.rs``` contains the magic, which will 
 
 ## More Info
 
+* [Git Repo](https://github.com/varlink/rust)
 * [API Documentation](https://docs.rs/varlink)
 * [Crate](https://crates.io/crates/varlink)
 * [Example](https://github.com/varlink/rust/tree/master/examples) usage of this crate

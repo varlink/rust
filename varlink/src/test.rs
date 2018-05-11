@@ -1,11 +1,10 @@
-use std::io;
 use *;
 
 #[test]
 fn test_listen() {
     use std::{thread, time};
 
-    fn run_app(address: &String, timeout: u64) -> io::Result<()> {
+    fn run_app(address: &String, timeout: u64) -> Result<()> {
         let service = VarlinkService::new(
             "org.varlink",
             "test service",
@@ -20,7 +19,7 @@ fn test_listen() {
         Ok(())
     }
 
-    fn run_client_app(address: &String) -> io::Result<()> {
+    fn run_client_app(address: &String) -> Result<()> {
         let conn = Connection::new(&address)?;
         let mut call = OrgVarlinkServiceClient::new(conn.clone());
         let info = call.get_info()?;
@@ -37,7 +36,8 @@ fn test_listen() {
         assert!(e.is_err());
 
         match e {
-            Err(Error::InvalidParameter(i)) => assert_eq!(i.parameter, Some("interface".into())),
+            Err(Error(ErrorKind::InvalidParameter(i), _)) => assert_eq!(i, "interface"
+                .to_string()),
             _ => {
                 panic!("Unknown error {:?}", e);
             }
@@ -50,8 +50,8 @@ fn test_listen() {
         ).call();
 
         match e {
-            Err(Error::MethodNotFound(i)) => {
-                assert_eq!(i.method, Some("org.varlink.service.GetInfos".into()))
+            Err(Error(ErrorKind::MethodNotFound(i), _)) => {
+                assert_eq!(i, "org.varlink.service.GetInfos".to_string())
             }
             _ => {
                 panic!("Unknown error {:?}", e);
@@ -65,8 +65,8 @@ fn test_listen() {
         ).call();
 
         match e {
-            Err(Error::InterfaceNotFound(i)) => {
-                assert_eq!(i.interface, Some("org.varlink.unknowninterface".into()))
+            Err(Error(ErrorKind::InterfaceNotFound(i), _)) => {
+                assert_eq!(i, "org.varlink.unknowninterface".to_string())
             }
             _ => {
                 panic!("Unknown error {:?}", e);

@@ -3,10 +3,11 @@ extern crate getopts;
 extern crate serde_derive;
 extern crate serde_json;
 extern crate varlink;
+#[macro_use]
+extern crate error_chain;
 
 use org_example_ping::*;
 use std::env;
-use std::io;
 use std::process::exit;
 use varlink::VarlinkService;
 
@@ -76,7 +77,7 @@ fn main() {
 
 // Client
 
-fn run_client(address: String) -> io::Result<()> {
+fn run_client(address: String) -> Result<()> {
     let connection = varlink::Connection::new(&address)?;
     let mut iface = VarlinkClient::new(connection);
     let ping: String = "Test".into();
@@ -101,12 +102,12 @@ fn run_client(address: String) -> io::Result<()> {
 struct MyOrgExamplePing;
 
 impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
-    fn ping(&self, call: &mut _CallPing, ping: String) -> io::Result<()> {
+    fn ping(&self, call: &mut _CallPing, ping: String) -> Result<()> {
         return call.reply(ping);
     }
 }
 
-fn run_server(address: String, timeout: u64) -> io::Result<()> {
+fn run_server(address: String, timeout: u64) -> Result<()> {
     let myorgexampleping = MyOrgExamplePing;
     let myinterface = org_example_ping::new(Box::new(myorgexampleping));
     let service = VarlinkService::new(
@@ -117,5 +118,5 @@ fn run_server(address: String, timeout: u64) -> io::Result<()> {
         vec![Box::new(myinterface)],
     );
 
-    varlink::listen(service, &address, 10, timeout)
+    varlink::listen(service, &address, 10, timeout).map_err(|e| e.into())
 }

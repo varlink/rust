@@ -6,6 +6,7 @@
 #![allow(non_snake_case)]
 #![allow(unused_imports)]
 
+use error_chain::ChainedError;
 use serde_json::{self, Value};
 use std::io;
 use std::sync::{Arc, RwLock};
@@ -57,36 +58,45 @@ pub struct UnknownNetworkIfIndexArgs_ {
 }
 
 pub trait _CallErr: varlink::CallTrait {
-    fn reply_unknown_error(&mut self, text: String) -> io::Result<()> {
+    fn reply_unknown_error(&mut self, text: String) -> Result<()> {
         self.reply_struct(varlink::Reply::error(
             "io.systemd.network.UnknownError".into(),
             Some(serde_json::to_value(UnknownErrorArgs_ { text }).unwrap()),
-        ))
+        )).map_err(|e| e.into())
     }
-    fn reply_unknown_network_if_index(&mut self, ifindex: i64) -> io::Result<()> {
+    fn reply_unknown_network_if_index(&mut self, ifindex: i64) -> Result<()> {
         self.reply_struct(varlink::Reply::error(
             "io.systemd.network.UnknownNetworkIfIndex".into(),
             Some(serde_json::to_value(UnknownNetworkIfIndexArgs_ { ifindex }).unwrap()),
-        ))
+        )).map_err(|e| e.into())
     }
 }
 
 impl<'a> _CallErr for varlink::Call<'a> {}
 
-#[derive(Debug)]
-pub enum Error_ {
-    UnknownError(Option<UnknownErrorArgs_>),
-    UnknownNetworkIfIndex(Option<UnknownNetworkIfIndexArgs_>),
-    VarlinkError_(varlink::Error),
-    UnknownError_(varlink::Reply),
-    IOError_(io::Error),
-    JSONError_(serde_json::Error),
+error_chain! {
+    errors {
+        UnknownError(t: Option<UnknownErrorArgs_>) {
+            display("UnknownError: '{:?}'", t)
+        }
+        UnknownNetworkIfIndex(t: Option<UnknownNetworkIfIndexArgs_>) {
+            display("UnknownNetworkIfIndex: '{:?}'", t)
+        }
+    }
+    foreign_links {
+        Io(::std::io::Error);
+        Fmt(::std::fmt::Error);
+        SerdeJson(::serde_json::Error);
+        }
+    links {
+        Varlink(::varlink::Error, ::varlink::ErrorKind);
+    }
 }
 
-impl From<varlink::Reply> for Error_ {
+impl From<varlink::Reply> for Error {
     fn from(e: varlink::Reply) -> Self {
         if varlink::Error::is_error(&e) {
-            return Error_::VarlinkError_(e.into());
+            return varlink::Error::from(e).into();
         }
 
         match e {
@@ -99,10 +109,10 @@ impl From<varlink::Reply> for Error_ {
                         parameters: Some(p),
                         ..
                     } => match serde_json::from_value(p) {
-                        Ok(v) => Error_::UnknownError(v),
-                        Err(_) => Error_::UnknownError(None),
+                        Ok(v) => ErrorKind::UnknownError(v).into(),
+                        Err(_) => ErrorKind::UnknownError(None).into(),
                     },
-                    _ => Error_::UnknownError(None),
+                    _ => ErrorKind::UnknownError(None).into(),
                 }
             }
             varlink::Reply {
@@ -114,90 +124,80 @@ impl From<varlink::Reply> for Error_ {
                         parameters: Some(p),
                         ..
                     } => match serde_json::from_value(p) {
-                        Ok(v) => Error_::UnknownNetworkIfIndex(v),
-                        Err(_) => Error_::UnknownNetworkIfIndex(None),
+                        Ok(v) => ErrorKind::UnknownNetworkIfIndex(v).into(),
+                        Err(_) => ErrorKind::UnknownNetworkIfIndex(None).into(),
                     },
-                    _ => Error_::UnknownNetworkIfIndex(None),
+                    _ => ErrorKind::UnknownNetworkIfIndex(None).into(),
                 }
             }
-            _ => return Error_::UnknownError_(e),
+            _ => return varlink::Error::from(varlink::ErrorKind::UnknownError(e)).into(),
         }
     }
 }
 
-impl From<io::Error> for Error_ {
-    fn from(e: io::Error) -> Self {
-        Error_::IOError_(e)
-    }
+#[derive(Serialize)]
+struct internal_error {
+    message: String,
 }
 
-impl From<serde_json::Error> for Error_ {
-    fn from(e: serde_json::Error) -> Self {
-        use serde_json::error::Category;
-        match e.classify() {
-            Category::Io => Error_::IOError_(e.into()),
-            _ => Error_::JSONError_(e),
-        }
-    }
-}
-
-impl From<Error_> for io::Error {
-    fn from(e: Error_) -> Self {
+impl From<Error> for varlink::Error {
+    fn from(e: Error) -> Self {
         match e {
-            Error_::UnknownError(e) => io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "io.systemd.network.UnknownError: '{}'",
-                    serde_json::to_string_pretty(&e).unwrap()
+            Error(ErrorKind::UnknownError(t), _) => {
+                varlink::Error::from(varlink::ErrorKind::UnknownError(varlink::Reply {
+                    error: Some("io.systemd.network.UnknownError".into()),
+                    parameters: Some(serde_json::to_value(t).unwrap()),
+                    ..Default::default()
+                }))
+            }
+            Error(ErrorKind::UnknownNetworkIfIndex(t), _) => {
+                varlink::Error::from(varlink::ErrorKind::UnknownError(varlink::Reply {
+                    error: Some("io.systemd.network.UnknownNetworkIfIndex".into()),
+                    parameters: Some(serde_json::to_value(t).unwrap()),
+                    ..Default::default()
+                }))
+            }
+            e => varlink::Error::from(varlink::ErrorKind::UnknownError(varlink::Reply {
+                error: Some("org.example.more.InternalError".into()),
+                parameters: Some(
+                    serde_json::to_value(internal_error {
+                        message: e.display_chain().to_string(),
+                    }).unwrap(),
                 ),
-            ),
-            Error_::UnknownNetworkIfIndex(e) => io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "io.systemd.network.UnknownNetworkIfIndex: '{}'",
-                    serde_json::to_string_pretty(&e).unwrap()
-                ),
-            ),
-            Error_::VarlinkError_(e) => e.into(),
-            Error_::IOError_(e) => e,
-            Error_::JSONError_(e) => e.into(),
-            Error_::UnknownError_(e) => io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "unknown varlink error: {}",
-                    serde_json::to_string_pretty(&e).unwrap()
-                ),
-            ),
+                ..Default::default()
+            })),
         }
     }
 }
 pub trait _CallInfo: _CallErr {
-    fn reply(&mut self, info: NetdevInfo) -> io::Result<()> {
+    fn reply(&mut self, info: NetdevInfo) -> Result<()> {
         self.reply_struct(InfoReply_ { info }.into())
+            .map_err(|e| e.into())
     }
 }
 
 impl<'a> _CallInfo for varlink::Call<'a> {}
 
 pub trait _CallList: _CallErr {
-    fn reply(&mut self, netdevs: Vec<Netdev>) -> io::Result<()> {
+    fn reply(&mut self, netdevs: Vec<Netdev>) -> Result<()> {
         self.reply_struct(ListReply_ { netdevs }.into())
+            .map_err(|e| e.into())
     }
 }
 
 impl<'a> _CallList for varlink::Call<'a> {}
 
 pub trait VarlinkInterface {
-    fn info(&self, call: &mut _CallInfo, ifindex: i64) -> io::Result<()>;
-    fn list(&self, call: &mut _CallList) -> io::Result<()>;
-    fn call_upgraded(&self, _call: &mut varlink::Call) -> io::Result<()> {
+    fn info(&self, call: &mut _CallInfo, ifindex: i64) -> Result<()>;
+    fn list(&self, call: &mut _CallList) -> Result<()>;
+    fn call_upgraded(&self, _call: &mut varlink::Call) -> varlink::Result<()> {
         Ok(())
     }
 }
 
 pub trait VarlinkClientInterface {
-    fn info(&mut self, ifindex: i64) -> varlink::MethodCall<InfoArgs_, InfoReply_, Error_>;
-    fn list(&mut self) -> varlink::MethodCall<ListArgs_, ListReply_, Error_>;
+    fn info(&mut self, ifindex: i64) -> varlink::MethodCall<InfoArgs_, InfoReply_, Error>;
+    fn list(&mut self) -> varlink::MethodCall<ListArgs_, ListReply_, Error>;
 }
 
 pub struct VarlinkClient {
@@ -231,15 +231,15 @@ impl VarlinkClient {
 }
 
 impl VarlinkClientInterface for VarlinkClient {
-    fn info(&mut self, ifindex: i64) -> varlink::MethodCall<InfoArgs_, InfoReply_, Error_> {
-        varlink::MethodCall::<InfoArgs_, InfoReply_, Error_>::new(
+    fn info(&mut self, ifindex: i64) -> varlink::MethodCall<InfoArgs_, InfoReply_, Error> {
+        varlink::MethodCall::<InfoArgs_, InfoReply_, Error>::new(
             self.connection.clone(),
             "io.systemd.network.Info".into(),
             InfoArgs_ { ifindex },
         )
     }
-    fn list(&mut self) -> varlink::MethodCall<ListArgs_, ListReply_, Error_> {
-        varlink::MethodCall::<ListArgs_, ListReply_, Error_>::new(
+    fn list(&mut self) -> varlink::MethodCall<ListArgs_, ListReply_, Error> {
+        varlink::MethodCall::<ListArgs_, ListReply_, Error>::new(
             self.connection.clone(),
             "io.systemd.network.List".into(),
             ListArgs_ {},
@@ -285,23 +285,27 @@ error UnknownError (text: string)"#####################################
         "io.systemd.network"
     }
 
-    fn call_upgraded(&self, call: &mut varlink::Call) -> io::Result<()> {
+    fn call_upgraded(&self, call: &mut varlink::Call) -> varlink::Result<()> {
         self.inner.call_upgraded(call)
     }
 
-    fn call(&self, call: &mut varlink::Call) -> io::Result<()> {
+    fn call(&self, call: &mut varlink::Call) -> varlink::Result<()> {
         let req = call.request.unwrap();
         match req.method.as_ref() {
             "io.systemd.network.Info" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: InfoArgs_ = serde_json::from_value(args)?;
-                    return self.inner.info(call as &mut _CallInfo, args.ifindex);
+                    return self.inner
+                        .info(call as &mut _CallInfo, args.ifindex)
+                        .map_err(|e| e.into());
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
                 }
             }
             "io.systemd.network.List" => {
-                return self.inner.list(call as &mut _CallList);
+                return self.inner
+                    .list(call as &mut _CallList)
+                    .map_err(|e| e.into());
             }
 
             m => {

@@ -38,19 +38,19 @@
 //!
 //!```rust
 //!# use std::io;
-//!# use varlink::CallTrait;
+//!# use varlink::{CallTrait, Result};
 //!# struct _PingReply {pong: String}
 //!# impl varlink::VarlinkReply for _PingReply {}
 //!# struct _PingArgs {ping: String}
 //!# pub trait _CallErr: varlink::CallTrait {}
 //!# impl<'a> _CallErr for varlink::Call<'a> {}
 //!# pub trait _CallPing: _CallErr {
-//!#     fn reply(&mut self, pong: String) -> io::Result<()> { Ok(()) }
+//!#     fn reply(&mut self, pong: String) -> Result<()> { Ok(()) }
 //!# }
 //!# impl<'a> _CallPing for varlink::Call<'a> {}
 //!# pub trait VarlinkInterface {
-//!#     fn ping(&self, call: &mut _CallPing, ping: String) -> io::Result<()>;
-//!#     fn call_upgraded(&self, _call: &mut varlink::Call) -> io::Result<()> {Ok(())}
+//!#     fn ping(&self, call: &mut _CallPing, ping: String) -> Result<()>;
+//!#     fn call_upgraded(&self, _call: &mut varlink::Call) -> Result<()> {Ok(())}
 //!# }
 //!# pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
 //!# pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
@@ -60,14 +60,14 @@
 //!#     fn get_description(&self) -> &'static str { "interface org.example.ping\n\
 //!#                                                  method Ping(ping: string) -> (pong: string)" }
 //!#     fn get_name(&self) -> &'static str { "org.example.ping" }
-//!#     fn call_upgraded(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
-//!#     fn call(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
+//!#     fn call_upgraded(&self, call: &mut varlink::Call) -> Result<()> { Ok(()) }
+//!#     fn call(&self, call: &mut varlink::Call) -> Result<()> { Ok(()) }
 //!# }
 //!# fn main() {}
 //!struct MyOrgExamplePing;
 //!
 //!impl VarlinkInterface for MyOrgExamplePing {
-//!    fn ping(&self, call: &mut _CallPing, ping: String) -> io::Result<()> {
+//!    fn ping(&self, call: &mut _CallPing, ping: String) -> Result<()> {
 //!        return call.reply(ping);
 //!    }
 //!}
@@ -79,18 +79,18 @@
 //!
 //!```rust
 //!# use std::io;
-//!# use varlink::CallTrait;
+//!# use varlink::{CallTrait, Result};
 //!# pub trait _CallErr: varlink::CallTrait {}
 //!# impl<'a> _CallErr for varlink::Call<'a> {}
 //!# pub trait _CallTestMethod: _CallErr {
-//!#     fn reply(&mut self) -> io::Result<()> {
+//!#     fn reply(&mut self) -> Result<()> {
 //!#         self.reply_struct(varlink::Reply::parameters(None))
 //!#     }
 //!# }
 //!# impl<'a> _CallTestMethod for varlink::Call<'a> {}
 //!# struct TestService;
 //!# impl TestService {
-//!fn test_method(&self, call: &mut _CallTestMethod, /* more arguments */) -> io::Result<()> {
+//!fn test_method(&self, call: &mut _CallTestMethod, /* more arguments */) -> Result<()> {
 //!    /* ... */
 //!    return call.reply( /* more arguments */ );
 //!}
@@ -104,19 +104,19 @@
 //!# use std::io;
 //!# mod org_example_ping {
 //!# use std::io;
-//!# use varlink;
+//!# use varlink::{self, Result};
 //!# struct _PingReply {pong: String}
 //!# impl varlink::VarlinkReply for _PingReply {}
 //!# struct _PingArgs {ping: String}
 //!# pub trait _CallErr: varlink::CallTrait {}
 //!# impl<'a> _CallErr for varlink::Call<'a> {}
 //!# pub trait _CallPing: _CallErr {
-//!#     fn reply(&mut self, pong: String) -> io::Result<()> { Ok(()) }
+//!#     fn reply(&mut self, pong: String) -> Result<()> { Ok(()) }
 //!# }
 //!# impl<'a> _CallPing for varlink::Call<'a> {}
 //!# pub trait VarlinkInterface {
-//!#     fn ping(&self, call: &mut _CallPing, ping: String) -> io::Result<()>;
-//!#     fn call_upgraded(&self, _call: &mut varlink::Call) -> io::Result<()> {Ok(())}
+//!#     fn ping(&self, call: &mut _CallPing, ping: String) -> Result<()>;
+//!#     fn call_upgraded(&self, _call: &mut varlink::Call) -> Result<()> {Ok(())}
 //!# }
 //!# pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
 //!# pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
@@ -126,15 +126,15 @@
 //!#     fn get_description(&self) -> &'static str { "interface org.example.ping\n\
 //!#                                                  method Ping(ping: string) -> (pong: string)" }
 //!#     fn get_name(&self) -> &'static str { "org.example.ping" }
-//!#     fn call_upgraded(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
-//!#     fn call(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
+//!#     fn call_upgraded(&self, call: &mut varlink::Call) -> Result<()> { Ok(()) }
+//!#     fn call(&self, call: &mut varlink::Call) -> Result<()> { Ok(()) }
 //!# }}
 //!# use org_example_ping::*;
 //!#
 //!# struct MyOrgExamplePing;
 //!#
 //!# impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
-//!#     fn ping(&self, call: &mut _CallPing, ping: String) -> io::Result<()> {
+//!#     fn ping(&self, call: &mut _CallPing, ping: String) -> varlink::Result<()> {
 //!#         return call.reply(ping);
 //!#     }
 //!# }
@@ -183,6 +183,9 @@ extern crate tempfile;
 extern crate unix_socket;
 extern crate varlink_parser;
 
+#[macro_use]
+extern crate error_chain;
+
 use serde::de;
 use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
@@ -192,7 +195,7 @@ use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::convert::From;
 use std::fmt;
-use std::io::{self, BufRead, BufReader, ErrorKind, Read, Write};
+use std::io::{self, BufRead, BufReader, Read, Write};
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, RwLock};
@@ -203,14 +206,162 @@ mod server;
 #[cfg(test)]
 mod test;
 
+error_chain! {
+    foreign_links {
+        Io(::std::io::Error);
+        Fmt(::std::fmt::Error);
+        SerdeJson(::serde_json::Error);
+    }
+
+    errors {
+        InterfaceNotFound(t: String) {
+            display("Interface not found: '{}'", t)
+        }
+        InvalidParameter(t: String) {
+            display("Invalid parameter: '{}'", t)
+        }
+        MethodNotFound(t: String) {
+            display("Method not found: '{}'", t)
+        }
+        MethodNotImplemented(t: String) {
+            display("Method not implemented: '{}'", t)
+        }
+        UnknownError(r: Reply) {
+            display("Unknown error: '{:?}'", r)
+        }
+        CallContinuesMismatch {
+            display("Call::reply() called with continues, but without more in the request")
+        }
+        MethodCalledAlready {
+            display("Varlink: method called already")
+        }
+        ConnectionBusy {
+            display("Varlink: connection busy with other method")
+        }
+        IteratorOldReply {
+            display("Varlink: Iterator called on old reply")
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
+pub struct ErrorInterfaceNotFound {
+    pub interface: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
+pub struct ErrorInvalidParameter {
+    pub parameter: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
+pub struct ErrorMethodNotImplemented {
+    pub method: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
+pub struct ErrorMethodNotFound {
+    pub method: Option<String>,
+}
+
+impl From<Reply> for Error {
+    fn from(e: Reply) -> Self {
+        match e {
+            Reply {
+                error: Some(ref t), ..
+            } if t == "org.varlink.service.InterfaceNotFound" =>
+            {
+                match e {
+                    Reply {
+                        parameters: Some(p),
+                        ..
+                    } => match serde_json::from_value::<ErrorInterfaceNotFound>(p) {
+                        Ok(v) => ErrorKind::InterfaceNotFound(
+                            v.interface.unwrap_or("".to_string()),
+                        ).into(),
+                        Err(_) => ErrorKind::InterfaceNotFound("".to_string()).into(),
+                    },
+                    _ => ErrorKind::InterfaceNotFound("".to_string()).into(),
+                }
+            }
+            Reply {
+                error: Some(ref t), ..
+            } if t == "org.varlink.service.InvalidParameter" =>
+            {
+                match e {
+                    Reply {
+                        parameters: Some(p),
+                        ..
+                    } => match serde_json::from_value::<ErrorInvalidParameter>(p) {
+                        Ok(v) => ErrorKind::InvalidParameter(v.parameter.unwrap_or("".to_string()))
+                            .into(),
+                        Err(_) => ErrorKind::InvalidParameter("".to_string()).into(),
+                    },
+                    _ => ErrorKind::InvalidParameter("".to_string()).into(),
+                }
+            }
+            Reply {
+                error: Some(ref t), ..
+            } if t == "org.varlink.service.MethodNotFound" =>
+            {
+                match e {
+                    Reply {
+                        parameters: Some(p),
+                        ..
+                    } => match serde_json::from_value::<ErrorMethodNotFound>(p) {
+                        Ok(v) => {
+                            ErrorKind::MethodNotFound(v.method.unwrap_or("".to_string())).into()
+                        }
+                        Err(_) => ErrorKind::MethodNotFound("".to_string()).into(),
+                    },
+                    _ => ErrorKind::MethodNotFound("".to_string()).into(),
+                }
+            }
+            Reply {
+                error: Some(ref t), ..
+            } if t == "org.varlink.service.MethodNotImplemented" =>
+            {
+                match e {
+                    Reply {
+                        parameters: Some(p),
+                        ..
+                    } => match serde_json::from_value::<ErrorMethodNotImplemented>(p) {
+                        Ok(v) => ErrorKind::MethodNotImplemented(
+                            v.method.unwrap_or("".to_string()),
+                        ).into(),
+                        Err(_) => ErrorKind::MethodNotImplemented("".to_string()).into(),
+                    },
+                    _ => ErrorKind::MethodNotImplemented("".to_string()).into(),
+                }
+            }
+            _ => return ErrorKind::UnknownError(e).into(),
+        }
+    }
+}
+
+impl Error {
+    pub fn is_error(r: &Reply) -> bool {
+        match r.error {
+            Some(ref t) => match t.as_ref() {
+                "org.varlink.service.InvalidParameter" => true,
+                "org.varlink.service.InterfaceNotFound" => true,
+                "org.varlink.service.MethodNotFound" => true,
+                "org.varlink.service.MethodNotImplemented" => true,
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+}
+
 /// This trait has to be implemented by any varlink interface implementor.
 /// All methods are generated by the varlink-rust-generator, so you don't have to care
 /// about them.
 pub trait Interface {
     fn get_description(&self) -> &'static str;
     fn get_name(&self) -> &'static str;
-    fn call_upgraded(&self, call: &mut Call) -> io::Result<()>;
-    fn call(&self, call: &mut Call) -> io::Result<()>;
+    fn call_upgraded(&self, call: &mut Call) -> Result<()>;
+    fn call(&self, call: &mut Call) -> Result<()>;
 }
 
 /// The structure of a varlink request. Used to serialize json into it.
@@ -272,7 +423,7 @@ impl DerefMut for StringHashSet {
 }
 
 impl Serialize for StringHashSet {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> ::std::result::Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -288,7 +439,7 @@ impl Serialize for StringHashSet {
 
 impl<'de> de::Deserialize<'de> for StringHashSet {
     #[inline]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
     where
         D: de::Deserializer<'de>,
     {
@@ -302,7 +453,7 @@ impl<'de> de::Deserialize<'de> for StringHashSet {
             }
 
             #[inline]
-            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            fn visit_unit<E>(self) -> ::std::result::Result<Self::Value, E>
             where
                 E: de::Error,
             {
@@ -310,7 +461,7 @@ impl<'de> de::Deserialize<'de> for StringHashSet {
             }
 
             #[inline]
-            fn visit_map<V>(self, mut visitor: V) -> Result<Self::Value, V::Error>
+            fn visit_map<V>(self, mut visitor: V) -> ::std::result::Result<Self::Value, V::Error>
             where
                 V: de::MapAccess<'de>,
             {
@@ -396,14 +547,14 @@ where
 ///# pub trait _CallErr: varlink::CallTrait {}
 ///# impl<'a> _CallErr for varlink::Call<'a> {}
 ///# pub trait _CallTestMethod: _CallErr {
-///#     fn reply(&mut self) -> io::Result<()> {
+///#     fn reply(&mut self) -> varlink::Result<()> {
 ///#         self.reply_struct(varlink::Reply::parameters(None))
 ///#     }
 ///# }
 ///# impl<'a> _CallTestMethod for varlink::Call<'a> {}
 ///# struct TestService;
 ///# impl TestService {
-///fn test_method(&self, call: &mut _CallTestMethod, /* more arguments */) -> io::Result<()> {
+///fn test_method(&self, call: &mut _CallTestMethod, /* more arguments */) -> varlink::Result<()> {
 ///    /* ... */
 ///    return call.reply( /* more arguments */ );
 ///}
@@ -429,14 +580,14 @@ pub struct Call<'a> {
 ///# pub trait _CallErr: varlink::CallTrait {}
 ///# impl<'a> _CallErr for varlink::Call<'a> {}
 ///# pub trait _CallTestMethod: _CallErr {
-///#     fn reply(&mut self) -> io::Result<()> {
+///#     fn reply(&mut self) -> varlink::Result<()> {
 ///#         self.reply_struct(varlink::Reply::parameters(None))
 ///#     }
 ///# }
 ///# impl<'a> _CallTestMethod for varlink::Call<'a> {}
 ///# struct TestService;
 ///# impl TestService {
-///fn test_method(&self, call: &mut _CallTestMethod, testparam: i64) -> io::Result<()> {
+///fn test_method(&self, call: &mut _CallTestMethod, testparam: i64) -> varlink::Result<()> {
 ///    match testparam {
 ///        0 ... 100 => {},
 ///        _ => {
@@ -457,7 +608,7 @@ pub struct Call<'a> {
 ///# pub trait _CallErr: varlink::CallTrait {}
 ///# impl<'a> _CallErr for varlink::Call<'a> {}
 ///# pub trait _CallTestMethodNotImplemented: _CallErr {
-///#     fn reply(&mut self) -> io::Result<()> {
+///#     fn reply(&mut self) -> varlink::Result<()> {
 ///#         self.reply_struct(varlink::Reply::parameters(None))
 ///#     }
 ///# }
@@ -465,7 +616,7 @@ pub struct Call<'a> {
 ///# struct TestService;
 ///# impl TestService {
 ///fn test_method_not_implemented(&self,
-///                               call: &mut _CallTestMethodNotImplemented) -> io::Result<()> {
+///                               call: &mut _CallTestMethodNotImplemented) -> varlink::Result<()> {
 ///    return call.reply_method_not_implemented("TestMethodNotImplemented".into());
 ///}
 ///# }
@@ -473,7 +624,7 @@ pub struct Call<'a> {
 /// ```
 pub trait CallTrait {
     /// Don't use this directly. Rather use the standard `reply()` method.
-    fn reply_struct(&mut self, reply: Reply) -> io::Result<()>;
+    fn reply_struct(&mut self, reply: Reply) -> Result<()>;
 
     /// Set this to `true` to indicate, that more replies are following.
     ///
@@ -484,14 +635,14 @@ pub trait CallTrait {
     ///# pub trait _CallErr: varlink::CallTrait {}
     ///# impl<'a> _CallErr for varlink::Call<'a> {}
     ///# pub trait _CallTestMethod: _CallErr {
-    ///#     fn reply(&mut self) -> io::Result<()> {
+    ///#     fn reply(&mut self) -> varlink::Result<()> {
     ///#         self.reply_struct(varlink::Reply::parameters(None))
     ///#     }
     ///# }
     ///# impl<'a> _CallTestMethod for varlink::Call<'a> {}
     ///# struct TestService;
     ///# impl TestService {
-    ///fn test_method(&self, call: &mut _CallTestMethod) -> io::Result<()> {
+    ///fn test_method(&self, call: &mut _CallTestMethod) -> varlink::Result<()> {
     ///    call.set_continues(true);
     ///    call.reply( /* more args*/ )?;
     ///    call.reply( /* more args*/ )?;
@@ -513,7 +664,7 @@ pub trait CallTrait {
     fn get_request(&self) -> Option<&Request>;
 
     /// reply with the standard varlink `org.varlink.service.MethodNotFound` error
-    fn reply_method_not_found(&mut self, method_name: String) -> io::Result<()> {
+    fn reply_method_not_found(&mut self, method_name: String) -> Result<()> {
         self.reply_struct(Reply::error(
             "org.varlink.service.MethodNotFound".into(),
             Some(serde_json::to_value(ErrorMethodNotFound {
@@ -523,7 +674,7 @@ pub trait CallTrait {
     }
 
     /// reply with the standard varlink `org.varlink.service.MethodNotImplemented` error
-    fn reply_method_not_implemented(&mut self, method_name: String) -> io::Result<()> {
+    fn reply_method_not_implemented(&mut self, method_name: String) -> Result<()> {
         self.reply_struct(Reply::error(
             "org.varlink.service.MethodNotImplemented".into(),
             Some(serde_json::to_value(ErrorMethodNotImplemented {
@@ -533,7 +684,7 @@ pub trait CallTrait {
     }
 
     /// reply with the standard varlink `org.varlink.service.InvalidParameter` error
-    fn reply_invalid_parameter(&mut self, parameter_name: String) -> io::Result<()> {
+    fn reply_invalid_parameter(&mut self, parameter_name: String) -> Result<()> {
         self.reply_struct(Reply::error(
             "org.varlink.service.InvalidParameter".into(),
             Some(serde_json::to_value(ErrorInvalidParameter {
@@ -543,203 +694,10 @@ pub trait CallTrait {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
-pub struct ErrorInterfaceNotFound {
-    pub interface: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
-pub struct ErrorInvalidParameter {
-    pub parameter: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
-pub struct ErrorMethodNotImplemented {
-    pub method: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
-pub struct ErrorMethodNotFound {
-    pub method: Option<String>,
-}
-
-#[derive(Debug)]
-pub enum Error {
-    InterfaceNotFound(ErrorInterfaceNotFound),
-    InvalidParameter(ErrorInvalidParameter),
-    MethodNotFound(ErrorMethodNotFound),
-    MethodNotImplemented(ErrorMethodNotImplemented),
-    UnknownError(Reply),
-    IOError(io::Error),
-    JSONError(serde_json::Error),
-}
-
-impl From<Reply> for Error {
-    fn from(e: Reply) -> Self {
-        match e {
-            Reply {
-                error: Some(ref t), ..
-            } if t == "org.varlink.service.InterfaceNotFound" =>
-            {
-                match e {
-                    Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value(p) {
-                        Ok(v) => Error::InterfaceNotFound(v),
-                        Err(_) => Error::InterfaceNotFound(ErrorInterfaceNotFound {
-                            ..Default::default()
-                        }),
-                    },
-                    _ => Error::InterfaceNotFound(ErrorInterfaceNotFound {
-                        ..Default::default()
-                    }),
-                }
-            }
-            Reply {
-                error: Some(ref t), ..
-            } if t == "org.varlink.service.InvalidParameter" =>
-            {
-                match e {
-                    Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value(p) {
-                        Ok(v) => Error::InvalidParameter(v),
-                        Err(_) => Error::InvalidParameter(ErrorInvalidParameter {
-                            ..Default::default()
-                        }),
-                    },
-                    _ => Error::InvalidParameter(ErrorInvalidParameter {
-                        ..Default::default()
-                    }),
-                }
-            }
-            Reply {
-                error: Some(ref t), ..
-            } if t == "org.varlink.service.MethodNotFound" =>
-            {
-                match e {
-                    Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value(p) {
-                        Ok(v) => Error::MethodNotFound(v),
-                        Err(_) => Error::MethodNotFound(ErrorMethodNotFound {
-                            ..Default::default()
-                        }),
-                    },
-                    _ => Error::MethodNotFound(ErrorMethodNotFound {
-                        ..Default::default()
-                    }),
-                }
-            }
-            Reply {
-                error: Some(ref t), ..
-            } if t == "org.varlink.service.MethodNotImplemented" =>
-            {
-                match e {
-                    Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value(p) {
-                        Ok(v) => Error::MethodNotImplemented(v),
-                        Err(_) => Error::MethodNotImplemented(ErrorMethodNotImplemented {
-                            ..Default::default()
-                        }),
-                    },
-                    _ => Error::MethodNotImplemented(ErrorMethodNotImplemented {
-                        ..Default::default()
-                    }),
-                }
-            }
-            _ => return Error::UnknownError(e),
-        }
-    }
-}
-
-impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Self {
-        Error::IOError(e)
-    }
-}
-
-impl From<serde_json::Error> for Error {
-    fn from(e: serde_json::Error) -> Self {
-        use serde_json::error::Category;
-        match e.classify() {
-            Category::Io => Error::IOError(e.into()),
-            _ => Error::JSONError(e),
-        }
-    }
-}
-
-impl From<Error> for io::Error {
-    fn from(e: Error) -> Self {
-        match e {
-            Error::InterfaceNotFound(e) => io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "org.varlink.service.InterfaceNotFound: '{}'",
-                    serde_json::to_string_pretty(&e).unwrap()
-                ),
-            ),
-            Error::InvalidParameter(e) => io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "org.varlink.service.InvalidParameter: '{}'",
-                    serde_json::to_string_pretty(&e).unwrap()
-                ),
-            ),
-            Error::MethodNotFound(e) => io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "org.varlink.service.MethodNotFound: '{}'",
-                    serde_json::to_string_pretty(&e).unwrap()
-                ),
-            ),
-            Error::MethodNotImplemented(e) => io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "org.varlink.service.MethodNotImplemented: '{}'",
-                    serde_json::to_string_pretty(&e).unwrap()
-                ),
-            ),
-            Error::IOError(e) => e,
-            Error::JSONError(e) => e.into(),
-            Error::UnknownError(e) => io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "unknown varlink error: {}",
-                    serde_json::to_string_pretty(&e).unwrap()
-                ),
-            ),
-        }
-    }
-}
-
-impl Error {
-    pub fn is_error(r: &Reply) -> bool {
-        match r.error {
-            Some(ref t) => match t.as_ref() {
-                "org.varlink.service.InvalidParameter" => true,
-                "org.varlink.service.InterfaceNotFound" => true,
-                "org.varlink.service.MethodNotFound" => true,
-                "org.varlink.service.MethodNotImplemented" => true,
-                _ => false,
-            },
-            _ => false,
-        }
-    }
-}
-
 impl<'a> CallTrait for Call<'a> {
-    fn reply_struct(&mut self, mut reply: Reply) -> io::Result<()> {
+    fn reply_struct(&mut self, mut reply: Reply) -> Result<()> {
         if self.continues & &!self.wants_more() {
-            return Err(io::Error::new(
-                ErrorKind::Other,
-                "Call::reply() called with continues, but without more in the request",
-            ));
+            return Err(ErrorKind::CallContinuesMismatch.into());
         }
         if self.continues {
             reply.continues = Some(true);
@@ -797,7 +755,7 @@ impl<'a> Call<'a> {
         }
     }
 
-    fn reply_interface_not_found(&mut self, arg: Option<String>) -> io::Result<()> {
+    fn reply_interface_not_found(&mut self, arg: Option<String>) -> Result<()> {
         self.reply_struct(Reply::error(
             "org.varlink.service.InterfaceNotFound".into(),
             match arg {
@@ -809,7 +767,7 @@ impl<'a> Call<'a> {
         ))
     }
 
-    fn reply_parameters(&mut self, parameters: Value) -> io::Result<()> {
+    fn reply_parameters(&mut self, parameters: Value) -> Result<()> {
         let reply = Reply::parameters(Some(parameters));
         //serde_json::to_writer(&mut *self.writer, &reply)?;
         let b = serde_json::to_string(&reply)? + "\0";
@@ -849,7 +807,8 @@ pub struct MethodCall<MRequest, MReply, MError>
 where
     MRequest: Serialize,
     MReply: DeserializeOwned,
-    MError: std::convert::From<std::io::Error>
+    MError: std::convert::From<Error>
+        + std::convert::From<std::io::Error>
         + std::convert::From<serde_json::Error>
         + std::convert::From<Reply>,
 {
@@ -867,7 +826,8 @@ impl<MRequest, MReply, MError> MethodCall<MRequest, MReply, MError>
 where
     MRequest: Serialize,
     MReply: DeserializeOwned,
-    MError: std::convert::From<std::io::Error>
+    MError: std::convert::From<Error>
+        + std::convert::From<std::io::Error>
         + std::convert::From<serde_json::Error>
         + std::convert::From<Reply>,
 {
@@ -888,7 +848,7 @@ where
         }
     }
 
-    fn send(&mut self, oneway: bool, more: bool) -> Result<(), MError> {
+    fn send(&mut self, oneway: bool, more: bool) -> ::std::result::Result<(), MError> {
         {
             let mut conn = self.connection.write().unwrap();
             let mut req = match (self.method.take(), self.request.take()) {
@@ -896,17 +856,12 @@ where
                     Request::create(method, Some(serde_json::to_value(request)?))
                 }
                 _ => {
-                    return Err(
-                        io::Error::new(ErrorKind::Other, "Varlink: method called already").into(),
-                    )
+                    return Err(Error::from(ErrorKind::MethodCalledAlready).into());
                 }
             };
 
             if conn.reader.is_none() || conn.writer.is_none() {
-                return Err(io::Error::new(
-                    ErrorKind::Other,
-                    "Varlink: connection busy with other method",
-                ).into());
+                return Err(Error::from(ErrorKind::ConnectionBusy).into());
             }
 
             if oneway {
@@ -934,28 +889,24 @@ where
         Ok(())
     }
 
-    pub fn call(&mut self) -> Result<MReply, MError> {
+    pub fn call(&mut self) -> ::std::result::Result<MReply, MError> {
         self.send(false, false)?;
         self.recv()
     }
 
-    pub fn oneway(&mut self) -> Result<(), MError> {
+    pub fn oneway(&mut self) -> ::std::result::Result<(), MError> {
         self.send(true, false)
     }
 
-    pub fn more(&mut self) -> Result<&mut Self, MError> {
+    pub fn more(&mut self) -> ::std::result::Result<&mut Self, MError> {
         self.continues = true;
         self.send(false, true)?;
         Ok(self)
     }
 
-    pub fn recv(&mut self) -> Result<MReply, MError> {
+    pub fn recv(&mut self) -> ::std::result::Result<MReply, MError> {
         if self.reader.is_none() || self.writer.is_none() {
-            return Err(MError::from(io::Error::new(
-                ErrorKind::Other,
-                "Varlink: Iterator called on \
-                 old reply",
-            )));
+            return Err(Error::from(ErrorKind::IteratorOldReply).into());
         }
 
         let mut buf = Vec::new();
@@ -1002,12 +953,13 @@ impl<MRequest, MReply, MError> Iterator for MethodCall<MRequest, MReply, MError>
 where
     MRequest: Serialize,
     MReply: DeserializeOwned,
-    MError: std::convert::From<std::io::Error>
+    MError: std::convert::From<Error>
+        + std::convert::From<std::io::Error>
         + std::convert::From<serde_json::Error>
         + std::convert::From<Reply>,
 {
-    type Item = Result<MReply, MError>;
-    fn next(&mut self) -> Option<Result<MReply, MError>> {
+    type Item = ::std::result::Result<MReply, MError>;
+    fn next(&mut self) -> Option<::std::result::Result<MReply, MError>> {
         if !self.continues {
             return None;
         }
@@ -1052,15 +1004,15 @@ impl OrgVarlinkServiceClient {
 }
 
 pub trait OrgVarlinkServiceInterface {
-    fn get_info(&mut self) -> Result<ServiceInfo, Error>;
+    fn get_info(&mut self) -> Result<ServiceInfo>;
     fn get_interface_description(
         &mut self,
         interface: String,
-    ) -> Result<GetInterfaceDescriptionReply, Error>;
+    ) -> Result<GetInterfaceDescriptionReply>;
 }
 
 impl OrgVarlinkServiceInterface for OrgVarlinkServiceClient {
-    fn get_info(&mut self) -> Result<ServiceInfo, Error> {
+    fn get_info(&mut self) -> Result<ServiceInfo> {
         MethodCall::<GetInfoArgs, ServiceInfo, Error>::new(
             self.connection.clone(),
             "org.varlink.service.GetInfo".into(),
@@ -1070,7 +1022,7 @@ impl OrgVarlinkServiceInterface for OrgVarlinkServiceClient {
     fn get_interface_description(
         &mut self,
         interface: String,
-    ) -> Result<GetInterfaceDescriptionReply, Error> {
+    ) -> Result<GetInterfaceDescriptionReply> {
         MethodCall::<GetInterfaceDescriptionArgs, GetInterfaceDescriptionReply, Error>::new(
             self.connection.clone(),
             "org.varlink.service.GetInterfaceDescription".into(),
@@ -1125,11 +1077,11 @@ error InvalidParameter (parameter: string)
         "org.varlink.service"
     }
 
-    fn call_upgraded(&self, call: &mut Call) -> io::Result<()> {
+    fn call_upgraded(&self, call: &mut Call) -> Result<()> {
         call.upgraded = false;
         Ok(())
     }
-    fn call(&self, call: &mut Call) -> io::Result<()> {
+    fn call(&self, call: &mut Call) -> Result<()> {
         let req = call.request.unwrap();
         match req.method.as_ref() {
             "org.varlink.service.GetInfo" => {
@@ -1183,8 +1135,8 @@ impl VarlinkService {
     ///# fn get_description(&self) -> &'static str {
     ///#                    "interface org.example.ping\nmethod Ping(ping: string) -> (pong: string)" }
     ///# fn get_name(&self) -> &'static str { "org.example.ping" }
-    ///# fn call_upgraded(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
-    ///# fn call(&self, call: &mut varlink::Call) -> io::Result<()> { Ok(()) }
+    ///# fn call_upgraded(&self, call: &mut varlink::Call) -> varlink::Result<()> { Ok(()) }
+    ///# fn call(&self, call: &mut varlink::Call) -> varlink::Result<()> { Ok(()) }
     ///# }
     ///# fn main_f() {
     ///# let interface_foo = Interface{};
@@ -1234,7 +1186,7 @@ impl VarlinkService {
         }
     }
 
-    fn call(&self, iface: String, call: &mut Call) -> io::Result<()> {
+    fn call(&self, iface: String, call: &mut Call) -> Result<()> {
         match iface.as_ref() {
             "org.varlink.service" => return self::Interface::call(self, call),
             key => {
@@ -1247,7 +1199,7 @@ impl VarlinkService {
         }
     }
 
-    fn call_upgraded(&self, iface: String, call: &mut Call) -> io::Result<()> {
+    fn call_upgraded(&self, iface: String, call: &mut Call) -> Result<()> {
         match iface.as_ref() {
             "org.varlink.service" => return self::Interface::call_upgraded(self, call),
             key => {
@@ -1263,7 +1215,7 @@ impl VarlinkService {
     /// Handles incoming varlink messages from `reader` and sends the reply on `writer`.
     ///
     /// This method can be used to implement your own server.
-    pub fn handle(&self, reader: &mut Read, writer: &mut Write) -> io::Result<()> {
+    pub fn handle(&self, reader: &mut Read, writer: &mut Write) -> Result<()> {
         let mut bufreader = BufReader::new(reader);
         let mut upgraded = false;
         let mut last_iface = String::from("");
@@ -1337,9 +1289,9 @@ pub fn listen(
     varlink_uri: &str,
     num_worker: usize,
     accept_timeout: u64,
-) -> io::Result<()> {
+) -> Result<()> {
     match server::do_listen(service, varlink_uri, num_worker, accept_timeout) {
-        Err(server::ServerError::IoError(e)) => Err(e),
+        Err(server::ServerError::IoError(e)) => Err(e.into()),
         _ => Ok(()),
     }
 }

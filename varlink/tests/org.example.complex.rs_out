@@ -6,6 +6,7 @@
 #![allow(non_snake_case)]
 #![allow(unused_imports)]
 
+use error_chain::ChainedError;
 use serde_json::{self, Value};
 use std::io;
 use std::sync::{Arc, RwLock};
@@ -148,38 +149,47 @@ pub struct TypeFoo_anon_baz {
 }
 
 pub trait _CallErr: varlink::CallTrait {
-    fn reply_error_bar(&mut self) -> io::Result<()> {
+    fn reply_error_bar(&mut self) -> Result<()> {
         self.reply_struct(varlink::Reply::error(
             "org.example.complex.ErrorBar".into(),
         None,
 
-        ))
+        )).map_err(|e| e.into())
     }
-    fn reply_error_foo(&mut self, enum_: ErrorFooArgs_enum, foo: TypeFoo, bar: ErrorFooArgs_bar, interface: Interface) -> io::Result<()> {
+    fn reply_error_foo(&mut self, enum_: ErrorFooArgs_enum, foo: TypeFoo, bar: ErrorFooArgs_bar, interface: Interface) -> Result<()> {
         self.reply_struct(varlink::Reply::error(
             "org.example.complex.ErrorFoo".into(),
             Some(serde_json::to_value(ErrorFooArgs_ { enum_, foo, bar, interface }).unwrap()),
-        ))
+        )).map_err(|e| e.into())
     }
 }
 
 impl<'a> _CallErr for varlink::Call<'a> {}
 
 
-#[derive(Debug)]
-pub enum Error_ {
-    ErrorBar(Option<ErrorBarArgs_>),
-    ErrorFoo(Option<ErrorFooArgs_>),
-    VarlinkError_(varlink::Error),
-    UnknownError_(varlink::Reply),
-    IOError_(io::Error),
-    JSONError_(serde_json::Error),
+error_chain! {
+    errors {
+        ErrorBar(t: Option<ErrorBarArgs_>) {
+            display("ErrorBar: '{:?}'", t)
+        }
+        ErrorFoo(t: Option<ErrorFooArgs_>) {
+            display("ErrorFoo: '{:?}'", t)
+        }
+    }
+    foreign_links {
+        Io(::std::io::Error);
+        Fmt(::std::fmt::Error);
+        SerdeJson(::serde_json::Error);
+        }
+    links {
+        Varlink(::varlink::Error, ::varlink::ErrorKind);
+    }
 }
 
-impl From<varlink::Reply> for Error_ {
+impl From<varlink::Reply> for Error {
     fn from(e: varlink::Reply) -> Self {
         if varlink::Error::is_error(&e) {
-            return Error_::VarlinkError_(e.into());
+            return varlink::Error::from(e).into();
         }
 
         match e {
@@ -192,10 +202,10 @@ impl From<varlink::Reply> for Error_ {
                            parameters: Some(p),
                            ..
                        } => match serde_json::from_value(p) {
-                           Ok(v) => Error_::ErrorBar(v),
-                           Err(_) => Error_::ErrorBar(None),
+                           Ok(v) => ErrorKind::ErrorBar(v).into(),
+                           Err(_) => ErrorKind::ErrorBar(None).into(),
                        },
-                       _ => Error_::ErrorBar(None),
+                       _ => ErrorKind::ErrorBar(None).into(),
                    }
                }
             varlink::Reply {
@@ -207,88 +217,76 @@ impl From<varlink::Reply> for Error_ {
                            parameters: Some(p),
                            ..
                        } => match serde_json::from_value(p) {
-                           Ok(v) => Error_::ErrorFoo(v),
-                           Err(_) => Error_::ErrorFoo(None),
+                           Ok(v) => ErrorKind::ErrorFoo(v).into(),
+                           Err(_) => ErrorKind::ErrorFoo(None).into(),
                        },
-                       _ => Error_::ErrorFoo(None),
+                       _ => ErrorKind::ErrorFoo(None).into(),
                    }
                }
-            _ => return Error_::UnknownError_(e),
+            _ => return varlink::Error::from(varlink::ErrorKind::UnknownError(e)).into(),
         }
     }
 }
 
-impl From<io::Error> for Error_ {
-    fn from(e: io::Error) -> Self {
-        Error_::IOError_(e)
-    }
+#[derive(Serialize)]
+struct internal_error {
+    message: String
 }
 
-impl From<serde_json::Error> for Error_ {
-    fn from(e: serde_json::Error) -> Self {
-        use serde_json::error::Category;
-        match e.classify() {
-            Category::Io => Error_::IOError_(e.into()),
-            _ => Error_::JSONError_(e),
-        }
-    }
-}
-
-impl From<Error_> for io::Error {
-    fn from(e: Error_) -> Self {
+impl From<Error> for varlink::Error {
+    fn from(e: Error) -> Self {
         match e {
-            Error_::ErrorBar(e) => io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "org.example.complex.ErrorBar: '{}'",
-                    serde_json::to_string_pretty(&e).unwrap()
-                ),
-            ),            Error_::ErrorFoo(e) => io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "org.example.complex.ErrorFoo: '{}'",
-                    serde_json::to_string_pretty(&e).unwrap()
-                ),
-            ),            Error_::VarlinkError_(e) => e.into(),
-            Error_::IOError_(e) => e,
-            Error_::JSONError_(e) => e.into(),
-            Error_::UnknownError_(e) => io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "unknown varlink error: {}",
-                    serde_json::to_string_pretty(&e).unwrap()
-                ),
-            ),
+         Error(ErrorKind::ErrorBar(t), _) => {
+                varlink::Error::from(varlink::ErrorKind::UnknownError(varlink::Reply {
+                    error: Some("org.example.complex.ErrorBar".into()),
+                    parameters: Some(serde_json::to_value(t).unwrap()),
+                    ..Default::default()
+                }))
+            }         Error(ErrorKind::ErrorFoo(t), _) => {
+                varlink::Error::from(varlink::ErrorKind::UnknownError(varlink::Reply {
+                    error: Some("org.example.complex.ErrorFoo".into()),
+                    parameters: Some(serde_json::to_value(t).unwrap()),
+                    ..Default::default()
+                }))
+            }
+            e => {
+                varlink::Error::from(varlink::ErrorKind::UnknownError(varlink::Reply {
+                    error: Some("org.example.more.InternalError".into()),
+                    parameters: Some(serde_json::to_value(internal_error{ message: e.display_chain
+                    ().to_string()}).unwrap()),
+                    ..Default::default()
+                }))
+            }
         }
     }
 }
 pub trait _CallBar: _CallErr {
-    fn reply(&mut self) -> io::Result<()> {
-        self.reply_struct(varlink::Reply::parameters(None))
+    fn reply(&mut self) -> Result<()> {
+        self.reply_struct(varlink::Reply::parameters(None)).map_err(|e| e.into())
     }
 }
 
 impl<'a> _CallBar for varlink::Call<'a> {}
 
 pub trait _CallFoo: _CallErr {
-    fn reply(&mut self, a: Vec<FooReply_a>, foo: TypeFoo, interface: Interface) -> io::Result<()> {
-        self.reply_struct(FooReply_ { a, foo, interface }.into())
+    fn reply(&mut self, a: Vec<FooReply_a>, foo: TypeFoo, interface: Interface) -> Result<()> {
+        self.reply_struct(FooReply_ { a, foo, interface }.into()).map_err(|e| e.into())
     }
 }
 
 impl<'a> _CallFoo for varlink::Call<'a> {}
 
 pub trait VarlinkInterface {
-    fn bar(&self, call: &mut _CallBar) -> io::Result<()>;
-    fn foo(&self, call: &mut _CallFoo, enum_: FooArgs_enum, foo: TypeFoo, interface: Interface) -> io::Result<()>;
-    fn call_upgraded(&self, _call: &mut varlink::Call) -> io::Result<()> {
+    fn bar(&self, call: &mut _CallBar) -> Result<()>;
+    fn foo(&self, call: &mut _CallFoo, enum_: FooArgs_enum, foo: TypeFoo, interface: Interface) -> Result<()>;
+    fn call_upgraded(&self, _call: &mut varlink::Call) -> varlink::Result<()> {
         Ok(())
     }
 }
 
 pub trait VarlinkClientInterface {
-    fn bar(&mut self) -> varlink::MethodCall<BarArgs_, BarReply_, Error_>;
-    fn foo(&mut self, enum_: FooArgs_enum, foo: TypeFoo, interface: Interface) -> varlink::MethodCall<FooArgs_, FooReply_, Error_>;
+    fn bar(&mut self) -> varlink::MethodCall<BarArgs_, BarReply_, Error>;
+    fn foo(&mut self, enum_: FooArgs_enum, foo: TypeFoo, interface: Interface) -> varlink::MethodCall<FooArgs_, FooReply_, Error>;
 }
 
 pub struct VarlinkClient {
@@ -322,15 +320,15 @@ impl VarlinkClient {
 }
 
 impl VarlinkClientInterface for VarlinkClient {
-    fn bar(&mut self) -> varlink::MethodCall<BarArgs_, BarReply_, Error_> {
-            varlink::MethodCall::<BarArgs_, BarReply_, Error_>::new(
+    fn bar(&mut self) -> varlink::MethodCall<BarArgs_, BarReply_, Error> {
+            varlink::MethodCall::<BarArgs_, BarReply_, Error>::new(
             self.connection.clone(),
             "org.example.complex.Bar".into(),
             BarArgs_ {  },
         )
     }
-    fn foo(&mut self, enum_: FooArgs_enum, foo: TypeFoo, interface: Interface) -> varlink::MethodCall<FooArgs_, FooReply_, Error_> {
-            varlink::MethodCall::<FooArgs_, FooReply_, Error_>::new(
+    fn foo(&mut self, enum_: FooArgs_enum, foo: TypeFoo, interface: Interface) -> varlink::MethodCall<FooArgs_, FooReply_, Error> {
+            varlink::MethodCall::<FooArgs_, FooReply_, Error>::new(
             self.connection.clone(),
             "org.example.complex.Foo".into(),
             FooArgs_ { enum_, foo, interface },
@@ -405,20 +403,20 @@ error ErrorBar ()
         "org.example.complex"
     }
 
-    fn call_upgraded(&self, call: &mut varlink::Call) -> io::Result<()> {
+    fn call_upgraded(&self, call: &mut varlink::Call) -> varlink::Result<()> {
         self.inner.call_upgraded(call)
     }
 
-    fn call(&self, call: &mut varlink::Call) -> io::Result<()> {
+    fn call(&self, call: &mut varlink::Call) -> varlink::Result<()> {
         let req = call.request.unwrap();
         match req.method.as_ref() {
             "org.example.complex.Bar" => {
-                return self.inner.bar(call as &mut _CallBar);
+                return self.inner.bar(call as &mut _CallBar).map_err(|e| e.into());
             }
             "org.example.complex.Foo" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: FooArgs_ = serde_json::from_value(args)?;
-                    return self.inner.foo(call as &mut _CallFoo, args.enum_, args.foo, args.interface);
+                    return self.inner.foo(call as &mut _CallFoo, args.enum_, args.foo, args.interface).map_err(|e| e.into());
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
                 }

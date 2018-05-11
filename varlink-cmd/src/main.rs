@@ -3,18 +3,39 @@ extern crate serde_json;
 extern crate varlink;
 extern crate varlink_parser;
 
+#[macro_use]
+extern crate error_chain;
+
 use clap::{App, Arg, SubCommand};
 use std::fs::File;
-use std::io::{self, ErrorKind};
+use std::io;
+use std::io::prelude::*;
 use std::path::Path;
-use std::process::exit;
+use std::str;
 use varlink::{Connection, GetInterfaceDescriptionReply, MethodCall, OrgVarlinkServiceClient,
               OrgVarlinkServiceInterface};
 use varlink_parser::Varlink;
-use std::io::prelude::*;
-use std::str;
 
-fn varlink_format(filename: &str) -> io::Result<()> {
+mod errors {
+    error_chain! {
+        foreign_links {
+            Io(::std::io::Error);
+            Clap(::clap::Error);
+            Varlink(::varlink::Error);
+            Fmt(::std::fmt::Error);
+            SerdeJson(::serde_json::Error);
+        }
+        errors {
+            NotImplemented(t: String) {
+                display("Not yet implemented: '{}'", t)
+            }
+        }
+    }
+}
+
+use errors::*;
+
+fn varlink_format(filename: &str) -> Result<()> {
     let mut buffer = String::new();
     File::open(Path::new(filename))?.read_to_string(&mut buffer)?;
 
@@ -23,7 +44,7 @@ fn varlink_format(filename: &str) -> io::Result<()> {
     Ok(())
 }
 
-fn varlink_info(address: &str) -> io::Result<()> {
+fn varlink_info(address: &str) -> Result<()> {
     let conn = Connection::new(address)?;
     let mut call = OrgVarlinkServiceClient::new(conn);
     let info = call.get_info()?;
@@ -39,7 +60,7 @@ fn varlink_info(address: &str) -> io::Result<()> {
     Ok(())
 }
 
-fn varlink_help(url: &str) -> io::Result<()> {
+fn varlink_help(url: &str) -> Result<()> {
     let del: Vec<&str> = url.split("/").collect();
     let address: &str;
     let interface: &str;
@@ -50,10 +71,9 @@ fn varlink_help(url: &str) -> io::Result<()> {
             interface = del[1];
         }
         _ => {
-            return Err(io::Error::new(
-                ErrorKind::Other,
-                format!("Resolver not yet implemented {}", url),
-            ));
+            return Err(
+                ErrorKind::NotImplemented(format!("Resolver not yet implemented {}", url)).into(),
+            );
         }
     };
 
@@ -64,17 +84,14 @@ fn varlink_help(url: &str) -> io::Result<()> {
             description: Some(desc),
         } => println!("{}", desc),
         _ => {
-            return Err(io::Error::new(
-                ErrorKind::Other,
-                format!("No description for {}", url),
-            ));
+            return Err(ErrorKind::NotImplemented(format!("No description for {}", url)).into());
         }
     };
 
     Ok(())
 }
 
-fn varlink_call(url: &str, args: Option<&str>, more: bool) -> io::Result<()> {
+fn varlink_call(url: &str, args: Option<&str>, more: bool) -> Result<()> {
     let del: Vec<&str> = url.split("/").collect();
     let address: &str;
     let method: &str;
@@ -85,10 +102,9 @@ fn varlink_call(url: &str, args: Option<&str>, more: bool) -> io::Result<()> {
             method = del[1];
         }
         _ => {
-            return Err(io::Error::new(
-                ErrorKind::Other,
-                format!("Resolver not yet implemented {}", url),
-            ));
+            return Err(
+                ErrorKind::NotImplemented(format!("Resolver not yet implemented {}", url)).into(),
+            );
         }
     };
 
@@ -116,7 +132,7 @@ fn varlink_call(url: &str, args: Option<&str>, more: bool) -> io::Result<()> {
     Ok(())
 }
 
-fn main() {
+fn main() -> Result<()> {
     let mut app = App::new("varlink")
         .version("0.1")
         .arg(
@@ -203,7 +219,7 @@ fn main() {
         );
     let matches = app.clone().get_matches();
 
-    let ret = match matches.subcommand() {
+    match matches.subcommand() {
         ("completions", Some(sub_matches)) => {
             let shell = sub_matches.value_of("SHELL").unwrap();
             app.gen_completions_to("varlink", shell.parse().unwrap(), &mut io::stdout());
@@ -227,17 +243,6 @@ fn main() {
             let more = sub_matches.is_present("more");
             varlink_call(method, args, more)
         }
-        (_, _) => unimplemented!(), // for brevity
-    };
-
-    exit(match ret {
-        Ok(_) => 0,
-        Err(err) => {
-            eprintln!("error: {}", err);
-            match err.raw_os_error() {
-                Some(t) => t,
-                _ => 1,
-            }
-        }
-    });
+        (_, _) => app.print_help().map_err(|e| e.into()),
+    }
 }

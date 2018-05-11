@@ -1,3 +1,5 @@
+#[macro_use]
+extern crate error_chain;
 extern crate getopts;
 #[macro_use]
 extern crate serde_derive;
@@ -5,8 +7,8 @@ extern crate serde_json;
 extern crate varlink;
 
 use org_varlink_certification::*;
-use std::collections::hash_map::DefaultHasher;
 use std::collections::VecDeque;
+use std::collections::hash_map::DefaultHasher;
 use std::env;
 use std::hash::{Hash, Hasher};
 use std::io;
@@ -16,11 +18,8 @@ use std::time::Instant;
 use varlink::{StringHashMap, StringHashSet, VarlinkService};
 
 mod org_varlink_certification;
-
 #[cfg(test)]
-mod test;
-
-// Main
+mod test; // Main
 
 fn print_usage(program: &str, opts: getopts::Options) {
     let brief = format!("Usage: {} [--varlink=<address>] [--client]", program);
@@ -80,7 +79,7 @@ fn main() {
 
 // Client
 
-fn run_client(address: String) -> io::Result<()> {
+fn run_client(address: String) -> Result<()> {
     let connection = varlink::Connection::new(&address)?;
     let mut iface = VarlinkClient::new(connection);
 
@@ -219,7 +218,8 @@ macro_rules! check_call_normal {
                 ..
             }) if m == $test =>
             {
-                let v: Result<$got, serde_json::Error> = serde_json::from_value(p.clone());
+                let v: ::std::result::Result<$got, serde_json::Error> =
+                    serde_json::from_value(p.clone());
                 match v {
                     Ok(w) => wants == w,
                     _ => false,
@@ -263,7 +263,8 @@ macro_rules! check_call_more {
                 ..
             }) if m == $test =>
             {
-                let v: Result<$got, serde_json::Error> = serde_json::from_value(p.clone());
+                let v: ::std::result::Result<$got, serde_json::Error> =
+                    serde_json::from_value(p.clone());
                 match v {
                     Ok(w) => wants == w,
                     _ => false,
@@ -307,7 +308,8 @@ macro_rules! check_call_oneway {
                 ..
             }) if m == $test =>
             {
-                let v: Result<$got, serde_json::Error> = serde_json::from_value(p.clone());
+                let v: ::std::result::Result<$got, serde_json::Error> =
+                    serde_json::from_value(p.clone());
                 match v {
                     Ok(w) => wants == w,
                     _ => false,
@@ -334,7 +336,7 @@ macro_rules! check_call_oneway {
 }
 
 impl VarlinkInterface for CertInterface {
-    fn start(&self, call: &mut _CallStart) -> io::Result<()> {
+    fn start(&self, call: &mut _CallStart) -> Result<()> {
         check_call_expr!(
             call,
             match call.get_request() {
@@ -373,7 +375,7 @@ impl VarlinkInterface for CertInterface {
         call.reply(self.new_client_id())
     }
 
-    fn test01(&self, call: &mut _CallTest01, client_id: String) -> io::Result<()> {
+    fn test01(&self, call: &mut _CallTest01, client_id: String) -> Result<()> {
         if !self.check_client_id(&client_id, "Test01".into(), "Test02".into()) {
             return call.reply_client_id_error();
         }
@@ -390,7 +392,7 @@ impl VarlinkInterface for CertInterface {
         call.reply(true)
     }
 
-    fn test02(&self, call: &mut _CallTest02, client_id: String, _bool_: bool) -> io::Result<()> {
+    fn test02(&self, call: &mut _CallTest02, client_id: String, _bool_: bool) -> Result<()> {
         if !self.check_client_id(&client_id, "Test02".into(), "Test03".into()) {
             return call.reply_client_id_error();
         }
@@ -407,7 +409,7 @@ impl VarlinkInterface for CertInterface {
         call.reply(1)
     }
 
-    fn test03(&self, call: &mut _CallTest03, client_id: String, _int: i64) -> io::Result<()> {
+    fn test03(&self, call: &mut _CallTest03, client_id: String, _int: i64) -> Result<()> {
         if !self.check_client_id(&client_id, "Test03".into(), "Test04".into()) {
             return call.reply_client_id_error();
         }
@@ -424,7 +426,7 @@ impl VarlinkInterface for CertInterface {
         call.reply(1.0)
     }
 
-    fn test04(&self, call: &mut _CallTest04, client_id: String, _float: f64) -> io::Result<()> {
+    fn test04(&self, call: &mut _CallTest04, client_id: String, _float: f64) -> Result<()> {
         if !self.check_client_id(&client_id, "Test04".into(), "Test05".into()) {
             return call.reply_client_id_error();
         }
@@ -441,7 +443,7 @@ impl VarlinkInterface for CertInterface {
         call.reply("ping".into())
     }
 
-    fn test05(&self, call: &mut _CallTest05, client_id: String, _string: String) -> io::Result<()> {
+    fn test05(&self, call: &mut _CallTest05, client_id: String, _string: String) -> Result<()> {
         if !self.check_client_id(&client_id, "Test05".into(), "Test06".into()) {
             return call.reply_client_id_error();
         }
@@ -466,7 +468,7 @@ impl VarlinkInterface for CertInterface {
         _int: i64,
         _float: f64,
         _string: String,
-    ) -> io::Result<()> {
+    ) -> Result<()> {
         if !self.check_client_id(&client_id, "Test06".into(), "Test07".into()) {
             return call.reply_client_id_error();
         }
@@ -496,7 +498,7 @@ impl VarlinkInterface for CertInterface {
         call: &mut _CallTest07,
         client_id: String,
         _struct_: Test07Args_struct,
-    ) -> io::Result<()> {
+    ) -> Result<()> {
         if !self.check_client_id(&client_id, "Test07".into(), "Test08".into()) {
             return call.reply_client_id_error();
         }
@@ -526,7 +528,7 @@ impl VarlinkInterface for CertInterface {
         call: &mut _CallTest08,
         client_id: String,
         _map: ::std::collections::HashMap<String, String>,
-    ) -> io::Result<()> {
+    ) -> Result<()> {
         if !self.check_client_id(&client_id, "Test08".into(), "Test09".into()) {
             return call.reply_client_id_error();
         }
@@ -556,7 +558,7 @@ impl VarlinkInterface for CertInterface {
         call: &mut _CallTest09,
         client_id: String,
         _set: varlink::StringHashSet,
-    ) -> io::Result<()> {
+    ) -> Result<()> {
         if !self.check_client_id(&client_id, "Test09".into(), "Test10".into()) {
             return call.reply_client_id_error();
         }
@@ -578,7 +580,7 @@ impl VarlinkInterface for CertInterface {
         call.reply(new_mytype()?)
     }
 
-    fn test10(&self, call: &mut _CallTest10, client_id: String, _mytype: MyType) -> io::Result<()> {
+    fn test10(&self, call: &mut _CallTest10, client_id: String, _mytype: MyType) -> Result<()> {
         if !self.check_client_id(&client_id, "Test10".into(), "Test11".into()) {
             return call.reply_client_id_error();
         }
@@ -607,7 +609,7 @@ impl VarlinkInterface for CertInterface {
         call: &mut _CallTest11,
         client_id: String,
         _last_more_replies: Vec<String>,
-    ) -> io::Result<()> {
+    ) -> Result<()> {
         if !self.check_client_id(&client_id, "Test11".into(), "End".into()) {
             return call.reply_client_id_error();
         }
@@ -630,7 +632,7 @@ impl VarlinkInterface for CertInterface {
         Ok(())
     }
 
-    fn end(&self, call: &mut _CallEnd, client_id: String) -> io::Result<()> {
+    fn end(&self, call: &mut _CallEnd, client_id: String) -> Result<()> {
         if !self.check_client_id(&client_id, "End".into(), "End".into()) {
             return call.reply_client_id_error();
         }
@@ -728,7 +730,7 @@ impl CertInterface {
     }
 }
 
-fn run_server(address: String, timeout: u64) -> io::Result<()> {
+pub fn run_server(address: String, timeout: u64) -> Result<()> {
     let certinterface = CertInterface {
         client_ids: Arc::new(RwLock::new(ClientIds {
             lifetimes: VecDeque::new(),
@@ -745,5 +747,5 @@ fn run_server(address: String, timeout: u64) -> io::Result<()> {
         "http://varlink.org",
         vec![Box::new(myinterface)],
     );
-    varlink::listen(service, &address, 10, timeout)
+    varlink::listen(service, &address, 10, timeout).map_err(|e| e.into())
 }

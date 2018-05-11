@@ -8,8 +8,8 @@ use std::io;
 use std::io::{Read, Write};
 use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
-use std::process::exit;
 use std::process::Command;
+use std::process::exit;
 use varlink_parser::{Interface, VStruct, VStructOrEnum, VType, VTypeExt, Varlink};
 
 type EnumVec<'a> = Vec<(String, Vec<String>)>;
@@ -163,6 +163,7 @@ impl<'a> InterfaceToRust for Interface<'a> {
 #![allow(non_snake_case)]
 #![allow(unused_imports)]
 
+use error_chain::ChainedError;
 use serde_json::{{self, Value}};
 use std::io;
 use std::sync::{{Arc, RwLock}};
@@ -344,7 +345,7 @@ use varlink::CallTrait;
             }
             write!(
                 w,
-                r#"    fn reply_{sname}(&mut self{inparms}) -> io::Result<()> {{
+                r#"    fn reply_{sname}(&mut self{inparms}) -> Result<()> {{
         self.reply_struct(varlink::Reply::error(
             "{iname}.{ename}".into(),
 "#,
@@ -366,33 +367,49 @@ use varlink::CallTrait;
             write!(
                 w,
                 r#"
-        ))
+        )).map_err(|e| e.into())
     }}
 "#
             )?;
         }
         write!(w, "}}\n\nimpl<'a> _CallErr for varlink::Call<'a> {{}}\n\n")?;
 
-        write!(w, "\n#[derive(Debug)]\npub enum Error_ {{\n")?;
+        write!(w, "\nerror_chain! {{\n    errors {{\n")?;
         for t in self.errors.values() {
-            write!(w, "    {ename}(Option<{ename}Args_>),\n", ename = t.name)?;
+            write!(
+                w,
+                "        {ename}(t: Option<{ename}Args_>) {{\n",
+                ename = t.name
+            )?;
+            write!(
+                w,
+                "            display(\"{ename}: '{{:?}}'\", t)\n        }}\n",
+                ename = t.name
+            )?;
         }
         write!(
             w,
-            "    \
-             VarlinkError_(varlink::Error),\n    \
-             UnknownError_(varlink::Reply),\n    \
-             IOError_(io::Error),\n    \
-             JSONError_(serde_json::Error),\n\
+            "    }}\n    \
+             foreign_links {{\n        \
+             Io(::std::io::Error);\n        \
+             Fmt(::std::fmt::Error);\n        \
+             SerdeJson(::serde_json::Error);\n        \
              }}\n"
         )?;
         write!(
             w,
+            "    \
+             links {{\n        \
+             Varlink(::varlink::Error, ::varlink::ErrorKind);\n    \
+             }}\n}}\n"
+        )?;
+        write!(
+            w,
             r#"
-impl From<varlink::Reply> for Error_ {{
+impl From<varlink::Reply> for Error {{
     fn from(e: varlink::Reply) -> Self {{
         if varlink::Error::is_error(&e) {{
-            return Error_::VarlinkError_(e.into());
+            return varlink::Error::from(e).into();
         }}
 
         match e {{
@@ -411,10 +428,10 @@ impl From<varlink::Reply> for Error_ {{
                            parameters: Some(p),
                            ..
                        }} => match serde_json::from_value(p) {{
-                           Ok(v) => Error_::{ename}(v),
-                           Err(_) => Error_::{ename}(None),
+                           Ok(v) => ErrorKind::{ename}(v).into(),
+                           Err(_) => ErrorKind::{ename}(None).into(),
                        }},
-                       _ => Error_::{ename}(None),
+                       _ => ErrorKind::{ename}(None).into(),
                    }}
                }}
 "#,
@@ -425,7 +442,7 @@ impl From<varlink::Reply> for Error_ {{
 
         write!(
             w,
-            r#"            _ => return Error_::UnknownError_(e),
+            r#"            _ => return varlink::Error::from(varlink::ErrorKind::UnknownError(e)).into(),
         }}
     }}
 }}
@@ -435,24 +452,13 @@ impl From<varlink::Reply> for Error_ {{
         write!(
             w,
             r#"
-impl From<io::Error> for Error_ {{
-    fn from(e: io::Error) -> Self {{
-        Error_::IOError_(e)
-    }}
+#[derive(Serialize)]
+struct internal_error {{
+    message: String
 }}
 
-impl From<serde_json::Error> for Error_ {{
-    fn from(e: serde_json::Error) -> Self {{
-        use serde_json::error::Category;
-        match e.classify() {{
-            Category::Io => Error_::IOError_(e.into()),
-            _ => Error_::JSONError_(e),
-        }}
-    }}
-}}
-
-impl From<Error_> for io::Error {{
-    fn from(e: Error_) -> Self {{
+impl From<Error> for varlink::Error {{
+    fn from(e: Error) -> Self {{
         match e {{
 "#
         )?;
@@ -460,13 +466,13 @@ impl From<Error_> for io::Error {{
         for t in self.errors.values() {
             write!(
                 w,
-                r#"            Error_::{ename}(e) => io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "{iname}.{ename}: '{{}}'",
-                    serde_json::to_string_pretty(&e).unwrap()
-                ),
-            ),"#,
+                r#"         Error(ErrorKind::{ename}(t), _) => {{
+                varlink::Error::from(varlink::ErrorKind::UnknownError(varlink::Reply {{
+                    error: Some("{iname}.{ename}".into()),
+                    parameters: Some(serde_json::to_value(t).unwrap()),
+                    ..Default::default()
+                }}))
+            }}"#,
                 ename = t.name,
                 iname = self.name
             )?;
@@ -474,16 +480,15 @@ impl From<Error_> for io::Error {{
 
         write!(
             w,
-            r#"            Error_::VarlinkError_(e) => e.into(),
-            Error_::IOError_(e) => e,
-            Error_::JSONError_(e) => e.into(),
-            Error_::UnknownError_(e) => io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "unknown varlink error: {{}}",
-                    serde_json::to_string_pretty(&e).unwrap()
-                ),
-            ),
+            r#"
+            e => {{
+                varlink::Error::from(varlink::ErrorKind::UnknownError(varlink::Reply {{
+                    error: Some("org.example.more.InternalError".into()),
+                    parameters: Some(serde_json::to_value(internal_error{{ message: e.display_chain
+                    ().to_string()}}).unwrap()),
+                    ..Default::default()
+                }}))
+            }}
         }}
     }}
 }}
@@ -510,21 +515,17 @@ impl From<Error_> for io::Error {{
                 innames.pop();
             }
             write!(w, "pub trait _Call{}: _CallErr {{\n", t.name)?;
-            write!(
-                w,
-                "    fn reply(&mut self{}) -> io::Result<()> {{\n",
-                inparms
-            )?;
+            write!(w, "    fn reply(&mut self{}) -> Result<()> {{\n", inparms)?;
             if t.output.elts.len() > 0 {
                 write!(
                     w,
-                    "        self.reply_struct({}Reply_ {{ {} }}.into())\n",
+                    "        self.reply_struct({}Reply_ {{ {} }}.into()).map_err(|e| e.into())\n",
                     t.name, innames
                 )?;
             } else {
                 write!(
                     w,
-                    "        self.reply_struct(varlink::Reply::parameters(None))\n"
+                    "        self.reply_struct(varlink::Reply::parameters(None)).map_err(|e| e.into())\n"
                 )?;
             }
             write!(
@@ -553,7 +554,7 @@ impl From<Error_> for io::Error {{
 
             write!(
                 w,
-                "    fn {}(&self, call: &mut _Call{}{}) -> io::Result<()>;\n",
+                "    fn {}(&self, call: &mut _Call{}{}) -> Result<()>;\n",
                 to_snake_case(t.name),
                 t.name,
                 inparms
@@ -562,7 +563,7 @@ impl From<Error_> for io::Error {{
 
         write!(
             w,
-            r#"    fn call_upgraded(&self, _call: &mut varlink::Call) -> io::Result<()> {{
+            r#"    fn call_upgraded(&self, _call: &mut varlink::Call) -> varlink::Result<()> {{
         Ok(())
     }}
 }}
@@ -605,7 +606,7 @@ impl From<Error_> for io::Error {{
             write!(
                 w,
                 "    fn {sname}(&mut self{inparms}) -> varlink::MethodCall<{mname}Args_, \
-                 {mname}Reply_, Error_>;\
+                 {mname}Reply_, Error>;\
                  \n",
                 sname = to_snake_case(t.name),
                 inparms = inparms,
@@ -674,7 +675,7 @@ impl VarlinkClientInterface for VarlinkClient {{
                 w,
                 "    fn {sname}(&mut self{inparms}) -> varlink::MethodCall<{mname}Args_, \
                  {mname}Reply_, \
-                 Error_> \
+                 Error> \
                  {{\n",
                 sname = to_snake_case(t.name),
                 inparms = inparms,
@@ -684,7 +685,7 @@ impl VarlinkClientInterface for VarlinkClient {{
             write!(
                 w,
                 "            \
-                 varlink::MethodCall::<{mname}Args_, {mname}Reply_, Error_>::new(\n            \
+                 varlink::MethodCall::<{mname}Args_, {mname}Reply_, Error>::new(\n            \
                  self.connection.clone(),\n            \
                  \"{iname}.{mname}\".into(),\n            \
                  {mname}Args_ {{ {innames} }},\n        \
@@ -724,11 +725,11 @@ impl varlink::Interface for _InterfaceProxy {{
 
         write!(
             w,
-            r#"    fn call_upgraded(&self, call: &mut varlink::Call) -> io::Result<()> {{
+            r#"    fn call_upgraded(&self, call: &mut varlink::Call) -> varlink::Result<()> {{
         self.inner.call_upgraded(call)
     }}
 
-    fn call(&self, call: &mut varlink::Call) -> io::Result<()> {{
+    fn call(&self, call: &mut varlink::Call) -> varlink::Result<()> {{
         let req = call.request.unwrap();
         match req.method.as_ref() {{
 "#
@@ -754,7 +755,7 @@ impl varlink::Interface for _InterfaceProxy {{
                         "                if let Some(args) = req.parameters.clone() {{\n",
                         "                    let args: {mname}Args_ = serde_json::from_value(args)?;\n",
                         "                    return self.inner.{sname}(call as &mut \
-                        _Call{mname}{inparms});\n",
+                        _Call{mname}{inparms}).map_err(|e| e.into());\n",
                         "                }} else {{\n",
                         "                    return call.reply_invalid_parameter(\"parameters\".into());\
                         \n",
@@ -770,7 +771,7 @@ impl varlink::Interface for _InterfaceProxy {{
                     w,
                     concat!(
                         "\n",
-                        "                return self.inner.{sname}(call as &mut _Call{mname});\n",
+                        "                return self.inner.{sname}(call as &mut _Call{mname}).map_err(|e| e.into());\n",
                         "            }}\n"
                     ),
                     sname = to_snake_case(t.name),

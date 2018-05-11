@@ -3,10 +3,11 @@ extern crate getopts;
 extern crate serde_derive;
 extern crate serde_json;
 extern crate varlink;
+#[macro_use]
+extern crate error_chain;
 
 use io_systemd_network::*;
 use std::env;
-use std::io;
 use std::process::exit;
 use std::sync::{Arc, RwLock};
 use varlink::OrgVarlinkServiceInterface;
@@ -77,7 +78,7 @@ fn main() {
 
 // Client
 
-fn run_client(address: String) -> io::Result<()> {
+fn run_client(address: String) -> Result<()> {
     let conn = varlink::Connection::new(&address)?;
 
     let mut iface = varlink::OrgVarlinkServiceClient::new(conn.clone());
@@ -131,16 +132,16 @@ fn run_client(address: String) -> io::Result<()> {
     }
 
     match iface.info(3).call() {
-        Err(Error_::VarlinkError_(varlink::Error::InvalidParameter(
-            varlink::ErrorInvalidParameter {
-                parameter: Some(ref p),
-            },
-        ))) if p == "ifindex" => {}
+        Err(Error(ErrorKind::Varlink(varlink::ErrorKind::InvalidParameter(ref p)), _))
+            if p == "ifindex" => {}
         res => panic!("Unknown result {:?}", res),
     }
 
     match iface.info(4).call() {
-        Err(Error_::UnknownNetworkIfIndex(Some(UnknownNetworkIfIndexArgs_ { ifindex: 4 }))) => {}
+        Err(Error(
+            ErrorKind::UnknownNetworkIfIndex(Some(UnknownNetworkIfIndexArgs_ { ifindex: 4 })),
+            _,
+        )) => {}
         res => panic!("Unknown result {:?}", res),
     }
 
@@ -152,7 +153,7 @@ struct MyIoSystemdNetwork {
 }
 
 impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
-    fn info(&self, call: &mut _CallInfo, ifindex: i64) -> io::Result<()> {
+    fn info(&self, call: &mut _CallInfo, ifindex: i64) -> Result<()> {
         // State example
         {
             let mut number = self.state.write().unwrap();
@@ -176,7 +177,8 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
                 });
             }
             3 => {
-                return call.reply_invalid_parameter("ifindex".into());
+                return call.reply_invalid_parameter("ifindex".into())
+                    .map_err(|e| e.into());
             }
             _ => {
                 return call.reply_unknown_network_if_index(ifindex);
@@ -184,7 +186,7 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
         }
     }
 
-    fn list(&self, call: &mut _CallList) -> io::Result<()> {
+    fn list(&self, call: &mut _CallList) -> Result<()> {
         // State example
         {
             let mut number = self.state.write().unwrap();
@@ -206,7 +208,7 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
     }
 }
 
-fn run_server(address: String, timeout: u64) -> io::Result<()> {
+fn run_server(address: String, timeout: u64) -> Result<()> {
     let state = Arc::new(RwLock::new(0));
     let myiosystemdnetwork = MyIoSystemdNetwork { state };
     let myinterface = io_systemd_network::new(Box::new(myiosystemdnetwork));
@@ -218,5 +220,5 @@ fn run_server(address: String, timeout: u64) -> io::Result<()> {
         vec![Box::new(myinterface)],
     );
 
-    varlink::listen(service, &address, 10, timeout)
+    varlink::listen(service, &address, 10, timeout).map_err(|e| e.into())
 }

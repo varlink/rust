@@ -3,11 +3,11 @@ extern crate getopts;
 extern crate serde_derive;
 extern crate serde_json;
 extern crate varlink;
+#[macro_use]
+extern crate error_chain;
 
 use org_example_more::*;
 use std::env;
-use std::io;
-use std::io::{Error, ErrorKind};
 use std::process::exit;
 use std::{thread, time};
 use varlink::VarlinkService;
@@ -78,7 +78,7 @@ fn main() {
 
 // Client
 
-fn run_client(address: String) -> io::Result<()> {
+fn run_client(address: String) -> Result<()> {
     let con1 = varlink::Connection::new(&address)?;
     let new_addr;
     {
@@ -137,15 +137,15 @@ struct MyOrgExampleMore {
 }
 
 impl VarlinkInterface for MyOrgExampleMore {
-    fn ping(&self, call: &mut _CallPing, ping: String) -> io::Result<()> {
+    fn ping(&self, call: &mut _CallPing, ping: String) -> Result<()> {
         return call.reply(ping);
     }
 
-    fn stop_serving(&self, call: &mut _CallStopServing) -> io::Result<()> {
+    fn stop_serving(&self, call: &mut _CallStopServing) -> Result<()> {
         call.reply()?;
-        Err(Error::new(ErrorKind::ConnectionRefused, "Disconnect"))
+        bail!("Disconnect")
     }
-    fn test_more(&self, call: &mut _CallTestMore, n: i64) -> io::Result<()> {
+    fn test_more(&self, call: &mut _CallTestMore, n: i64) -> Result<()> {
         if !call.wants_more() {
             return call.reply_test_more_error("called without more".into());
         }
@@ -187,7 +187,7 @@ impl VarlinkInterface for MyOrgExampleMore {
     }
 }
 
-fn run_server(address: String, timeout: u64, sleep_duration: u64) -> io::Result<()> {
+fn run_server(address: String, timeout: u64, sleep_duration: u64) -> Result<()> {
     let myexamplemore = MyOrgExampleMore { sleep_duration };
     let myinterface = new(Box::new(myexamplemore));
     let service = VarlinkService::new(
@@ -197,5 +197,5 @@ fn run_server(address: String, timeout: u64, sleep_duration: u64) -> io::Result<
         "http://varlink.org",
         vec![Box::new(myinterface)],
     );
-    varlink::listen(service, &address, 10, timeout)
+    varlink::listen(service, &address, 10, timeout).map_err(|e| e.into())
 }

@@ -1,6 +1,8 @@
 //! varlink_parser crate for parsing varlink interface definition files.
 
 extern crate bytes;
+#[macro_use]
+extern crate error_chain;
 extern crate itertools;
 
 use self::varlink_grammar::VInterface;
@@ -9,13 +11,23 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::fmt;
-use std::io::{self, Error, ErrorKind};
 
 #[cfg(test)]
 mod test;
 
 mod varlink_grammar {
     include!(concat!(env!("OUT_DIR"), "/varlink_grammar.rs"));
+}
+
+error_chain! {
+    foreign_links {
+        Peg(self::varlink_grammar::ParseError);
+    }
+    errors {
+        InterfaceDefinition(t: String) {
+            display("Interface definition error: '{}'", t)
+        }
+    }
 }
 
 pub enum VType<'a> {
@@ -260,19 +272,11 @@ pub struct Varlink<'a> {
 }
 
 impl<'a> Varlink<'a> {
-    pub fn from_string(s: &'a str) -> io::Result<Varlink> {
-        let iface = match VInterface(s) {
-            Ok(v) => v,
-            Err(e) => {
-                return Err(Error::new(ErrorKind::Other, e));
-            }
-        };
+    pub fn from_string(s: &'a str) -> Result<Varlink> {
+        let iface = VInterface(s)?;
 
         if iface.error.len() != 0 {
-            Err(Error::new(
-                ErrorKind::Other,
-                iface.error.into_iter().sorted().join("\n"),
-            ))
+            Err(ErrorKind::InterfaceDefinition(iface.error.into_iter().sorted().join("\n")).into())
         } else {
             Ok(Varlink {
                 string: s,

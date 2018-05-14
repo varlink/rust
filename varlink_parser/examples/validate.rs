@@ -1,32 +1,26 @@
+#[macro_use]
+extern crate error_chain;
 extern crate varlink_parser;
 
 use std::env;
-use std::error::Error;
 use std::fs::File;
 use std::io;
-use std::io::Error as IOError;
 use std::io::prelude::*;
 use std::path::Path;
 use std::process::exit;
-use std::result::Result;
 use varlink_parser::Varlink;
 
-trait MainReturn {
-    fn into_error_code(self) -> i32;
-}
+error_chain! {
+    foreign_links {
+        Io(::std::io::Error);
+    }
 
-impl<E: Error> MainReturn for Result<(), E> {
-    fn into_error_code(self) -> i32 {
-        if let Err(e) = self {
-            write!(io::stderr(), "{}\n", e).unwrap();
-            1
-        } else {
-            0
-        }
+    links {
+        Parser(self::varlink_parser::Error, self::varlink_parser::ErrorKind);
     }
 }
 
-fn do_main() -> Result<(), IOError> {
+fn main() -> Result<()> {
     let mut buffer = String::new();
     let args: Vec<_> = env::args().collect();
 
@@ -35,18 +29,7 @@ fn do_main() -> Result<(), IOError> {
         _ => File::open(Path::new(&args[1]))?.read_to_string(&mut buffer)?,
     };
 
-    match Varlink::from_string(&buffer) {
-        Ok(v) => {
-            println!("{}", v.interface);
-            exit(0);
-        }
-        Err(e) => {
-            println!("{}", e);
-            exit(1);
-        }
-    };
-}
-
-fn main() {
-    exit(do_main().into_error_code());
+    let v = Varlink::from_string(&buffer)?;
+    println!("{}", v.interface);
+    exit(0);
 }

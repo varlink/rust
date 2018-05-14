@@ -10,7 +10,17 @@ use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::process::exit;
-use varlink_parser::{Interface, VStruct, VStructOrEnum, VType, VTypeExt, Varlink};
+use varlink_parser::{Interface, Varlink, VStruct, VStructOrEnum, VType, VTypeExt};
+
+error_chain! {
+    foreign_links {
+        Io(::std::io::Error);
+    }
+
+    links {
+        Parser(self::varlink_parser::Error, self::varlink_parser::ErrorKind);
+    }
+}
 
 type EnumVec<'a> = Vec<(String, Vec<String>)>;
 type StructVec<'a> = Vec<(String, &'a VStruct<'a>)>;
@@ -21,7 +31,7 @@ trait ToRust<'short, 'long: 'short> {
         parent: &str,
         enumvec: &mut EnumVec,
         structvec: &mut StructVec<'short>,
-    ) -> io::Result<String>;
+    ) -> Result<String>;
 }
 
 impl<'short, 'long: 'short> ToRust<'short, 'long> for VType<'long> {
@@ -30,7 +40,7 @@ impl<'short, 'long: 'short> ToRust<'short, 'long> for VType<'long> {
         parent: &str,
         enumvec: &mut EnumVec,
         structvec: &mut StructVec<'short>,
-    ) -> io::Result<String> {
+    ) -> Result<String> {
         match self {
             &VType::Bool => Ok("bool".into()),
             &VType::Int => Ok("i64".into()),
@@ -59,7 +69,7 @@ impl<'short, 'long: 'short> ToRust<'short, 'long> for VTypeExt<'long> {
         parent: &str,
         enumvec: &mut EnumVec,
         structvec: &mut StructVec<'short>,
-    ) -> io::Result<String> {
+    ) -> Result<String> {
         match self {
             &VTypeExt::Plain(ref vtype) => vtype.to_rust(parent, enumvec, structvec),
             &VTypeExt::Array(ref v) => {
@@ -143,11 +153,11 @@ fn replace_if_rust_keyword_annotate(v: &str, w: &mut Write) -> io::Result<(Strin
 }
 
 trait InterfaceToRust {
-    fn to_rust(&self, description: &String, writer: &mut Write) -> io::Result<()>;
+    fn to_rust(&self, description: &String, writer: &mut Write) -> Result<()>;
 }
 
 impl<'a> InterfaceToRust for Interface<'a> {
-    fn to_rust(&self, description: &String, w: &mut Write) -> io::Result<()> {
+    fn to_rust(&self, description: &String, w: &mut Write) -> Result<()> {
         let mut enumvec = EnumVec::new();
         let mut structvec = StructVec::new();
 
@@ -798,7 +808,7 @@ impl varlink::Interface for _InterfaceProxy {{
 
 /// `generate` reads a varlink interface definition from `reader` and writes
 /// the rust code to `writer`.
-pub fn generate(reader: &mut Read, writer: &mut Write) -> io::Result<()> {
+pub fn generate(reader: &mut Read, writer: &mut Write) -> Result<()> {
     let mut buffer = String::new();
 
     reader.read_to_string(&mut buffer)?;

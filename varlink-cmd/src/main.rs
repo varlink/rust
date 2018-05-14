@@ -1,12 +1,12 @@
 extern crate clap;
+#[macro_use]
+extern crate error_chain;
 extern crate serde_json;
 extern crate varlink;
 extern crate varlink_parser;
 
-#[macro_use]
-extern crate error_chain;
-
 use clap::{App, Arg, SubCommand};
+use errors::*;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
@@ -26,6 +26,7 @@ mod errors {
         }
         links {
             Varlink(::varlink::Error, ::varlink::ErrorKind);
+            VarlinkParse(::varlink_parser::Error, ::varlink_parser::ErrorKind);
         }
         errors {
             NotImplemented(t: String) {
@@ -34,8 +35,6 @@ mod errors {
         }
     }
 }
-
-use errors::*;
 
 fn varlink_format(filename: &str) -> Result<()> {
     let mut buffer = String::new();

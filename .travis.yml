@@ -10,6 +10,7 @@ cache:
   timeout: 1000
   cargo: true
 before_cache:
+  - find  ~/.cargo/registry/cache -maxdepth 2 -atime +7 -print0 | xargs -t -0 rm -fr
   - rm -rfv target/debug/incremental/{varlink*,build_script_build}-*
   - rm -rfv target/debug/.fingerprint/varlink*
   - rm -rfv target/debug/deps/libvarlink*

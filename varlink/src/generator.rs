@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::process::exit;
 use varlink_parser::{Interface, Varlink, VStruct, VStructOrEnum, VType, VTypeExt};
+use std::borrow::Cow;
 
 error_chain! {
     foreign_links {
@@ -31,7 +32,7 @@ trait ToRust<'short, 'long: 'short> {
         parent: &str,
         enumvec: &mut EnumVec,
         structvec: &mut StructVec<'short>,
-    ) -> Result<String>;
+    ) -> Result<Cow<'long, str>>;
 }
 
 impl<'short, 'long: 'short> ToRust<'short, 'long> for VType<'long> {
@@ -40,7 +41,7 @@ impl<'short, 'long: 'short> ToRust<'short, 'long> for VType<'long> {
         parent: &str,
         enumvec: &mut EnumVec,
         structvec: &mut StructVec<'short>,
-    ) -> Result<String> {
+    ) -> Result<Cow<'long, str>> {
         match self {
             &VType::Bool => Ok("bool".into()),
             &VType::Int => Ok("i64".into()),
@@ -69,25 +70,25 @@ impl<'short, 'long: 'short> ToRust<'short, 'long> for VTypeExt<'long> {
         parent: &str,
         enumvec: &mut EnumVec,
         structvec: &mut StructVec<'short>,
-    ) -> Result<String> {
+    ) -> Result<Cow<'long, str>> {
         match self {
             &VTypeExt::Plain(ref vtype) => vtype.to_rust(parent, enumvec, structvec),
             &VTypeExt::Array(ref v) => {
-                Ok(format!("Vec<{}>", v.to_rust(parent, enumvec, structvec)?))
+                Ok(format!("Vec<{}>", v.to_rust(parent, enumvec, structvec)?).into())
             }
             &VTypeExt::Dict(ref v) => match v.as_ref() {
                 &VTypeExt::Plain(VType::Struct(ref s)) if s.elts.len() == 0 => {
-                    Ok(format!("varlink::StringHashSet"))
+                    Ok("varlink::StringHashSet".into())
                 }
                 _ => Ok(format!(
                     "varlink::StringHashMap<{}>",
                     v.to_rust(parent, enumvec, structvec)?
-                )),
+                ).into()),
             },
             &VTypeExt::Option(ref v) => Ok(format!(
                 "Option<{}>",
                 v.to_rust(parent, enumvec, structvec)?
-            )),
+            ).into()),
         }
     }
 }
@@ -357,7 +358,7 @@ use varlink::CallTrait;
                 w,
                 r#"    fn reply_{sname}(&mut self{inparms}) -> Result<()> {{
         self.reply_struct(varlink::Reply::error(
-            "{iname}.{ename}".into(),
+            "{iname}.{ename}",
 "#,
                 sname = to_snake_case(t.name),
                 inparms = inparms,
@@ -697,7 +698,7 @@ impl VarlinkClientInterface for VarlinkClient {{
                 "            \
                  varlink::MethodCall::<{mname}Args_, {mname}Reply_, Error>::new(\n            \
                  self.connection.clone(),\n            \
-                 \"{iname}.{mname}\".into(),\n            \
+                 \"{iname}.{mname}\",\n            \
                  {mname}Args_ {{ {innames} }},\n        \
                  )\n",
                 mname = t.name,

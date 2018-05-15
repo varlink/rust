@@ -91,7 +91,8 @@ fn activation_listener() -> io::Result<Option<i32>> {
 
 //FIXME: add Drop with shutdown() and unix file removal
 impl VarlinkListener {
-    pub fn new(address: &str) -> io::Result<Self> {
+    pub fn new<S: Into<String>>(address: S) -> io::Result<Self> {
+        let address: String = address.into();
         if let Some(l) = activation_listener()? {
             if address.starts_with("tcp:") {
                 unsafe {
@@ -253,14 +254,14 @@ impl From<Error> for ServerError {
     }
 }
 
-pub fn do_listen(
+pub fn do_listen<S: Into<String>>(
     service: ::VarlinkService,
-    addr: &str,
+    address: S,
     workers: usize,
     accept_timeout: u64,
 ) -> Result<(), ServerError> {
     let service = Arc::new(service);
-    let listener = Arc::new(VarlinkListener::new(addr)?);
+    let listener = Arc::new(VarlinkListener::new(address.into())?);
     listener.set_nonblocking(false)?;
     let pool = ThreadPool::new(workers);
 

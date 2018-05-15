@@ -80,7 +80,7 @@ fn varlink_help(url: &str) -> Result<()> {
 
     let conn = Connection::new(address)?;
     let mut call = OrgVarlinkServiceClient::new(conn);
-    match call.get_interface_description(interface.into())? {
+    match call.get_interface_description(interface.to_string())? {
         GetInterfaceDescriptionReply {
             description: Some(desc),
         } => println!("{}", desc),
@@ -117,7 +117,7 @@ fn varlink_call(url: &str, args: Option<&str>, more: bool) -> Result<()> {
 
     let mut call = MethodCall::<serde_json::Value, serde_json::Value, varlink::Error>::new(
         conn.clone(),
-        String::from(method).into(),
+        String::from(method),
         args,
     );
 

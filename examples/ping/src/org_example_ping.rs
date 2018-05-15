@@ -33,7 +33,7 @@ pub struct PingErrorArgs_ {
 pub trait _CallErr: varlink::CallTrait {
     fn reply_ping_error(&mut self, parameter: i64) -> Result<()> {
         self.reply_struct(varlink::Reply::error(
-            "org.example.ping.PingError".into(),
+            "org.example.ping.PingError",
             Some(serde_json::to_value(PingErrorArgs_ { parameter }).unwrap()),
         )).map_err(|e| e.into())
     }
@@ -165,7 +165,7 @@ impl VarlinkClientInterface for VarlinkClient {
     fn ping(&mut self, ping: String) -> varlink::MethodCall<PingArgs_, PingReply_, Error> {
         varlink::MethodCall::<PingArgs_, PingReply_, Error>::new(
             self.connection.clone(),
-            "org.example.ping.Ping".into(),
+            "org.example.ping.Ping",
             PingArgs_ { ping },
         )
     }

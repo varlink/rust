@@ -267,13 +267,13 @@ pub enum MyType_enum {
 pub trait _CallErr: varlink::CallTrait {
     fn reply_certification_error(&mut self, wants: Value, got: Value) -> Result<()> {
         self.reply_struct(varlink::Reply::error(
-            "org.varlink.certification.CertificationError".into(),
+            "org.varlink.certification.CertificationError",
             Some(serde_json::to_value(CertificationErrorArgs_ { wants, got }).unwrap()),
         )).map_err(|e| e.into())
     }
     fn reply_client_id_error(&mut self) -> Result<()> {
         self.reply_struct(varlink::Reply::error(
-            "org.varlink.certification.ClientIdError".into(),
+            "org.varlink.certification.ClientIdError",
             None,
         )).map_err(|e| e.into())
     }
@@ -642,14 +642,14 @@ impl VarlinkClientInterface for VarlinkClient {
     fn end(&mut self, client_id: String) -> varlink::MethodCall<EndArgs_, EndReply_, Error> {
         varlink::MethodCall::<EndArgs_, EndReply_, Error>::new(
             self.connection.clone(),
-            "org.varlink.certification.End".into(),
+            "org.varlink.certification.End",
             EndArgs_ { client_id },
         )
     }
     fn start(&mut self) -> varlink::MethodCall<StartArgs_, StartReply_, Error> {
         varlink::MethodCall::<StartArgs_, StartReply_, Error>::new(
             self.connection.clone(),
-            "org.varlink.certification.Start".into(),
+            "org.varlink.certification.Start",
             StartArgs_ {},
         )
     }
@@ -659,7 +659,7 @@ impl VarlinkClientInterface for VarlinkClient {
     ) -> varlink::MethodCall<Test01Args_, Test01Reply_, Error> {
         varlink::MethodCall::<Test01Args_, Test01Reply_, Error>::new(
             self.connection.clone(),
-            "org.varlink.certification.Test01".into(),
+            "org.varlink.certification.Test01",
             Test01Args_ { client_id },
         )
     }
@@ -670,7 +670,7 @@ impl VarlinkClientInterface for VarlinkClient {
     ) -> varlink::MethodCall<Test02Args_, Test02Reply_, Error> {
         varlink::MethodCall::<Test02Args_, Test02Reply_, Error>::new(
             self.connection.clone(),
-            "org.varlink.certification.Test02".into(),
+            "org.varlink.certification.Test02",
             Test02Args_ { client_id, bool },
         )
     }
@@ -681,7 +681,7 @@ impl VarlinkClientInterface for VarlinkClient {
     ) -> varlink::MethodCall<Test03Args_, Test03Reply_, Error> {
         varlink::MethodCall::<Test03Args_, Test03Reply_, Error>::new(
             self.connection.clone(),
-            "org.varlink.certification.Test03".into(),
+            "org.varlink.certification.Test03",
             Test03Args_ { client_id, int },
         )
     }
@@ -692,7 +692,7 @@ impl VarlinkClientInterface for VarlinkClient {
     ) -> varlink::MethodCall<Test04Args_, Test04Reply_, Error> {
         varlink::MethodCall::<Test04Args_, Test04Reply_, Error>::new(
             self.connection.clone(),
-            "org.varlink.certification.Test04".into(),
+            "org.varlink.certification.Test04",
             Test04Args_ { client_id, float },
         )
     }
@@ -703,7 +703,7 @@ impl VarlinkClientInterface for VarlinkClient {
     ) -> varlink::MethodCall<Test05Args_, Test05Reply_, Error> {
         varlink::MethodCall::<Test05Args_, Test05Reply_, Error>::new(
             self.connection.clone(),
-            "org.varlink.certification.Test05".into(),
+            "org.varlink.certification.Test05",
             Test05Args_ { client_id, string },
         )
     }
@@ -717,7 +717,7 @@ impl VarlinkClientInterface for VarlinkClient {
     ) -> varlink::MethodCall<Test06Args_, Test06Reply_, Error> {
         varlink::MethodCall::<Test06Args_, Test06Reply_, Error>::new(
             self.connection.clone(),
-            "org.varlink.certification.Test06".into(),
+            "org.varlink.certification.Test06",
             Test06Args_ {
                 client_id,
                 bool,
@@ -734,7 +734,7 @@ impl VarlinkClientInterface for VarlinkClient {
     ) -> varlink::MethodCall<Test07Args_, Test07Reply_, Error> {
         varlink::MethodCall::<Test07Args_, Test07Reply_, Error>::new(
             self.connection.clone(),
-            "org.varlink.certification.Test07".into(),
+            "org.varlink.certification.Test07",
             Test07Args_ { client_id, struct_ },
         )
     }
@@ -745,7 +745,7 @@ impl VarlinkClientInterface for VarlinkClient {
     ) -> varlink::MethodCall<Test08Args_, Test08Reply_, Error> {
         varlink::MethodCall::<Test08Args_, Test08Reply_, Error>::new(
             self.connection.clone(),
-            "org.varlink.certification.Test08".into(),
+            "org.varlink.certification.Test08",
             Test08Args_ { client_id, map },
         )
     }
@@ -756,7 +756,7 @@ impl VarlinkClientInterface for VarlinkClient {
     ) -> varlink::MethodCall<Test09Args_, Test09Reply_, Error> {
         varlink::MethodCall::<Test09Args_, Test09Reply_, Error>::new(
             self.connection.clone(),
-            "org.varlink.certification.Test09".into(),
+            "org.varlink.certification.Test09",
             Test09Args_ { client_id, set },
         )
     }
@@ -767,7 +767,7 @@ impl VarlinkClientInterface for VarlinkClient {
     ) -> varlink::MethodCall<Test10Args_, Test10Reply_, Error> {
         varlink::MethodCall::<Test10Args_, Test10Reply_, Error>::new(
             self.connection.clone(),
-            "org.varlink.certification.Test10".into(),
+            "org.varlink.certification.Test10",
             Test10Args_ { client_id, mytype },
         )
     }
@@ -778,7 +778,7 @@ impl VarlinkClientInterface for VarlinkClient {
     ) -> varlink::MethodCall<Test11Args_, Test11Reply_, Error> {
         varlink::MethodCall::<Test11Args_, Test11Reply_, Error>::new(
             self.connection.clone(),
-            "org.varlink.certification.Test11".into(),
+            "org.varlink.certification.Test11",
             Test11Args_ {
                 client_id,
                 last_more_replies,

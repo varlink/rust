@@ -79,20 +79,21 @@ fn main() {
 // Client
 
 fn run_client(address: String) -> Result<()> {
-    let conn = varlink::Connection::new(&address)?;
+    let conn = varlink::Connection::new(address)?;
 
     let mut iface = varlink::OrgVarlinkServiceClient::new(conn.clone());
-    let info = iface.get_info()?;
-    assert_eq!(&info.vendor, "org.varlink");
-    assert_eq!(&info.product, "test service");
-    assert_eq!(&info.version, "0.1");
-    assert_eq!(&info.url, "http://varlink.org");
-    assert_eq!(
-        info.interfaces.get(1).unwrap().as_ref(),
-        "io.systemd.network"
-    );
-
-    let description = iface.get_interface_description("io.systemd.network".into())?;
+    {
+        let info = iface.get_info()?;
+        assert_eq!(&info.vendor, "org.varlink");
+        assert_eq!(&info.product, "test service");
+        assert_eq!(&info.version, "0.1");
+        assert_eq!(&info.url, "http://varlink.org");
+        assert_eq!(
+            info.interfaces.get(1).unwrap().as_ref(),
+            "io.systemd.network"
+        );
+    }
+    let description = iface.get_interface_description("io.systemd.network")?;
 
     assert!(description.description.is_some());
 
@@ -177,8 +178,8 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
                 });
             }
             3 => {
-                return call.reply_invalid_parameter("ifindex".into())
-                    .map_err(|e| e.into());
+                call.reply_invalid_parameter("ifindex".into())?;
+                return Ok(());
             }
             _ => {
                 return call.reply_unknown_network_if_index(ifindex);
@@ -220,5 +221,6 @@ fn run_server(address: String, timeout: u64) -> Result<()> {
         vec![Box::new(myinterface)],
     );
 
-    varlink::listen(service, &address, 10, timeout).map_err(|e| e.into())
+    varlink::listen(service, address, 10, timeout)?;
+    Ok(())
 }

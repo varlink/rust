@@ -73,7 +73,7 @@ fn main() -> Result<()> {
 // Client
 
 fn run_client(address: String) -> Result<()> {
-    let connection = varlink::Connection::new(&address)?;
+    let connection = varlink::Connection::new(address)?;
     let mut iface = VarlinkClient::new(connection);
 
     let ret = iface.start().call()?;
@@ -740,5 +740,6 @@ pub fn run_server(address: String, timeout: u64) -> Result<()> {
         "http://varlink.org",
         vec![Box::new(myinterface)],
     );
-    varlink::listen(service, &address, 10, timeout).map_err(|e| e.into())
+    varlink::listen(service, address, 10, timeout)?;
+    Ok(())
 }

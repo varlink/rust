@@ -79,7 +79,7 @@ fn main() {
 // Client
 
 fn run_client(address: String) -> Result<()> {
-    let con1 = varlink::Connection::new(&address)?;
+    let con1 = varlink::Connection::new(address)?;
     let new_addr;
     {
         let conn = con1.read().unwrap();
@@ -87,7 +87,7 @@ fn run_client(address: String) -> Result<()> {
     }
     let mut iface = org_example_more::VarlinkClient::new(con1);
 
-    let con2 = varlink::Connection::new(&new_addr)?;
+    let con2 = varlink::Connection::new(new_addr)?;
     let mut pingiface = org_example_more::VarlinkClient::new(con2);
 
     for reply in iface.test_more(10).more()? {
@@ -189,7 +189,7 @@ impl VarlinkInterface for MyOrgExampleMore {
 
 fn run_server(address: String, timeout: u64, sleep_duration: u64) -> Result<()> {
     let myexamplemore = MyOrgExampleMore { sleep_duration };
-    let myinterface = new(Box::new(myexamplemore));
+    let myinterface = org_example_more::new(Box::new(myexamplemore));
     let service = VarlinkService::new(
         "org.varlink",
         "test service",
@@ -197,5 +197,6 @@ fn run_server(address: String, timeout: u64, sleep_duration: u64) -> Result<()> 
         "http://varlink.org",
         vec![Box::new(myinterface)],
     );
-    varlink::listen(service, &address, 10, timeout).map_err(|e| e.into())
+    varlink::listen(service, address, 10, timeout)?;
+    Ok(())
 }

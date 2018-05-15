@@ -151,14 +151,14 @@ pub struct TypeFoo_anon_baz {
 pub trait _CallErr: varlink::CallTrait {
     fn reply_error_bar(&mut self) -> Result<()> {
         self.reply_struct(varlink::Reply::error(
-            "org.example.complex.ErrorBar".into(),
+            "org.example.complex.ErrorBar",
         None,
 
         )).map_err(|e| e.into())
     }
     fn reply_error_foo(&mut self, enum_: ErrorFooArgs_enum, foo: TypeFoo, bar: ErrorFooArgs_bar, interface: Interface) -> Result<()> {
         self.reply_struct(varlink::Reply::error(
-            "org.example.complex.ErrorFoo".into(),
+            "org.example.complex.ErrorFoo",
             Some(serde_json::to_value(ErrorFooArgs_ { enum_, foo, bar, interface }).unwrap()),
         )).map_err(|e| e.into())
     }
@@ -323,14 +323,14 @@ impl VarlinkClientInterface for VarlinkClient {
     fn bar(&mut self) -> varlink::MethodCall<BarArgs_, BarReply_, Error> {
             varlink::MethodCall::<BarArgs_, BarReply_, Error>::new(
             self.connection.clone(),
-            "org.example.complex.Bar".into(),
+            "org.example.complex.Bar",
             BarArgs_ {  },
         )
     }
     fn foo(&mut self, enum_: FooArgs_enum, foo: TypeFoo, interface: Interface) -> varlink::MethodCall<FooArgs_, FooReply_, Error> {
             varlink::MethodCall::<FooArgs_, FooReply_, Error>::new(
             self.connection.clone(),
-            "org.example.complex.Foo".into(),
+            "org.example.complex.Foo",
             FooArgs_ { enum_, foo, interface },
         )
     }

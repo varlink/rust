@@ -32,4 +32,3 @@ fn main() -> Result<()> {
     let writer: &mut Write = &mut io::stdout();
     generate(&mut reader, writer)
 }
-

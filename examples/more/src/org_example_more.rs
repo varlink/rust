@@ -63,7 +63,7 @@ pub struct TestMoreErrorArgs_ {
 pub trait _CallErr: varlink::CallTrait {
     fn reply_test_more_error(&mut self, reason: String) -> Result<()> {
         self.reply_struct(varlink::Reply::error(
-            "org.example.more.TestMoreError".into(),
+            "org.example.more.TestMoreError",
             Some(serde_json::to_value(TestMoreErrorArgs_ { reason }).unwrap()),
         )).map_err(|e| e.into())
     }
@@ -217,21 +217,21 @@ impl VarlinkClientInterface for VarlinkClient {
     fn ping(&mut self, ping: String) -> varlink::MethodCall<PingArgs_, PingReply_, Error> {
         varlink::MethodCall::<PingArgs_, PingReply_, Error>::new(
             self.connection.clone(),
-            "org.example.more.Ping".into(),
+            "org.example.more.Ping",
             PingArgs_ { ping },
         )
     }
     fn stop_serving(&mut self) -> varlink::MethodCall<StopServingArgs_, StopServingReply_, Error> {
         varlink::MethodCall::<StopServingArgs_, StopServingReply_, Error>::new(
             self.connection.clone(),
-            "org.example.more.StopServing".into(),
+            "org.example.more.StopServing",
             StopServingArgs_ {},
         )
     }
     fn test_more(&mut self, n: i64) -> varlink::MethodCall<TestMoreArgs_, TestMoreReply_, Error> {
         varlink::MethodCall::<TestMoreArgs_, TestMoreReply_, Error>::new(
             self.connection.clone(),
-            "org.example.more.TestMore".into(),
+            "org.example.more.TestMore",
             TestMoreArgs_ { n },
         )
     }

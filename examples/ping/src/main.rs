@@ -78,9 +78,9 @@ fn main() {
 // Client
 
 fn run_client(address: String) -> Result<()> {
-    let connection = varlink::Connection::new(&address)?;
+    let connection = varlink::Connection::new(address)?;
     let mut iface = VarlinkClient::new(connection);
-    let ping: String = "Test".into();
+    let ping = String::from("Test");
 
     let reply = iface.ping(ping.clone()).call()?;
     assert_eq!(ping, reply.pong);
@@ -118,5 +118,6 @@ fn run_server(address: String, timeout: u64) -> Result<()> {
         vec![Box::new(myinterface)],
     );
 
-    varlink::listen(service, &address, 10, timeout).map_err(|e| e.into())
+    varlink::listen(service, address, 10, timeout)?;
+    Ok(())
 }

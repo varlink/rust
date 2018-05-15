@@ -60,13 +60,13 @@ pub struct UnknownNetworkIfIndexArgs_ {
 pub trait _CallErr: varlink::CallTrait {
     fn reply_unknown_error(&mut self, text: String) -> Result<()> {
         self.reply_struct(varlink::Reply::error(
-            "io.systemd.network.UnknownError".into(),
+            "io.systemd.network.UnknownError",
             Some(serde_json::to_value(UnknownErrorArgs_ { text }).unwrap()),
         )).map_err(|e| e.into())
     }
     fn reply_unknown_network_if_index(&mut self, ifindex: i64) -> Result<()> {
         self.reply_struct(varlink::Reply::error(
-            "io.systemd.network.UnknownNetworkIfIndex".into(),
+            "io.systemd.network.UnknownNetworkIfIndex",
             Some(serde_json::to_value(UnknownNetworkIfIndexArgs_ { ifindex }).unwrap()),
         )).map_err(|e| e.into())
     }
@@ -234,14 +234,14 @@ impl VarlinkClientInterface for VarlinkClient {
     fn info(&mut self, ifindex: i64) -> varlink::MethodCall<InfoArgs_, InfoReply_, Error> {
         varlink::MethodCall::<InfoArgs_, InfoReply_, Error>::new(
             self.connection.clone(),
-            "io.systemd.network.Info".into(),
+            "io.systemd.network.Info",
             InfoArgs_ { ifindex },
         )
     }
     fn list(&mut self) -> varlink::MethodCall<ListArgs_, ListReply_, Error> {
         varlink::MethodCall::<ListArgs_, ListReply_, Error>::new(
             self.connection.clone(),
-            "io.systemd.network.List".into(),
+            "io.systemd.network.List",
             ListArgs_ {},
         )
     }

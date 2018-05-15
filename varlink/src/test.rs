@@ -4,7 +4,7 @@ use *;
 fn test_listen() {
     use std::{thread, time};
 
-    fn run_app(address: &String, timeout: u64) -> Result<()> {
+    fn run_app(address: String, timeout: u64) -> Result<()> {
         let service = VarlinkService::new(
             "org.varlink",
             "test service",
@@ -13,26 +13,27 @@ fn test_listen() {
             vec![/* Your varlink interfaces go here */],
         );
 
-        if let Err(e) = listen(service, &address, 10, timeout) {
+        if let Err(e) = listen(service, address, 10, timeout) {
             panic!("Error listen: {}", e);
         }
         Ok(())
     }
 
-    fn run_client_app(address: &String) -> Result<()> {
-        let conn = Connection::new(&address)?;
+    fn run_client_app(address: String) -> Result<()> {
+        let conn = Connection::new(address)?;
         let mut call = OrgVarlinkServiceClient::new(conn.clone());
-        let info = call.get_info()?;
-        assert_eq!(&info.vendor, "org.varlink");
-        assert_eq!(&info.product, "test service");
-        assert_eq!(&info.version, "0.1");
-        assert_eq!(&info.url, "http://varlink.org");
-        assert_eq!(
-            info.interfaces.get(0).unwrap().as_ref(),
-            "org.varlink.service"
-        );
-
-        let e = call.get_interface_description("org.varlink.unknown".into());
+        {
+            let info = call.get_info()?;
+            assert_eq!(&info.vendor, "org.varlink");
+            assert_eq!(&info.product, "test service");
+            assert_eq!(&info.version, "0.1");
+            assert_eq!(&info.url, "http://varlink.org");
+            assert_eq!(
+                info.interfaces.get(0).unwrap().as_ref(),
+                "org.varlink.service"
+            );
+        }
+        let e = call.get_interface_description("org.varlink.unknown");
         assert!(e.is_err());
 
         match e {
@@ -45,7 +46,7 @@ fn test_listen() {
 
         let e = MethodCall::<GetInfoArgs, ServiceInfo, Error>::new(
             conn.clone(),
-            "org.varlink.service.GetInfos".into(),
+            "org.varlink.service.GetInfos",
             GetInfoArgs {},
         ).call();
 
@@ -60,7 +61,7 @@ fn test_listen() {
 
         let e = MethodCall::<GetInfoArgs, ServiceInfo, Error>::new(
             conn.clone(),
-            "org.varlink.unknowninterface.Foo".into(),
+            "org.varlink.unknowninterface.Foo",
             GetInfoArgs {},
         ).call();
 
@@ -73,7 +74,7 @@ fn test_listen() {
             }
         }
 
-        let description = call.get_interface_description("org.varlink.service".into())?;
+        let description = call.get_interface_description("org.varlink.service")?;
 
         assert_eq!(
             &description.description.unwrap(),
@@ -116,7 +117,7 @@ error InvalidParameter (parameter: string)
     let client_address = address.clone();
 
     let child = thread::spawn(move || {
-        if let Err(e) = run_app(&address, 3) {
+        if let Err(e) = run_app(address, 3) {
             panic!("error: {}", e);
         }
     });
@@ -124,7 +125,7 @@ error InvalidParameter (parameter: string)
     // give server time to start
     thread::sleep(time::Duration::from_secs(1));
 
-    assert!(run_client_app(&client_address).is_ok());
+    assert!(run_client_app(client_address).is_ok());
 
     assert!(child.join().is_ok());
 }

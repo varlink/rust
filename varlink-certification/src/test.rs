@@ -56,7 +56,7 @@ fn test_exec() {
         return;
     }
 
-    assert!(::run_client(address.clone()).is_ok());
+    assert!(::run_client(address).is_ok());
 }
 
 #[test]

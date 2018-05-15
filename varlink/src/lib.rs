@@ -154,7 +154,7 @@
 //!    ],
 //!);
 //!
-//!varlink::listen(service, &args[1], 10, 0);
+//!varlink::listen(service, args[1].clone(), 10, 0);
 //!# }
 //!# fn main() {}
 //!```
@@ -368,21 +368,21 @@ pub trait Interface {
 ///
 /// There should be no need to use this directly.
 ///
-#[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
-pub struct Request {
+#[derive(Serialize, Deserialize, Debug, PartialEq, Default, Clone)]
+pub struct Request<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub more: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub oneway: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub upgrade: Option<bool>,
-    pub method: Cow<'static, str>,
+    pub method: Cow<'a, str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parameters: Option<Value>,
 }
 
-impl Request {
-    pub fn create(method: Cow<'static, str>, parameters: Option<Value>) -> Self {
+impl<'a> Request<'a> {
+    pub fn create<S: Into<Cow<'a, str>>>(method: S, parameters: Option<Value>) -> Self {
         Request {
             more: None,
             oneway: None,
@@ -511,11 +511,11 @@ impl Reply {
         }
     }
 
-    pub fn error(name: Cow<'static, str>, parameters: Option<Value>) -> Self {
+    pub fn error<S: Into<Cow<'static, str>>>(name: S, parameters: Option<Value>) -> Self {
         Reply {
             continues: None,
             upgraded: None,
-            error: Some(name),
+            error: Some(name.into()),
             parameters,
         }
     }
@@ -563,7 +563,7 @@ where
 ///```
 pub struct Call<'a> {
     writer: &'a mut Write,
-    pub request: Option<&'a Request>,
+    pub request: Option<&'a Request<'a>>,
     continues: bool,
     upgraded: bool,
 }
@@ -666,7 +666,7 @@ pub trait CallTrait {
     /// reply with the standard varlink `org.varlink.service.MethodNotFound` error
     fn reply_method_not_found(&mut self, method_name: String) -> Result<()> {
         self.reply_struct(Reply::error(
-            "org.varlink.service.MethodNotFound".into(),
+            "org.varlink.service.MethodNotFound",
             Some(serde_json::to_value(ErrorMethodNotFound {
                 method: Some(method_name),
             })?),
@@ -676,7 +676,7 @@ pub trait CallTrait {
     /// reply with the standard varlink `org.varlink.service.MethodNotImplemented` error
     fn reply_method_not_implemented(&mut self, method_name: String) -> Result<()> {
         self.reply_struct(Reply::error(
-            "org.varlink.service.MethodNotImplemented".into(),
+            "org.varlink.service.MethodNotImplemented",
             Some(serde_json::to_value(ErrorMethodNotImplemented {
                 method: Some(method_name),
             })?),
@@ -686,7 +686,7 @@ pub trait CallTrait {
     /// reply with the standard varlink `org.varlink.service.InvalidParameter` error
     fn reply_invalid_parameter(&mut self, parameter_name: String) -> Result<()> {
         self.reply_struct(Reply::error(
-            "org.varlink.service.InvalidParameter".into(),
+            "org.varlink.service.InvalidParameter",
             Some(serde_json::to_value(ErrorInvalidParameter {
                 parameter: Some(parameter_name),
             })?),
@@ -716,7 +716,7 @@ impl<'a> CallTrait for Call<'a> {
     /// True, if this request does not want a reply.
     fn is_oneway(&self) -> bool {
         match self.request {
-            Some(&Request {
+            Some(Request {
                 oneway: Some(true), ..
             }) => true,
             _ => false,
@@ -726,7 +726,7 @@ impl<'a> CallTrait for Call<'a> {
     /// True, if this request accepts more than one reply.
     fn wants_more(&self) -> bool {
         match self.request {
-            Some(&Request {
+            Some(Request {
                 more: Some(true), ..
             }) => true,
             _ => false,
@@ -738,7 +738,7 @@ impl<'a> CallTrait for Call<'a> {
 }
 
 impl<'a> Call<'a> {
-    fn new(writer: &'a mut Write, request: &'a Request) -> Self {
+    fn new(writer: &'a mut Write, request: &'a Request<'a>) -> Self {
         Call {
             writer,
             request: Some(request),
@@ -757,7 +757,7 @@ impl<'a> Call<'a> {
 
     fn reply_interface_not_found(&mut self, arg: Option<String>) -> Result<()> {
         self.reply_struct(Reply::error(
-            "org.varlink.service.InterfaceNotFound".into(),
+            "org.varlink.service.InterfaceNotFound",
             match arg {
                 Some(a) => Some(serde_json::to_value(ErrorInterfaceNotFound {
                     interface: Some(a),
@@ -787,7 +787,7 @@ pub struct Connection {
 }
 
 impl Connection {
-    pub fn new(address: &str) -> io::Result<Arc<RwLock<Self>>> {
+    pub fn new<S: Into<String>>(address: S) -> io::Result<Arc<RwLock<Self>>> {
         let (mut stream, address) = client::VarlinkStream::connect(address)?;
         let (r, w) = stream.split()?;
         let bufreader = BufReader::new(r);
@@ -831,15 +831,15 @@ where
         + std::convert::From<serde_json::Error>
         + std::convert::From<Reply>,
 {
-    pub fn new(
+    pub fn new<S: Into<Cow<'static, str>>>(
         connection: Arc<RwLock<Connection>>,
-        method: Cow<'static, str>,
+        method: S,
         request: MRequest,
     ) -> Self {
         MethodCall::<MRequest, MReply, MError> {
             connection,
             request: Some(request),
-            method: Some(method),
+            method: Some(method.into()),
             continues: false,
             reader: None,
             writer: None,
@@ -969,8 +969,8 @@ where
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Default, Clone)]
-pub struct GetInterfaceDescriptionArgs {
-    interface: Cow<'static, str>,
+pub struct GetInterfaceDescriptionArgs<'a> {
+    interface: Cow<'a, str>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Default, Clone)]
@@ -1005,9 +1005,9 @@ impl OrgVarlinkServiceClient {
 
 pub trait OrgVarlinkServiceInterface {
     fn get_info(&mut self) -> Result<ServiceInfo>;
-    fn get_interface_description(
+    fn get_interface_description<S: Into<Cow<'static, str>>>(
         &mut self,
-        interface: String,
+        interface: S,
     ) -> Result<GetInterfaceDescriptionReply>;
 }
 
@@ -1015,17 +1015,17 @@ impl OrgVarlinkServiceInterface for OrgVarlinkServiceClient {
     fn get_info(&mut self) -> Result<ServiceInfo> {
         MethodCall::<GetInfoArgs, ServiceInfo, Error>::new(
             self.connection.clone(),
-            "org.varlink.service.GetInfo".into(),
+            "org.varlink.service.GetInfo",
             GetInfoArgs {},
         ).call()
     }
-    fn get_interface_description(
+    fn get_interface_description<S: Into<Cow<'static, str>>>(
         &mut self,
-        interface: String,
+        interface: S,
     ) -> Result<GetInterfaceDescriptionReply> {
         MethodCall::<GetInterfaceDescriptionArgs, GetInterfaceDescriptionReply, Error>::new(
             self.connection.clone(),
-            "org.varlink.service.GetInterfaceDescription".into(),
+            "org.varlink.service.GetInterfaceDescription",
             GetInterfaceDescriptionArgs {
                 interface: interface.into(),
             },
@@ -1081,6 +1081,7 @@ error InvalidParameter (parameter: string)
         call.upgraded = false;
         Ok(())
     }
+
     fn call(&self, call: &mut Call) -> Result<()> {
         let req = call.request.unwrap();
         match req.method.as_ref() {
@@ -1111,8 +1112,8 @@ error InvalidParameter (parameter: string)
                     }
                 }
             },
-            _ => {
-                return call.reply_method_not_found(req.method.clone().into());
+            m => {
+                return call.reply_method_not_found(m.to_string());
             }
         }
     }
@@ -1156,11 +1157,11 @@ impl VarlinkService {
     ///# }
     ///# fn main() {}
     ///```
-    pub fn new(
-        vendor: &str,
-        product: &str,
-        version: &str,
-        url: &str,
+    pub fn new<S: Into<Cow<'static, str>>>(
+        vendor: S,
+        product: S,
+        version: S,
+        url: S,
         interfaces: Vec<Box<Interface + Send + Sync>>,
     ) -> Self {
         let mut ifhashmap = HashMap::<Cow<'static, str>, Box<Interface + Send + Sync>>::new();
@@ -1176,10 +1177,10 @@ impl VarlinkService {
         );
         VarlinkService {
             info: ServiceInfo {
-                vendor: String::from(vendor).into(),
-                product: String::from(product).into(),
-                version: String::from(version).into(),
-                url: String::from(url).into(),
+                vendor: vendor.into(),
+                product: product.into(),
+                version: version.into(),
+                url: url.into(),
                 interfaces: ifnames,
             },
             ifaces: ifhashmap,
@@ -1229,19 +1230,19 @@ impl VarlinkService {
                     // pop the last zero byte
                     buf.pop();
                     let req: Request = serde_json::from_slice(&buf)?;
-                    let mut call = Call::new(writer, &req);
 
                     let n: usize = match req.method.rfind('.') {
                         None => {
-                            return call.reply_interface_not_found(Some(String::from(
-                                req.method.as_ref(),
-                            )));
+                            let method: String = String::from(req.method.as_ref());
+                            let mut call = Call::new(writer, &req);
+                            return call.reply_interface_not_found(Some(method));
                         }
                         Some(x) => x,
                     };
 
                     let iface = String::from(&req.method[..n]);
 
+                    let mut call = Call::new(writer, &req);
                     self.call(iface.clone(), &mut call)?;
 
                     upgraded = call.upgraded;
@@ -1284,9 +1285,9 @@ impl VarlinkService {
 ///# Note
 /// You don't have to use this simple server. With the `VarlinkService::handle()` method you
 /// can implement your own server model using whatever framework you prefer.
-pub fn listen(
+pub fn listen<S: Into<String>>(
     service: VarlinkService,
-    varlink_uri: &str,
+    varlink_uri: S,
     num_worker: usize,
     accept_timeout: u64,
 ) -> Result<()> {

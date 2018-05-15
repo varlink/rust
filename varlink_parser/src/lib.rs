@@ -97,7 +97,7 @@ pub struct Interface<'a> {
     pub methods: BTreeMap<&'a str, Method<'a>>,
     pub typedefs: BTreeMap<&'a str, Typedef<'a>>,
     pub errors: BTreeMap<&'a str, VError<'a>>,
-    pub error: HashSet<Cow<'static, str>>,
+    pub error: HashSet<Cow<'a, str>>,
 }
 
 macro_rules! printVTypeExt {

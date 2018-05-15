@@ -27,7 +27,8 @@ pub enum VarlinkStream {
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
-pub fn varlink_exec(address: String) -> io::Result<(Child, String, Option<TempDir>)> {
+pub fn varlink_exec<S: Into<String>>(address: S) -> io::Result<(Child, String, Option<TempDir>)> {
+    let address: String = address.into();
     use unix_socket::UnixListener;
 
     let dir = tempdir()?;
@@ -56,7 +57,9 @@ pub fn varlink_exec(address: String) -> io::Result<(Child, String, Option<TempDi
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-pub fn varlink_exec(address: String) -> io::Result<(Child, String, Option<TempDir>)> {
+pub fn varlink_exec<S: Into<String>>(address: S) -> io::Result<(Child, String, Option<TempDir>)> {
+    let address: String = address.into();
+
     use unix_socket::os::linux::SocketAddrExt;
     use unix_socket::UnixListener as AbstractUnixListener;
 
@@ -91,7 +94,7 @@ pub fn varlink_exec(address: String) -> io::Result<(Child, String, Option<TempDi
 }
 
 impl<'a> VarlinkStream {
-    pub fn connect(address: &str) -> io::Result<(Self, String)> {
+    pub fn connect<S: Into<String>>(address: S) -> io::Result<(Self, String)> {
         let mut address: String = address.into();
         let mut my_child: Option<Child> = None;
         let mut tmpdir: Option<TempDir> = None;

@@ -1,5 +1,5 @@
 [package]
-name = "varlink-cmd"
+name = "varlink-cli"
 version = "0.1.0"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 

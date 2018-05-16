@@ -237,7 +237,10 @@ fn main() -> Result<()> {
             let more = sub_matches.is_present("more");
             varlink_call(method, args, more)?
         }
-        (_, _) => app.print_help()?,
+        (_, _) => {
+            app.print_help()?;
+            eprintln!();
+        }
     }
     Ok(())
 }

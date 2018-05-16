@@ -125,9 +125,11 @@ fn varlink_call(url: &str, args: Option<&str>, more: bool) -> Result<()> {
     Ok(())
 }
 
+const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+
 fn main() -> Result<()> {
     let mut app = App::new("varlink")
-        .version("0.1")
+        .version(VERSION)
         .arg(
             Arg::with_name("timeout")
                 .short("t")

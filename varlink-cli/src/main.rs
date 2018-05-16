@@ -62,21 +62,17 @@ fn varlink_info(address: &str) -> Result<()> {
 }
 
 fn varlink_help(url: &str) -> Result<()> {
-    let del: Vec<&str> = url.split("/").collect();
-    let address: &str;
-    let interface: &str;
-
-    match del.len() {
-        2 => {
-            address = del[0];
-            interface = del[1];
-        }
-        _ => {
+    let del = match url.rfind("/") {
+        None => {
             return Err(
                 ErrorKind::NotImplemented(format!("Resolver not yet implemented {}", url)).into(),
-            );
+            )
         }
+        Some(v) => v,
     };
+
+    let address = &url[0..del];
+    let interface = &url[(del + 1)..];
 
     let conn = Connection::new(address)?;
     let mut call = OrgVarlinkServiceClient::new(conn);
@@ -93,21 +89,17 @@ fn varlink_help(url: &str) -> Result<()> {
 }
 
 fn varlink_call(url: &str, args: Option<&str>, more: bool) -> Result<()> {
-    let del: Vec<&str> = url.split("/").collect();
-    let address: &str;
-    let method: &str;
-
-    match del.len() {
-        2 => {
-            address = del[0];
-            method = del[1];
-        }
-        _ => {
+    let del = match url.rfind("/") {
+        None => {
             return Err(
                 ErrorKind::NotImplemented(format!("Resolver not yet implemented {}", url)).into(),
-            );
+            )
         }
+        Some(v) => v,
     };
+
+    let address = &url[0..del];
+    let method = &url[(del + 1)..];
 
     let conn = Connection::new(address)?;
     let args = match args {

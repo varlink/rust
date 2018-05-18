@@ -6,7 +6,6 @@ extern crate varlink;
 extern crate varlink_parser;
 
 use clap::{App, Arg, SubCommand};
-use errors::*;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
@@ -16,22 +15,20 @@ use varlink::{Connection, GetInterfaceDescriptionReply, MethodCall, OrgVarlinkSe
               OrgVarlinkServiceInterface};
 use varlink_parser::Varlink;
 
-mod errors {
-    error_chain! {
-        foreign_links {
-            Io(::std::io::Error);
-            Fmt(::std::fmt::Error);
-            SerdeJson(::serde_json::Error);
-            Clap(::clap::Error);
-        }
-        links {
-            Varlink(::varlink::Error, ::varlink::ErrorKind);
-            VarlinkParse(::varlink_parser::Error, ::varlink_parser::ErrorKind);
-        }
-        errors {
-            NotImplemented(t: String) {
-                display("Not yet implemented: '{}'", t)
-            }
+error_chain! {
+    foreign_links {
+        Io(::std::io::Error);
+        Fmt(::std::fmt::Error);
+        SerdeJson(::serde_json::Error);
+        Clap(::clap::Error);
+    }
+    links {
+        Varlink(::varlink::Error, ::varlink::ErrorKind);
+        VarlinkParse(::varlink_parser::Error, ::varlink_parser::ErrorKind);
+    }
+    errors {
+        NotImplemented(t: String) {
+            display("Not yet implemented: '{}'", t)
         }
     }
 }
@@ -62,14 +59,11 @@ fn varlink_info(address: &str) -> Result<()> {
 }
 
 fn varlink_help(url: &str) -> Result<()> {
-    let del = match url.rfind("/") {
-        None => {
-            return Err(
-                ErrorKind::NotImplemented(format!("Resolver not yet implemented {}", url)).into(),
-            )
-        }
-        Some(v) => v,
-    };
+    let del = url.rfind("/")
+        .ok_or(Error::from(ErrorKind::NotImplemented(format!(
+            "Resolver not yet implemented {}",
+            url
+        ))))?;
 
     let address = &url[0..del];
     let interface = &url[(del + 1)..];
@@ -89,14 +83,11 @@ fn varlink_help(url: &str) -> Result<()> {
 }
 
 fn varlink_call(url: &str, args: Option<&str>, more: bool) -> Result<()> {
-    let del = match url.rfind("/") {
-        None => {
-            return Err(
-                ErrorKind::NotImplemented(format!("Resolver not yet implemented {}", url)).into(),
-            )
-        }
-        Some(v) => v,
-    };
+    let del = url.rfind("/")
+        .ok_or(Error::from(ErrorKind::NotImplemented(format!(
+            "Resolver not yet implemented {}",
+            url
+        ))))?;
 
     let address = &url[0..del];
     let method = &url[(del + 1)..];

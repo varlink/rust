@@ -3,8 +3,6 @@ extern crate getopts;
 extern crate serde_derive;
 extern crate serde_json;
 extern crate varlink;
-#[macro_use]
-extern crate error_chain;
 
 use io_systemd_network::*;
 use std::env;
@@ -78,7 +76,7 @@ fn main() {
 
 // Client
 
-fn run_client(address: String) -> Result<()> {
+fn run_client(address: String) -> varlink::Result<()> {
     let conn = varlink::Connection::new(address)?;
 
     let mut iface = varlink::OrgVarlinkServiceClient::new(conn.clone());
@@ -133,16 +131,13 @@ fn run_client(address: String) -> Result<()> {
     }
 
     match iface.info(3).call() {
-        Err(Error(ErrorKind::Varlink(varlink::ErrorKind::InvalidParameter(ref p)), _))
+        Err(Error::VarlinkError(varlink::Error(varlink::ErrorKind::InvalidParameter(ref p), _)))
             if p == "ifindex" => {}
         res => panic!("Unknown result {:?}", res),
     }
 
     match iface.info(4).call() {
-        Err(Error(
-            ErrorKind::UnknownNetworkIfIndex(Some(UnknownNetworkIfIndexArgs_ { ifindex: 4 })),
-            _,
-        )) => {}
+        Err(Error::UnknownNetworkIfIndex(Some(UnknownNetworkIfIndexArgs_ { ifindex: 4 }))) => {}
         res => panic!("Unknown result {:?}", res),
     }
 
@@ -154,7 +149,7 @@ struct MyIoSystemdNetwork {
 }
 
 impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
-    fn info(&self, call: &mut _CallInfo, ifindex: i64) -> Result<()> {
+    fn info(&self, call: &mut CallInfo_, ifindex: i64) -> varlink::Result<()> {
         // State example
         {
             let mut number = self.state.write().unwrap();
@@ -187,7 +182,7 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
         }
     }
 
-    fn list(&self, call: &mut _CallList) -> Result<()> {
+    fn list(&self, call: &mut CallList_) -> varlink::Result<()> {
         // State example
         {
             let mut number = self.state.write().unwrap();
@@ -209,7 +204,7 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
     }
 }
 
-fn run_server(address: String, timeout: u64) -> Result<()> {
+fn run_server(address: String, timeout: u64) -> varlink::Result<()> {
     let state = Arc::new(RwLock::new(0));
     let myiosystemdnetwork = MyIoSystemdNetwork { state };
     let myinterface = io_systemd_network::new(Box::new(myiosystemdnetwork));

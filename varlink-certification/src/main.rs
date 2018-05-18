@@ -1,5 +1,4 @@
-#[macro_use]
-extern crate error_chain;
+
 extern crate getopts;
 #[macro_use]
 extern crate serde_derive;
@@ -329,7 +328,7 @@ macro_rules! check_call_oneway {
 }
 
 impl VarlinkInterface for CertInterface {
-    fn start(&self, call: &mut _CallStart) -> Result<()> {
+    fn start(&self, call: &mut CallStart_) -> varlink::Result<()> {
         check_call_expr!(
             call,
             match call.get_request() {
@@ -368,7 +367,7 @@ impl VarlinkInterface for CertInterface {
         call.reply(self.new_client_id())
     }
 
-    fn test01(&self, call: &mut _CallTest01, client_id: String) -> Result<()> {
+    fn test01(&self, call: &mut CallTest01_, client_id: String) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "Test01".into(), "Test02".into()) {
             return call.reply_client_id_error();
         }
@@ -385,7 +384,7 @@ impl VarlinkInterface for CertInterface {
         call.reply(true)
     }
 
-    fn test02(&self, call: &mut _CallTest02, client_id: String, _bool_: bool) -> Result<()> {
+    fn test02(&self, call: &mut CallTest02_, client_id: String, _bool_: bool) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "Test02".into(), "Test03".into()) {
             return call.reply_client_id_error();
         }
@@ -402,7 +401,7 @@ impl VarlinkInterface for CertInterface {
         call.reply(1)
     }
 
-    fn test03(&self, call: &mut _CallTest03, client_id: String, _int: i64) -> Result<()> {
+    fn test03(&self, call: &mut CallTest03_, client_id: String, _int: i64) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "Test03".into(), "Test04".into()) {
             return call.reply_client_id_error();
         }
@@ -419,7 +418,7 @@ impl VarlinkInterface for CertInterface {
         call.reply(1.0)
     }
 
-    fn test04(&self, call: &mut _CallTest04, client_id: String, _float: f64) -> Result<()> {
+    fn test04(&self, call: &mut CallTest04_, client_id: String, _float: f64) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "Test04".into(), "Test05".into()) {
             return call.reply_client_id_error();
         }
@@ -436,7 +435,7 @@ impl VarlinkInterface for CertInterface {
         call.reply("ping".into())
     }
 
-    fn test05(&self, call: &mut _CallTest05, client_id: String, _string: String) -> Result<()> {
+    fn test05(&self, call: &mut CallTest05_, client_id: String, _string: String) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "Test05".into(), "Test06".into()) {
             return call.reply_client_id_error();
         }
@@ -455,13 +454,13 @@ impl VarlinkInterface for CertInterface {
 
     fn test06(
         &self,
-        call: &mut _CallTest06,
+        call: &mut CallTest06_,
         client_id: String,
         _bool_: bool,
         _int: i64,
         _float: f64,
         _string: String,
-    ) -> Result<()> {
+    ) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "Test06".into(), "Test07".into()) {
             return call.reply_client_id_error();
         }
@@ -488,10 +487,10 @@ impl VarlinkInterface for CertInterface {
 
     fn test07(
         &self,
-        call: &mut _CallTest07,
+        call: &mut CallTest07_,
         client_id: String,
         _struct_: Test07Args_struct,
-    ) -> Result<()> {
+    ) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "Test07".into(), "Test08".into()) {
             return call.reply_client_id_error();
         }
@@ -518,10 +517,10 @@ impl VarlinkInterface for CertInterface {
 
     fn test08(
         &self,
-        call: &mut _CallTest08,
+        call: &mut CallTest08_,
         client_id: String,
         _map: ::std::collections::HashMap<String, String>,
-    ) -> Result<()> {
+    ) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "Test08".into(), "Test09".into()) {
             return call.reply_client_id_error();
         }
@@ -548,10 +547,10 @@ impl VarlinkInterface for CertInterface {
 
     fn test09(
         &self,
-        call: &mut _CallTest09,
+        call: &mut CallTest09_,
         client_id: String,
         _set: varlink::StringHashSet,
-    ) -> Result<()> {
+    ) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "Test09".into(), "Test10".into()) {
             return call.reply_client_id_error();
         }
@@ -573,7 +572,7 @@ impl VarlinkInterface for CertInterface {
         call.reply(new_mytype()?)
     }
 
-    fn test10(&self, call: &mut _CallTest10, client_id: String, _mytype: MyType) -> Result<()> {
+    fn test10(&self, call: &mut CallTest10_, client_id: String, _mytype: MyType) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "Test10".into(), "Test11".into()) {
             return call.reply_client_id_error();
         }
@@ -599,10 +598,10 @@ impl VarlinkInterface for CertInterface {
 
     fn test11(
         &self,
-        call: &mut _CallTest11,
+        call: &mut CallTest11_,
         client_id: String,
         _last_more_replies: Vec<String>,
-    ) -> Result<()> {
+    ) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "Test11".into(), "End".into()) {
             return call.reply_client_id_error();
         }
@@ -625,7 +624,7 @@ impl VarlinkInterface for CertInterface {
         Ok(())
     }
 
-    fn end(&self, call: &mut _CallEnd, client_id: String) -> Result<()> {
+    fn end(&self, call: &mut CallEnd_, client_id: String) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "End".into(), "End".into()) {
             return call.reply_client_id_error();
         }

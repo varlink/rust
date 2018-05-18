@@ -3,9 +3,6 @@ extern crate getopts;
 extern crate serde_derive;
 extern crate serde_json;
 extern crate varlink;
-#[macro_use]
-extern crate error_chain;
-
 use org_example_more::*;
 use std::env;
 use std::process::exit;
@@ -70,7 +67,7 @@ fn main() {
     exit(match ret {
         Ok(_) => 0,
         Err(err) => {
-            eprintln!("error: {}", err);
+            eprintln!("error: {:?}", err);
             1
         }
     });
@@ -137,15 +134,15 @@ struct MyOrgExampleMore {
 }
 
 impl VarlinkInterface for MyOrgExampleMore {
-    fn ping(&self, call: &mut _CallPing, ping: String) -> Result<()> {
+    fn ping(&self, call: &mut CallPing_, ping: String) -> varlink::Result<()> {
         return call.reply(ping);
     }
 
-    fn stop_serving(&self, call: &mut _CallStopServing) -> Result<()> {
+    fn stop_serving(&self, call: &mut CallStopServing_) -> varlink::Result<()> {
         call.reply()?;
-        bail!("Disconnect")
+        Err(varlink::Error::from("Disconnect"))
     }
-    fn test_more(&self, call: &mut _CallTestMore, n: i64) -> Result<()> {
+    fn test_more(&self, call: &mut CallTestMore_, n: i64) -> varlink::Result<()> {
         if !call.wants_more() {
             return call.reply_test_more_error("called without more".into());
         }

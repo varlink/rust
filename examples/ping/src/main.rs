@@ -3,8 +3,6 @@ extern crate getopts;
 extern crate serde_derive;
 extern crate serde_json;
 extern crate varlink;
-#[macro_use]
-extern crate error_chain;
 
 use org_example_ping::*;
 use std::env;
@@ -69,7 +67,7 @@ fn main() {
     exit(match ret {
         Ok(_) => 0,
         Err(err) => {
-            eprintln!("error: {}", err);
+            eprintln!("error: {:?}", err);
             1
         }
     });
@@ -102,7 +100,7 @@ fn run_client(address: String) -> Result<()> {
 struct MyOrgExamplePing;
 
 impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
-    fn ping(&self, call: &mut _CallPing, ping: String) -> Result<()> {
+    fn ping(&self, call: &mut CallPing_, ping: String) -> varlink::Result<()> {
         return call.reply(ping);
     }
 }

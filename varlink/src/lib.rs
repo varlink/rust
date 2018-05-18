@@ -489,7 +489,7 @@ pub trait VarlinkReply {}
 ///
 /// There should be no need to use this directly.
 /// See the [CallTrait](trait.CallTrait.html) to use with the first Call parameter
-#[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Default, Clone)]
 pub struct Reply {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub continues: Option<bool>,

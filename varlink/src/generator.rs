@@ -368,7 +368,7 @@ use varlink::CallTrait;
             if t.parm.elts.len() > 0 {
                 write!(
                     w,
-                    "            Some(serde_json::to_value({}Args_ {{ {} }}).unwrap()),",
+                    "            Some(serde_json::to_value({}Args_ {{ {} }})?),",
                     t.name, innames
                 )?;
             } else {
@@ -480,7 +480,7 @@ impl From<Error> for varlink::Error {{
                 r#"         Error(ErrorKind::{ename}(t), _) => {{
                 varlink::Error::from(varlink::ErrorKind::UnknownError(varlink::Reply {{
                     error: Some("{iname}.{ename}".into()),
-                    parameters: Some(serde_json::to_value(t).unwrap()),
+                    parameters: serde_json::to_value(t).ok(),
                     ..Default::default()
                 }}))
             }}"#,
@@ -495,8 +495,8 @@ impl From<Error> for varlink::Error {{
             e => {{
                 varlink::Error::from(varlink::ErrorKind::UnknownError(varlink::Reply {{
                     error: Some("org.example.more.InternalError".into()),
-                    parameters: Some(serde_json::to_value(internal_error{{ message: e.display_chain
-                    ().to_string()}}).unwrap()),
+                    parameters: serde_json::to_value(internal_error{{ message: e.display_chain
+                    ().to_string()}}).ok(),
                     ..Default::default()
                 }}))
             }}

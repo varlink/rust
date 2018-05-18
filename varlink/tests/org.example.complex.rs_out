@@ -159,7 +159,7 @@ pub trait _CallErr: varlink::CallTrait {
     fn reply_error_foo(&mut self, enum_: ErrorFooArgs_enum, foo: TypeFoo, bar: ErrorFooArgs_bar, interface: Interface) -> Result<()> {
         self.reply_struct(varlink::Reply::error(
             "org.example.complex.ErrorFoo",
-            Some(serde_json::to_value(ErrorFooArgs_ { enum_, foo, bar, interface }).unwrap()),
+            Some(serde_json::to_value(ErrorFooArgs_ { enum_, foo, bar, interface })?),
         )).map_err(|e| e.into())
     }
 }
@@ -239,21 +239,21 @@ impl From<Error> for varlink::Error {
          Error(ErrorKind::ErrorBar(t), _) => {
                 varlink::Error::from(varlink::ErrorKind::UnknownError(varlink::Reply {
                     error: Some("org.example.complex.ErrorBar".into()),
-                    parameters: Some(serde_json::to_value(t).unwrap()),
+                    parameters: serde_json::to_value(t).ok(),
                     ..Default::default()
                 }))
             }         Error(ErrorKind::ErrorFoo(t), _) => {
                 varlink::Error::from(varlink::ErrorKind::UnknownError(varlink::Reply {
                     error: Some("org.example.complex.ErrorFoo".into()),
-                    parameters: Some(serde_json::to_value(t).unwrap()),
+                    parameters: serde_json::to_value(t).ok(),
                     ..Default::default()
                 }))
             }
             e => {
                 varlink::Error::from(varlink::ErrorKind::UnknownError(varlink::Reply {
                     error: Some("org.example.more.InternalError".into()),
-                    parameters: Some(serde_json::to_value(internal_error{ message: e.display_chain
-                    ().to_string()}).unwrap()),
+                    parameters: serde_json::to_value(internal_error{ message: e.display_chain
+                    ().to_string()}).ok(),
                     ..Default::default()
                 }))
             }

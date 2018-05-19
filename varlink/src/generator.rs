@@ -2,6 +2,7 @@
 
 extern crate varlink_parser;
 
+use std::borrow::Cow;
 use std::env;
 use std::fs::File;
 use std::io;
@@ -11,7 +12,6 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::process::exit;
 use varlink_parser::{Interface, Varlink, VStruct, VStructOrEnum, VType, VTypeExt};
-use std::borrow::Cow;
 
 error_chain! {
     foreign_links {
@@ -85,10 +85,9 @@ impl<'short, 'long: 'short> ToRust<'short, 'long> for VTypeExt<'long> {
                     v.to_rust(parent, enumvec, structvec)?
                 ).into()),
             },
-            &VTypeExt::Option(ref v) => Ok(format!(
-                "Option<{}>",
-                v.to_rust(parent, enumvec, structvec)?
-            ).into()),
+            &VTypeExt::Option(ref v) => {
+                Ok(format!("Option<{}>", v.to_rust(parent, enumvec, structvec)?).into())
+            }
         }
     }
 }
@@ -333,7 +332,7 @@ use varlink::CallTrait;
             structvec = nstructvec;
         }
 
-        write!(w, "pub trait CallErr_: varlink::CallTrait {{\n")?;
+        write!(w, "pub trait VarlinkCallError: varlink::CallTrait {{\n")?;
         for t in self.errors.values() {
             let mut inparms: String = "".to_owned();
             let mut innames: String = "".to_owned();
@@ -382,7 +381,10 @@ use varlink::CallTrait;
 "#
             )?;
         }
-        write!(w, "}}\n\nimpl<'a> CallErr_ for varlink::Call<'a> {{}}\n\n")?;
+        write!(
+            w,
+            "}}\n\nimpl<'a> VarlinkCallError for varlink::Call<'a> {{}}\n\n"
+        )?;
 
         write!(w, "\n#[derive(Debug)]\npub enum Error {{\n")?;
         for t in self.errors.values() {
@@ -400,6 +402,23 @@ use varlink::CallTrait;
         write!(
             w,
             r#"
+pub type Result<T> = ::std::result::Result<T, Error>;
+
+impl ::std::fmt::Display for Error {{
+    fn fmt(&self, fmt: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {{
+        match self {{
+            Error::VarlinkError(e) => e.fmt(fmt),
+            Error::JSONError_(e) => e.fmt(fmt),
+            Error::IOError_(e) => e.fmt(fmt),
+            Error::UnknownError_(varlink::Reply {{
+                parameters: Some(p),
+                ..
+            }}) => p.fmt(fmt),
+            e => write!(fmt, "{{:?}}", e),
+        }}
+    }}
+}}
+
 impl From<varlink::Reply> for Error {{
     fn from(e: varlink::Reply) -> Self {{
         if varlink::Error::is_error(&e) {{
@@ -446,25 +465,6 @@ impl From<varlink::Reply> for Error {{
         write!(
             w,
             r#"
-#[derive(Serialize)]
-struct internal_error {{
-    message: String
-}}
-
-pub type Result<T> = ::std::result::Result<T, Error>;
-
-impl ::std::fmt::Display for Error {{
-    fn fmt(&self, fmt: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {{
-        match self {{
-            Error::VarlinkError(e) => e.fmt(fmt),
-            Error::JSONError_(e) => e.fmt(fmt),
-            Error::IOError_(e) => e.fmt(fmt),
-            Error::UnknownError_(t) => varlink::Error::from(t.clone()).fmt(fmt),
-            e => write!(fmt, "{{:?}}", e),
-        }}
-    }}
-}}
-
 impl From<io::Error> for Error {{
     fn from(e: io::Error) -> Self {{
         Error::IOError_(e)
@@ -483,38 +483,6 @@ impl From<serde_json::Error> for Error {{
         match e.classify() {{
             Category::Io => Error::IOError_(e.into()),
             _ => Error::JSONError_(e),
-        }}
-    }}
-}}
-
-impl From<Error> for varlink::Error {{
-    fn from(e: Error) -> Self {{
-        match e {{
-"#
-        )?;
-
-        for t in self.errors.values() {
-            write!(
-                w,
-                r#"         Error::{ename}(t) => {{
-                varlink::Error::from(varlink::ErrorKind::UnknownError(varlink::Reply {{
-                    error: Some("{iname}.{ename}".into()),
-                    parameters: serde_json::to_value(t).ok(),
-                    ..Default::default()
-                }}))
-            }}"#,
-                ename = t.name,
-                iname = self.name
-            )?;
-        }
-
-        write!(
-            w,
-            r#"
-            Error::VarlinkError(e) => e,
-            Error::JSONError_(t) => varlink::Error::from(t),
-            Error::IOError_(t) => varlink::Error::from(t),
-            Error::UnknownError_(t) => varlink::Error::from(t),
         }}
     }}
 }}
@@ -540,7 +508,7 @@ impl From<Error> for varlink::Error {{
                 innames.pop();
                 innames.pop();
             }
-            write!(w, "pub trait Call{}_: CallErr_ {{\n", t.name)?;
+            write!(w, "pub trait Call{}_: VarlinkCallError {{\n", t.name)?;
             write!(
                 w,
                 "    fn reply(&mut self{}) -> varlink::Result<()> {{\n",
@@ -731,15 +699,15 @@ impl VarlinkClientInterface for VarlinkClient {{
         write!(
             w,
             r########################################################################################"
-pub struct _InterfaceProxy {{
+pub struct VarlinkInterfaceProxy {{
     inner: Box<VarlinkInterface + Send + Sync>,
 }}
 
-pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {{
-    _InterfaceProxy {{ inner }}
+pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> VarlinkInterfaceProxy {{
+    VarlinkInterfaceProxy {{ inner }}
 }}
 
-impl varlink::Interface for _InterfaceProxy {{
+impl varlink::Interface for VarlinkInterfaceProxy {{
     fn get_description(&self) -> &'static str {{
         r#####################################"{description}"#####################################
     }}

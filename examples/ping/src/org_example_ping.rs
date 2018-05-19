@@ -29,7 +29,7 @@ pub struct PingErrorArgs_ {
     pub parameter: i64,
 }
 
-pub trait CallErr_: varlink::CallTrait {
+pub trait VarlinkCallError: varlink::CallTrait {
     fn reply_ping_error(&mut self, parameter: i64) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::error(
             "org.example.ping.PingError",
@@ -38,7 +38,7 @@ pub trait CallErr_: varlink::CallTrait {
     }
 }
 
-impl<'a> CallErr_ for varlink::Call<'a> {}
+impl<'a> VarlinkCallError for varlink::Call<'a> {}
 
 #[derive(Debug)]
 pub enum Error {
@@ -47,6 +47,23 @@ pub enum Error {
     UnknownError_(varlink::Reply),
     IOError_(io::Error),
     JSONError_(serde_json::Error),
+}
+
+pub type Result<T> = ::std::result::Result<T, Error>;
+
+impl ::std::fmt::Display for Error {
+    fn fmt(&self, fmt: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        match self {
+            Error::VarlinkError(e) => e.fmt(fmt),
+            Error::JSONError_(e) => e.fmt(fmt),
+            Error::IOError_(e) => e.fmt(fmt),
+            Error::UnknownError_(varlink::Reply {
+                parameters: Some(p),
+                ..
+            }) => p.fmt(fmt),
+            e => write!(fmt, "{:?}", e),
+        }
+    }
 }
 
 impl From<varlink::Reply> for Error {
@@ -76,25 +93,6 @@ impl From<varlink::Reply> for Error {
     }
 }
 
-#[derive(Serialize)]
-struct internal_error {
-    message: String,
-}
-
-pub type Result<T> = ::std::result::Result<T, Error>;
-
-impl ::std::fmt::Display for Error {
-    fn fmt(&self, fmt: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        match self {
-            Error::VarlinkError(e) => e.fmt(fmt),
-            Error::JSONError_(e) => e.fmt(fmt),
-            Error::IOError_(e) => e.fmt(fmt),
-            Error::UnknownError_(t) => varlink::Error::from(t.clone()).fmt(fmt),
-            e => write!(fmt, "{:?}", e),
-        }
-    }
-}
-
 impl From<io::Error> for Error {
     fn from(e: io::Error) -> Self {
         Error::IOError_(e)
@@ -116,25 +114,7 @@ impl From<serde_json::Error> for Error {
         }
     }
 }
-
-impl From<Error> for varlink::Error {
-    fn from(e: Error) -> Self {
-        match e {
-            Error::PingError(t) => {
-                varlink::Error::from(varlink::ErrorKind::UnknownError(varlink::Reply {
-                    error: Some("org.example.ping.PingError".into()),
-                    parameters: serde_json::to_value(t).ok(),
-                    ..Default::default()
-                }))
-            }
-            Error::VarlinkError(e) => e,
-            Error::JSONError_(t) => varlink::Error::from(t),
-            Error::IOError_(t) => varlink::Error::from(t),
-            Error::UnknownError_(t) => varlink::Error::from(t),
-        }
-    }
-}
-pub trait CallPing_: CallErr_ {
+pub trait CallPing_: VarlinkCallError {
     fn reply(&mut self, pong: String) -> varlink::Result<()> {
         self.reply_struct(PingReply_ { pong }.into())
     }
@@ -193,15 +173,15 @@ impl VarlinkClientInterface for VarlinkClient {
     }
 }
 
-pub struct _InterfaceProxy {
+pub struct VarlinkInterfaceProxy {
     inner: Box<VarlinkInterface + Send + Sync>,
 }
 
-pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
-    _InterfaceProxy { inner }
+pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> VarlinkInterfaceProxy {
+    VarlinkInterfaceProxy { inner }
 }
 
-impl varlink::Interface for _InterfaceProxy {
+impl varlink::Interface for VarlinkInterfaceProxy {
     fn get_description(&self) -> &'static str {
         r#####################################"# Example service
 interface org.example.ping

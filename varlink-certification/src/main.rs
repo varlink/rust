@@ -1,4 +1,3 @@
-
 extern crate getopts;
 #[macro_use]
 extern crate serde_derive;
@@ -384,7 +383,12 @@ impl VarlinkInterface for CertInterface {
         call.reply(true)
     }
 
-    fn test02(&self, call: &mut CallTest02_, client_id: String, _bool_: bool) -> varlink::Result<()> {
+    fn test02(
+        &self,
+        call: &mut CallTest02_,
+        client_id: String,
+        _bool_: bool,
+    ) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "Test02".into(), "Test03".into()) {
             return call.reply_client_id_error();
         }
@@ -418,7 +422,12 @@ impl VarlinkInterface for CertInterface {
         call.reply(1.0)
     }
 
-    fn test04(&self, call: &mut CallTest04_, client_id: String, _float: f64) -> varlink::Result<()> {
+    fn test04(
+        &self,
+        call: &mut CallTest04_,
+        client_id: String,
+        _float: f64,
+    ) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "Test04".into(), "Test05".into()) {
             return call.reply_client_id_error();
         }
@@ -435,7 +444,12 @@ impl VarlinkInterface for CertInterface {
         call.reply("ping".into())
     }
 
-    fn test05(&self, call: &mut CallTest05_, client_id: String, _string: String) -> varlink::Result<()> {
+    fn test05(
+        &self,
+        call: &mut CallTest05_,
+        client_id: String,
+        _string: String,
+    ) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "Test05".into(), "Test06".into()) {
             return call.reply_client_id_error();
         }
@@ -572,7 +586,12 @@ impl VarlinkInterface for CertInterface {
         call.reply(new_mytype()?)
     }
 
-    fn test10(&self, call: &mut CallTest10_, client_id: String, _mytype: MyType) -> varlink::Result<()> {
+    fn test10(
+        &self,
+        call: &mut CallTest10_,
+        client_id: String,
+        _mytype: MyType,
+    ) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "Test10".into(), "Test11".into()) {
             return call.reply_client_id_error();
         }

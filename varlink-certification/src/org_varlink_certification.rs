@@ -263,7 +263,7 @@ pub enum MyType_enum {
     three,
 }
 
-pub trait CallErr_: varlink::CallTrait {
+pub trait VarlinkCallError: varlink::CallTrait {
     fn reply_certification_error(&mut self, wants: Value, got: Value) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::error(
             "org.varlink.certification.CertificationError",
@@ -281,7 +281,7 @@ pub trait CallErr_: varlink::CallTrait {
     }
 }
 
-impl<'a> CallErr_ for varlink::Call<'a> {}
+impl<'a> VarlinkCallError for varlink::Call<'a> {}
 
 #[derive(Debug)]
 pub enum Error {
@@ -291,6 +291,23 @@ pub enum Error {
     UnknownError_(varlink::Reply),
     IOError_(io::Error),
     JSONError_(serde_json::Error),
+}
+
+pub type Result<T> = ::std::result::Result<T, Error>;
+
+impl ::std::fmt::Display for Error {
+    fn fmt(&self, fmt: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        match self {
+            Error::VarlinkError(e) => e.fmt(fmt),
+            Error::JSONError_(e) => e.fmt(fmt),
+            Error::IOError_(e) => e.fmt(fmt),
+            Error::UnknownError_(varlink::Reply {
+                parameters: Some(p),
+                ..
+            }) => p.fmt(fmt),
+            e => write!(fmt, "{:?}", e),
+        }
+    }
 }
 
 impl From<varlink::Reply> for Error {
@@ -335,25 +352,6 @@ impl From<varlink::Reply> for Error {
     }
 }
 
-#[derive(Serialize)]
-struct internal_error {
-    message: String,
-}
-
-pub type Result<T> = ::std::result::Result<T, Error>;
-
-impl ::std::fmt::Display for Error {
-    fn fmt(&self, fmt: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        match self {
-            Error::VarlinkError(e) => e.fmt(fmt),
-            Error::JSONError_(e) => e.fmt(fmt),
-            Error::IOError_(e) => e.fmt(fmt),
-            Error::UnknownError_(t) => varlink::Error::from(t.clone()).fmt(fmt),
-            e => write!(fmt, "{:?}", e),
-        }
-    }
-}
-
 impl From<io::Error> for Error {
     fn from(e: io::Error) -> Self {
         Error::IOError_(e)
@@ -375,32 +373,7 @@ impl From<serde_json::Error> for Error {
         }
     }
 }
-
-impl From<Error> for varlink::Error {
-    fn from(e: Error) -> Self {
-        match e {
-            Error::CertificationError(t) => {
-                varlink::Error::from(varlink::ErrorKind::UnknownError(varlink::Reply {
-                    error: Some("org.varlink.certification.CertificationError".into()),
-                    parameters: serde_json::to_value(t).ok(),
-                    ..Default::default()
-                }))
-            }
-            Error::ClientIdError(t) => {
-                varlink::Error::from(varlink::ErrorKind::UnknownError(varlink::Reply {
-                    error: Some("org.varlink.certification.ClientIdError".into()),
-                    parameters: serde_json::to_value(t).ok(),
-                    ..Default::default()
-                }))
-            }
-            Error::VarlinkError(e) => e,
-            Error::JSONError_(t) => varlink::Error::from(t),
-            Error::IOError_(t) => varlink::Error::from(t),
-            Error::UnknownError_(t) => varlink::Error::from(t),
-        }
-    }
-}
-pub trait CallEnd_: CallErr_ {
+pub trait CallEnd_: VarlinkCallError {
     fn reply(&mut self, all_ok: bool) -> varlink::Result<()> {
         self.reply_struct(EndReply_ { all_ok }.into())
     }
@@ -408,7 +381,7 @@ pub trait CallEnd_: CallErr_ {
 
 impl<'a> CallEnd_ for varlink::Call<'a> {}
 
-pub trait CallStart_: CallErr_ {
+pub trait CallStart_: VarlinkCallError {
     fn reply(&mut self, client_id: String) -> varlink::Result<()> {
         self.reply_struct(StartReply_ { client_id }.into())
     }
@@ -416,7 +389,7 @@ pub trait CallStart_: CallErr_ {
 
 impl<'a> CallStart_ for varlink::Call<'a> {}
 
-pub trait CallTest01_: CallErr_ {
+pub trait CallTest01_: VarlinkCallError {
     fn reply(&mut self, bool: bool) -> varlink::Result<()> {
         self.reply_struct(Test01Reply_ { bool }.into())
     }
@@ -424,7 +397,7 @@ pub trait CallTest01_: CallErr_ {
 
 impl<'a> CallTest01_ for varlink::Call<'a> {}
 
-pub trait CallTest02_: CallErr_ {
+pub trait CallTest02_: VarlinkCallError {
     fn reply(&mut self, int: i64) -> varlink::Result<()> {
         self.reply_struct(Test02Reply_ { int }.into())
     }
@@ -432,7 +405,7 @@ pub trait CallTest02_: CallErr_ {
 
 impl<'a> CallTest02_ for varlink::Call<'a> {}
 
-pub trait CallTest03_: CallErr_ {
+pub trait CallTest03_: VarlinkCallError {
     fn reply(&mut self, float: f64) -> varlink::Result<()> {
         self.reply_struct(Test03Reply_ { float }.into())
     }
@@ -440,7 +413,7 @@ pub trait CallTest03_: CallErr_ {
 
 impl<'a> CallTest03_ for varlink::Call<'a> {}
 
-pub trait CallTest04_: CallErr_ {
+pub trait CallTest04_: VarlinkCallError {
     fn reply(&mut self, string: String) -> varlink::Result<()> {
         self.reply_struct(Test04Reply_ { string }.into())
     }
@@ -448,7 +421,7 @@ pub trait CallTest04_: CallErr_ {
 
 impl<'a> CallTest04_ for varlink::Call<'a> {}
 
-pub trait CallTest05_: CallErr_ {
+pub trait CallTest05_: VarlinkCallError {
     fn reply(&mut self, bool: bool, int: i64, float: f64, string: String) -> varlink::Result<()> {
         self.reply_struct(
             Test05Reply_ {
@@ -463,7 +436,7 @@ pub trait CallTest05_: CallErr_ {
 
 impl<'a> CallTest05_ for varlink::Call<'a> {}
 
-pub trait CallTest06_: CallErr_ {
+pub trait CallTest06_: VarlinkCallError {
     fn reply(&mut self, struct_: Test06Reply_struct) -> varlink::Result<()> {
         self.reply_struct(Test06Reply_ { struct_ }.into())
     }
@@ -471,7 +444,7 @@ pub trait CallTest06_: CallErr_ {
 
 impl<'a> CallTest06_ for varlink::Call<'a> {}
 
-pub trait CallTest07_: CallErr_ {
+pub trait CallTest07_: VarlinkCallError {
     fn reply(&mut self, map: varlink::StringHashMap<String>) -> varlink::Result<()> {
         self.reply_struct(Test07Reply_ { map }.into())
     }
@@ -479,7 +452,7 @@ pub trait CallTest07_: CallErr_ {
 
 impl<'a> CallTest07_ for varlink::Call<'a> {}
 
-pub trait CallTest08_: CallErr_ {
+pub trait CallTest08_: VarlinkCallError {
     fn reply(&mut self, set: varlink::StringHashSet) -> varlink::Result<()> {
         self.reply_struct(Test08Reply_ { set }.into())
     }
@@ -487,7 +460,7 @@ pub trait CallTest08_: CallErr_ {
 
 impl<'a> CallTest08_ for varlink::Call<'a> {}
 
-pub trait CallTest09_: CallErr_ {
+pub trait CallTest09_: VarlinkCallError {
     fn reply(&mut self, mytype: MyType) -> varlink::Result<()> {
         self.reply_struct(Test09Reply_ { mytype }.into())
     }
@@ -495,7 +468,7 @@ pub trait CallTest09_: CallErr_ {
 
 impl<'a> CallTest09_ for varlink::Call<'a> {}
 
-pub trait CallTest10_: CallErr_ {
+pub trait CallTest10_: VarlinkCallError {
     fn reply(&mut self, string: String) -> varlink::Result<()> {
         self.reply_struct(Test10Reply_ { string }.into())
     }
@@ -503,7 +476,7 @@ pub trait CallTest10_: CallErr_ {
 
 impl<'a> CallTest10_ for varlink::Call<'a> {}
 
-pub trait CallTest11_: CallErr_ {
+pub trait CallTest11_: VarlinkCallError {
     fn reply(&mut self) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::parameters(None))
     }
@@ -809,15 +782,15 @@ impl VarlinkClientInterface for VarlinkClient {
     }
 }
 
-pub struct _InterfaceProxy {
+pub struct VarlinkInterfaceProxy {
     inner: Box<VarlinkInterface + Send + Sync>,
 }
 
-pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
-    _InterfaceProxy { inner }
+pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> VarlinkInterfaceProxy {
+    VarlinkInterfaceProxy { inner }
 }
 
-impl varlink::Interface for _InterfaceProxy {
+impl varlink::Interface for VarlinkInterfaceProxy {
     fn get_description(&self) -> &'static str {
         r#####################################"# Interface to test varlink implementations against.
 # First you write a varlink client calling:

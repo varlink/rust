@@ -1,3 +1,6 @@
+extern crate failure;
+#[macro_use]
+extern crate failure_derive;
 extern crate getopts;
 #[macro_use]
 extern crate serde_derive;
@@ -61,8 +64,8 @@ fn main() {
     };
 
     let ret = match client_mode {
-        true => run_client(address),
-        false => run_server(address, 0),
+        true => run_client(&address),
+        false => run_server(&address, 0),
     };
 
     exit(match ret {
@@ -76,7 +79,7 @@ fn main() {
 
 // Client
 
-fn run_client(address: String) -> varlink::Result<()> {
+fn run_client<S: ?Sized + AsRef<str>>(address: &S) -> varlink::Result<()> {
     let conn = varlink::Connection::new(address)?;
 
     let mut iface = varlink::OrgVarlinkServiceClient::new(conn.clone());
@@ -130,16 +133,13 @@ fn run_client(address: String) -> varlink::Result<()> {
         res => panic!("Unknown result {:?}", res),
     }
 
-    match iface.info(3).call() {
-        Err(Error::VarlinkError(varlink::Error(
-            varlink::ErrorKind::InvalidParameter(ref p),
-            _,
-        ))) if p == "ifindex" => {}
+    match iface.info(3).call().err().unwrap().kind() {
+        ErrorKind::Varlink(varlink::ErrorKind::InvalidParameter(ref p)) if p == "ifindex" => {}
         res => panic!("Unknown result {:?}", res),
     }
 
-    match iface.info(4).call() {
-        Err(Error::UnknownNetworkIfIndex(Some(UnknownNetworkIfIndexArgs_ { ifindex: 4 }))) => {}
+    match iface.info(4).call().err().unwrap().kind() {
+        ErrorKind::UnknownNetworkIfIndex(Some(UnknownNetworkIfIndexArgs_ { ifindex: 4 })) => {}
         res => panic!("Unknown result {:?}", res),
     }
 
@@ -206,7 +206,7 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
     }
 }
 
-fn run_server(address: String, timeout: u64) -> varlink::Result<()> {
+fn run_server<S: ?Sized + AsRef<str>>(address: &S, timeout: u64) -> varlink::Result<()> {
     let state = Arc::new(RwLock::new(0));
     let myiosystemdnetwork = MyIoSystemdNetwork { state };
     let myinterface = io_systemd_network::new(Box::new(myiosystemdnetwork));

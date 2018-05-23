@@ -1,3 +1,6 @@
+extern crate failure;
+#[macro_use]
+extern crate failure_derive;
 extern crate getopts;
 #[macro_use]
 extern crate serde_derive;
@@ -76,7 +79,7 @@ fn main() {
 // Client
 
 fn run_client(address: String) -> Result<()> {
-    let connection = varlink::Connection::new(address)?;
+    let connection = varlink::Connection::new(&address)?;
     let mut iface = VarlinkClient::new(connection);
     let ping = String::from("Test");
 
@@ -116,6 +119,6 @@ fn run_server(address: String, timeout: u64) -> Result<()> {
         vec![Box::new(myinterface)],
     );
 
-    varlink::listen(service, address, 10, timeout)?;
+    varlink::listen(service, &address, 10, timeout)?;
     Ok(())
 }

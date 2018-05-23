@@ -1,16 +1,18 @@
 //! varlink_parser crate for parsing varlink interface definition files.
 
 extern crate bytes;
+extern crate failure;
 #[macro_use]
-extern crate error_chain;
+extern crate failure_derive;
 extern crate itertools;
 
 use self::varlink_grammar::VInterface;
+use failure::{Backtrace, Context, Fail, ResultExt};
 use itertools::Itertools;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
-use std::fmt;
+use std::fmt::{self, Display};
 
 #[cfg(test)]
 mod test;
@@ -19,16 +21,56 @@ mod varlink_grammar {
     include!(concat!(env!("OUT_DIR"), "/varlink_grammar.rs"));
 }
 
-error_chain! {
-    foreign_links {
-        Peg(self::varlink_grammar::ParseError);
+#[derive(Debug)]
+pub struct Error {
+    inner: Context<ErrorKind>,
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Fail)]
+pub enum ErrorKind {
+    #[fail(display = "Parse error")]
+    Peg,
+    #[fail(display = "Interface definition error: '{}'", _0)]
+    InterfaceDefinition(String),
+}
+
+impl Fail for Error {
+    fn cause(&self) -> Option<&Fail> {
+        self.inner.cause()
     }
-    errors {
-        InterfaceDefinition(t: String) {
-            display("Interface definition error: '{}'", t)
+
+    fn backtrace(&self) -> Option<&Backtrace> {
+        self.inner.backtrace()
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Display::fmt(&self.inner, f)
+    }
+}
+
+impl Error {
+    pub fn kind(&self) -> ErrorKind {
+        self.inner.get_context().clone()
+    }
+}
+
+impl From<ErrorKind> for Error {
+    fn from(kind: ErrorKind) -> Error {
+        Error {
+            inner: Context::new(kind),
         }
     }
 }
+
+impl From<Context<ErrorKind>> for Error {
+    fn from(inner: Context<ErrorKind>) -> Error {
+        Error { inner }
+    }
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 pub enum VType<'a> {
     Bool,
@@ -273,7 +315,7 @@ pub struct Varlink<'a> {
 
 impl<'a> Varlink<'a> {
     pub fn from_string(s: &'a str) -> Result<Varlink> {
-        let iface = VInterface(s)?;
+        let iface = VInterface(s).context(ErrorKind::Peg)?;
 
         if iface.error.len() != 0 {
             Err(ErrorKind::InterfaceDefinition(iface.error.into_iter().sorted().join("\n")).into())

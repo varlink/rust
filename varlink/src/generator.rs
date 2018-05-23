@@ -1,27 +1,78 @@
 //! Generate rust code from varlink interface definition files
 
-extern crate varlink_parser;
-
+use failure::{Backtrace, Context, Fail};
 use std::borrow::Cow;
 use std::env;
+use std::fmt::{self, Display};
 use std::fs::File;
-use std::io;
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::process::exit;
-use varlink_parser::{Interface, Varlink, VStruct, VStructOrEnum, VType, VTypeExt};
+use std::process::{exit, Command};
+use varlink_parser::{self, Interface, VStruct, VStructOrEnum, VType, VTypeExt, Varlink};
 
-error_chain! {
-    foreign_links {
-        Io(::std::io::Error);
+#[derive(Debug)]
+pub struct Error {
+    inner: Context<ErrorKind>,
+}
+
+#[derive(Clone, PartialEq, Debug, Fail)]
+pub enum ErrorKind {
+    #[fail(display = "IO error")]
+    Io,
+    #[fail(display = "Parse Error")]
+    Parser,
+}
+
+impl Fail for Error {
+    fn cause(&self) -> Option<&Fail> {
+        self.inner.cause()
     }
 
-    links {
-        Parser(self::varlink_parser::Error, self::varlink_parser::ErrorKind);
+    fn backtrace(&self) -> Option<&Backtrace> {
+        self.inner.backtrace()
     }
 }
+
+impl Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Display::fmt(&self.inner, f)
+    }
+}
+
+impl Error {
+    pub fn kind(&self) -> ErrorKind {
+        self.inner.get_context().clone()
+    }
+}
+
+impl From<ErrorKind> for Error {
+    fn from(kind: ErrorKind) -> Error {
+        Error {
+            inner: Context::new(kind),
+        }
+    }
+}
+
+impl From<Context<ErrorKind>> for Error {
+    fn from(inner: Context<ErrorKind>) -> Error {
+        Error { inner }
+    }
+}
+
+impl From<::std::io::Error> for Error {
+    fn from(e: ::std::io::Error) -> Error {
+        e.context(ErrorKind::Io).into()
+    }
+}
+
+impl From<varlink_parser::Error> for Error {
+    fn from(e: varlink_parser::Error) -> Error {
+        e.context(ErrorKind::Parser).into()
+    }
+}
+
+pub type Result<T> = ::std::result::Result<T, Error>;
 
 type EnumVec<'a> = Vec<(String, Vec<String>)>;
 type StructVec<'a> = Vec<(String, &'a VStruct<'a>)>;
@@ -173,11 +224,11 @@ impl<'a> InterfaceToRust for Interface<'a> {
 #![allow(non_snake_case)]
 #![allow(unused_imports)]
 
+use failure::{{Backtrace, Context, Fail, ResultExt}};
 use serde_json::{{self, Value}};
 use std::io;
 use std::sync::{{Arc, RwLock}};
-use varlink;
-use varlink::CallTrait;
+use varlink::{{self, CallTrait}};
 
 "#
         )?;
@@ -185,7 +236,10 @@ use varlink::CallTrait;
         for t in self.typedefs.values() {
             match t.elt {
                 VStructOrEnum::VStruct(ref v) => {
-                    write!(w, "#[derive(Serialize, Deserialize, Debug, PartialEq)]\n")?;
+                    write!(
+                        w,
+                        "#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]\n"
+                    )?;
                     write!(w, "pub struct {} {{\n", replace_if_rust_keyword(t.name))?;
                     for e in &v.elts {
                         if let VTypeExt::Option(_) = e.vtype {
@@ -205,7 +259,10 @@ use varlink::CallTrait;
                     }
                 }
                 VStructOrEnum::VEnum(ref v) => {
-                    write!(w, "#[derive(Serialize, Deserialize, Debug, PartialEq)]\n")?;
+                    write!(
+                        w,
+                        "#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]\n"
+                    )?;
                     write!(w, "pub enum {} {{\n", t.name)?;
                     let mut iter = v.elts.iter();
                     for elt in iter {
@@ -219,7 +276,10 @@ use varlink::CallTrait;
         }
 
         for t in self.methods.values() {
-            write!(w, "#[derive(Serialize, Deserialize, Debug, PartialEq)]\n")?;
+            write!(
+                w,
+                "#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]\n"
+            )?;
             write!(w, "pub struct {}Reply_ {{\n", t.name)?;
             for e in &t.output.elts {
                 if let VTypeExt::Option(_) = e.vtype {
@@ -243,7 +303,10 @@ use varlink::CallTrait;
                 "impl varlink::VarlinkReply for {}Reply_ {{}}\n\n",
                 t.name
             )?;
-            write!(w, "#[derive(Serialize, Deserialize, Debug, PartialEq)]\n")?;
+            write!(
+                w,
+                "#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]\n"
+            )?;
             write!(w, "pub struct {}Args_ {{\n", t.name)?;
             for e in &t.input.elts {
                 if let VTypeExt::Option(_) = e.vtype {
@@ -265,7 +328,10 @@ use varlink::CallTrait;
         }
 
         for t in self.errors.values() {
-            write!(w, "#[derive(Serialize, Deserialize, Debug, PartialEq)]\n")?;
+            write!(
+                w,
+                "#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]\n"
+            )?;
             write!(w, "pub struct {}Args_ {{\n", t.name)?;
             for e in &t.parm.elts {
                 if let VTypeExt::Option(_) = e.vtype {
@@ -289,7 +355,10 @@ use varlink::CallTrait;
         loop {
             let mut nstructvec = StructVec::new();
             for (name, v) in structvec.drain(..) {
-                write!(w, "#[derive(Serialize, Deserialize, Debug, PartialEq)]\n")?;
+                write!(
+                    w,
+                    "#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]\n"
+                )?;
                 write!(w, "pub struct {} {{\n", replace_if_rust_keyword(&name))?;
                 for e in &v.elts {
                     if let VTypeExt::Option(_) = e.vtype {
@@ -314,7 +383,7 @@ use varlink::CallTrait;
             for (name, v) in enumvec.drain(..) {
                 write!(
                     w,
-                    "#[derive(Serialize, Deserialize, Debug, PartialEq)]\n\
+                    "#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]\n\
                      pub enum {} {{\n",
                     replace_if_rust_keyword(name.as_str())
                 )?;
@@ -386,35 +455,99 @@ use varlink::CallTrait;
             "}}\n\nimpl<'a> VarlinkCallError for varlink::Call<'a> {{}}\n\n"
         )?;
 
-        write!(w, "\n#[derive(Debug)]\npub enum Error {{\n")?;
-        for t in self.errors.values() {
-            write!(w, "    {ename}(Option<{ename}Args_>),\n", ename = t.name)?;
-        }
-        write!(
-            w,
-            "    \
-             VarlinkError(varlink::Error),\n    \
-             UnknownError_(varlink::Reply),\n    \
-             IOError_(io::Error),\n    \
-             JSONError_(serde_json::Error),\n\
-             }}\n"
-        )?;
         write!(
             w,
             r#"
-pub type Result<T> = ::std::result::Result<T, Error>;
+#[derive(Debug)]
+pub struct Error {{
+    inner: Context<ErrorKind>,
+}}
+
+#[derive(Clone, PartialEq, Debug, Fail)]
+pub enum ErrorKind {{
+    #[fail(display = "IO error")]
+    Io_(::std::io::ErrorKind),
+    #[fail(display = "(De)Serialization Error")]
+    SerdeJson_(serde_json::error::Category),
+    #[fail(display = "Varlink Error")]
+    Varlink(varlink::ErrorKind),
+    #[fail(display = "Unknown error reply: '{{:#?}}'", _0)]
+    VarlinkReply(varlink::Reply),
+"#
+        )?;
+        for t in self.errors.values() {
+            write!(
+                w,
+                "    \
+                 #[fail(display = \"{iname}.{ename}: {{:#?}}\", _0)]\n    \
+                 {ename}(Option<{ename}Args_>),\n",
+                ename = t.name,
+                iname = self.name,
+            )?;
+        }
+        write!(
+            w,
+            r#"}}
+
+impl Fail for Error {{
+    fn cause(&self) -> Option<&Fail> {{
+        self.inner.cause()
+    }}
+
+    fn backtrace(&self) -> Option<&Backtrace> {{
+        self.inner.backtrace()
+    }}
+}}
 
 impl ::std::fmt::Display for Error {{
-    fn fmt(&self, fmt: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {{
-        match self {{
-            Error::VarlinkError(e) => e.fmt(fmt),
-            Error::JSONError_(e) => e.fmt(fmt),
-            Error::IOError_(e) => e.fmt(fmt),
-            Error::UnknownError_(varlink::Reply {{
-                parameters: Some(p),
-                ..
-            }}) => p.fmt(fmt),
-            e => write!(fmt, "{{:?}}", e),
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {{
+        ::std::fmt::Display::fmt(&self.inner, f)
+    }}
+}}
+
+impl Error {{
+    pub fn kind(&self) -> ErrorKind {{
+        self.inner.get_context().clone()
+    }}
+}}
+
+impl From<ErrorKind> for Error {{
+    fn from(kind: ErrorKind) -> Error {{
+        Error {{
+            inner: Context::new(kind),
+        }}
+    }}
+}}
+
+impl From<Context<ErrorKind>> for Error {{
+    fn from(inner: Context<ErrorKind>) -> Error {{
+        Error {{ inner }}
+    }}
+}}
+
+impl From<::std::io::Error> for Error {{
+    fn from(e: ::std::io::Error) -> Error {{
+        let kind = e.kind();
+        e.context(ErrorKind::Io_(kind)).into()
+    }}
+}}
+
+impl From<serde_json::Error> for Error {{
+    fn from(e: serde_json::Error) -> Error {{
+        let cat = e.classify();
+        e.context(ErrorKind::SerdeJson_(cat)).into()
+    }}
+}}
+
+pub type Result<T> = ::std::result::Result<T, Error>;
+
+impl From<varlink::Error> for Error {{
+    fn from(e: varlink::Error) -> Self {{
+        let kind = e.kind();
+        match kind {{
+            varlink::ErrorKind::Io(kind) => e.context(ErrorKind::Io_(kind)).into(),
+            varlink::ErrorKind::SerdeJsonSer(cat) => e.context(ErrorKind::SerdeJson_(cat)).into(),
+            kind => e.context(ErrorKind::Varlink(kind)).into(),
         }}
     }}
 }}
@@ -422,7 +555,7 @@ impl ::std::fmt::Display for Error {{
 impl From<varlink::Reply> for Error {{
     fn from(e: varlink::Reply) -> Self {{
         if varlink::Error::is_error(&e) {{
-            return Error::VarlinkError(e.into());
+            return varlink::Error::from(e).into();
         }}
 
         match e {{
@@ -441,10 +574,10 @@ impl From<varlink::Reply> for Error {{
                            parameters: Some(p),
                            ..
                        }} => match serde_json::from_value(p) {{
-                           Ok(v) => Error::{ename}(v),
-                           Err(_) => Error::{ename}(None),
+                           Ok(v) => ErrorKind::{ename}(v).into(),
+                           Err(_) => ErrorKind::{ename}(None).into(),
                        }},
-                       _ => Error::{ename}(None),
+                       _ => ErrorKind::{ename}(None).into(),
                    }}
                }}
 "#,
@@ -455,34 +588,7 @@ impl From<varlink::Reply> for Error {{
 
         write!(
             w,
-            r#"            _ => return Error::UnknownError_(e),
-        }}
-    }}
-}}
-"#
-        )?;
-
-        write!(
-            w,
-            r#"
-impl From<io::Error> for Error {{
-    fn from(e: io::Error) -> Self {{
-        Error::IOError_(e)
-    }}
-}}
-
-impl From<varlink::Error> for Error {{
-    fn from(e: varlink::Error) -> Self {{
-        Error::VarlinkError(e)
-    }}
-}}
-
-impl From<serde_json::Error> for Error {{
-    fn from(e: serde_json::Error) -> Self {{
-        use serde_json::error::Category;
-        match e.classify() {{
-            Category::Io => Error::IOError_(e.into()),
-            _ => Error::JSONError_(e),
+            r#"            _ => return ErrorKind::VarlinkReply(e).into(),
         }}
     }}
 }}

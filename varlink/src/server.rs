@@ -6,8 +6,7 @@
 use libc::getpid;
 use std::env;
 use std::fs;
-use std::io;
-use std::io::{Error, ErrorKind, Read, Write};
+use std::io::{Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::os::unix::io::{FromRawFd, IntoRawFd};
 use std::os::unix::net::{UnixListener, UnixStream};
@@ -17,7 +16,10 @@ use std::thread;
 use std::time::Duration;
 // FIXME: abstract unix domains sockets still not in std
 // FIXME: https://github.com/rust-lang/rust/issues/14194
+use failure::ResultExt;
 use unix_socket::UnixListener as AbstractUnixListener;
+
+use {ErrorKind, Result};
 
 enum VarlinkListener {
     TCP(TcpListener),
@@ -30,7 +32,7 @@ enum VarlinkStream {
 }
 
 impl<'a> VarlinkStream {
-    pub fn split(&mut self) -> io::Result<(Box<Read + Send + Sync>, Box<Write + Send + Sync>)> {
+    pub fn split(&mut self) -> Result<(Box<Read + Send + Sync>, Box<Write + Send + Sync>)> {
         match *self {
             VarlinkStream::TCP(ref mut s) => {
                 Ok((Box::new(s.try_clone()?), Box::new(s.try_clone()?)))
@@ -40,15 +42,16 @@ impl<'a> VarlinkStream {
             }
         }
     }
-    pub fn shutdown(&mut self) -> io::Result<()> {
+    pub fn shutdown(&mut self) -> Result<()> {
         match *self {
-            VarlinkStream::TCP(ref mut s) => s.shutdown(Shutdown::Both),
-            VarlinkStream::UNIX(ref mut s) => s.shutdown(Shutdown::Both),
+            VarlinkStream::TCP(ref mut s) => s.shutdown(Shutdown::Both)?,
+            VarlinkStream::UNIX(ref mut s) => s.shutdown(Shutdown::Both)?,
         }
+        Ok(())
     }
 }
 
-fn activation_listener() -> io::Result<Option<i32>> {
+fn activation_listener() -> Result<Option<i32>> {
     let nfds: u32;
 
     match env::var("LISTEN_FDS") {
@@ -91,8 +94,8 @@ fn activation_listener() -> io::Result<Option<i32>> {
 
 //FIXME: add Drop with shutdown() and unix file removal
 impl VarlinkListener {
-    pub fn new<S: Into<String>>(address: S) -> io::Result<Self> {
-        let address: String = address.into();
+    pub fn new<S: ?Sized + AsRef<str>>(address: &S) -> Result<Self> {
+        let address = address.as_ref();
         if let Some(l) = activation_listener()? {
             if address.starts_with("tcp:") {
                 unsafe {
@@ -103,7 +106,7 @@ impl VarlinkListener {
                     return Ok(VarlinkListener::UNIX(UnixListener::from_raw_fd(l)));
                 }
             } else {
-                return Err(Error::new(ErrorKind::Other, "unknown varlink address"));
+                return Err(ErrorKind::InvalidAddress.into());
             }
         }
 
@@ -124,11 +127,11 @@ impl VarlinkListener {
             let _ = fs::remove_file(&*addr);
             Ok(VarlinkListener::UNIX(UnixListener::bind(addr)?))
         } else {
-            Err(Error::new(ErrorKind::Other, "unknown varlink address"))
+            Err(ErrorKind::InvalidAddress.into())
         }
     }
 
-    pub fn accept(&self) -> io::Result<VarlinkStream> {
+    pub fn accept(&self) -> Result<VarlinkStream> {
         match self {
             &VarlinkListener::TCP(ref l) => {
                 let (mut s, _addr) = l.accept()?;
@@ -140,11 +143,12 @@ impl VarlinkListener {
             }
         }
     }
-    pub fn set_nonblocking(&self, b: bool) -> io::Result<()> {
+    pub fn set_nonblocking(&self, b: bool) -> Result<()> {
         match self {
-            &VarlinkListener::TCP(ref l) => l.set_nonblocking(b),
-            &VarlinkListener::UNIX(ref l) => l.set_nonblocking(b),
+            &VarlinkListener::TCP(ref l) => l.set_nonblocking(b)?,
+            &VarlinkListener::UNIX(ref l) => l.set_nonblocking(b)?,
         }
+        Ok(())
     }
 }
 
@@ -243,25 +247,44 @@ impl Worker {
     }
 }
 
-pub enum ServerError {
-    IoError(Error),
-    AcceptTimeout,
-}
-
-impl From<Error> for ServerError {
-    fn from(e: Error) -> Self {
-        ServerError::IoError(e)
-    }
-}
-
-pub fn do_listen<S: Into<String>>(
+/// `listen` creates a server, with `num_worker` threads listening on `varlink_uri`.
+///
+/// If an `accept_timeout` != 0 is specified, this function returns after the specified
+/// amount of seconds, if no new connection is made in that time frame. It still waits for
+/// all pending connections to finish.
+///
+///# Examples
+///
+///```
+/// extern crate failure;
+/// extern crate varlink;
+/// use failure::Fail;
+///
+/// let service = varlink::VarlinkService::new(
+///     "org.varlink",
+///     "test service",
+///     "0.1",
+///     "http://varlink.org",
+///     vec![/* Your varlink interfaces go here */],
+/// );
+///
+/// if let Err(e) = varlink::listen(service, "unix:/tmp/test_listen_timeout", 10, 1) {
+///     if e.kind() != varlink::ErrorKind::Timeout {
+///         panic!("Error listen: {:?}", e.cause());
+///     }
+/// }
+///```
+///# Note
+/// You don't have to use this simple server. With the `VarlinkService::handle()` method you
+/// can implement your own server model using whatever framework you prefer.
+pub fn listen<S: ?Sized + AsRef<str>>(
     service: ::VarlinkService,
-    address: S,
+    address: &S,
     workers: usize,
     accept_timeout: u64,
-) -> Result<(), ServerError> {
+) -> Result<()> {
     let service = Arc::new(service);
-    let listener = Arc::new(VarlinkListener::new(address.into())?);
+    let listener = Arc::new(VarlinkListener::new(address)?);
     listener.set_nonblocking(false)?;
     let pool = ThreadPool::new(workers);
 
@@ -278,10 +301,9 @@ pub fn do_listen<S: Into<String>>(
                 }
             });
 
-            stream = match receiver.recv_timeout(Duration::from_secs(accept_timeout)) {
-                Ok(s) => s?,
-                Err(_) => return Err(ServerError::AcceptTimeout),
-            };
+            stream = receiver
+                .recv_timeout(Duration::from_secs(accept_timeout))
+                .context(ErrorKind::Timeout)??;
         } else {
             stream = listener.accept()?;
         }

@@ -1,37 +1,26 @@
 extern crate clap;
+extern crate failure;
 #[macro_use]
-extern crate error_chain;
+extern crate failure_derive;
 extern crate serde_json;
 extern crate varlink;
 extern crate varlink_parser;
 
 use clap::{App, Arg, SubCommand};
+use error::{Error, ErrorKind, Result};
+use failure::ResultExt;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 use std::str;
-use varlink::{Connection, GetInterfaceDescriptionReply, MethodCall, OrgVarlinkServiceClient,
-              OrgVarlinkServiceInterface};
+use varlink::{
+    Connection, GetInterfaceDescriptionReply, MethodCall, OrgVarlinkServiceClient,
+    OrgVarlinkServiceInterface,
+};
 use varlink_parser::Varlink;
 
-error_chain! {
-    foreign_links {
-        Io(::std::io::Error);
-        Fmt(::std::fmt::Error);
-        SerdeJson(::serde_json::Error);
-        Clap(::clap::Error);
-    }
-    links {
-        Varlink(::varlink::Error, ::varlink::ErrorKind);
-        VarlinkParse(::varlink_parser::Error, ::varlink_parser::ErrorKind);
-    }
-    errors {
-        NotImplemented(t: String) {
-            display("Not yet implemented: '{}'", t)
-        }
-    }
-}
+mod error;
 
 fn varlink_format(filename: &str) -> Result<()> {
     let mut buffer = String::new();
@@ -43,7 +32,7 @@ fn varlink_format(filename: &str) -> Result<()> {
 }
 
 fn varlink_info(address: &str) -> Result<()> {
-    let conn = Connection::new(address)?;
+    let conn = Connection::new(address).context(ErrorKind::Connection(address.into()))?;
     let mut call = OrgVarlinkServiceClient::new(conn);
     let info = call.get_info()?;
     println!("Vendor: {}", info.vendor);
@@ -59,16 +48,18 @@ fn varlink_info(address: &str) -> Result<()> {
 }
 
 fn varlink_help(url: &str) -> Result<()> {
-    let del = url.rfind("/")
-        .ok_or(Error::from(ErrorKind::NotImplemented(format!(
-            "Resolver not yet implemented {}",
-            url
-        ))))?;
+    let del = url
+        .rfind("/")
+        .ok_or(Error::from(ErrorKind::NotImplemented("Resolver".into())))?;
 
     let address = &url[0..del];
     let interface = &url[(del + 1)..];
 
-    let conn = Connection::new(address)?;
+    if interface.find(".") == None {
+        Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress))?
+    }
+
+    let conn = Connection::new(address).context(ErrorKind::Connection(address.into()))?;
     let mut call = OrgVarlinkServiceClient::new(conn);
     match call.get_interface_description(interface.to_string())? {
         GetInterfaceDescriptionReply {
@@ -83,18 +74,20 @@ fn varlink_help(url: &str) -> Result<()> {
 }
 
 fn varlink_call(url: &str, args: Option<&str>, more: bool) -> Result<()> {
-    let del = url.rfind("/")
-        .ok_or(Error::from(ErrorKind::NotImplemented(format!(
-            "Resolver not yet implemented {}",
-            url
-        ))))?;
+    let del = url
+        .rfind("/")
+        .ok_or(Error::from(ErrorKind::NotImplemented("Resolver".into())))?;
 
     let address = &url[0..del];
     let method = &url[(del + 1)..];
 
-    let conn = Connection::new(address)?;
+    if method.find(".") == None {
+        Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress))?
+    }
+
+    let conn = Connection::new(address).context(ErrorKind::Connection(address.into()))?;
     let args = match args {
-        Some(args) => serde_json::from_str(args)?,
+        Some(args) => serde_json::from_str(args).context(ErrorKind::SerdeJsonDe(args.to_string()))?,
         None => serde_json::Value::Null,
     };
 
@@ -139,6 +132,7 @@ fn main() -> Result<()> {
         )
         .subcommand(
             SubCommand::with_name("bridge")
+                .version(VERSION)
                 .about("Bridge varlink messages to services on this machine")
                 .long_about(
                     "Bridge varlink messages on standard in and out to varlink services on this \
@@ -147,6 +141,7 @@ fn main() -> Result<()> {
         )
         .subcommand(
             SubCommand::with_name("call")
+                .version(VERSION)
                 .about("Call a method")
                 .long_about("Call METHOD on INTERFACE at ADDRESS. ARGUMENTS must be valid JSON.")
                 .arg(
@@ -164,6 +159,7 @@ fn main() -> Result<()> {
         )
         .subcommand(
             SubCommand::with_name("format")
+                .version(VERSION)
                 .about("Format a varlink service file")
                 .arg(
                     Arg::with_name("FILE")
@@ -173,12 +169,14 @@ fn main() -> Result<()> {
         )
         .subcommand(
             SubCommand::with_name("info")
+                .version(VERSION)
                 .about("Print information about a service")
                 .long_about("Prints information about the service running at ADDRESS.")
                 .arg(Arg::with_name("ADDRESS").required(true)),
         )
         .subcommand(
             SubCommand::with_name("help")
+                .version(VERSION)
                 .about("Print interface description or service information")
                 .long_about("Prints information about INTERFACE.")
                 .arg(
@@ -189,12 +187,14 @@ fn main() -> Result<()> {
         )
         .subcommand(
             SubCommand::with_name("resolve")
+                .version(VERSION)
                 .about("Resolve an interface name to a varlink address")
                 .long_about("Resolve INTERFACE to the varlink address that implements it.")
                 .arg(Arg::with_name("INTERFACE").required(true)),
         )
         .subcommand(
             SubCommand::with_name("completions")
+                .version(VERSION)
                 .about("Generates completion scripts for your shell")
                 .arg(
                     Arg::with_name("SHELL")
@@ -229,8 +229,8 @@ fn main() -> Result<()> {
             varlink_call(method, args, more)?
         }
         (_, _) => {
-            app.print_help()?;
-            eprintln!();
+            app.print_help().context(ErrorKind::Argument)?;
+            println!();
         }
     }
     Ok(())

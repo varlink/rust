@@ -6,52 +6,52 @@
 #![allow(non_snake_case)]
 #![allow(unused_imports)]
 
+use failure::{Backtrace, Context, Fail, ResultExt};
 use serde_json::{self, Value};
 use std::io;
 use std::sync::{Arc, RwLock};
-use varlink;
-use varlink::CallTrait;
+use varlink::{self, CallTrait};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Netdev {
     pub ifindex: i64,
     pub ifname: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct NetdevInfo {
     pub ifindex: i64,
     pub ifname: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct InfoReply_ {
     pub info: NetdevInfo,
 }
 
 impl varlink::VarlinkReply for InfoReply_ {}
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct InfoArgs_ {
     pub ifindex: i64,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct ListReply_ {
     pub netdevs: Vec<Netdev>,
 }
 
 impl varlink::VarlinkReply for ListReply_ {}
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct ListArgs_ {}
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct UnknownErrorArgs_ {
     pub text: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct UnknownNetworkIfIndexArgs_ {
     pub ifindex: i64,
 }
@@ -76,28 +76,85 @@ pub trait VarlinkCallError: varlink::CallTrait {
 impl<'a> VarlinkCallError for varlink::Call<'a> {}
 
 #[derive(Debug)]
-pub enum Error {
+pub struct Error {
+    inner: Context<ErrorKind>,
+}
+
+#[derive(Clone, PartialEq, Debug, Fail)]
+pub enum ErrorKind {
+    #[fail(display = "IO error")]
+    Io_(::std::io::ErrorKind),
+    #[fail(display = "(De)Serialization Error")]
+    SerdeJson_(serde_json::error::Category),
+    #[fail(display = "Varlink Error")]
+    Varlink(varlink::ErrorKind),
+    #[fail(display = "Unknown error reply: '{:#?}'", _0)]
+    VarlinkReply(varlink::Reply),
+    #[fail(display = "io.systemd.network.UnknownError: {:#?}", _0)]
     UnknownError(Option<UnknownErrorArgs_>),
+    #[fail(display = "io.systemd.network.UnknownNetworkIfIndex: {:#?}", _0)]
     UnknownNetworkIfIndex(Option<UnknownNetworkIfIndexArgs_>),
-    VarlinkError(varlink::Error),
-    UnknownError_(varlink::Reply),
-    IOError_(io::Error),
-    JSONError_(serde_json::Error),
+}
+
+impl Fail for Error {
+    fn cause(&self) -> Option<&Fail> {
+        self.inner.cause()
+    }
+
+    fn backtrace(&self) -> Option<&Backtrace> {
+        self.inner.backtrace()
+    }
+}
+
+impl ::std::fmt::Display for Error {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        ::std::fmt::Display::fmt(&self.inner, f)
+    }
+}
+
+impl Error {
+    pub fn kind(&self) -> ErrorKind {
+        self.inner.get_context().clone()
+    }
+}
+
+impl From<ErrorKind> for Error {
+    fn from(kind: ErrorKind) -> Error {
+        Error {
+            inner: Context::new(kind),
+        }
+    }
+}
+
+impl From<Context<ErrorKind>> for Error {
+    fn from(inner: Context<ErrorKind>) -> Error {
+        Error { inner }
+    }
+}
+
+impl From<::std::io::Error> for Error {
+    fn from(e: ::std::io::Error) -> Error {
+        let kind = e.kind();
+        e.context(ErrorKind::Io_(kind)).into()
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(e: serde_json::Error) -> Error {
+        let cat = e.classify();
+        e.context(ErrorKind::SerdeJson_(cat)).into()
+    }
 }
 
 pub type Result<T> = ::std::result::Result<T, Error>;
 
-impl ::std::fmt::Display for Error {
-    fn fmt(&self, fmt: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        match self {
-            Error::VarlinkError(e) => e.fmt(fmt),
-            Error::JSONError_(e) => e.fmt(fmt),
-            Error::IOError_(e) => e.fmt(fmt),
-            Error::UnknownError_(varlink::Reply {
-                parameters: Some(p),
-                ..
-            }) => p.fmt(fmt),
-            e => write!(fmt, "{:?}", e),
+impl From<varlink::Error> for Error {
+    fn from(e: varlink::Error) -> Self {
+        let kind = e.kind();
+        match kind {
+            varlink::ErrorKind::Io(kind) => e.context(ErrorKind::Io_(kind)).into(),
+            varlink::ErrorKind::SerdeJsonSer(cat) => e.context(ErrorKind::SerdeJson_(cat)).into(),
+            kind => e.context(ErrorKind::Varlink(kind)).into(),
         }
     }
 }
@@ -105,7 +162,7 @@ impl ::std::fmt::Display for Error {
 impl From<varlink::Reply> for Error {
     fn from(e: varlink::Reply) -> Self {
         if varlink::Error::is_error(&e) {
-            return Error::VarlinkError(e.into());
+            return varlink::Error::from(e).into();
         }
 
         match e {
@@ -118,10 +175,10 @@ impl From<varlink::Reply> for Error {
                         parameters: Some(p),
                         ..
                     } => match serde_json::from_value(p) {
-                        Ok(v) => Error::UnknownError(v),
-                        Err(_) => Error::UnknownError(None),
+                        Ok(v) => ErrorKind::UnknownError(v).into(),
+                        Err(_) => ErrorKind::UnknownError(None).into(),
                     },
-                    _ => Error::UnknownError(None),
+                    _ => ErrorKind::UnknownError(None).into(),
                 }
             }
             varlink::Reply {
@@ -133,35 +190,13 @@ impl From<varlink::Reply> for Error {
                         parameters: Some(p),
                         ..
                     } => match serde_json::from_value(p) {
-                        Ok(v) => Error::UnknownNetworkIfIndex(v),
-                        Err(_) => Error::UnknownNetworkIfIndex(None),
+                        Ok(v) => ErrorKind::UnknownNetworkIfIndex(v).into(),
+                        Err(_) => ErrorKind::UnknownNetworkIfIndex(None).into(),
                     },
-                    _ => Error::UnknownNetworkIfIndex(None),
+                    _ => ErrorKind::UnknownNetworkIfIndex(None).into(),
                 }
             }
-            _ => return Error::UnknownError_(e),
-        }
-    }
-}
-
-impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Self {
-        Error::IOError_(e)
-    }
-}
-
-impl From<varlink::Error> for Error {
-    fn from(e: varlink::Error) -> Self {
-        Error::VarlinkError(e)
-    }
-}
-
-impl From<serde_json::Error> for Error {
-    fn from(e: serde_json::Error) -> Self {
-        use serde_json::error::Category;
-        match e.classify() {
-            Category::Io => Error::IOError_(e.into()),
-            _ => Error::JSONError_(e),
+            _ => return ErrorKind::VarlinkReply(e).into(),
         }
     }
 }

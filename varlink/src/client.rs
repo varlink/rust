@@ -6,8 +6,7 @@ use libc::close;
 use libc::dup2;
 use libc::getpid;
 use std::env;
-use std::io;
-use std::io::{Error, ErrorKind, Read, Write};
+use std::io::{Read, Write};
 use std::net::{Shutdown, TcpStream};
 use std::os::unix::io::{FromRawFd, IntoRawFd};
 use std::os::unix::net::UnixStream;
@@ -20,6 +19,7 @@ use tempfile::TempDir;
 // FIXME: abstract unix domains sockets still not in std
 // FIXME: https://github.com/rust-lang/rust/issues/14194
 use unix_socket::UnixStream as AbstractStream;
+use {ErrorKind, Result};
 
 pub enum VarlinkStream {
     TCP(TcpStream),
@@ -27,8 +27,10 @@ pub enum VarlinkStream {
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
-pub fn varlink_exec<S: Into<String>>(address: S) -> io::Result<(Child, String, Option<TempDir>)> {
-    let address: String = address.into();
+pub fn varlink_exec<S: ?Sized + AsRef<str>>(
+    address: &S,
+) -> Result<(Child, String, Option<TempDir>)> {
+    let address = address.as_ref();
     use unix_socket::UnixListener;
 
     let dir = tempdir()?;
@@ -57,8 +59,10 @@ pub fn varlink_exec<S: Into<String>>(address: S) -> io::Result<(Child, String, O
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-pub fn varlink_exec<S: Into<String>>(address: S) -> io::Result<(Child, String, Option<TempDir>)> {
-    let address: String = address.into();
+pub fn varlink_exec<S: ?Sized + AsRef<str>>(
+    address: &S,
+) -> Result<(Child, String, Option<TempDir>)> {
+    let address = address.as_ref();
 
     use unix_socket::os::linux::SocketAddrExt;
     use unix_socket::UnixListener as AbstractUnixListener;
@@ -94,22 +98,25 @@ pub fn varlink_exec<S: Into<String>>(address: S) -> io::Result<(Child, String, O
 }
 
 impl<'a> VarlinkStream {
-    pub fn connect<S: Into<String>>(address: S) -> io::Result<(Self, String)> {
-        let mut address: String = address.into();
+    pub fn connect<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Self, String)> {
+        let address = address.as_ref();
+        let new_address: String;
         let mut my_child: Option<Child> = None;
         let mut tmpdir: Option<TempDir> = None;
 
         if address.starts_with("exec:") {
             let (c, a, t) = varlink_exec(address)?;
-            address = a;
+            new_address = a;
             my_child = Some(c);
             tmpdir = t;
+        } else {
+            new_address = address.into();
         }
 
         if address.starts_with("tcp:") {
             Ok((
                 VarlinkStream::TCP(TcpStream::connect(&address[4..])?),
-                address,
+                new_address,
             ))
         } else if address.starts_with("unix:") {
             let mut addr = String::from(address[5..].split(";").next().unwrap());
@@ -123,20 +130,20 @@ impl<'a> VarlinkStream {
                             my_child,
                             tmpdir,
                         ),
-                        address,
+                        new_address,
                     ));
                 }
             }
             Ok((
                 VarlinkStream::UNIX(UnixStream::connect(addr)?, my_child, tmpdir),
-                address,
+                new_address,
             ))
         } else {
-            Err(Error::new(ErrorKind::Other, "unknown varlink address"))
+            Err(ErrorKind::InvalidAddress)?
         }
     }
 
-    pub fn split(&mut self) -> io::Result<(Box<Read + Send + Sync>, Box<Write + Send + Sync>)> {
+    pub fn split(&mut self) -> Result<(Box<Read + Send + Sync>, Box<Write + Send + Sync>)> {
         match *self {
             VarlinkStream::TCP(ref mut s) => {
                 Ok((Box::new(s.try_clone()?), Box::new(s.try_clone()?)))
@@ -147,18 +154,20 @@ impl<'a> VarlinkStream {
         }
     }
 
-    pub fn shutdown(&mut self) -> io::Result<()> {
+    pub fn shutdown(&mut self) -> Result<()> {
         match *self {
-            VarlinkStream::TCP(ref mut s) => s.shutdown(Shutdown::Both),
-            VarlinkStream::UNIX(ref mut s, _, _) => s.shutdown(Shutdown::Both),
+            VarlinkStream::TCP(ref mut s) => s.shutdown(Shutdown::Both)?,
+            VarlinkStream::UNIX(ref mut s, _, _) => s.shutdown(Shutdown::Both)?,
         }
+        Ok(())
     }
 
-    pub fn set_nonblocking(&self, b: bool) -> io::Result<()> {
+    pub fn set_nonblocking(&self, b: bool) -> Result<()> {
         match self {
-            &VarlinkStream::TCP(ref l) => l.set_nonblocking(b),
-            &VarlinkStream::UNIX(ref l, _, _) => l.set_nonblocking(b),
+            &VarlinkStream::TCP(ref l) => l.set_nonblocking(b)?,
+            &VarlinkStream::UNIX(ref l, _, _) => l.set_nonblocking(b)?,
         }
+        Ok(())
     }
 }
 

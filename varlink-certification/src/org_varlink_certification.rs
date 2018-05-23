@@ -6,20 +6,20 @@
 #![allow(non_snake_case)]
 #![allow(unused_imports)]
 
+use failure::{Backtrace, Context, Fail, ResultExt};
 use serde_json::{self, Value};
 use std::io;
 use std::sync::{Arc, RwLock};
-use varlink;
-use varlink::CallTrait;
+use varlink::{self, CallTrait};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Interface {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub foo: Option<Vec<Option<varlink::StringHashMap<Interface_foo>>>>,
     pub anon: Interface_anon,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct MyType {
     pub object: Value,
     #[serde(rename = "enum")]
@@ -36,80 +36,80 @@ pub struct MyType {
     pub interface: Interface,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct EndReply_ {
     pub all_ok: bool,
 }
 
 impl varlink::VarlinkReply for EndReply_ {}
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct EndArgs_ {
     pub client_id: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct StartReply_ {
     pub client_id: String,
 }
 
 impl varlink::VarlinkReply for StartReply_ {}
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct StartArgs_ {}
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test01Reply_ {
     pub bool: bool,
 }
 
 impl varlink::VarlinkReply for Test01Reply_ {}
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test01Args_ {
     pub client_id: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test02Reply_ {
     pub int: i64,
 }
 
 impl varlink::VarlinkReply for Test02Reply_ {}
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test02Args_ {
     pub client_id: String,
     pub bool: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test03Reply_ {
     pub float: f64,
 }
 
 impl varlink::VarlinkReply for Test03Reply_ {}
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test03Args_ {
     pub client_id: String,
     pub int: i64,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test04Reply_ {
     pub string: String,
 }
 
 impl varlink::VarlinkReply for Test04Reply_ {}
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test04Args_ {
     pub client_id: String,
     pub float: f64,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test05Reply_ {
     pub bool: bool,
     pub int: i64,
@@ -119,13 +119,13 @@ pub struct Test05Reply_ {
 
 impl varlink::VarlinkReply for Test05Reply_ {}
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test05Args_ {
     pub client_id: String,
     pub string: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test06Reply_ {
     #[serde(rename = "struct")]
     pub struct_: Test06Reply_struct,
@@ -133,7 +133,7 @@ pub struct Test06Reply_ {
 
 impl varlink::VarlinkReply for Test06Reply_ {}
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test06Args_ {
     pub client_id: String,
     pub bool: bool,
@@ -142,98 +142,98 @@ pub struct Test06Args_ {
     pub string: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test07Reply_ {
     pub map: varlink::StringHashMap<String>,
 }
 
 impl varlink::VarlinkReply for Test07Reply_ {}
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test07Args_ {
     pub client_id: String,
     #[serde(rename = "struct")]
     pub struct_: Test07Args_struct,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test08Reply_ {
     pub set: varlink::StringHashSet,
 }
 
 impl varlink::VarlinkReply for Test08Reply_ {}
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test08Args_ {
     pub client_id: String,
     pub map: varlink::StringHashMap<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test09Reply_ {
     pub mytype: MyType,
 }
 
 impl varlink::VarlinkReply for Test09Reply_ {}
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test09Args_ {
     pub client_id: String,
     pub set: varlink::StringHashSet,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test10Reply_ {
     pub string: String,
 }
 
 impl varlink::VarlinkReply for Test10Reply_ {}
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test10Args_ {
     pub client_id: String,
     pub mytype: MyType,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test11Reply_ {}
 
 impl varlink::VarlinkReply for Test11Reply_ {}
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test11Args_ {
     pub client_id: String,
     pub last_more_replies: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct CertificationErrorArgs_ {
     pub wants: Value,
     pub got: Value,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct ClientIdErrorArgs_ {}
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Interface_anon {
     pub foo: bool,
     pub bar: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct MyType_struct {
     pub first: i64,
     pub second: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct MyType_nullable_array_struct {
     pub first: i64,
     pub second: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test06Reply_struct {
     pub bool: bool,
     pub int: i64,
@@ -241,7 +241,7 @@ pub struct Test06Reply_struct {
     pub string: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Test07Args_struct {
     pub bool: bool,
     pub int: i64,
@@ -249,14 +249,14 @@ pub struct Test07Args_struct {
     pub string: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum Interface_foo {
     foo,
     bar,
     baz,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum MyType_enum {
     one,
     two,
@@ -284,28 +284,85 @@ pub trait VarlinkCallError: varlink::CallTrait {
 impl<'a> VarlinkCallError for varlink::Call<'a> {}
 
 #[derive(Debug)]
-pub enum Error {
+pub struct Error {
+    inner: Context<ErrorKind>,
+}
+
+#[derive(Clone, PartialEq, Debug, Fail)]
+pub enum ErrorKind {
+    #[fail(display = "IO error")]
+    Io_(::std::io::ErrorKind),
+    #[fail(display = "(De)Serialization Error")]
+    SerdeJson_(serde_json::error::Category),
+    #[fail(display = "Varlink Error")]
+    Varlink(varlink::ErrorKind),
+    #[fail(display = "Unknown error reply: '{:#?}'", _0)]
+    VarlinkReply(varlink::Reply),
+    #[fail(display = "org.varlink.certification.CertificationError: {:#?}", _0)]
     CertificationError(Option<CertificationErrorArgs_>),
+    #[fail(display = "org.varlink.certification.ClientIdError: {:#?}", _0)]
     ClientIdError(Option<ClientIdErrorArgs_>),
-    VarlinkError(varlink::Error),
-    UnknownError_(varlink::Reply),
-    IOError_(io::Error),
-    JSONError_(serde_json::Error),
+}
+
+impl Fail for Error {
+    fn cause(&self) -> Option<&Fail> {
+        self.inner.cause()
+    }
+
+    fn backtrace(&self) -> Option<&Backtrace> {
+        self.inner.backtrace()
+    }
+}
+
+impl ::std::fmt::Display for Error {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        ::std::fmt::Display::fmt(&self.inner, f)
+    }
+}
+
+impl Error {
+    pub fn kind(&self) -> ErrorKind {
+        self.inner.get_context().clone()
+    }
+}
+
+impl From<ErrorKind> for Error {
+    fn from(kind: ErrorKind) -> Error {
+        Error {
+            inner: Context::new(kind),
+        }
+    }
+}
+
+impl From<Context<ErrorKind>> for Error {
+    fn from(inner: Context<ErrorKind>) -> Error {
+        Error { inner }
+    }
+}
+
+impl From<::std::io::Error> for Error {
+    fn from(e: ::std::io::Error) -> Error {
+        let kind = e.kind();
+        e.context(ErrorKind::Io_(kind)).into()
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(e: serde_json::Error) -> Error {
+        let cat = e.classify();
+        e.context(ErrorKind::SerdeJson_(cat)).into()
+    }
 }
 
 pub type Result<T> = ::std::result::Result<T, Error>;
 
-impl ::std::fmt::Display for Error {
-    fn fmt(&self, fmt: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        match self {
-            Error::VarlinkError(e) => e.fmt(fmt),
-            Error::JSONError_(e) => e.fmt(fmt),
-            Error::IOError_(e) => e.fmt(fmt),
-            Error::UnknownError_(varlink::Reply {
-                parameters: Some(p),
-                ..
-            }) => p.fmt(fmt),
-            e => write!(fmt, "{:?}", e),
+impl From<varlink::Error> for Error {
+    fn from(e: varlink::Error) -> Self {
+        let kind = e.kind();
+        match kind {
+            varlink::ErrorKind::Io(kind) => e.context(ErrorKind::Io_(kind)).into(),
+            varlink::ErrorKind::SerdeJsonSer(cat) => e.context(ErrorKind::SerdeJson_(cat)).into(),
+            kind => e.context(ErrorKind::Varlink(kind)).into(),
         }
     }
 }
@@ -313,7 +370,7 @@ impl ::std::fmt::Display for Error {
 impl From<varlink::Reply> for Error {
     fn from(e: varlink::Reply) -> Self {
         if varlink::Error::is_error(&e) {
-            return Error::VarlinkError(e.into());
+            return varlink::Error::from(e).into();
         }
 
         match e {
@@ -326,10 +383,10 @@ impl From<varlink::Reply> for Error {
                         parameters: Some(p),
                         ..
                     } => match serde_json::from_value(p) {
-                        Ok(v) => Error::CertificationError(v),
-                        Err(_) => Error::CertificationError(None),
+                        Ok(v) => ErrorKind::CertificationError(v).into(),
+                        Err(_) => ErrorKind::CertificationError(None).into(),
                     },
-                    _ => Error::CertificationError(None),
+                    _ => ErrorKind::CertificationError(None).into(),
                 }
             }
             varlink::Reply {
@@ -341,35 +398,13 @@ impl From<varlink::Reply> for Error {
                         parameters: Some(p),
                         ..
                     } => match serde_json::from_value(p) {
-                        Ok(v) => Error::ClientIdError(v),
-                        Err(_) => Error::ClientIdError(None),
+                        Ok(v) => ErrorKind::ClientIdError(v).into(),
+                        Err(_) => ErrorKind::ClientIdError(None).into(),
                     },
-                    _ => Error::ClientIdError(None),
+                    _ => ErrorKind::ClientIdError(None).into(),
                 }
             }
-            _ => return Error::UnknownError_(e),
-        }
-    }
-}
-
-impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Self {
-        Error::IOError_(e)
-    }
-}
-
-impl From<varlink::Error> for Error {
-    fn from(e: varlink::Error) -> Self {
-        Error::VarlinkError(e)
-    }
-}
-
-impl From<serde_json::Error> for Error {
-    fn from(e: serde_json::Error) -> Self {
-        use serde_json::error::Category;
-        match e.classify() {
-            Category::Io => Error::IOError_(e.into()),
-            _ => Error::JSONError_(e),
+            _ => return ErrorKind::VarlinkReply(e).into(),
         }
     }
 }
@@ -914,7 +949,8 @@ error CertificationError (wants: object, got: object)
             "org.varlink.certification.Test02" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: Test02Args_ = serde_json::from_value(args)?;
-                    return self.inner
+                    return self
+                        .inner
                         .test02(call as &mut CallTest02_, args.client_id, args.bool);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
@@ -923,7 +959,8 @@ error CertificationError (wants: object, got: object)
             "org.varlink.certification.Test03" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: Test03Args_ = serde_json::from_value(args)?;
-                    return self.inner
+                    return self
+                        .inner
                         .test03(call as &mut CallTest03_, args.client_id, args.int);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
@@ -932,7 +969,8 @@ error CertificationError (wants: object, got: object)
             "org.varlink.certification.Test04" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: Test04Args_ = serde_json::from_value(args)?;
-                    return self.inner
+                    return self
+                        .inner
                         .test04(call as &mut CallTest04_, args.client_id, args.float);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
@@ -941,7 +979,8 @@ error CertificationError (wants: object, got: object)
             "org.varlink.certification.Test05" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: Test05Args_ = serde_json::from_value(args)?;
-                    return self.inner
+                    return self
+                        .inner
                         .test05(call as &mut CallTest05_, args.client_id, args.string);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
@@ -977,7 +1016,8 @@ error CertificationError (wants: object, got: object)
             "org.varlink.certification.Test08" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: Test08Args_ = serde_json::from_value(args)?;
-                    return self.inner
+                    return self
+                        .inner
                         .test08(call as &mut CallTest08_, args.client_id, args.map);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
@@ -986,7 +1026,8 @@ error CertificationError (wants: object, got: object)
             "org.varlink.certification.Test09" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: Test09Args_ = serde_json::from_value(args)?;
-                    return self.inner
+                    return self
+                        .inner
                         .test09(call as &mut CallTest09_, args.client_id, args.set);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
@@ -995,7 +1036,8 @@ error CertificationError (wants: object, got: object)
             "org.varlink.certification.Test10" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: Test10Args_ = serde_json::from_value(args)?;
-                    return self.inner
+                    return self
+                        .inner
                         .test10(call as &mut CallTest10_, args.client_id, args.mytype);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());

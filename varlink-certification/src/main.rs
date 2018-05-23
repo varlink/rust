@@ -1,3 +1,6 @@
+extern crate failure;
+#[macro_use]
+extern crate failure_derive;
 extern crate getopts;
 #[macro_use]
 extern crate serde_derive;
@@ -5,8 +8,8 @@ extern crate serde_json;
 extern crate varlink;
 
 use org_varlink_certification::*;
-use std::collections::VecDeque;
 use std::collections::hash_map::DefaultHasher;
+use std::collections::VecDeque;
 use std::env;
 use std::hash::{Hash, Hasher};
 use std::io;
@@ -71,7 +74,7 @@ fn main() -> Result<()> {
 // Client
 
 fn run_client(address: String) -> Result<()> {
-    let connection = varlink::Connection::new(address)?;
+    let connection = varlink::Connection::new(&address)?;
     let mut iface = VarlinkClient::new(connection);
 
     let ret = iface.start().call()?;
@@ -758,6 +761,6 @@ pub fn run_server(address: String, timeout: u64) -> Result<()> {
         "http://varlink.org",
         vec![Box::new(myinterface)],
     );
-    varlink::listen(service, address, 10, timeout)?;
+    varlink::listen(service, &address, 10, timeout)?;
     Ok(())
 }

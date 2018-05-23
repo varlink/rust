@@ -42,14 +42,14 @@
 //!# struct _PingReply {pong: String}
 //!# impl varlink::VarlinkReply for _PingReply {}
 //!# struct _PingArgs {ping: String}
-//!# pub trait _CallErr: varlink::CallTrait {}
-//!# impl<'a> _CallErr for varlink::Call<'a> {}
-//!# pub trait _CallPing: _CallErr {
+//!# pub trait CallErr_: varlink::CallTrait {}
+//!# impl<'a> CallErr_ for varlink::Call<'a> {}
+//!# pub trait CallPing_: CallErr_ {
 //!#     fn reply(&mut self, pong: String) -> Result<()> { Ok(()) }
 //!# }
-//!# impl<'a> _CallPing for varlink::Call<'a> {}
+//!# impl<'a> CallPing_ for varlink::Call<'a> {}
 //!# pub trait VarlinkInterface {
-//!#     fn ping(&self, call: &mut _CallPing, ping: String) -> Result<()>;
+//!#     fn ping(&self, call: &mut CallPing_, ping: String) -> Result<()>;
 //!#     fn call_upgraded(&self, _call: &mut varlink::Call) -> Result<()> {Ok(())}
 //!# }
 //!# pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
@@ -67,7 +67,7 @@
 //!struct MyOrgExamplePing;
 //!
 //!impl VarlinkInterface for MyOrgExamplePing {
-//!    fn ping(&self, call: &mut _CallPing, ping: String) -> Result<()> {
+//!    fn ping(&self, call: &mut CallPing_, ping: String) -> Result<()> {
 //!        return call.reply(ping);
 //!    }
 //!}
@@ -75,22 +75,22 @@
 //!to implement the interface methods.
 //!
 //!If your varlink method is called `TestMethod`, the rust method to be implemented is called
-//!`test_method`. The first parameter is of type `_CallTestMethod`, which has the method `reply()`.
+//!`test_method`. The first parameter is of type `CallTestMethod_`, which has the method `reply()`.
 //!
 //!```rust
 //!# use std::io;
 //!# use varlink::{CallTrait, Result};
-//!# pub trait _CallErr: varlink::CallTrait {}
-//!# impl<'a> _CallErr for varlink::Call<'a> {}
-//!# pub trait _CallTestMethod: _CallErr {
+//!# pub trait CallErr_: varlink::CallTrait {}
+//!# impl<'a> CallErr_ for varlink::Call<'a> {}
+//!# pub trait CallTestMethod_: CallErr_ {
 //!#     fn reply(&mut self) -> Result<()> {
 //!#         self.reply_struct(varlink::Reply::parameters(None))
 //!#     }
 //!# }
-//!# impl<'a> _CallTestMethod for varlink::Call<'a> {}
+//!# impl<'a> CallTestMethod_ for varlink::Call<'a> {}
 //!# struct TestService;
 //!# impl TestService {
-//!fn test_method(&self, call: &mut _CallTestMethod, /* more arguments */) -> Result<()> {
+//!fn test_method(&self, call: &mut CallTestMethod_, /* more arguments */) -> Result<()> {
 //!    /* ... */
 //!    return call.reply( /* more arguments */ );
 //!}
@@ -108,14 +108,14 @@
 //!# struct _PingReply {pong: String}
 //!# impl varlink::VarlinkReply for _PingReply {}
 //!# struct _PingArgs {ping: String}
-//!# pub trait _CallErr: varlink::CallTrait {}
-//!# impl<'a> _CallErr for varlink::Call<'a> {}
-//!# pub trait _CallPing: _CallErr {
+//!# pub trait CallErr_: varlink::CallTrait {}
+//!# impl<'a> CallErr_ for varlink::Call<'a> {}
+//!# pub trait CallPing_: CallErr_ {
 //!#     fn reply(&mut self, pong: String) -> Result<()> { Ok(()) }
 //!# }
-//!# impl<'a> _CallPing for varlink::Call<'a> {}
+//!# impl<'a> CallPing_ for varlink::Call<'a> {}
 //!# pub trait VarlinkInterface {
-//!#     fn ping(&self, call: &mut _CallPing, ping: String) -> Result<()>;
+//!#     fn ping(&self, call: &mut CallPing_, ping: String) -> Result<()>;
 //!#     fn call_upgraded(&self, _call: &mut varlink::Call) -> Result<()> {Ok(())}
 //!# }
 //!# pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
@@ -134,7 +134,7 @@
 //!# struct MyOrgExamplePing;
 //!#
 //!# impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
-//!#     fn ping(&self, call: &mut _CallPing, ping: String) -> varlink::Result<()> {
+//!#     fn ping(&self, call: &mut CallPing_, ping: String) -> varlink::Result<()> {
 //!#         return call.reply(ping);
 //!#     }
 //!# }
@@ -154,7 +154,7 @@
 //!    ],
 //!);
 //!
-//!varlink::listen(service, args[1].clone(), 10, 0);
+//!varlink::listen(service, &args[1], 10, 0);
 //!# }
 //!# fn main() {}
 //!```
@@ -172,6 +172,9 @@
 //!  (on Linux only)
 
 extern crate bytes;
+extern crate failure;
+#[macro_use]
+extern crate failure_derive;
 extern crate itertools;
 extern crate libc;
 extern crate serde;
@@ -183,66 +186,26 @@ extern crate tempfile;
 extern crate unix_socket;
 extern crate varlink_parser;
 
-#[macro_use]
-extern crate error_chain;
-
-use serde::de;
-use serde::de::DeserializeOwned;
-use serde::ser::Serialize;
-use serde::ser::{SerializeMap, Serializer};
+pub use error::{Error, ErrorKind, Result};
+use failure::ResultExt;
+use serde::de::{self, DeserializeOwned};
+use serde::ser::{Serialize, SerializeMap, Serializer};
 use serde_json::Value;
+pub use server::listen;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::convert::From;
-use std::fmt;
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, RwLock};
 
 mod client;
+mod error;
 pub mod generator;
 mod server;
 #[cfg(test)]
 mod test;
-
-error_chain! {
-    foreign_links {
-        Io(::std::io::Error);
-        Fmt(::std::fmt::Error);
-        SerdeJson(::serde_json::Error);
-    }
-
-    errors {
-        InterfaceNotFound(t: String) {
-            display("Interface not found: '{}'", t)
-        }
-        InvalidParameter(t: String) {
-            display("Invalid parameter: '{}'", t)
-        }
-        MethodNotFound(t: String) {
-            display("Method not found: '{}'", t)
-        }
-        MethodNotImplemented(t: String) {
-            display("Method not implemented: '{}'", t)
-        }
-        UnknownError(r: Reply) {
-            display("Unknown error: '{:?}'", r)
-        }
-        CallContinuesMismatch {
-            display("Call::reply() called with continues, but without more in the request")
-        }
-        MethodCalledAlready {
-            display("Varlink: method called already")
-        }
-        ConnectionBusy {
-            display("Varlink: connection busy with other method")
-        }
-        IteratorOldReply {
-            display("Varlink: Iterator called on old reply")
-        }
-    }
-}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
 pub struct ErrorInterfaceNotFound {
@@ -276,12 +239,11 @@ impl From<Reply> for Error {
                         parameters: Some(p),
                         ..
                     } => match serde_json::from_value::<ErrorInterfaceNotFound>(p) {
-                        Ok(v) => ErrorKind::InterfaceNotFound(
-                            v.interface.unwrap_or("".to_string()),
-                        ).into(),
-                        Err(_) => ErrorKind::InterfaceNotFound("".to_string()).into(),
+                        Ok(v) => ErrorKind::InterfaceNotFound(v.interface.unwrap_or(String::new()))
+                            .into(),
+                        Err(_) => ErrorKind::InterfaceNotFound(String::new()).into(),
                     },
-                    _ => ErrorKind::InterfaceNotFound("".to_string()).into(),
+                    _ => ErrorKind::InterfaceNotFound(String::new()).into(),
                 }
             }
             Reply {
@@ -293,11 +255,12 @@ impl From<Reply> for Error {
                         parameters: Some(p),
                         ..
                     } => match serde_json::from_value::<ErrorInvalidParameter>(p) {
-                        Ok(v) => ErrorKind::InvalidParameter(v.parameter.unwrap_or("".to_string()))
-                            .into(),
-                        Err(_) => ErrorKind::InvalidParameter("".to_string()).into(),
+                        Ok(v) => {
+                            ErrorKind::InvalidParameter(v.parameter.unwrap_or(String::new())).into()
+                        }
+                        Err(_) => ErrorKind::InvalidParameter(String::new()).into(),
                     },
-                    _ => ErrorKind::InvalidParameter("".to_string()).into(),
+                    _ => ErrorKind::InvalidParameter(String::new()).into(),
                 }
             }
             Reply {
@@ -310,11 +273,11 @@ impl From<Reply> for Error {
                         ..
                     } => match serde_json::from_value::<ErrorMethodNotFound>(p) {
                         Ok(v) => {
-                            ErrorKind::MethodNotFound(v.method.unwrap_or("".to_string())).into()
+                            ErrorKind::MethodNotFound(v.method.unwrap_or(String::new())).into()
                         }
-                        Err(_) => ErrorKind::MethodNotFound("".to_string()).into(),
+                        Err(_) => ErrorKind::MethodNotFound(String::new()).into(),
                     },
-                    _ => ErrorKind::MethodNotFound("".to_string()).into(),
+                    _ => ErrorKind::MethodNotFound(String::new()).into(),
                 }
             }
             Reply {
@@ -326,15 +289,16 @@ impl From<Reply> for Error {
                         parameters: Some(p),
                         ..
                     } => match serde_json::from_value::<ErrorMethodNotImplemented>(p) {
-                        Ok(v) => ErrorKind::MethodNotImplemented(
-                            v.method.unwrap_or("".to_string()),
-                        ).into(),
-                        Err(_) => ErrorKind::MethodNotImplemented("".to_string()).into(),
+                        Ok(v) => ErrorKind::MethodNotImplemented(v.method.unwrap_or(String::new()))
+                            .into(),
+                        Err(_) => ErrorKind::MethodNotImplemented(String::new()).into(),
                     },
-                    _ => ErrorKind::MethodNotImplemented("".to_string()).into(),
+                    _ => ErrorKind::MethodNotImplemented(String::new()).into(),
                 }
             }
-            _ => return ErrorKind::UnknownError(e).into(),
+            _ => {
+                return ErrorKind::VarlinkErrorReply(e).into();
+            }
         }
     }
 }
@@ -395,7 +359,7 @@ impl<'a> Request<'a> {
 
 pub type StringHashMap<T> = HashMap<String, T>;
 
-#[derive(Debug, PartialEq, Default)]
+#[derive(Debug, PartialEq, Default, Clone)]
 pub struct StringHashSet {
     inner: HashSet<String>,
 }
@@ -448,7 +412,7 @@ impl<'de> de::Deserialize<'de> for StringHashSet {
         impl<'de> de::Visitor<'de> for Visitor {
             type Value = StringHashSet;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
                 formatter.write_str("a map")
             }
 
@@ -538,23 +502,23 @@ where
 /// #Examples
 ///
 /// If your varlink method is called `TestMethod`, the rust method to be implemented is called
-/// `test_method`. The first parameter is of type `_CallTestMethod`, which has the method `reply()`.
+/// `test_method`. The first parameter is of type `CallTestMethod_`, which has the method `reply()`.
 ///
 ///# Examples
 ///
 ///```rust
 ///# use std::io;
-///# pub trait _CallErr: varlink::CallTrait {}
-///# impl<'a> _CallErr for varlink::Call<'a> {}
-///# pub trait _CallTestMethod: _CallErr {
+///# pub trait CallErr_: varlink::CallTrait {}
+///# impl<'a> CallErr_ for varlink::Call<'a> {}
+///# pub trait CallTestMethod_: CallErr_ {
 ///#     fn reply(&mut self) -> varlink::Result<()> {
 ///#         self.reply_struct(varlink::Reply::parameters(None))
 ///#     }
 ///# }
-///# impl<'a> _CallTestMethod for varlink::Call<'a> {}
+///# impl<'a> CallTestMethod_ for varlink::Call<'a> {}
 ///# struct TestService;
 ///# impl TestService {
-///fn test_method(&self, call: &mut _CallTestMethod, /* more arguments */) -> varlink::Result<()> {
+///fn test_method(&self, call: &mut CallTestMethod_, /* more arguments */) -> varlink::Result<()> {
 ///    /* ... */
 ///    return call.reply( /* more arguments */ );
 ///}
@@ -577,17 +541,17 @@ pub struct Call<'a> {
 ///
 /// ```rust
 ///# use std::io;
-///# pub trait _CallErr: varlink::CallTrait {}
-///# impl<'a> _CallErr for varlink::Call<'a> {}
-///# pub trait _CallTestMethod: _CallErr {
+///# pub trait CallErr_: varlink::CallTrait {}
+///# impl<'a> CallErr_ for varlink::Call<'a> {}
+///# pub trait CallTestMethod_: CallErr_ {
 ///#     fn reply(&mut self) -> varlink::Result<()> {
 ///#         self.reply_struct(varlink::Reply::parameters(None))
 ///#     }
 ///# }
-///# impl<'a> _CallTestMethod for varlink::Call<'a> {}
+///# impl<'a> CallTestMethod_ for varlink::Call<'a> {}
 ///# struct TestService;
 ///# impl TestService {
-///fn test_method(&self, call: &mut _CallTestMethod, testparam: i64) -> varlink::Result<()> {
+///fn test_method(&self, call: &mut CallTestMethod_, testparam: i64) -> varlink::Result<()> {
 ///    match testparam {
 ///        0 ... 100 => {},
 ///        _ => {
@@ -605,18 +569,18 @@ pub struct Call<'a> {
 ///
 /// ```rust
 ///# use std::io;
-///# pub trait _CallErr: varlink::CallTrait {}
-///# impl<'a> _CallErr for varlink::Call<'a> {}
-///# pub trait _CallTestMethodNotImplemented: _CallErr {
+///# pub trait CallErr_: varlink::CallTrait {}
+///# impl<'a> CallErr_ for varlink::Call<'a> {}
+///# pub trait CallTestMethodNotImplemented_: CallErr_ {
 ///#     fn reply(&mut self) -> varlink::Result<()> {
 ///#         self.reply_struct(varlink::Reply::parameters(None))
 ///#     }
 ///# }
-///# impl<'a> _CallTestMethodNotImplemented for varlink::Call<'a> {}
+///# impl<'a> CallTestMethodNotImplemented_ for varlink::Call<'a> {}
 ///# struct TestService;
 ///# impl TestService {
 ///fn test_method_not_implemented(&self,
-///                               call: &mut _CallTestMethodNotImplemented) -> varlink::Result<()> {
+///                               call: &mut CallTestMethodNotImplemented_) -> varlink::Result<()> {
 ///    return call.reply_method_not_implemented("TestMethodNotImplemented".into());
 ///}
 ///# }
@@ -632,17 +596,17 @@ pub trait CallTrait {
     ///
     ///```rust
     ///# use std::io;
-    ///# pub trait _CallErr: varlink::CallTrait {}
-    ///# impl<'a> _CallErr for varlink::Call<'a> {}
-    ///# pub trait _CallTestMethod: _CallErr {
+    ///# pub trait CallErr_: varlink::CallTrait {}
+    ///# impl<'a> CallErr_ for varlink::Call<'a> {}
+    ///# pub trait CallTestMethod_: CallErr_ {
     ///#     fn reply(&mut self) -> varlink::Result<()> {
     ///#         self.reply_struct(varlink::Reply::parameters(None))
     ///#     }
     ///# }
-    ///# impl<'a> _CallTestMethod for varlink::Call<'a> {}
+    ///# impl<'a> CallTestMethod_ for varlink::Call<'a> {}
     ///# struct TestService;
     ///# impl TestService {
-    ///fn test_method(&self, call: &mut _CallTestMethod) -> varlink::Result<()> {
+    ///fn test_method(&self, call: &mut CallTestMethod_) -> varlink::Result<()> {
     ///    call.set_continues(true);
     ///    call.reply( /* more args*/ )?;
     ///    call.reply( /* more args*/ )?;
@@ -787,7 +751,7 @@ pub struct Connection {
 }
 
 impl Connection {
-    pub fn new<S: Into<String>>(address: S) -> io::Result<Arc<RwLock<Self>>> {
+    pub fn new<S: ?Sized + AsRef<str>>(address: &S) -> Result<Arc<RwLock<Self>>> {
         let (mut stream, address) = client::VarlinkStream::connect(address)?;
         let (r, w) = stream.split()?;
         let bufreader = BufReader::new(r);
@@ -914,9 +878,15 @@ where
         let mut reader = self.reader.take().unwrap();
         reader.read_until(0, &mut buf)?;
         self.reader = Some(reader);
-
+        if buf.len() == 0 {
+            return Err(Error::from(ErrorKind::ConnectionClosed))?;
+        }
         buf.pop();
-        let reply: Reply = serde_json::from_slice(&buf)?;
+        let reply: Reply = serde_json::from_slice(&buf)
+            .context(ErrorKind::SerdeJsonDe(
+                String::from_utf8_lossy(&buf).to_string(),
+            ))
+            .map_err(|e| Error::from(e))?;
         match reply.continues {
             Some(true) => self.continues = true,
             _ => {
@@ -1096,9 +1066,8 @@ error InvalidParameter (parameter: string)
                     let args: GetInterfaceDescriptionArgs = serde_json::from_value(val.clone())?;
                     match args.interface.as_ref() {
                         "org.varlink.service" => {
-                            return call.reply_parameters(
-                                json!({"description": self.get_description()}),
-                            );
+                            return call
+                                .reply_parameters(json!({"description": self.get_description()}));
                         }
                         key => {
                             if self.ifaces.contains_key(key) {
@@ -1229,7 +1198,9 @@ impl VarlinkService {
                     }
                     // pop the last zero byte
                     buf.pop();
-                    let req: Request = serde_json::from_slice(&buf)?;
+                    let req: Request = serde_json::from_slice(&buf).context(
+                        ErrorKind::SerdeJsonDe(String::from_utf8_lossy(&buf).to_string()),
+                    )?;
 
                     let n: usize = match req.method.rfind('.') {
                         None => {
@@ -1258,41 +1229,5 @@ impl VarlinkService {
             }
         }
         Ok(())
-    }
-}
-
-/// `listen` creates a server, with `num_worker` threads listening on `varlink_uri`.
-///
-/// If an `accept_timeout` != 0 is specified, this function returns after the specified
-/// amount of seconds, if no new connection is made in that time frame. It still waits for
-/// all pending connections to finish.
-///
-///# Examples
-///
-///```
-///let service = varlink::VarlinkService::new(
-///    "org.varlink",
-///    "test service",
-///    "0.1",
-///    "http://varlink.org",
-///    vec![/* Your varlink interfaces go here */],
-///);
-///
-///if let Err(e) = varlink::listen(service, "unix:/tmp/test_listen_timeout", 10, 1) {
-///    panic!("Error listen: {}", e);
-///}
-///```
-///# Note
-/// You don't have to use this simple server. With the `VarlinkService::handle()` method you
-/// can implement your own server model using whatever framework you prefer.
-pub fn listen<S: Into<String>>(
-    service: VarlinkService,
-    varlink_uri: S,
-    num_worker: usize,
-    accept_timeout: u64,
-) -> Result<()> {
-    match server::do_listen(service, varlink_uri, num_worker, accept_timeout) {
-        Err(server::ServerError::IoError(e)) => Err(e.into()),
-        _ => Ok(()),
     }
 }

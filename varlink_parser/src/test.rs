@@ -1,4 +1,4 @@
-use ::*;
+use *;
 
 #[test]
 fn test_standard() {

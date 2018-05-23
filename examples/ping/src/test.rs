@@ -6,7 +6,12 @@ fn run_self_test(address: String) -> io::Result<()> {
 
     let child = thread::spawn(move || {
         if let Err(e) = ::run_server(server_address, 4) {
-            panic!("error: {}", e);
+            match e.kind() {
+                ::org_example_ping::ErrorKind::Varlink(kind) => {
+                    if kind == ::varlink::ErrorKind::Timeout {}
+                }
+                _ => panic!("error: {}", e),
+            }
         }
     });
 

@@ -19,7 +19,8 @@ travis-ci = { repository = "varlink/rust" }
 [dependencies]
 itertools = "0"
 bytes = "0"
-error-chain = "0.11"
+failure_derive = "0.1.1"
+failure = "0.1.1"
 
 [build-dependencies]
 peg = "0.5"

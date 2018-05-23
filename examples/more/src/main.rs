@@ -1,8 +1,12 @@
+extern crate failure;
+#[macro_use]
+extern crate failure_derive;
 extern crate getopts;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
 extern crate varlink;
+
 use org_example_more::*;
 use std::env;
 use std::process::exit;
@@ -76,7 +80,7 @@ fn main() {
 // Client
 
 fn run_client(address: String) -> Result<()> {
-    let con1 = varlink::Connection::new(address)?;
+    let con1 = varlink::Connection::new(&address)?;
     let new_addr;
     {
         let conn = con1.read().unwrap();
@@ -84,7 +88,7 @@ fn run_client(address: String) -> Result<()> {
     }
     let mut iface = org_example_more::VarlinkClient::new(con1);
 
-    let con2 = varlink::Connection::new(new_addr)?;
+    let con2 = varlink::Connection::new(&new_addr)?;
     let mut pingiface = org_example_more::VarlinkClient::new(con2);
 
     for reply in iface.test_more(10).more()? {
@@ -140,7 +144,7 @@ impl VarlinkInterface for MyOrgExampleMore {
 
     fn stop_serving(&self, call: &mut CallStopServing_) -> varlink::Result<()> {
         call.reply()?;
-        Err(varlink::Error::from("Disconnect"))
+        Err(varlink::ErrorKind::ConnectionClosed.into())
     }
     fn test_more(&self, call: &mut CallTestMore_, n: i64) -> varlink::Result<()> {
         if !call.wants_more() {
@@ -194,6 +198,6 @@ fn run_server(address: String, timeout: u64, sleep_duration: u64) -> Result<()> 
         "http://varlink.org",
         vec![Box::new(myinterface)],
     );
-    varlink::listen(service, address, 10, timeout)?;
+    varlink::listen(service, &address, 10, timeout)?;
     Ok(())
 }

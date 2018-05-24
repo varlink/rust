@@ -99,17 +99,13 @@ impl From<::varlink::Error> for Error {
                 e.context(ErrorKind::SerdeJsonSer(cat)).into()
             }
             ::varlink::ErrorKind::SerdeJsonDe(buf) => e.context(ErrorKind::SerdeJsonDe(buf)).into(),
-            ::varlink::ErrorKind::VarlinkErrorReply(reply) => {
-                e.context(ErrorKind::VarlinkError {
-                    error: reply.error.unwrap_or("".into()).into(),
-                    parameters: ::serde_json::to_string_pretty(&reply
-                        .parameters
-                        .unwrap_or(::serde_json::Value::default()))
-                        .unwrap_or(
-                        String::new(),
-                    ),
-                }).into()
-            }
+            ::varlink::ErrorKind::VarlinkErrorReply(reply) => e.context(ErrorKind::VarlinkError {
+                error: reply.error.unwrap_or("".into()).into(),
+                parameters: ::serde_json::to_string_pretty(&reply
+                    .parameters
+                    .unwrap_or(::serde_json::Value::default()))
+                    .unwrap_or(String::new()),
+            }).into(),
             kind => e.context(ErrorKind::Varlink(kind)).into(),
         }
     }

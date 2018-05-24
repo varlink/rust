@@ -951,8 +951,7 @@ error CertificationError (wants: object, got: object)
             "org.varlink.certification.Test02" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: Test02_Args = serde_json::from_value(args)?;
-                    return self
-                        .inner
+                    return self.inner
                         .test02(call as &mut Call_Test02, args.client_id, args.bool);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
@@ -961,8 +960,7 @@ error CertificationError (wants: object, got: object)
             "org.varlink.certification.Test03" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: Test03_Args = serde_json::from_value(args)?;
-                    return self
-                        .inner
+                    return self.inner
                         .test03(call as &mut Call_Test03, args.client_id, args.int);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
@@ -971,8 +969,7 @@ error CertificationError (wants: object, got: object)
             "org.varlink.certification.Test04" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: Test04_Args = serde_json::from_value(args)?;
-                    return self
-                        .inner
+                    return self.inner
                         .test04(call as &mut Call_Test04, args.client_id, args.float);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
@@ -981,8 +978,7 @@ error CertificationError (wants: object, got: object)
             "org.varlink.certification.Test05" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: Test05_Args = serde_json::from_value(args)?;
-                    return self
-                        .inner
+                    return self.inner
                         .test05(call as &mut Call_Test05, args.client_id, args.string);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
@@ -1018,8 +1014,7 @@ error CertificationError (wants: object, got: object)
             "org.varlink.certification.Test08" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: Test08_Args = serde_json::from_value(args)?;
-                    return self
-                        .inner
+                    return self.inner
                         .test08(call as &mut Call_Test08, args.client_id, args.map);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
@@ -1028,8 +1023,7 @@ error CertificationError (wants: object, got: object)
             "org.varlink.certification.Test09" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: Test09_Args = serde_json::from_value(args)?;
-                    return self
-                        .inner
+                    return self.inner
                         .test09(call as &mut Call_Test09, args.client_id, args.set);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
@@ -1038,8 +1032,7 @@ error CertificationError (wants: object, got: object)
             "org.varlink.certification.Test10" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: Test10_Args = serde_json::from_value(args)?;
-                    return self
-                        .inner
+                    return self.inner
                         .test10(call as &mut Call_Test10, args.client_id, args.mytype);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());

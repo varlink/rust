@@ -267,32 +267,26 @@ impl<'a> Interface<'a> {
             match o {
                 MethodOrTypedefOrError::Method(m) => {
                     if let Some(d) = i.methods.insert(m.name, m) {
-                        i.error.insert(
-                            format!(
-                                "Interface `{}`: multiple definitions of type `{}`!",
-                                i.name, d.name
-                            ),
-                        );
+                        i.error.insert(format!(
+                            "Interface `{}`: multiple definitions of type `{}`!",
+                            i.name, d.name
+                        ));
                     };
                 }
                 MethodOrTypedefOrError::Typedef(t) => {
                     if let Some(d) = i.typedefs.insert(t.name, t) {
-                        i.error.insert(
-                            format!(
-                                "Interface `{}`: multiple definitions of type `{}`!",
-                                i.name, d.name
-                            ),
-                        );
+                        i.error.insert(format!(
+                            "Interface `{}`: multiple definitions of type `{}`!",
+                            i.name, d.name
+                        ));
                     };
                 }
                 MethodOrTypedefOrError::Error(e) => {
                     if let Some(d) = i.errors.insert(e.name, e) {
-                        i.error.insert(
-                            format!(
-                                "Interface `{}`: multiple definitions of error `{}`!",
-                                i.name, d.name
-                            ),
-                        );
+                        i.error.insert(format!(
+                            "Interface `{}`: multiple definitions of error `{}`!",
+                            i.name, d.name
+                        ));
                     };
                 }
             };

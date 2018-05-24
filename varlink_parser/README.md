@@ -7,4 +7,4 @@ varlink_parser is a rust crate for parsing varlink interface definition files.
 ## More Info
 * [API Documentation](https://docs.rs/varlink_parser/)
 * http://varlink.org
-* [Grammar](https://github.com/varlink/documentation/wiki/Interface-Definition)
+* [Grammar](https://varlink.org/Interface-Definition)

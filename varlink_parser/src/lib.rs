@@ -1,5 +1,4 @@
 //! varlink_parser crate for parsing varlink interface definition files.
-
 extern crate bytes;
 extern crate failure;
 #[macro_use]
@@ -9,7 +8,6 @@ extern crate itertools;
 use self::varlink_grammar::VInterface;
 use failure::{Backtrace, Context, Fail, ResultExt};
 use itertools::Itertools;
-use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::fmt::{self, Display};
@@ -139,7 +137,7 @@ pub struct Interface<'a> {
     pub methods: BTreeMap<&'a str, Method<'a>>,
     pub typedefs: BTreeMap<&'a str, Typedef<'a>>,
     pub errors: BTreeMap<&'a str, VError<'a>>,
-    pub error: HashSet<Cow<'a, str>>,
+    pub error: HashSet<String>,
 }
 
 macro_rules! printVTypeExt {
@@ -273,7 +271,7 @@ impl<'a> Interface<'a> {
                             format!(
                                 "Interface `{}`: multiple definitions of type `{}`!",
                                 i.name, d.name
-                            ).into(),
+                            ),
                         );
                     };
                 }
@@ -283,7 +281,7 @@ impl<'a> Interface<'a> {
                             format!(
                                 "Interface `{}`: multiple definitions of type `{}`!",
                                 i.name, d.name
-                            ).into(),
+                            ),
                         );
                     };
                 }
@@ -293,7 +291,7 @@ impl<'a> Interface<'a> {
                             format!(
                                 "Interface `{}`: multiple definitions of error `{}`!",
                                 i.name, d.name
-                            ).into(),
+                            ),
                         );
                     };
                 }
@@ -301,7 +299,7 @@ impl<'a> Interface<'a> {
         }
         if i.methods.len() == 0 {
             i.error
-                .insert(format!("Interface `{}`: no method defined!", i.name).into());
+                .insert(format!("Interface `{}`: no method defined!", i.name));
         }
 
         i
@@ -314,7 +312,8 @@ pub struct Varlink<'a> {
 }
 
 impl<'a> Varlink<'a> {
-    pub fn from_string(s: &'a str) -> Result<Varlink> {
+    pub fn from_string<S: ?Sized + AsRef<str>>(s: &'a S) -> Result<Self> {
+        let s = s.as_ref();
         let iface = VInterface(s).context(ErrorKind::Peg)?;
 
         if iface.error.len() != 0 {

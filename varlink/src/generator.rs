@@ -403,8 +403,8 @@ use varlink::{{self, CallTrait}};
 
         write!(w, "pub trait VarlinkCallError: varlink::CallTrait {{\n")?;
         for t in self.errors.values() {
-            let mut inparms: String = "".to_owned();
-            let mut innames: String = "".to_owned();
+            let mut inparms = String::new();
+            let mut innames = String::new();
             if t.parm.elts.len() > 0 {
                 for e in &t.parm.elts {
                     inparms += format!(
@@ -596,8 +596,8 @@ impl From<varlink::Reply> for Error {{
         )?;
 
         for t in self.methods.values() {
-            let mut inparms: String = "".to_owned();
-            let mut innames: String = "".to_owned();
+            let mut inparms = String::new();
+            let mut innames = String::new();
             if t.output.elts.len() > 0 {
                 for e in &t.output.elts {
                     inparms += format!(
@@ -641,7 +641,7 @@ impl From<varlink::Reply> for Error {{
 
         write!(w, "pub trait VarlinkInterface {{\n")?;
         for t in self.methods.values() {
-            let mut inparms: String = "".to_owned();
+            let mut inparms = String::new();
             if t.input.elts.len() > 0 {
                 for e in &t.input.elts {
                     inparms += format!(
@@ -677,8 +677,8 @@ impl From<varlink::Reply> for Error {{
 
         write!(w, "pub trait VarlinkClientInterface {{\n")?;
         for t in self.methods.values() {
-            let mut inparms: String = "".to_owned();
-            let mut outparms: String = "".to_owned();
+            let mut inparms = String::new();
+            let mut outparms = String::new();
             if t.input.elts.len() > 0 {
                 for e in &t.input.elts {
                     inparms += format!(
@@ -757,8 +757,8 @@ impl VarlinkClientInterface for VarlinkClient {{
 "#
         )?;
         for t in self.methods.values() {
-            let mut inparms: String = "".to_owned();
-            let mut innames: String = "".to_owned();
+            let mut inparms = String::new();
+            let mut innames = String::new();
             if t.input.elts.len() > 0 {
                 for e in &t.input.elts {
                     inparms += format!(
@@ -840,7 +840,7 @@ impl varlink::Interface for VarlinkInterfaceProxy {{
         )?;
 
         for t in self.methods.values() {
-            let mut inparms: String = "".to_owned();
+            let mut inparms = String::new();
             for e in &t.input.elts {
                 inparms += format!(", args.{}", replace_if_rust_keyword(e.name)).as_ref();
             }

@@ -1,6 +1,6 @@
 [package]
 name = "varlink_parser"
-version = "0.8.1"
+version = "1.0.0"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 build = "build.rs"
 license = "MIT/Apache-2.0"
@@ -19,8 +19,8 @@ travis-ci = { repository = "varlink/rust" }
 [dependencies]
 itertools = "0"
 bytes = "0"
-failure_derive = "0.1.1"
-failure = "0.1.1"
+failure_derive = "0.1"
+failure = "0.1"
 
 [build-dependencies]
 peg = "0.5"

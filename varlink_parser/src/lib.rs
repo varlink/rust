@@ -340,7 +340,7 @@ impl<'a> Interface<'a> {
 }
 
 pub struct Varlink<'a> {
-    pub string: &'a str,
+    pub description: &'a str,
     pub interface: Interface<'a>,
 }
 
@@ -353,7 +353,7 @@ impl<'a> Varlink<'a> {
             Err(ErrorKind::InterfaceDefinition(iface.error.into_iter().sorted().join("\n")).into())
         } else {
             Ok(Varlink {
-                string: s,
+                description: s,
                 interface: iface,
             })
         }

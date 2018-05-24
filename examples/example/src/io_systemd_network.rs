@@ -87,9 +87,9 @@ pub enum ErrorKind {
     #[fail(display = "(De)Serialization Error")]
     SerdeJson_Error(serde_json::error::Category),
     #[fail(display = "Varlink Error")]
-    Varlink(varlink::ErrorKind),
+    Varlink_Error(varlink::ErrorKind),
     #[fail(display = "Unknown error reply: '{:#?}'", _0)]
-    VarlinkReply(varlink::Reply),
+    VarlinkReply_Error(varlink::Reply),
     #[fail(display = "io.systemd.network.UnknownError: {:#?}", _0)]
     UnknownError(Option<UnknownError_Args>),
     #[fail(display = "io.systemd.network.UnknownNetworkIfIndex: {:#?}", _0)]
@@ -156,7 +156,7 @@ impl From<varlink::Error> for Error {
             varlink::ErrorKind::SerdeJsonSer(cat) => {
                 e.context(ErrorKind::SerdeJson_Error(cat)).into()
             }
-            kind => e.context(ErrorKind::Varlink(kind)).into(),
+            kind => e.context(ErrorKind::Varlink_Error(kind)).into(),
         }
     }
 }
@@ -198,7 +198,7 @@ impl From<varlink::Reply> for Error {
                     _ => ErrorKind::UnknownNetworkIfIndex(None).into(),
                 }
             }
-            _ => return ErrorKind::VarlinkReply(e).into(),
+            _ => return ErrorKind::VarlinkReply_Error(e).into(),
         }
     }
 }

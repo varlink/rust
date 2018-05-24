@@ -134,7 +134,7 @@ fn run_client<S: ?Sized + AsRef<str>>(address: &S) -> varlink::Result<()> {
     }
 
     match iface.info(3).call().err().unwrap().kind() {
-        ErrorKind::Varlink(varlink::ErrorKind::InvalidParameter(ref p)) if p == "ifindex" => {}
+        ErrorKind::Varlink_Error(varlink::ErrorKind::InvalidParameter(ref p)) if p == "ifindex" => {}
         res => panic!("Unknown result {:?}", res),
     }
 

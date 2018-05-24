@@ -470,9 +470,9 @@ pub enum ErrorKind {{
     #[fail(display = "(De)Serialization Error")]
     SerdeJson_Error(serde_json::error::Category),
     #[fail(display = "Varlink Error")]
-    Varlink(varlink::ErrorKind),
+    Varlink_Error(varlink::ErrorKind),
     #[fail(display = "Unknown error reply: '{{:#?}}'", _0)]
-    VarlinkReply(varlink::Reply),
+    VarlinkReply_Error(varlink::Reply),
 "#
         )?;
         for t in self.errors.values() {
@@ -547,7 +547,7 @@ impl From<varlink::Error> for Error {{
         match kind {{
             varlink::ErrorKind::Io(kind) => e.context(ErrorKind::Io_Error(kind)).into(),
             varlink::ErrorKind::SerdeJsonSer(cat) => e.context(ErrorKind::SerdeJson_Error(cat)).into(),
-            kind => e.context(ErrorKind::Varlink(kind)).into(),
+            kind => e.context(ErrorKind::Varlink_Error(kind)).into(),
         }}
     }}
 }}
@@ -588,7 +588,7 @@ impl From<varlink::Reply> for Error {{
 
         write!(
             w,
-            r#"            _ => return ErrorKind::VarlinkReply(e).into(),
+            r#"            _ => return ErrorKind::VarlinkReply_Error(e).into(),
         }}
     }}
 }}

@@ -283,7 +283,7 @@ impl<'a> fmt::Display for Interface<'a> {
     }
 }
 
-pub fn trim_doc(s: &str) -> &str {
+fn trim_doc(s: &str) -> &str {
     s.trim_matches(&[
         ' ', '\n', '\r', '\u{00A0}', '\u{FEFF}', '\u{1680}', '\u{180E}', '\u{2000}', '\u{2001}',
         '\u{2002}', '\u{2003}', '\u{2004}', '\u{2005}', '\u{2006}', '\u{2007}', '\u{2008}',

@@ -25,34 +25,34 @@ pub struct NetdevInfo {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct InfoReply_ {
+pub struct Info_Reply {
     pub info: NetdevInfo,
 }
 
-impl varlink::VarlinkReply for InfoReply_ {}
+impl varlink::VarlinkReply for Info_Reply {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct InfoArgs_ {
+pub struct Info_Args {
     pub ifindex: i64,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct ListReply_ {
+pub struct List_Reply {
     pub netdevs: Vec<Netdev>,
 }
 
-impl varlink::VarlinkReply for ListReply_ {}
+impl varlink::VarlinkReply for List_Reply {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct ListArgs_ {}
+pub struct List_Args {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct UnknownErrorArgs_ {
+pub struct UnknownError_Args {
     pub text: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct UnknownNetworkIfIndexArgs_ {
+pub struct UnknownNetworkIfIndex_Args {
     pub ifindex: i64,
 }
 
@@ -60,13 +60,13 @@ pub trait VarlinkCallError: varlink::CallTrait {
     fn reply_unknown_error(&mut self, text: String) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::error(
             "io.systemd.network.UnknownError",
-            Some(serde_json::to_value(UnknownErrorArgs_ { text })?),
+            Some(serde_json::to_value(UnknownError_Args { text })?),
         ))
     }
     fn reply_unknown_network_if_index(&mut self, ifindex: i64) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::error(
             "io.systemd.network.UnknownNetworkIfIndex",
-            Some(serde_json::to_value(UnknownNetworkIfIndexArgs_ {
+            Some(serde_json::to_value(UnknownNetworkIfIndex_Args {
                 ifindex,
             })?),
         ))
@@ -83,17 +83,17 @@ pub struct Error {
 #[derive(Clone, PartialEq, Debug, Fail)]
 pub enum ErrorKind {
     #[fail(display = "IO error")]
-    Io_(::std::io::ErrorKind),
+    Io_Error(::std::io::ErrorKind),
     #[fail(display = "(De)Serialization Error")]
-    SerdeJson_(serde_json::error::Category),
+    SerdeJson_Error(serde_json::error::Category),
     #[fail(display = "Varlink Error")]
     Varlink(varlink::ErrorKind),
     #[fail(display = "Unknown error reply: '{:#?}'", _0)]
     VarlinkReply(varlink::Reply),
     #[fail(display = "io.systemd.network.UnknownError: {:#?}", _0)]
-    UnknownError(Option<UnknownErrorArgs_>),
+    UnknownError(Option<UnknownError_Args>),
     #[fail(display = "io.systemd.network.UnknownNetworkIfIndex: {:#?}", _0)]
-    UnknownNetworkIfIndex(Option<UnknownNetworkIfIndexArgs_>),
+    UnknownNetworkIfIndex(Option<UnknownNetworkIfIndex_Args>),
 }
 
 impl Fail for Error {
@@ -135,14 +135,14 @@ impl From<Context<ErrorKind>> for Error {
 impl From<::std::io::Error> for Error {
     fn from(e: ::std::io::Error) -> Error {
         let kind = e.kind();
-        e.context(ErrorKind::Io_(kind)).into()
+        e.context(ErrorKind::Io_Error(kind)).into()
     }
 }
 
 impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Error {
         let cat = e.classify();
-        e.context(ErrorKind::SerdeJson_(cat)).into()
+        e.context(ErrorKind::SerdeJson_Error(cat)).into()
     }
 }
 
@@ -152,8 +152,10 @@ impl From<varlink::Error> for Error {
     fn from(e: varlink::Error) -> Self {
         let kind = e.kind();
         match kind {
-            varlink::ErrorKind::Io(kind) => e.context(ErrorKind::Io_(kind)).into(),
-            varlink::ErrorKind::SerdeJsonSer(cat) => e.context(ErrorKind::SerdeJson_(cat)).into(),
+            varlink::ErrorKind::Io(kind) => e.context(ErrorKind::Io_Error(kind)).into(),
+            varlink::ErrorKind::SerdeJsonSer(cat) => {
+                e.context(ErrorKind::SerdeJson_Error(cat)).into()
+            }
             kind => e.context(ErrorKind::Varlink(kind)).into(),
         }
     }
@@ -200,33 +202,33 @@ impl From<varlink::Reply> for Error {
         }
     }
 }
-pub trait CallInfo_: VarlinkCallError {
+pub trait Call_Info: VarlinkCallError {
     fn reply(&mut self, info: NetdevInfo) -> varlink::Result<()> {
-        self.reply_struct(InfoReply_ { info }.into())
+        self.reply_struct(Info_Reply { info }.into())
     }
 }
 
-impl<'a> CallInfo_ for varlink::Call<'a> {}
+impl<'a> Call_Info for varlink::Call<'a> {}
 
-pub trait CallList_: VarlinkCallError {
+pub trait Call_List: VarlinkCallError {
     fn reply(&mut self, netdevs: Vec<Netdev>) -> varlink::Result<()> {
-        self.reply_struct(ListReply_ { netdevs }.into())
+        self.reply_struct(List_Reply { netdevs }.into())
     }
 }
 
-impl<'a> CallList_ for varlink::Call<'a> {}
+impl<'a> Call_List for varlink::Call<'a> {}
 
 pub trait VarlinkInterface {
-    fn info(&self, call: &mut CallInfo_, ifindex: i64) -> varlink::Result<()>;
-    fn list(&self, call: &mut CallList_) -> varlink::Result<()>;
+    fn info(&self, call: &mut Call_Info, ifindex: i64) -> varlink::Result<()>;
+    fn list(&self, call: &mut Call_List) -> varlink::Result<()>;
     fn call_upgraded(&self, _call: &mut varlink::Call) -> varlink::Result<()> {
         Ok(())
     }
 }
 
 pub trait VarlinkClientInterface {
-    fn info(&mut self, ifindex: i64) -> varlink::MethodCall<InfoArgs_, InfoReply_, Error>;
-    fn list(&mut self) -> varlink::MethodCall<ListArgs_, ListReply_, Error>;
+    fn info(&mut self, ifindex: i64) -> varlink::MethodCall<Info_Args, Info_Reply, Error>;
+    fn list(&mut self) -> varlink::MethodCall<List_Args, List_Reply, Error>;
 }
 
 pub struct VarlinkClient {
@@ -260,18 +262,18 @@ impl VarlinkClient {
 }
 
 impl VarlinkClientInterface for VarlinkClient {
-    fn info(&mut self, ifindex: i64) -> varlink::MethodCall<InfoArgs_, InfoReply_, Error> {
-        varlink::MethodCall::<InfoArgs_, InfoReply_, Error>::new(
+    fn info(&mut self, ifindex: i64) -> varlink::MethodCall<Info_Args, Info_Reply, Error> {
+        varlink::MethodCall::<Info_Args, Info_Reply, Error>::new(
             self.connection.clone(),
             "io.systemd.network.Info",
-            InfoArgs_ { ifindex },
+            Info_Args { ifindex },
         )
     }
-    fn list(&mut self) -> varlink::MethodCall<ListArgs_, ListReply_, Error> {
-        varlink::MethodCall::<ListArgs_, ListReply_, Error>::new(
+    fn list(&mut self) -> varlink::MethodCall<List_Args, List_Reply, Error> {
+        varlink::MethodCall::<List_Args, List_Reply, Error>::new(
             self.connection.clone(),
             "io.systemd.network.List",
-            ListArgs_ {},
+            List_Args {},
         )
     }
 }
@@ -324,14 +326,14 @@ error UnknownError (text: string)
         match req.method.as_ref() {
             "io.systemd.network.Info" => {
                 if let Some(args) = req.parameters.clone() {
-                    let args: InfoArgs_ = serde_json::from_value(args)?;
-                    return self.inner.info(call as &mut CallInfo_, args.ifindex);
+                    let args: Info_Args = serde_json::from_value(args)?;
+                    return self.inner.info(call as &mut Call_Info, args.ifindex);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
                 }
             }
             "io.systemd.network.List" => {
-                return self.inner.list(call as &mut CallList_);
+                return self.inner.list(call as &mut Call_List);
             }
 
             m => {

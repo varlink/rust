@@ -37,104 +37,104 @@ pub struct MyType {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct EndReply_ {
+pub struct End_Reply {
     pub all_ok: bool,
 }
 
-impl varlink::VarlinkReply for EndReply_ {}
+impl varlink::VarlinkReply for End_Reply {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct EndArgs_ {
+pub struct End_Args {
     pub client_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct StartReply_ {
+pub struct Start_Reply {
     pub client_id: String,
 }
 
-impl varlink::VarlinkReply for StartReply_ {}
+impl varlink::VarlinkReply for Start_Reply {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct StartArgs_ {}
+pub struct Start_Args {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test01Reply_ {
+pub struct Test01_Reply {
     pub bool: bool,
 }
 
-impl varlink::VarlinkReply for Test01Reply_ {}
+impl varlink::VarlinkReply for Test01_Reply {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test01Args_ {
+pub struct Test01_Args {
     pub client_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test02Reply_ {
+pub struct Test02_Reply {
     pub int: i64,
 }
 
-impl varlink::VarlinkReply for Test02Reply_ {}
+impl varlink::VarlinkReply for Test02_Reply {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test02Args_ {
+pub struct Test02_Args {
     pub client_id: String,
     pub bool: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test03Reply_ {
+pub struct Test03_Reply {
     pub float: f64,
 }
 
-impl varlink::VarlinkReply for Test03Reply_ {}
+impl varlink::VarlinkReply for Test03_Reply {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test03Args_ {
+pub struct Test03_Args {
     pub client_id: String,
     pub int: i64,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test04Reply_ {
+pub struct Test04_Reply {
     pub string: String,
 }
 
-impl varlink::VarlinkReply for Test04Reply_ {}
+impl varlink::VarlinkReply for Test04_Reply {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test04Args_ {
+pub struct Test04_Args {
     pub client_id: String,
     pub float: f64,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test05Reply_ {
+pub struct Test05_Reply {
     pub bool: bool,
     pub int: i64,
     pub float: f64,
     pub string: String,
 }
 
-impl varlink::VarlinkReply for Test05Reply_ {}
+impl varlink::VarlinkReply for Test05_Reply {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test05Args_ {
+pub struct Test05_Args {
     pub client_id: String,
     pub string: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test06Reply_ {
+pub struct Test06_Reply {
     #[serde(rename = "struct")]
-    pub struct_: Test06Reply_struct,
+    pub struct_: Test06_Reply_struct,
 }
 
-impl varlink::VarlinkReply for Test06Reply_ {}
+impl varlink::VarlinkReply for Test06_Reply {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test06Args_ {
+pub struct Test06_Args {
     pub client_id: String,
     pub bool: bool,
     pub int: i64,
@@ -143,77 +143,77 @@ pub struct Test06Args_ {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test07Reply_ {
+pub struct Test07_Reply {
     pub map: varlink::StringHashMap<String>,
 }
 
-impl varlink::VarlinkReply for Test07Reply_ {}
+impl varlink::VarlinkReply for Test07_Reply {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test07Args_ {
+pub struct Test07_Args {
     pub client_id: String,
     #[serde(rename = "struct")]
-    pub struct_: Test07Args_struct,
+    pub struct_: Test07_Args_struct,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test08Reply_ {
+pub struct Test08_Reply {
     pub set: varlink::StringHashSet,
 }
 
-impl varlink::VarlinkReply for Test08Reply_ {}
+impl varlink::VarlinkReply for Test08_Reply {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test08Args_ {
+pub struct Test08_Args {
     pub client_id: String,
     pub map: varlink::StringHashMap<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test09Reply_ {
+pub struct Test09_Reply {
     pub mytype: MyType,
 }
 
-impl varlink::VarlinkReply for Test09Reply_ {}
+impl varlink::VarlinkReply for Test09_Reply {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test09Args_ {
+pub struct Test09_Args {
     pub client_id: String,
     pub set: varlink::StringHashSet,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test10Reply_ {
+pub struct Test10_Reply {
     pub string: String,
 }
 
-impl varlink::VarlinkReply for Test10Reply_ {}
+impl varlink::VarlinkReply for Test10_Reply {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test10Args_ {
+pub struct Test10_Args {
     pub client_id: String,
     pub mytype: MyType,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test11Reply_ {}
+pub struct Test11_Reply {}
 
-impl varlink::VarlinkReply for Test11Reply_ {}
+impl varlink::VarlinkReply for Test11_Reply {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test11Args_ {
+pub struct Test11_Args {
     pub client_id: String,
     pub last_more_replies: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct CertificationErrorArgs_ {
+pub struct CertificationError_Args {
     pub wants: Value,
     pub got: Value,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct ClientIdErrorArgs_ {}
+pub struct ClientIdError_Args {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Interface_anon {
@@ -234,7 +234,7 @@ pub struct MyType_nullable_array_struct {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test06Reply_struct {
+pub struct Test06_Reply_struct {
     pub bool: bool,
     pub int: i64,
     pub float: f64,
@@ -242,7 +242,7 @@ pub struct Test06Reply_struct {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Test07Args_struct {
+pub struct Test07_Args_struct {
     pub bool: bool,
     pub int: i64,
     pub float: f64,
@@ -267,7 +267,7 @@ pub trait VarlinkCallError: varlink::CallTrait {
     fn reply_certification_error(&mut self, wants: Value, got: Value) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::error(
             "org.varlink.certification.CertificationError",
-            Some(serde_json::to_value(CertificationErrorArgs_ {
+            Some(serde_json::to_value(CertificationError_Args {
                 wants,
                 got,
             })?),
@@ -291,17 +291,17 @@ pub struct Error {
 #[derive(Clone, PartialEq, Debug, Fail)]
 pub enum ErrorKind {
     #[fail(display = "IO error")]
-    Io_(::std::io::ErrorKind),
+    Io_Error(::std::io::ErrorKind),
     #[fail(display = "(De)Serialization Error")]
-    SerdeJson_(serde_json::error::Category),
+    SerdeJson_Error(serde_json::error::Category),
     #[fail(display = "Varlink Error")]
     Varlink(varlink::ErrorKind),
     #[fail(display = "Unknown error reply: '{:#?}'", _0)]
     VarlinkReply(varlink::Reply),
     #[fail(display = "org.varlink.certification.CertificationError: {:#?}", _0)]
-    CertificationError(Option<CertificationErrorArgs_>),
+    CertificationError(Option<CertificationError_Args>),
     #[fail(display = "org.varlink.certification.ClientIdError: {:#?}", _0)]
-    ClientIdError(Option<ClientIdErrorArgs_>),
+    ClientIdError(Option<ClientIdError_Args>),
 }
 
 impl Fail for Error {
@@ -343,14 +343,14 @@ impl From<Context<ErrorKind>> for Error {
 impl From<::std::io::Error> for Error {
     fn from(e: ::std::io::Error) -> Error {
         let kind = e.kind();
-        e.context(ErrorKind::Io_(kind)).into()
+        e.context(ErrorKind::Io_Error(kind)).into()
     }
 }
 
 impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Error {
         let cat = e.classify();
-        e.context(ErrorKind::SerdeJson_(cat)).into()
+        e.context(ErrorKind::SerdeJson_Error(cat)).into()
     }
 }
 
@@ -360,8 +360,10 @@ impl From<varlink::Error> for Error {
     fn from(e: varlink::Error) -> Self {
         let kind = e.kind();
         match kind {
-            varlink::ErrorKind::Io(kind) => e.context(ErrorKind::Io_(kind)).into(),
-            varlink::ErrorKind::SerdeJsonSer(cat) => e.context(ErrorKind::SerdeJson_(cat)).into(),
+            varlink::ErrorKind::Io(kind) => e.context(ErrorKind::Io_Error(kind)).into(),
+            varlink::ErrorKind::SerdeJsonSer(cat) => {
+                e.context(ErrorKind::SerdeJson_Error(cat)).into()
+            }
             kind => e.context(ErrorKind::Varlink(kind)).into(),
         }
     }
@@ -408,58 +410,58 @@ impl From<varlink::Reply> for Error {
         }
     }
 }
-pub trait CallEnd_: VarlinkCallError {
+pub trait Call_End: VarlinkCallError {
     fn reply(&mut self, all_ok: bool) -> varlink::Result<()> {
-        self.reply_struct(EndReply_ { all_ok }.into())
+        self.reply_struct(End_Reply { all_ok }.into())
     }
 }
 
-impl<'a> CallEnd_ for varlink::Call<'a> {}
+impl<'a> Call_End for varlink::Call<'a> {}
 
-pub trait CallStart_: VarlinkCallError {
+pub trait Call_Start: VarlinkCallError {
     fn reply(&mut self, client_id: String) -> varlink::Result<()> {
-        self.reply_struct(StartReply_ { client_id }.into())
+        self.reply_struct(Start_Reply { client_id }.into())
     }
 }
 
-impl<'a> CallStart_ for varlink::Call<'a> {}
+impl<'a> Call_Start for varlink::Call<'a> {}
 
-pub trait CallTest01_: VarlinkCallError {
+pub trait Call_Test01: VarlinkCallError {
     fn reply(&mut self, bool: bool) -> varlink::Result<()> {
-        self.reply_struct(Test01Reply_ { bool }.into())
+        self.reply_struct(Test01_Reply { bool }.into())
     }
 }
 
-impl<'a> CallTest01_ for varlink::Call<'a> {}
+impl<'a> Call_Test01 for varlink::Call<'a> {}
 
-pub trait CallTest02_: VarlinkCallError {
+pub trait Call_Test02: VarlinkCallError {
     fn reply(&mut self, int: i64) -> varlink::Result<()> {
-        self.reply_struct(Test02Reply_ { int }.into())
+        self.reply_struct(Test02_Reply { int }.into())
     }
 }
 
-impl<'a> CallTest02_ for varlink::Call<'a> {}
+impl<'a> Call_Test02 for varlink::Call<'a> {}
 
-pub trait CallTest03_: VarlinkCallError {
+pub trait Call_Test03: VarlinkCallError {
     fn reply(&mut self, float: f64) -> varlink::Result<()> {
-        self.reply_struct(Test03Reply_ { float }.into())
+        self.reply_struct(Test03_Reply { float }.into())
     }
 }
 
-impl<'a> CallTest03_ for varlink::Call<'a> {}
+impl<'a> Call_Test03 for varlink::Call<'a> {}
 
-pub trait CallTest04_: VarlinkCallError {
+pub trait Call_Test04: VarlinkCallError {
     fn reply(&mut self, string: String) -> varlink::Result<()> {
-        self.reply_struct(Test04Reply_ { string }.into())
+        self.reply_struct(Test04_Reply { string }.into())
     }
 }
 
-impl<'a> CallTest04_ for varlink::Call<'a> {}
+impl<'a> Call_Test04 for varlink::Call<'a> {}
 
-pub trait CallTest05_: VarlinkCallError {
+pub trait Call_Test05: VarlinkCallError {
     fn reply(&mut self, bool: bool, int: i64, float: f64, string: String) -> varlink::Result<()> {
         self.reply_struct(
-            Test05Reply_ {
+            Test05_Reply {
                 bool,
                 int,
                 float,
@@ -469,72 +471,72 @@ pub trait CallTest05_: VarlinkCallError {
     }
 }
 
-impl<'a> CallTest05_ for varlink::Call<'a> {}
+impl<'a> Call_Test05 for varlink::Call<'a> {}
 
-pub trait CallTest06_: VarlinkCallError {
-    fn reply(&mut self, struct_: Test06Reply_struct) -> varlink::Result<()> {
-        self.reply_struct(Test06Reply_ { struct_ }.into())
+pub trait Call_Test06: VarlinkCallError {
+    fn reply(&mut self, struct_: Test06_Reply_struct) -> varlink::Result<()> {
+        self.reply_struct(Test06_Reply { struct_ }.into())
     }
 }
 
-impl<'a> CallTest06_ for varlink::Call<'a> {}
+impl<'a> Call_Test06 for varlink::Call<'a> {}
 
-pub trait CallTest07_: VarlinkCallError {
+pub trait Call_Test07: VarlinkCallError {
     fn reply(&mut self, map: varlink::StringHashMap<String>) -> varlink::Result<()> {
-        self.reply_struct(Test07Reply_ { map }.into())
+        self.reply_struct(Test07_Reply { map }.into())
     }
 }
 
-impl<'a> CallTest07_ for varlink::Call<'a> {}
+impl<'a> Call_Test07 for varlink::Call<'a> {}
 
-pub trait CallTest08_: VarlinkCallError {
+pub trait Call_Test08: VarlinkCallError {
     fn reply(&mut self, set: varlink::StringHashSet) -> varlink::Result<()> {
-        self.reply_struct(Test08Reply_ { set }.into())
+        self.reply_struct(Test08_Reply { set }.into())
     }
 }
 
-impl<'a> CallTest08_ for varlink::Call<'a> {}
+impl<'a> Call_Test08 for varlink::Call<'a> {}
 
-pub trait CallTest09_: VarlinkCallError {
+pub trait Call_Test09: VarlinkCallError {
     fn reply(&mut self, mytype: MyType) -> varlink::Result<()> {
-        self.reply_struct(Test09Reply_ { mytype }.into())
+        self.reply_struct(Test09_Reply { mytype }.into())
     }
 }
 
-impl<'a> CallTest09_ for varlink::Call<'a> {}
+impl<'a> Call_Test09 for varlink::Call<'a> {}
 
-pub trait CallTest10_: VarlinkCallError {
+pub trait Call_Test10: VarlinkCallError {
     fn reply(&mut self, string: String) -> varlink::Result<()> {
-        self.reply_struct(Test10Reply_ { string }.into())
+        self.reply_struct(Test10_Reply { string }.into())
     }
 }
 
-impl<'a> CallTest10_ for varlink::Call<'a> {}
+impl<'a> Call_Test10 for varlink::Call<'a> {}
 
-pub trait CallTest11_: VarlinkCallError {
+pub trait Call_Test11: VarlinkCallError {
     fn reply(&mut self) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::parameters(None))
     }
 }
 
-impl<'a> CallTest11_ for varlink::Call<'a> {}
+impl<'a> Call_Test11 for varlink::Call<'a> {}
 
 pub trait VarlinkInterface {
-    fn end(&self, call: &mut CallEnd_, client_id: String) -> varlink::Result<()>;
-    fn start(&self, call: &mut CallStart_) -> varlink::Result<()>;
-    fn test01(&self, call: &mut CallTest01_, client_id: String) -> varlink::Result<()>;
-    fn test02(&self, call: &mut CallTest02_, client_id: String, bool: bool) -> varlink::Result<()>;
-    fn test03(&self, call: &mut CallTest03_, client_id: String, int: i64) -> varlink::Result<()>;
-    fn test04(&self, call: &mut CallTest04_, client_id: String, float: f64) -> varlink::Result<()>;
+    fn end(&self, call: &mut Call_End, client_id: String) -> varlink::Result<()>;
+    fn start(&self, call: &mut Call_Start) -> varlink::Result<()>;
+    fn test01(&self, call: &mut Call_Test01, client_id: String) -> varlink::Result<()>;
+    fn test02(&self, call: &mut Call_Test02, client_id: String, bool: bool) -> varlink::Result<()>;
+    fn test03(&self, call: &mut Call_Test03, client_id: String, int: i64) -> varlink::Result<()>;
+    fn test04(&self, call: &mut Call_Test04, client_id: String, float: f64) -> varlink::Result<()>;
     fn test05(
         &self,
-        call: &mut CallTest05_,
+        call: &mut Call_Test05,
         client_id: String,
         string: String,
     ) -> varlink::Result<()>;
     fn test06(
         &self,
-        call: &mut CallTest06_,
+        call: &mut Call_Test06,
         client_id: String,
         bool: bool,
         int: i64,
@@ -543,31 +545,31 @@ pub trait VarlinkInterface {
     ) -> varlink::Result<()>;
     fn test07(
         &self,
-        call: &mut CallTest07_,
+        call: &mut Call_Test07,
         client_id: String,
-        struct_: Test07Args_struct,
+        struct_: Test07_Args_struct,
     ) -> varlink::Result<()>;
     fn test08(
         &self,
-        call: &mut CallTest08_,
+        call: &mut Call_Test08,
         client_id: String,
         map: varlink::StringHashMap<String>,
     ) -> varlink::Result<()>;
     fn test09(
         &self,
-        call: &mut CallTest09_,
+        call: &mut Call_Test09,
         client_id: String,
         set: varlink::StringHashSet,
     ) -> varlink::Result<()>;
     fn test10(
         &self,
-        call: &mut CallTest10_,
+        call: &mut Call_Test10,
         client_id: String,
         mytype: MyType,
     ) -> varlink::Result<()>;
     fn test11(
         &self,
-        call: &mut CallTest11_,
+        call: &mut Call_Test11,
         client_id: String,
         last_more_replies: Vec<String>,
     ) -> varlink::Result<()>;
@@ -577,32 +579,32 @@ pub trait VarlinkInterface {
 }
 
 pub trait VarlinkClientInterface {
-    fn end(&mut self, client_id: String) -> varlink::MethodCall<EndArgs_, EndReply_, Error>;
-    fn start(&mut self) -> varlink::MethodCall<StartArgs_, StartReply_, Error>;
+    fn end(&mut self, client_id: String) -> varlink::MethodCall<End_Args, End_Reply, Error>;
+    fn start(&mut self) -> varlink::MethodCall<Start_Args, Start_Reply, Error>;
     fn test01(
         &mut self,
         client_id: String,
-    ) -> varlink::MethodCall<Test01Args_, Test01Reply_, Error>;
+    ) -> varlink::MethodCall<Test01_Args, Test01_Reply, Error>;
     fn test02(
         &mut self,
         client_id: String,
         bool: bool,
-    ) -> varlink::MethodCall<Test02Args_, Test02Reply_, Error>;
+    ) -> varlink::MethodCall<Test02_Args, Test02_Reply, Error>;
     fn test03(
         &mut self,
         client_id: String,
         int: i64,
-    ) -> varlink::MethodCall<Test03Args_, Test03Reply_, Error>;
+    ) -> varlink::MethodCall<Test03_Args, Test03_Reply, Error>;
     fn test04(
         &mut self,
         client_id: String,
         float: f64,
-    ) -> varlink::MethodCall<Test04Args_, Test04Reply_, Error>;
+    ) -> varlink::MethodCall<Test04_Args, Test04_Reply, Error>;
     fn test05(
         &mut self,
         client_id: String,
         string: String,
-    ) -> varlink::MethodCall<Test05Args_, Test05Reply_, Error>;
+    ) -> varlink::MethodCall<Test05_Args, Test05_Reply, Error>;
     fn test06(
         &mut self,
         client_id: String,
@@ -610,32 +612,32 @@ pub trait VarlinkClientInterface {
         int: i64,
         float: f64,
         string: String,
-    ) -> varlink::MethodCall<Test06Args_, Test06Reply_, Error>;
+    ) -> varlink::MethodCall<Test06_Args, Test06_Reply, Error>;
     fn test07(
         &mut self,
         client_id: String,
-        struct_: Test07Args_struct,
-    ) -> varlink::MethodCall<Test07Args_, Test07Reply_, Error>;
+        struct_: Test07_Args_struct,
+    ) -> varlink::MethodCall<Test07_Args, Test07_Reply, Error>;
     fn test08(
         &mut self,
         client_id: String,
         map: varlink::StringHashMap<String>,
-    ) -> varlink::MethodCall<Test08Args_, Test08Reply_, Error>;
+    ) -> varlink::MethodCall<Test08_Args, Test08_Reply, Error>;
     fn test09(
         &mut self,
         client_id: String,
         set: varlink::StringHashSet,
-    ) -> varlink::MethodCall<Test09Args_, Test09Reply_, Error>;
+    ) -> varlink::MethodCall<Test09_Args, Test09_Reply, Error>;
     fn test10(
         &mut self,
         client_id: String,
         mytype: MyType,
-    ) -> varlink::MethodCall<Test10Args_, Test10Reply_, Error>;
+    ) -> varlink::MethodCall<Test10_Args, Test10_Reply, Error>;
     fn test11(
         &mut self,
         client_id: String,
         last_more_replies: Vec<String>,
-    ) -> varlink::MethodCall<Test11Args_, Test11Reply_, Error>;
+    ) -> varlink::MethodCall<Test11_Args, Test11_Reply, Error>;
 }
 
 pub struct VarlinkClient {
@@ -669,72 +671,72 @@ impl VarlinkClient {
 }
 
 impl VarlinkClientInterface for VarlinkClient {
-    fn end(&mut self, client_id: String) -> varlink::MethodCall<EndArgs_, EndReply_, Error> {
-        varlink::MethodCall::<EndArgs_, EndReply_, Error>::new(
+    fn end(&mut self, client_id: String) -> varlink::MethodCall<End_Args, End_Reply, Error> {
+        varlink::MethodCall::<End_Args, End_Reply, Error>::new(
             self.connection.clone(),
             "org.varlink.certification.End",
-            EndArgs_ { client_id },
+            End_Args { client_id },
         )
     }
-    fn start(&mut self) -> varlink::MethodCall<StartArgs_, StartReply_, Error> {
-        varlink::MethodCall::<StartArgs_, StartReply_, Error>::new(
+    fn start(&mut self) -> varlink::MethodCall<Start_Args, Start_Reply, Error> {
+        varlink::MethodCall::<Start_Args, Start_Reply, Error>::new(
             self.connection.clone(),
             "org.varlink.certification.Start",
-            StartArgs_ {},
+            Start_Args {},
         )
     }
     fn test01(
         &mut self,
         client_id: String,
-    ) -> varlink::MethodCall<Test01Args_, Test01Reply_, Error> {
-        varlink::MethodCall::<Test01Args_, Test01Reply_, Error>::new(
+    ) -> varlink::MethodCall<Test01_Args, Test01_Reply, Error> {
+        varlink::MethodCall::<Test01_Args, Test01_Reply, Error>::new(
             self.connection.clone(),
             "org.varlink.certification.Test01",
-            Test01Args_ { client_id },
+            Test01_Args { client_id },
         )
     }
     fn test02(
         &mut self,
         client_id: String,
         bool: bool,
-    ) -> varlink::MethodCall<Test02Args_, Test02Reply_, Error> {
-        varlink::MethodCall::<Test02Args_, Test02Reply_, Error>::new(
+    ) -> varlink::MethodCall<Test02_Args, Test02_Reply, Error> {
+        varlink::MethodCall::<Test02_Args, Test02_Reply, Error>::new(
             self.connection.clone(),
             "org.varlink.certification.Test02",
-            Test02Args_ { client_id, bool },
+            Test02_Args { client_id, bool },
         )
     }
     fn test03(
         &mut self,
         client_id: String,
         int: i64,
-    ) -> varlink::MethodCall<Test03Args_, Test03Reply_, Error> {
-        varlink::MethodCall::<Test03Args_, Test03Reply_, Error>::new(
+    ) -> varlink::MethodCall<Test03_Args, Test03_Reply, Error> {
+        varlink::MethodCall::<Test03_Args, Test03_Reply, Error>::new(
             self.connection.clone(),
             "org.varlink.certification.Test03",
-            Test03Args_ { client_id, int },
+            Test03_Args { client_id, int },
         )
     }
     fn test04(
         &mut self,
         client_id: String,
         float: f64,
-    ) -> varlink::MethodCall<Test04Args_, Test04Reply_, Error> {
-        varlink::MethodCall::<Test04Args_, Test04Reply_, Error>::new(
+    ) -> varlink::MethodCall<Test04_Args, Test04_Reply, Error> {
+        varlink::MethodCall::<Test04_Args, Test04_Reply, Error>::new(
             self.connection.clone(),
             "org.varlink.certification.Test04",
-            Test04Args_ { client_id, float },
+            Test04_Args { client_id, float },
         )
     }
     fn test05(
         &mut self,
         client_id: String,
         string: String,
-    ) -> varlink::MethodCall<Test05Args_, Test05Reply_, Error> {
-        varlink::MethodCall::<Test05Args_, Test05Reply_, Error>::new(
+    ) -> varlink::MethodCall<Test05_Args, Test05_Reply, Error> {
+        varlink::MethodCall::<Test05_Args, Test05_Reply, Error>::new(
             self.connection.clone(),
             "org.varlink.certification.Test05",
-            Test05Args_ { client_id, string },
+            Test05_Args { client_id, string },
         )
     }
     fn test06(
@@ -744,11 +746,11 @@ impl VarlinkClientInterface for VarlinkClient {
         int: i64,
         float: f64,
         string: String,
-    ) -> varlink::MethodCall<Test06Args_, Test06Reply_, Error> {
-        varlink::MethodCall::<Test06Args_, Test06Reply_, Error>::new(
+    ) -> varlink::MethodCall<Test06_Args, Test06_Reply, Error> {
+        varlink::MethodCall::<Test06_Args, Test06_Reply, Error>::new(
             self.connection.clone(),
             "org.varlink.certification.Test06",
-            Test06Args_ {
+            Test06_Args {
                 client_id,
                 bool,
                 int,
@@ -760,56 +762,56 @@ impl VarlinkClientInterface for VarlinkClient {
     fn test07(
         &mut self,
         client_id: String,
-        struct_: Test07Args_struct,
-    ) -> varlink::MethodCall<Test07Args_, Test07Reply_, Error> {
-        varlink::MethodCall::<Test07Args_, Test07Reply_, Error>::new(
+        struct_: Test07_Args_struct,
+    ) -> varlink::MethodCall<Test07_Args, Test07_Reply, Error> {
+        varlink::MethodCall::<Test07_Args, Test07_Reply, Error>::new(
             self.connection.clone(),
             "org.varlink.certification.Test07",
-            Test07Args_ { client_id, struct_ },
+            Test07_Args { client_id, struct_ },
         )
     }
     fn test08(
         &mut self,
         client_id: String,
         map: varlink::StringHashMap<String>,
-    ) -> varlink::MethodCall<Test08Args_, Test08Reply_, Error> {
-        varlink::MethodCall::<Test08Args_, Test08Reply_, Error>::new(
+    ) -> varlink::MethodCall<Test08_Args, Test08_Reply, Error> {
+        varlink::MethodCall::<Test08_Args, Test08_Reply, Error>::new(
             self.connection.clone(),
             "org.varlink.certification.Test08",
-            Test08Args_ { client_id, map },
+            Test08_Args { client_id, map },
         )
     }
     fn test09(
         &mut self,
         client_id: String,
         set: varlink::StringHashSet,
-    ) -> varlink::MethodCall<Test09Args_, Test09Reply_, Error> {
-        varlink::MethodCall::<Test09Args_, Test09Reply_, Error>::new(
+    ) -> varlink::MethodCall<Test09_Args, Test09_Reply, Error> {
+        varlink::MethodCall::<Test09_Args, Test09_Reply, Error>::new(
             self.connection.clone(),
             "org.varlink.certification.Test09",
-            Test09Args_ { client_id, set },
+            Test09_Args { client_id, set },
         )
     }
     fn test10(
         &mut self,
         client_id: String,
         mytype: MyType,
-    ) -> varlink::MethodCall<Test10Args_, Test10Reply_, Error> {
-        varlink::MethodCall::<Test10Args_, Test10Reply_, Error>::new(
+    ) -> varlink::MethodCall<Test10_Args, Test10_Reply, Error> {
+        varlink::MethodCall::<Test10_Args, Test10_Reply, Error>::new(
             self.connection.clone(),
             "org.varlink.certification.Test10",
-            Test10Args_ { client_id, mytype },
+            Test10_Args { client_id, mytype },
         )
     }
     fn test11(
         &mut self,
         client_id: String,
         last_more_replies: Vec<String>,
-    ) -> varlink::MethodCall<Test11Args_, Test11Reply_, Error> {
-        varlink::MethodCall::<Test11Args_, Test11Reply_, Error>::new(
+    ) -> varlink::MethodCall<Test11_Args, Test11_Reply, Error> {
+        varlink::MethodCall::<Test11_Args, Test11_Reply, Error>::new(
             self.connection.clone(),
             "org.varlink.certification.Test11",
-            Test11Args_ {
+            Test11_Args {
                 client_id,
                 last_more_replies,
             },
@@ -929,68 +931,68 @@ error CertificationError (wants: object, got: object)
         match req.method.as_ref() {
             "org.varlink.certification.End" => {
                 if let Some(args) = req.parameters.clone() {
-                    let args: EndArgs_ = serde_json::from_value(args)?;
-                    return self.inner.end(call as &mut CallEnd_, args.client_id);
+                    let args: End_Args = serde_json::from_value(args)?;
+                    return self.inner.end(call as &mut Call_End, args.client_id);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
                 }
             }
             "org.varlink.certification.Start" => {
-                return self.inner.start(call as &mut CallStart_);
+                return self.inner.start(call as &mut Call_Start);
             }
             "org.varlink.certification.Test01" => {
                 if let Some(args) = req.parameters.clone() {
-                    let args: Test01Args_ = serde_json::from_value(args)?;
-                    return self.inner.test01(call as &mut CallTest01_, args.client_id);
+                    let args: Test01_Args = serde_json::from_value(args)?;
+                    return self.inner.test01(call as &mut Call_Test01, args.client_id);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
                 }
             }
             "org.varlink.certification.Test02" => {
                 if let Some(args) = req.parameters.clone() {
-                    let args: Test02Args_ = serde_json::from_value(args)?;
+                    let args: Test02_Args = serde_json::from_value(args)?;
                     return self
                         .inner
-                        .test02(call as &mut CallTest02_, args.client_id, args.bool);
+                        .test02(call as &mut Call_Test02, args.client_id, args.bool);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
                 }
             }
             "org.varlink.certification.Test03" => {
                 if let Some(args) = req.parameters.clone() {
-                    let args: Test03Args_ = serde_json::from_value(args)?;
+                    let args: Test03_Args = serde_json::from_value(args)?;
                     return self
                         .inner
-                        .test03(call as &mut CallTest03_, args.client_id, args.int);
+                        .test03(call as &mut Call_Test03, args.client_id, args.int);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
                 }
             }
             "org.varlink.certification.Test04" => {
                 if let Some(args) = req.parameters.clone() {
-                    let args: Test04Args_ = serde_json::from_value(args)?;
+                    let args: Test04_Args = serde_json::from_value(args)?;
                     return self
                         .inner
-                        .test04(call as &mut CallTest04_, args.client_id, args.float);
+                        .test04(call as &mut Call_Test04, args.client_id, args.float);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
                 }
             }
             "org.varlink.certification.Test05" => {
                 if let Some(args) = req.parameters.clone() {
-                    let args: Test05Args_ = serde_json::from_value(args)?;
+                    let args: Test05_Args = serde_json::from_value(args)?;
                     return self
                         .inner
-                        .test05(call as &mut CallTest05_, args.client_id, args.string);
+                        .test05(call as &mut Call_Test05, args.client_id, args.string);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
                 }
             }
             "org.varlink.certification.Test06" => {
                 if let Some(args) = req.parameters.clone() {
-                    let args: Test06Args_ = serde_json::from_value(args)?;
+                    let args: Test06_Args = serde_json::from_value(args)?;
                     return self.inner.test06(
-                        call as &mut CallTest06_,
+                        call as &mut Call_Test06,
                         args.client_id,
                         args.bool,
                         args.int,
@@ -1003,9 +1005,9 @@ error CertificationError (wants: object, got: object)
             }
             "org.varlink.certification.Test07" => {
                 if let Some(args) = req.parameters.clone() {
-                    let args: Test07Args_ = serde_json::from_value(args)?;
+                    let args: Test07_Args = serde_json::from_value(args)?;
                     return self.inner.test07(
-                        call as &mut CallTest07_,
+                        call as &mut Call_Test07,
                         args.client_id,
                         args.struct_,
                     );
@@ -1015,39 +1017,39 @@ error CertificationError (wants: object, got: object)
             }
             "org.varlink.certification.Test08" => {
                 if let Some(args) = req.parameters.clone() {
-                    let args: Test08Args_ = serde_json::from_value(args)?;
+                    let args: Test08_Args = serde_json::from_value(args)?;
                     return self
                         .inner
-                        .test08(call as &mut CallTest08_, args.client_id, args.map);
+                        .test08(call as &mut Call_Test08, args.client_id, args.map);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
                 }
             }
             "org.varlink.certification.Test09" => {
                 if let Some(args) = req.parameters.clone() {
-                    let args: Test09Args_ = serde_json::from_value(args)?;
+                    let args: Test09_Args = serde_json::from_value(args)?;
                     return self
                         .inner
-                        .test09(call as &mut CallTest09_, args.client_id, args.set);
+                        .test09(call as &mut Call_Test09, args.client_id, args.set);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
                 }
             }
             "org.varlink.certification.Test10" => {
                 if let Some(args) = req.parameters.clone() {
-                    let args: Test10Args_ = serde_json::from_value(args)?;
+                    let args: Test10_Args = serde_json::from_value(args)?;
                     return self
                         .inner
-                        .test10(call as &mut CallTest10_, args.client_id, args.mytype);
+                        .test10(call as &mut Call_Test10, args.client_id, args.mytype);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
                 }
             }
             "org.varlink.certification.Test11" => {
                 if let Some(args) = req.parameters.clone() {
-                    let args: Test11Args_ = serde_json::from_value(args)?;
+                    let args: Test11_Args = serde_json::from_value(args)?;
                     return self.inner.test11(
-                        call as &mut CallTest11_,
+                        call as &mut Call_Test11,
                         args.client_id,
                         args.last_more_replies,
                     );

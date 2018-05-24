@@ -13,19 +13,19 @@ use std::sync::{Arc, RwLock};
 use varlink::{self, CallTrait};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct PingReply_ {
+pub struct Ping_Reply {
     pub pong: String,
 }
 
-impl varlink::VarlinkReply for PingReply_ {}
+impl varlink::VarlinkReply for Ping_Reply {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct PingArgs_ {
+pub struct Ping_Args {
     pub ping: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct PingErrorArgs_ {
+pub struct PingError_Args {
     pub parameter: i64,
 }
 
@@ -33,7 +33,7 @@ pub trait VarlinkCallError: varlink::CallTrait {
     fn reply_ping_error(&mut self, parameter: i64) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::error(
             "org.example.ping.PingError",
-            Some(serde_json::to_value(PingErrorArgs_ { parameter })?),
+            Some(serde_json::to_value(PingError_Args { parameter })?),
         ))
     }
 }
@@ -48,15 +48,15 @@ pub struct Error {
 #[derive(Clone, PartialEq, Debug, Fail)]
 pub enum ErrorKind {
     #[fail(display = "IO error")]
-    Io_(::std::io::ErrorKind),
+    Io_Error(::std::io::ErrorKind),
     #[fail(display = "(De)Serialization Error")]
-    SerdeJson_(serde_json::error::Category),
+    SerdeJson_Error(serde_json::error::Category),
     #[fail(display = "Varlink Error")]
     Varlink(varlink::ErrorKind),
     #[fail(display = "Unknown error reply: '{:#?}'", _0)]
     VarlinkReply(varlink::Reply),
     #[fail(display = "org.example.ping.PingError: {:#?}", _0)]
-    PingError(Option<PingErrorArgs_>),
+    PingError(Option<PingError_Args>),
 }
 
 impl Fail for Error {
@@ -98,14 +98,14 @@ impl From<Context<ErrorKind>> for Error {
 impl From<::std::io::Error> for Error {
     fn from(e: ::std::io::Error) -> Error {
         let kind = e.kind();
-        e.context(ErrorKind::Io_(kind)).into()
+        e.context(ErrorKind::Io_Error(kind)).into()
     }
 }
 
 impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Error {
         let cat = e.classify();
-        e.context(ErrorKind::SerdeJson_(cat)).into()
+        e.context(ErrorKind::SerdeJson_Error(cat)).into()
     }
 }
 
@@ -115,8 +115,10 @@ impl From<varlink::Error> for Error {
     fn from(e: varlink::Error) -> Self {
         let kind = e.kind();
         match kind {
-            varlink::ErrorKind::Io(kind) => e.context(ErrorKind::Io_(kind)).into(),
-            varlink::ErrorKind::SerdeJsonSer(cat) => e.context(ErrorKind::SerdeJson_(cat)).into(),
+            varlink::ErrorKind::Io(kind) => e.context(ErrorKind::Io_Error(kind)).into(),
+            varlink::ErrorKind::SerdeJsonSer(cat) => {
+                e.context(ErrorKind::SerdeJson_Error(cat)).into()
+            }
             kind => e.context(ErrorKind::Varlink(kind)).into(),
         }
     }
@@ -148,23 +150,23 @@ impl From<varlink::Reply> for Error {
         }
     }
 }
-pub trait CallPing_: VarlinkCallError {
+pub trait Call_Ping: VarlinkCallError {
     fn reply(&mut self, pong: String) -> varlink::Result<()> {
-        self.reply_struct(PingReply_ { pong }.into())
+        self.reply_struct(Ping_Reply { pong }.into())
     }
 }
 
-impl<'a> CallPing_ for varlink::Call<'a> {}
+impl<'a> Call_Ping for varlink::Call<'a> {}
 
 pub trait VarlinkInterface {
-    fn ping(&self, call: &mut CallPing_, ping: String) -> varlink::Result<()>;
+    fn ping(&self, call: &mut Call_Ping, ping: String) -> varlink::Result<()>;
     fn call_upgraded(&self, _call: &mut varlink::Call) -> varlink::Result<()> {
         Ok(())
     }
 }
 
 pub trait VarlinkClientInterface {
-    fn ping(&mut self, ping: String) -> varlink::MethodCall<PingArgs_, PingReply_, Error>;
+    fn ping(&mut self, ping: String) -> varlink::MethodCall<Ping_Args, Ping_Reply, Error>;
 }
 
 pub struct VarlinkClient {
@@ -198,11 +200,11 @@ impl VarlinkClient {
 }
 
 impl VarlinkClientInterface for VarlinkClient {
-    fn ping(&mut self, ping: String) -> varlink::MethodCall<PingArgs_, PingReply_, Error> {
-        varlink::MethodCall::<PingArgs_, PingReply_, Error>::new(
+    fn ping(&mut self, ping: String) -> varlink::MethodCall<Ping_Args, Ping_Reply, Error> {
+        varlink::MethodCall::<Ping_Args, Ping_Reply, Error>::new(
             self.connection.clone(),
             "org.example.ping.Ping",
-            PingArgs_ { ping },
+            Ping_Args { ping },
         )
     }
 }
@@ -239,8 +241,8 @@ error PingError(parameter: int)"#####################################
         match req.method.as_ref() {
             "org.example.ping.Ping" => {
                 if let Some(args) = req.parameters.clone() {
-                    let args: PingArgs_ = serde_json::from_value(args)?;
-                    return self.inner.ping(call as &mut CallPing_, args.ping);
+                    let args: Ping_Args = serde_json::from_value(args)?;
+                    return self.inner.ping(call as &mut Call_Ping, args.ping);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
                 }

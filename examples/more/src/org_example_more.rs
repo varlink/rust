@@ -23,39 +23,39 @@ pub struct State {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct PingReply_ {
+pub struct Ping_Reply {
     pub pong: String,
 }
 
-impl varlink::VarlinkReply for PingReply_ {}
+impl varlink::VarlinkReply for Ping_Reply {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct PingArgs_ {
+pub struct Ping_Args {
     pub ping: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct StopServingReply_ {}
+pub struct StopServing_Reply {}
 
-impl varlink::VarlinkReply for StopServingReply_ {}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct StopServingArgs_ {}
+impl varlink::VarlinkReply for StopServing_Reply {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct TestMoreReply_ {
+pub struct StopServing_Args {}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct TestMore_Reply {
     pub state: State,
 }
 
-impl varlink::VarlinkReply for TestMoreReply_ {}
+impl varlink::VarlinkReply for TestMore_Reply {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct TestMoreArgs_ {
+pub struct TestMore_Args {
     pub n: i64,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct TestMoreErrorArgs_ {
+pub struct TestMoreError_Args {
     pub reason: String,
 }
 
@@ -63,7 +63,7 @@ pub trait VarlinkCallError: varlink::CallTrait {
     fn reply_test_more_error(&mut self, reason: String) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::error(
             "org.example.more.TestMoreError",
-            Some(serde_json::to_value(TestMoreErrorArgs_ { reason })?),
+            Some(serde_json::to_value(TestMoreError_Args { reason })?),
         ))
     }
 }
@@ -78,15 +78,15 @@ pub struct Error {
 #[derive(Clone, PartialEq, Debug, Fail)]
 pub enum ErrorKind {
     #[fail(display = "IO error")]
-    Io_(::std::io::ErrorKind),
+    Io_Error(::std::io::ErrorKind),
     #[fail(display = "(De)Serialization Error")]
-    SerdeJson_(serde_json::error::Category),
+    SerdeJson_Error(serde_json::error::Category),
     #[fail(display = "Varlink Error")]
     Varlink(varlink::ErrorKind),
     #[fail(display = "Unknown error reply: '{:#?}'", _0)]
     VarlinkReply(varlink::Reply),
     #[fail(display = "org.example.more.TestMoreError: {:#?}", _0)]
-    TestMoreError(Option<TestMoreErrorArgs_>),
+    TestMoreError(Option<TestMoreError_Args>),
 }
 
 impl Fail for Error {
@@ -128,14 +128,14 @@ impl From<Context<ErrorKind>> for Error {
 impl From<::std::io::Error> for Error {
     fn from(e: ::std::io::Error) -> Error {
         let kind = e.kind();
-        e.context(ErrorKind::Io_(kind)).into()
+        e.context(ErrorKind::Io_Error(kind)).into()
     }
 }
 
 impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Error {
         let cat = e.classify();
-        e.context(ErrorKind::SerdeJson_(cat)).into()
+        e.context(ErrorKind::SerdeJson_Error(cat)).into()
     }
 }
 
@@ -145,8 +145,10 @@ impl From<varlink::Error> for Error {
     fn from(e: varlink::Error) -> Self {
         let kind = e.kind();
         match kind {
-            varlink::ErrorKind::Io(kind) => e.context(ErrorKind::Io_(kind)).into(),
-            varlink::ErrorKind::SerdeJsonSer(cat) => e.context(ErrorKind::SerdeJson_(cat)).into(),
+            varlink::ErrorKind::Io(kind) => e.context(ErrorKind::Io_Error(kind)).into(),
+            varlink::ErrorKind::SerdeJsonSer(cat) => {
+                e.context(ErrorKind::SerdeJson_Error(cat)).into()
+            }
             kind => e.context(ErrorKind::Varlink(kind)).into(),
         }
     }
@@ -178,43 +180,43 @@ impl From<varlink::Reply> for Error {
         }
     }
 }
-pub trait CallPing_: VarlinkCallError {
+pub trait Call_Ping: VarlinkCallError {
     fn reply(&mut self, pong: String) -> varlink::Result<()> {
-        self.reply_struct(PingReply_ { pong }.into())
+        self.reply_struct(Ping_Reply { pong }.into())
     }
 }
 
-impl<'a> CallPing_ for varlink::Call<'a> {}
+impl<'a> Call_Ping for varlink::Call<'a> {}
 
-pub trait CallStopServing_: VarlinkCallError {
+pub trait Call_StopServing: VarlinkCallError {
     fn reply(&mut self) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::parameters(None))
     }
 }
 
-impl<'a> CallStopServing_ for varlink::Call<'a> {}
+impl<'a> Call_StopServing for varlink::Call<'a> {}
 
-pub trait CallTestMore_: VarlinkCallError {
+pub trait Call_TestMore: VarlinkCallError {
     fn reply(&mut self, state: State) -> varlink::Result<()> {
-        self.reply_struct(TestMoreReply_ { state }.into())
+        self.reply_struct(TestMore_Reply { state }.into())
     }
 }
 
-impl<'a> CallTestMore_ for varlink::Call<'a> {}
+impl<'a> Call_TestMore for varlink::Call<'a> {}
 
 pub trait VarlinkInterface {
-    fn ping(&self, call: &mut CallPing_, ping: String) -> varlink::Result<()>;
-    fn stop_serving(&self, call: &mut CallStopServing_) -> varlink::Result<()>;
-    fn test_more(&self, call: &mut CallTestMore_, n: i64) -> varlink::Result<()>;
+    fn ping(&self, call: &mut Call_Ping, ping: String) -> varlink::Result<()>;
+    fn stop_serving(&self, call: &mut Call_StopServing) -> varlink::Result<()>;
+    fn test_more(&self, call: &mut Call_TestMore, n: i64) -> varlink::Result<()>;
     fn call_upgraded(&self, _call: &mut varlink::Call) -> varlink::Result<()> {
         Ok(())
     }
 }
 
 pub trait VarlinkClientInterface {
-    fn ping(&mut self, ping: String) -> varlink::MethodCall<PingArgs_, PingReply_, Error>;
-    fn stop_serving(&mut self) -> varlink::MethodCall<StopServingArgs_, StopServingReply_, Error>;
-    fn test_more(&mut self, n: i64) -> varlink::MethodCall<TestMoreArgs_, TestMoreReply_, Error>;
+    fn ping(&mut self, ping: String) -> varlink::MethodCall<Ping_Args, Ping_Reply, Error>;
+    fn stop_serving(&mut self) -> varlink::MethodCall<StopServing_Args, StopServing_Reply, Error>;
+    fn test_more(&mut self, n: i64) -> varlink::MethodCall<TestMore_Args, TestMore_Reply, Error>;
 }
 
 pub struct VarlinkClient {
@@ -248,25 +250,25 @@ impl VarlinkClient {
 }
 
 impl VarlinkClientInterface for VarlinkClient {
-    fn ping(&mut self, ping: String) -> varlink::MethodCall<PingArgs_, PingReply_, Error> {
-        varlink::MethodCall::<PingArgs_, PingReply_, Error>::new(
+    fn ping(&mut self, ping: String) -> varlink::MethodCall<Ping_Args, Ping_Reply, Error> {
+        varlink::MethodCall::<Ping_Args, Ping_Reply, Error>::new(
             self.connection.clone(),
             "org.example.more.Ping",
-            PingArgs_ { ping },
+            Ping_Args { ping },
         )
     }
-    fn stop_serving(&mut self) -> varlink::MethodCall<StopServingArgs_, StopServingReply_, Error> {
-        varlink::MethodCall::<StopServingArgs_, StopServingReply_, Error>::new(
+    fn stop_serving(&mut self) -> varlink::MethodCall<StopServing_Args, StopServing_Reply, Error> {
+        varlink::MethodCall::<StopServing_Args, StopServing_Reply, Error>::new(
             self.connection.clone(),
             "org.example.more.StopServing",
-            StopServingArgs_ {},
+            StopServing_Args {},
         )
     }
-    fn test_more(&mut self, n: i64) -> varlink::MethodCall<TestMoreArgs_, TestMoreReply_, Error> {
-        varlink::MethodCall::<TestMoreArgs_, TestMoreReply_, Error>::new(
+    fn test_more(&mut self, n: i64) -> varlink::MethodCall<TestMore_Args, TestMore_Reply, Error> {
+        varlink::MethodCall::<TestMore_Args, TestMore_Reply, Error>::new(
             self.connection.clone(),
             "org.example.more.TestMore",
-            TestMoreArgs_ { n },
+            TestMore_Args { n },
         )
     }
 }
@@ -320,19 +322,19 @@ error TestMoreError (reason: string)
         match req.method.as_ref() {
             "org.example.more.Ping" => {
                 if let Some(args) = req.parameters.clone() {
-                    let args: PingArgs_ = serde_json::from_value(args)?;
-                    return self.inner.ping(call as &mut CallPing_, args.ping);
+                    let args: Ping_Args = serde_json::from_value(args)?;
+                    return self.inner.ping(call as &mut Call_Ping, args.ping);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
                 }
             }
             "org.example.more.StopServing" => {
-                return self.inner.stop_serving(call as &mut CallStopServing_);
+                return self.inner.stop_serving(call as &mut Call_StopServing);
             }
             "org.example.more.TestMore" => {
                 if let Some(args) = req.parameters.clone() {
-                    let args: TestMoreArgs_ = serde_json::from_value(args)?;
-                    return self.inner.test_more(call as &mut CallTestMore_, args.n);
+                    let args: TestMore_Args = serde_json::from_value(args)?;
+                    return self.inner.test_more(call as &mut Call_TestMore, args.n);
                 } else {
                     return call.reply_invalid_parameter("parameters".into());
                 }

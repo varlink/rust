@@ -64,7 +64,7 @@ fn main() {
 
     let ret = match client_mode {
         true => run_client(address),
-        false => run_server(address, 0),
+        false => run_server(address, 0).map_err(|e| e.into()),
     };
 
     exit(match ret {
@@ -103,12 +103,12 @@ fn run_client(address: String) -> Result<()> {
 struct MyOrgExamplePing;
 
 impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
-    fn ping(&self, call: &mut CallPing_, ping: String) -> varlink::Result<()> {
+    fn ping(&self, call: &mut Call_Ping, ping: String) -> varlink::Result<()> {
         return call.reply(ping);
     }
 }
 
-fn run_server(address: String, timeout: u64) -> Result<()> {
+fn run_server(address: String, timeout: u64) -> varlink::Result<()> {
     let myorgexampleping = MyOrgExamplePing;
     let myinterface = org_example_ping::new(Box::new(myorgexampleping));
     let service = VarlinkService::new(

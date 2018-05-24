@@ -105,7 +105,7 @@ fn run_client(address: String) -> Result<()> {
     let ret = iface
         .test07(
             client_id.clone(),
-            Test07Args_struct {
+            Test07_Args_struct {
                 bool: ret.struct_.bool,
                 int: ret.struct_.int,
                 float: ret.struct_.float,
@@ -330,7 +330,7 @@ macro_rules! check_call_oneway {
 }
 
 impl VarlinkInterface for CertInterface {
-    fn start(&self, call: &mut CallStart_) -> varlink::Result<()> {
+    fn start(&self, call: &mut Call_Start) -> varlink::Result<()> {
         check_call_expr!(
             call,
             match call.get_request() {
@@ -369,7 +369,7 @@ impl VarlinkInterface for CertInterface {
         call.reply(self.new_client_id())
     }
 
-    fn test01(&self, call: &mut CallTest01_, client_id: String) -> varlink::Result<()> {
+    fn test01(&self, call: &mut Call_Test01, client_id: String) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "Test01".into(), "Test02".into()) {
             return call.reply_client_id_error();
         }
@@ -377,8 +377,8 @@ impl VarlinkInterface for CertInterface {
         check_call_normal!(
             call,
             "org.varlink.certification.Test01",
-            Test01Args_,
-            Test01Args_ {
+            Test01_Args,
+            Test01_Args {
                 client_id: client_id,
             }
         );
@@ -388,7 +388,7 @@ impl VarlinkInterface for CertInterface {
 
     fn test02(
         &self,
-        call: &mut CallTest02_,
+        call: &mut Call_Test02,
         client_id: String,
         _bool_: bool,
     ) -> varlink::Result<()> {
@@ -399,8 +399,8 @@ impl VarlinkInterface for CertInterface {
         check_call_normal!(
             call,
             "org.varlink.certification.Test02",
-            Test02Args_,
-            Test02Args_ {
+            Test02_Args,
+            Test02_Args {
                 client_id: client_id,
                 bool: true,
             }
@@ -408,15 +408,15 @@ impl VarlinkInterface for CertInterface {
         call.reply(1)
     }
 
-    fn test03(&self, call: &mut CallTest03_, client_id: String, _int: i64) -> varlink::Result<()> {
+    fn test03(&self, call: &mut Call_Test03, client_id: String, _int: i64) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "Test03".into(), "Test04".into()) {
             return call.reply_client_id_error();
         }
         check_call_normal!(
             call,
             "org.varlink.certification.Test03",
-            Test03Args_,
-            Test03Args_ {
+            Test03_Args,
+            Test03_Args {
                 client_id: client_id,
                 int: 1,
             }
@@ -427,7 +427,7 @@ impl VarlinkInterface for CertInterface {
 
     fn test04(
         &self,
-        call: &mut CallTest04_,
+        call: &mut Call_Test04,
         client_id: String,
         _float: f64,
     ) -> varlink::Result<()> {
@@ -437,8 +437,8 @@ impl VarlinkInterface for CertInterface {
         check_call_normal!(
             call,
             "org.varlink.certification.Test04",
-            Test04Args_,
-            Test04Args_ {
+            Test04_Args,
+            Test04_Args {
                 client_id: client_id,
                 float: 1.0,
             }
@@ -449,7 +449,7 @@ impl VarlinkInterface for CertInterface {
 
     fn test05(
         &self,
-        call: &mut CallTest05_,
+        call: &mut Call_Test05,
         client_id: String,
         _string: String,
     ) -> varlink::Result<()> {
@@ -459,8 +459,8 @@ impl VarlinkInterface for CertInterface {
         check_call_normal!(
             call,
             "org.varlink.certification.Test05",
-            Test05Args_,
-            Test05Args_ {
+            Test05_Args,
+            Test05_Args {
                 client_id: client_id,
                 string: "ping".into(),
             }
@@ -471,7 +471,7 @@ impl VarlinkInterface for CertInterface {
 
     fn test06(
         &self,
-        call: &mut CallTest06_,
+        call: &mut Call_Test06,
         client_id: String,
         _bool_: bool,
         _int: i64,
@@ -484,8 +484,8 @@ impl VarlinkInterface for CertInterface {
         check_call_normal!(
             call,
             "org.varlink.certification.Test06",
-            Test06Args_,
-            Test06Args_ {
+            Test06_Args,
+            Test06_Args {
                 client_id: client_id,
                 bool: false,
                 int: 2,
@@ -494,7 +494,7 @@ impl VarlinkInterface for CertInterface {
             }
         );
 
-        call.reply(Test06Reply_struct {
+        call.reply(Test06_Reply_struct {
             bool: false,
             int: 2,
             float: std::f64::consts::PI,
@@ -504,9 +504,9 @@ impl VarlinkInterface for CertInterface {
 
     fn test07(
         &self,
-        call: &mut CallTest07_,
+        call: &mut Call_Test07,
         client_id: String,
-        _struct_: Test07Args_struct,
+        _struct_: Test07_Args_struct,
     ) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "Test07".into(), "Test08".into()) {
             return call.reply_client_id_error();
@@ -514,10 +514,10 @@ impl VarlinkInterface for CertInterface {
         check_call_normal!(
             call,
             "org.varlink.certification.Test07",
-            Test07Args_,
-            Test07Args_ {
+            Test07_Args,
+            Test07_Args {
                 client_id: client_id,
-                struct_: Test07Args_struct {
+                struct_: Test07_Args_struct {
                     bool: false,
                     int: 2,
                     float: std::f64::consts::PI,
@@ -534,7 +534,7 @@ impl VarlinkInterface for CertInterface {
 
     fn test08(
         &self,
-        call: &mut CallTest08_,
+        call: &mut Call_Test08,
         client_id: String,
         _map: ::std::collections::HashMap<String, String>,
     ) -> varlink::Result<()> {
@@ -548,8 +548,8 @@ impl VarlinkInterface for CertInterface {
         check_call_normal!(
             call,
             "org.varlink.certification.Test08",
-            Test08Args_,
-            Test08Args_ {
+            Test08_Args,
+            Test08_Args {
                 client_id: client_id,
                 map: map,
             }
@@ -564,7 +564,7 @@ impl VarlinkInterface for CertInterface {
 
     fn test09(
         &self,
-        call: &mut CallTest09_,
+        call: &mut Call_Test09,
         client_id: String,
         _set: varlink::StringHashSet,
     ) -> varlink::Result<()> {
@@ -579,8 +579,8 @@ impl VarlinkInterface for CertInterface {
         check_call_normal!(
             call,
             "org.varlink.certification.Test09",
-            Test09Args_,
-            Test09Args_ {
+            Test09_Args,
+            Test09_Args {
                 client_id: client_id,
                 set: set,
             }
@@ -591,7 +591,7 @@ impl VarlinkInterface for CertInterface {
 
     fn test10(
         &self,
-        call: &mut CallTest10_,
+        call: &mut Call_Test10,
         client_id: String,
         _mytype: MyType,
     ) -> varlink::Result<()> {
@@ -601,8 +601,8 @@ impl VarlinkInterface for CertInterface {
         check_call_more!(
             call,
             "org.varlink.certification.Test10",
-            Test10Args_,
-            Test10Args_ {
+            Test10_Args,
+            Test10_Args {
                 client_id: client_id,
                 mytype: new_mytype()?,
             }
@@ -620,7 +620,7 @@ impl VarlinkInterface for CertInterface {
 
     fn test11(
         &self,
-        call: &mut CallTest11_,
+        call: &mut Call_Test11,
         client_id: String,
         _last_more_replies: Vec<String>,
     ) -> varlink::Result<()> {
@@ -636,8 +636,8 @@ impl VarlinkInterface for CertInterface {
         check_call_oneway!(
             call,
             "org.varlink.certification.Test11",
-            Test11Args_,
-            Test11Args_ {
+            Test11_Args,
+            Test11_Args {
                 client_id: client_id,
                 last_more_replies: more_replies,
             }
@@ -646,15 +646,15 @@ impl VarlinkInterface for CertInterface {
         Ok(())
     }
 
-    fn end(&self, call: &mut CallEnd_, client_id: String) -> varlink::Result<()> {
+    fn end(&self, call: &mut Call_End, client_id: String) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "End".into(), "End".into()) {
             return call.reply_client_id_error();
         }
         check_call_normal!(
             call,
             "org.varlink.certification.End",
-            EndArgs_,
-            EndArgs_ {
+            End_Args,
+            End_Args {
                 client_id: client_id,
             }
         );
@@ -744,7 +744,7 @@ impl CertInterface {
     }
 }
 
-pub fn run_server(address: String, timeout: u64) -> Result<()> {
+pub fn run_server(address: String, timeout: u64) -> varlink::Result<()> {
     let certinterface = CertInterface {
         client_ids: Arc::new(RwLock::new(ClientIds {
             lifetimes: VecDeque::new(),

@@ -65,7 +65,7 @@ fn main() {
 
     let ret = match client_mode {
         true => run_client(address),
-        false => run_server(address, 0, 1000),
+        false => run_server(address, 0, 1000).map_err(|e| e.into()),
     };
 
     exit(match ret {
@@ -138,15 +138,15 @@ struct MyOrgExampleMore {
 }
 
 impl VarlinkInterface for MyOrgExampleMore {
-    fn ping(&self, call: &mut CallPing_, ping: String) -> varlink::Result<()> {
+    fn ping(&self, call: &mut Call_Ping, ping: String) -> varlink::Result<()> {
         return call.reply(ping);
     }
 
-    fn stop_serving(&self, call: &mut CallStopServing_) -> varlink::Result<()> {
+    fn stop_serving(&self, call: &mut Call_StopServing) -> varlink::Result<()> {
         call.reply()?;
         Err(varlink::ErrorKind::ConnectionClosed.into())
     }
-    fn test_more(&self, call: &mut CallTestMore_, n: i64) -> varlink::Result<()> {
+    fn test_more(&self, call: &mut Call_TestMore, n: i64) -> varlink::Result<()> {
         if !call.wants_more() {
             return call.reply_test_more_error("called without more".into());
         }
@@ -188,7 +188,7 @@ impl VarlinkInterface for MyOrgExampleMore {
     }
 }
 
-fn run_server(address: String, timeout: u64, sleep_duration: u64) -> Result<()> {
+fn run_server(address: String, timeout: u64, sleep_duration: u64) -> varlink::Result<()> {
     let myexamplemore = MyOrgExampleMore { sleep_duration };
     let myinterface = org_example_more::new(Box::new(myexamplemore));
     let service = VarlinkService::new(

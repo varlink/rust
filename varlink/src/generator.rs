@@ -280,7 +280,7 @@ use varlink::{{self, CallTrait}};
                 w,
                 "#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]\n"
             )?;
-            write!(w, "pub struct {}Reply_ {{\n", t.name)?;
+            write!(w, "pub struct {}_Reply {{\n", t.name)?;
             for e in &t.output.elts {
                 if let VTypeExt::Option(_) = e.vtype {
                     write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
@@ -291,7 +291,7 @@ use varlink::{{self, CallTrait}};
                     " pub {}: {},\n",
                     ename,
                     e.vtype.to_rust(
-                        format!("{}Reply_{}", t.name, e.name).as_ref(),
+                        format!("{}_Reply_{}", t.name, e.name).as_ref(),
                         &mut enumvec,
                         &mut structvec
                     )?
@@ -300,14 +300,14 @@ use varlink::{{self, CallTrait}};
             write!(w, "}}\n\n")?;
             write!(
                 w,
-                "impl varlink::VarlinkReply for {}Reply_ {{}}\n\n",
+                "impl varlink::VarlinkReply for {}_Reply {{}}\n\n",
                 t.name
             )?;
             write!(
                 w,
                 "#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]\n"
             )?;
-            write!(w, "pub struct {}Args_ {{\n", t.name)?;
+            write!(w, "pub struct {}_Args {{\n", t.name)?;
             for e in &t.input.elts {
                 if let VTypeExt::Option(_) = e.vtype {
                     write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
@@ -318,7 +318,7 @@ use varlink::{{self, CallTrait}};
                     " pub {}: {},\n",
                     ename,
                     e.vtype.to_rust(
-                        format!("{}Args_{}", t.name, e.name).as_ref(),
+                        format!("{}_Args_{}", t.name, e.name).as_ref(),
                         &mut enumvec,
                         &mut structvec
                     )?
@@ -332,7 +332,7 @@ use varlink::{{self, CallTrait}};
                 w,
                 "#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]\n"
             )?;
-            write!(w, "pub struct {}Args_ {{\n", t.name)?;
+            write!(w, "pub struct {}_Args {{\n", t.name)?;
             for e in &t.parm.elts {
                 if let VTypeExt::Option(_) = e.vtype {
                     write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
@@ -343,7 +343,7 @@ use varlink::{{self, CallTrait}};
                     " pub {}: {},\n",
                     ename,
                     e.vtype.to_rust(
-                        format!("{}Args_{}", t.name, e.name).as_ref(),
+                        format!("{}_Args_{}", t.name, e.name).as_ref(),
                         &mut enumvec,
                         &mut structvec
                     )?
@@ -411,7 +411,7 @@ use varlink::{{self, CallTrait}};
                         ", {}: {}",
                         replace_if_rust_keyword(e.name),
                         e.vtype.to_rust(
-                            format!("{}Args_{}", t.name, e.name).as_ref(),
+                            format!("{}_Args_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
                             &mut structvec
                         )?
@@ -435,7 +435,7 @@ use varlink::{{self, CallTrait}};
             if t.parm.elts.len() > 0 {
                 write!(
                     w,
-                    "            Some(serde_json::to_value({}Args_ {{ {} }})?),",
+                    "            Some(serde_json::to_value({}_Args {{ {} }})?),",
                     t.name, innames
                 )?;
             } else {
@@ -466,9 +466,9 @@ pub struct Error {{
 #[derive(Clone, PartialEq, Debug, Fail)]
 pub enum ErrorKind {{
     #[fail(display = "IO error")]
-    Io_(::std::io::ErrorKind),
+    Io_Error(::std::io::ErrorKind),
     #[fail(display = "(De)Serialization Error")]
-    SerdeJson_(serde_json::error::Category),
+    SerdeJson_Error(serde_json::error::Category),
     #[fail(display = "Varlink Error")]
     Varlink(varlink::ErrorKind),
     #[fail(display = "Unknown error reply: '{{:#?}}'", _0)]
@@ -480,7 +480,7 @@ pub enum ErrorKind {{
                 w,
                 "    \
                  #[fail(display = \"{iname}.{ename}: {{:#?}}\", _0)]\n    \
-                 {ename}(Option<{ename}Args_>),\n",
+                 {ename}(Option<{ename}_Args>),\n",
                 ename = t.name,
                 iname = self.name,
             )?;
@@ -528,14 +528,14 @@ impl From<Context<ErrorKind>> for Error {{
 impl From<::std::io::Error> for Error {{
     fn from(e: ::std::io::Error) -> Error {{
         let kind = e.kind();
-        e.context(ErrorKind::Io_(kind)).into()
+        e.context(ErrorKind::Io_Error(kind)).into()
     }}
 }}
 
 impl From<serde_json::Error> for Error {{
     fn from(e: serde_json::Error) -> Error {{
         let cat = e.classify();
-        e.context(ErrorKind::SerdeJson_(cat)).into()
+        e.context(ErrorKind::SerdeJson_Error(cat)).into()
     }}
 }}
 
@@ -545,8 +545,8 @@ impl From<varlink::Error> for Error {{
     fn from(e: varlink::Error) -> Self {{
         let kind = e.kind();
         match kind {{
-            varlink::ErrorKind::Io(kind) => e.context(ErrorKind::Io_(kind)).into(),
-            varlink::ErrorKind::SerdeJsonSer(cat) => e.context(ErrorKind::SerdeJson_(cat)).into(),
+            varlink::ErrorKind::Io(kind) => e.context(ErrorKind::Io_Error(kind)).into(),
+            varlink::ErrorKind::SerdeJsonSer(cat) => e.context(ErrorKind::SerdeJson_Error(cat)).into(),
             kind => e.context(ErrorKind::Varlink(kind)).into(),
         }}
     }}
@@ -604,7 +604,7 @@ impl From<varlink::Reply> for Error {{
                         ", {}: {}",
                         replace_if_rust_keyword(e.name),
                         e.vtype.to_rust(
-                            format!("{}Reply_{}", t.name, e.name).as_ref(),
+                            format!("{}_Reply_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
                             &mut structvec
                         )?
@@ -614,7 +614,7 @@ impl From<varlink::Reply> for Error {{
                 innames.pop();
                 innames.pop();
             }
-            write!(w, "pub trait Call{}_: VarlinkCallError {{\n", t.name)?;
+            write!(w, "pub trait Call_{}: VarlinkCallError {{\n", t.name)?;
             write!(
                 w,
                 "    fn reply(&mut self{}) -> varlink::Result<()> {{\n",
@@ -623,7 +623,7 @@ impl From<varlink::Reply> for Error {{
             if t.output.elts.len() > 0 {
                 write!(
                     w,
-                    "        self.reply_struct({}Reply_ {{ {} }}.into())\n",
+                    "        self.reply_struct({}_Reply {{ {} }}.into())\n",
                     t.name, innames
                 )?;
             } else {
@@ -634,7 +634,7 @@ impl From<varlink::Reply> for Error {{
             }
             write!(
                 w,
-                "    }}\n}}\n\nimpl<'a> Call{}_ for varlink::Call<'a> {{}}\n\n",
+                "    }}\n}}\n\nimpl<'a> Call_{} for varlink::Call<'a> {{}}\n\n",
                 t.name
             )?;
         }
@@ -648,7 +648,7 @@ impl From<varlink::Reply> for Error {{
                         ", {}: {}",
                         replace_if_rust_keyword(e.name),
                         e.vtype.to_rust(
-                            format!("{}Args_{}", t.name, e.name).as_ref(),
+                            format!("{}_Args_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
                             &mut structvec
                         )?
@@ -658,7 +658,7 @@ impl From<varlink::Reply> for Error {{
 
             write!(
                 w,
-                "    fn {}(&self, call: &mut Call{}_{}) -> varlink::Result<()>;\n",
+                "    fn {}(&self, call: &mut Call_{}{}) -> varlink::Result<()>;\n",
                 to_snake_case(t.name),
                 t.name,
                 inparms
@@ -685,7 +685,7 @@ impl From<varlink::Reply> for Error {{
                         ", {}: {}",
                         replace_if_rust_keyword(e.name),
                         e.vtype.to_rust(
-                            format!("{}Args_{}", t.name, e.name).as_ref(),
+                            format!("{}_Args_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
                             &mut structvec
                         )?
@@ -697,7 +697,7 @@ impl From<varlink::Reply> for Error {{
                     outparms += format!(
                         "{}, ",
                         e.vtype.to_rust(
-                            format!("{}Reply_{}", t.name, e.name).as_ref(),
+                            format!("{}_Reply_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
                             &mut structvec
                         )?
@@ -709,8 +709,8 @@ impl From<varlink::Reply> for Error {{
 
             write!(
                 w,
-                "    fn {sname}(&mut self{inparms}) -> varlink::MethodCall<{mname}Args_, \
-                 {mname}Reply_, Error>;\
+                "    fn {sname}(&mut self{inparms}) -> varlink::MethodCall<{mname}_Args, \
+                 {mname}_Reply, Error>;\
                  \n",
                 sname = to_snake_case(t.name),
                 inparms = inparms,
@@ -765,7 +765,7 @@ impl VarlinkClientInterface for VarlinkClient {{
                         ", {}: {}",
                         replace_if_rust_keyword(e.name),
                         e.vtype.to_rust(
-                            format!("{}Args_{}", t.name, e.name).as_ref(),
+                            format!("{}_Args_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
                             &mut structvec
                         )?
@@ -777,8 +777,8 @@ impl VarlinkClientInterface for VarlinkClient {{
             }
             write!(
                 w,
-                "    fn {sname}(&mut self{inparms}) -> varlink::MethodCall<{mname}Args_, \
-                 {mname}Reply_, \
+                "    fn {sname}(&mut self{inparms}) -> varlink::MethodCall<{mname}_Args, \
+                 {mname}_Reply, \
                  Error> \
                  {{\n",
                 sname = to_snake_case(t.name),
@@ -789,10 +789,10 @@ impl VarlinkClientInterface for VarlinkClient {{
             write!(
                 w,
                 "            \
-                 varlink::MethodCall::<{mname}Args_, {mname}Reply_, Error>::new(\n            \
+                 varlink::MethodCall::<{mname}_Args, {mname}_Reply, Error>::new(\n            \
                  self.connection.clone(),\n            \
                  \"{iname}.{mname}\",\n            \
-                 {mname}Args_ {{ {innames} }},\n        \
+                 {mname}_Args {{ {innames} }},\n        \
                  )\n",
                 mname = t.name,
                 iname = self.name,
@@ -857,9 +857,9 @@ impl varlink::Interface for VarlinkInterfaceProxy {{
                     concat!(
                         "\n",
                         "                if let Some(args) = req.parameters.clone() {{\n",
-                        "                    let args: {mname}Args_ = serde_json::from_value(args)?;\n",
+                        "                    let args: {mname}_Args = serde_json::from_value(args)?;\n",
                         "                    return self.inner.{sname}(call as &mut \
-                        Call{mname}_{inparms});\n",
+                        Call_{mname}{inparms});\n",
                         "                }} else {{\n",
                         "                    return call.reply_invalid_parameter(\"parameters\".into());\
                         \n",
@@ -875,7 +875,7 @@ impl varlink::Interface for VarlinkInterfaceProxy {{
                     w,
                     concat!(
                         "\n",
-                        "                return self.inner.{sname}(call as &mut Call{mname}_);\n",
+                        "                return self.inner.{sname}(call as &mut Call_{mname});\n",
                         "            }}\n"
                     ),
                     sname = to_snake_case(t.name),

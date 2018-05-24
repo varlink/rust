@@ -101,7 +101,7 @@ fn run_client<S: ?Sized + AsRef<str>>(address: &S) -> varlink::Result<()> {
     let mut iface = VarlinkClient::new(conn);
 
     match iface.list().call() {
-        Ok(ListReply_ { netdevs: vec }) => {
+        Ok(List_Reply { netdevs: vec }) => {
             assert_eq!(vec.len(), 2);
             assert_eq!(vec[0].ifindex, 1);
             assert_eq!(vec[0].ifname, String::from("lo"));
@@ -112,7 +112,7 @@ fn run_client<S: ?Sized + AsRef<str>>(address: &S) -> varlink::Result<()> {
     }
 
     match iface.info(1).call() {
-        Ok(InfoReply_ {
+        Ok(Info_Reply {
             info:
                 NetdevInfo {
                     ifindex: 1,
@@ -123,7 +123,7 @@ fn run_client<S: ?Sized + AsRef<str>>(address: &S) -> varlink::Result<()> {
     }
 
     match iface.info(2).call() {
-        Ok(InfoReply_ {
+        Ok(Info_Reply {
             info:
                 NetdevInfo {
                     ifindex: 2,
@@ -139,7 +139,7 @@ fn run_client<S: ?Sized + AsRef<str>>(address: &S) -> varlink::Result<()> {
     }
 
     match iface.info(4).call().err().unwrap().kind() {
-        ErrorKind::UnknownNetworkIfIndex(Some(UnknownNetworkIfIndexArgs_ { ifindex: 4 })) => {}
+        ErrorKind::UnknownNetworkIfIndex(Some(UnknownNetworkIfIndex_Args { ifindex: 4 })) => {}
         res => panic!("Unknown result {:?}", res),
     }
 
@@ -151,7 +151,7 @@ struct MyIoSystemdNetwork {
 }
 
 impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
-    fn info(&self, call: &mut CallInfo_, ifindex: i64) -> varlink::Result<()> {
+    fn info(&self, call: &mut Call_Info, ifindex: i64) -> varlink::Result<()> {
         // State example
         {
             let mut number = self.state.write().unwrap();
@@ -184,7 +184,7 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
         }
     }
 
-    fn list(&self, call: &mut CallList_) -> varlink::Result<()> {
+    fn list(&self, call: &mut Call_List) -> varlink::Result<()> {
         // State example
         {
             let mut number = self.state.write().unwrap();

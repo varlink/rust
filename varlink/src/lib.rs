@@ -37,19 +37,21 @@
 //!and then implement the interface:
 //!
 //!```rust
+//!# #![allow(non_camel_case_types)]
+//!# #![allow(non_snake_case)]
 //!# use std::io;
 //!# use varlink::{CallTrait, Result};
-//!# struct _PingReply {pong: String}
-//!# impl varlink::VarlinkReply for _PingReply {}
+//!# struct Ping_Reply {pong: String}
+//!# impl varlink::VarlinkReply for Ping_Reply {}
 //!# struct _PingArgs {ping: String}
-//!# pub trait CallErr_: varlink::CallTrait {}
-//!# impl<'a> CallErr_ for varlink::Call<'a> {}
-//!# pub trait CallPing_: CallErr_ {
+//!# pub trait VarlinkCallError: varlink::CallTrait {}
+//!# impl<'a> VarlinkCallError for varlink::Call<'a> {}
+//!# pub trait Call_Ping: VarlinkCallError {
 //!#     fn reply(&mut self, pong: String) -> Result<()> { Ok(()) }
 //!# }
-//!# impl<'a> CallPing_ for varlink::Call<'a> {}
+//!# impl<'a> Call_Ping for varlink::Call<'a> {}
 //!# pub trait VarlinkInterface {
-//!#     fn ping(&self, call: &mut CallPing_, ping: String) -> Result<()>;
+//!#     fn ping(&self, call: &mut Call_Ping, ping: String) -> Result<()>;
 //!#     fn call_upgraded(&self, _call: &mut varlink::Call) -> Result<()> {Ok(())}
 //!# }
 //!# pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
@@ -67,7 +69,7 @@
 //!struct MyOrgExamplePing;
 //!
 //!impl VarlinkInterface for MyOrgExamplePing {
-//!    fn ping(&self, call: &mut CallPing_, ping: String) -> Result<()> {
+//!    fn ping(&self, call: &mut Call_Ping, ping: String) -> Result<()> {
 //!        return call.reply(ping);
 //!    }
 //!}
@@ -75,22 +77,24 @@
 //!to implement the interface methods.
 //!
 //!If your varlink method is called `TestMethod`, the rust method to be implemented is called
-//!`test_method`. The first parameter is of type `CallTestMethod_`, which has the method `reply()`.
+//!`test_method`. The first parameter is of type `Call_TestMethod`, which has the method `reply()`.
 //!
 //!```rust
+//!# #![allow(non_camel_case_types)]
+//!# #![allow(non_snake_case)]
 //!# use std::io;
 //!# use varlink::{CallTrait, Result};
-//!# pub trait CallErr_: varlink::CallTrait {}
-//!# impl<'a> CallErr_ for varlink::Call<'a> {}
-//!# pub trait CallTestMethod_: CallErr_ {
+//!# pub trait VarlinkCallError: varlink::CallTrait {}
+//!# impl<'a> VarlinkCallError for varlink::Call<'a> {}
+//!# pub trait Call_TestMethod: VarlinkCallError {
 //!#     fn reply(&mut self) -> Result<()> {
 //!#         self.reply_struct(varlink::Reply::parameters(None))
 //!#     }
 //!# }
-//!# impl<'a> CallTestMethod_ for varlink::Call<'a> {}
+//!# impl<'a> Call_TestMethod for varlink::Call<'a> {}
 //!# struct TestService;
 //!# impl TestService {
-//!fn test_method(&self, call: &mut CallTestMethod_, /* more arguments */) -> Result<()> {
+//!fn test_method(&self, call: &mut Call_TestMethod, /* more arguments */) -> Result<()> {
 //!    /* ... */
 //!    return call.reply( /* more arguments */ );
 //!}
@@ -101,21 +105,23 @@
 //!A typical server creates a `VarlinkService` and starts a server via `varlink::listen()`
 //!
 //!```rust
+//!# #![allow(non_camel_case_types)]
+//!# #![allow(non_snake_case)]
 //!# use std::io;
 //!# mod org_example_ping {
 //!# use std::io;
 //!# use varlink::{self, Result};
-//!# struct _PingReply {pong: String}
-//!# impl varlink::VarlinkReply for _PingReply {}
+//!# struct Ping_Reply {pong: String}
+//!# impl varlink::VarlinkReply for Ping_Reply {}
 //!# struct _PingArgs {ping: String}
-//!# pub trait CallErr_: varlink::CallTrait {}
-//!# impl<'a> CallErr_ for varlink::Call<'a> {}
-//!# pub trait CallPing_: CallErr_ {
+//!# pub trait VarlinkCallError: varlink::CallTrait {}
+//!# impl<'a> VarlinkCallError for varlink::Call<'a> {}
+//!# pub trait Call_Ping: VarlinkCallError {
 //!#     fn reply(&mut self, pong: String) -> Result<()> { Ok(()) }
 //!# }
-//!# impl<'a> CallPing_ for varlink::Call<'a> {}
+//!# impl<'a> Call_Ping for varlink::Call<'a> {}
 //!# pub trait VarlinkInterface {
-//!#     fn ping(&self, call: &mut CallPing_, ping: String) -> Result<()>;
+//!#     fn ping(&self, call: &mut Call_Ping, ping: String) -> Result<()>;
 //!#     fn call_upgraded(&self, _call: &mut varlink::Call) -> Result<()> {Ok(())}
 //!# }
 //!# pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
@@ -134,7 +140,7 @@
 //!# struct MyOrgExamplePing;
 //!#
 //!# impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
-//!#     fn ping(&self, call: &mut CallPing_, ping: String) -> varlink::Result<()> {
+//!#     fn ping(&self, call: &mut Call_Ping, ping: String) -> varlink::Result<()> {
 //!#         return call.reply(ping);
 //!#     }
 //!# }
@@ -502,23 +508,25 @@ where
 /// #Examples
 ///
 /// If your varlink method is called `TestMethod`, the rust method to be implemented is called
-/// `test_method`. The first parameter is of type `CallTestMethod_`, which has the method `reply()`.
+/// `test_method`. The first parameter is of type `Call_TestMethod`, which has the method `reply()`.
 ///
 ///# Examples
 ///
 ///```rust
+///!# #![allow(non_camel_case_types)]
+///!# #![allow(non_snake_case)]
 ///# use std::io;
-///# pub trait CallErr_: varlink::CallTrait {}
-///# impl<'a> CallErr_ for varlink::Call<'a> {}
-///# pub trait CallTestMethod_: CallErr_ {
+///# pub trait VarlinkCallError: varlink::CallTrait {}
+///# impl<'a> VarlinkCallError for varlink::Call<'a> {}
+///# pub trait Call_TestMethod: VarlinkCallError {
 ///#     fn reply(&mut self) -> varlink::Result<()> {
 ///#         self.reply_struct(varlink::Reply::parameters(None))
 ///#     }
 ///# }
-///# impl<'a> CallTestMethod_ for varlink::Call<'a> {}
+///# impl<'a> Call_TestMethod for varlink::Call<'a> {}
 ///# struct TestService;
 ///# impl TestService {
-///fn test_method(&self, call: &mut CallTestMethod_, /* more arguments */) -> varlink::Result<()> {
+///fn test_method(&self, call: &mut Call_TestMethod, /* more arguments */) -> varlink::Result<()> {
 ///    /* ... */
 ///    return call.reply( /* more arguments */ );
 ///}
@@ -540,18 +548,20 @@ pub struct Call<'a> {
 /// For an invalid parameter:
 ///
 /// ```rust
+///!# #![allow(non_camel_case_types)]
+///!# #![allow(non_snake_case)]
 ///# use std::io;
-///# pub trait CallErr_: varlink::CallTrait {}
-///# impl<'a> CallErr_ for varlink::Call<'a> {}
-///# pub trait CallTestMethod_: CallErr_ {
+///# pub trait VarlinkCallError: varlink::CallTrait {}
+///# impl<'a> VarlinkCallError for varlink::Call<'a> {}
+///# pub trait Call_TestMethod: VarlinkCallError {
 ///#     fn reply(&mut self) -> varlink::Result<()> {
 ///#         self.reply_struct(varlink::Reply::parameters(None))
 ///#     }
 ///# }
-///# impl<'a> CallTestMethod_ for varlink::Call<'a> {}
+///# impl<'a> Call_TestMethod for varlink::Call<'a> {}
 ///# struct TestService;
 ///# impl TestService {
-///fn test_method(&self, call: &mut CallTestMethod_, testparam: i64) -> varlink::Result<()> {
+///fn test_method(&self, call: &mut Call_TestMethod, testparam: i64) -> varlink::Result<()> {
 ///    match testparam {
 ///        0 ... 100 => {},
 ///        _ => {
@@ -568,19 +578,21 @@ pub struct Call<'a> {
 /// For not yet implemented methods:
 ///
 /// ```rust
+///!# #![allow(non_camel_case_types)]
+///!# #![allow(non_snake_case)]
 ///# use std::io;
-///# pub trait CallErr_: varlink::CallTrait {}
-///# impl<'a> CallErr_ for varlink::Call<'a> {}
-///# pub trait CallTestMethodNotImplemented_: CallErr_ {
+///# pub trait VarlinkCallError: varlink::CallTrait {}
+///# impl<'a> VarlinkCallError for varlink::Call<'a> {}
+///# pub trait Call_TestMethodNotImplemented: VarlinkCallError {
 ///#     fn reply(&mut self) -> varlink::Result<()> {
 ///#         self.reply_struct(varlink::Reply::parameters(None))
 ///#     }
 ///# }
-///# impl<'a> CallTestMethodNotImplemented_ for varlink::Call<'a> {}
+///# impl<'a> Call_TestMethodNotImplemented for varlink::Call<'a> {}
 ///# struct TestService;
 ///# impl TestService {
 ///fn test_method_not_implemented(&self,
-///                               call: &mut CallTestMethodNotImplemented_) -> varlink::Result<()> {
+///                               call: &mut Call_TestMethodNotImplemented) -> varlink::Result<()> {
 ///    return call.reply_method_not_implemented("TestMethodNotImplemented".into());
 ///}
 ///# }
@@ -595,18 +607,20 @@ pub trait CallTrait {
     ///# Examples
     ///
     ///```rust
+    ///!# #![allow(non_camel_case_types)]
+    ///!# #![allow(non_snake_case)]
     ///# use std::io;
-    ///# pub trait CallErr_: varlink::CallTrait {}
-    ///# impl<'a> CallErr_ for varlink::Call<'a> {}
-    ///# pub trait CallTestMethod_: CallErr_ {
+    ///# pub trait VarlinkCallError: varlink::CallTrait {}
+    ///# impl<'a> VarlinkCallError for varlink::Call<'a> {}
+    ///# pub trait Call_TestMethod: VarlinkCallError {
     ///#     fn reply(&mut self) -> varlink::Result<()> {
     ///#         self.reply_struct(varlink::Reply::parameters(None))
     ///#     }
     ///# }
-    ///# impl<'a> CallTestMethod_ for varlink::Call<'a> {}
+    ///# impl<'a> Call_TestMethod for varlink::Call<'a> {}
     ///# struct TestService;
     ///# impl TestService {
-    ///fn test_method(&self, call: &mut CallTestMethod_) -> varlink::Result<()> {
+    ///fn test_method(&self, call: &mut Call_TestMethod) -> varlink::Result<()> {
     ///    call.set_continues(true);
     ///    call.reply( /* more args*/ )?;
     ///    call.reply( /* more args*/ )?;
@@ -1066,8 +1080,9 @@ error InvalidParameter (parameter: string)
                     let args: GetInterfaceDescriptionArgs = serde_json::from_value(val.clone())?;
                     match args.interface.as_ref() {
                         "org.varlink.service" => {
-                            return call
-                                .reply_parameters(json!({"description": self.get_description()}));
+                            return call.reply_parameters(
+                                json!({"description": self.get_description()}),
+                            );
                         }
                         key => {
                             if self.ifaces.contains_key(key) {

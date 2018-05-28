@@ -1,5 +1,6 @@
 //! Handle network connections for a varlink service
 
+use {ErrorKind, Result};
 //#![feature(getpid)]
 //use std::process;
 // FIXME
@@ -10,6 +11,7 @@ use std::io::{Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::os::unix::io::{FromRawFd, IntoRawFd};
 use std::os::unix::net::{UnixListener, UnixStream};
+use std::sync::RwLock;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -18,12 +20,10 @@ use std::time::Duration;
 // FIXME: https://github.com/rust-lang/rust/issues/14194
 use unix_socket::UnixListener as AbstractUnixListener;
 
-use {ErrorKind, Result};
-
 #[derive(Debug)]
 enum VarlinkListener {
-    TCP(TcpListener),
-    UNIX(UnixListener),
+    TCP(Option<TcpListener>, bool),
+    UNIX(Option<UnixListener>, bool),
 }
 
 #[derive(Debug)]
@@ -104,9 +104,10 @@ impl VarlinkListener {
                     if timeout != 0 {
                         s.set_read_timeout(Some(Duration::from_secs(timeout)))?;
                     }
-                    return Ok(VarlinkListener::TCP(TcpListener::from_raw_fd(
-                        s.into_raw_fd(),
-                    )));
+                    return Ok(VarlinkListener::TCP(
+                        Some(TcpListener::from_raw_fd(s.into_raw_fd())),
+                        true,
+                    ));
                 }
             } else if address.starts_with("unix:") {
                 unsafe {
@@ -114,9 +115,10 @@ impl VarlinkListener {
                     if timeout != 0 {
                         s.set_read_timeout(Some(Duration::from_secs(timeout)))?;
                     }
-                    return Ok(VarlinkListener::UNIX(UnixListener::from_raw_fd(
-                        s.into_raw_fd(),
-                    )));
+                    return Ok(VarlinkListener::UNIX(
+                        Some(UnixListener::from_raw_fd(s.into_raw_fd())),
+                        true,
+                    ));
                 }
             } else {
                 return Err(ErrorKind::InvalidAddress.into());
@@ -130,9 +132,10 @@ impl VarlinkListener {
                 if timeout != 0 {
                     s.set_read_timeout(Some(Duration::from_secs(timeout)))?;
                 }
-                Ok(VarlinkListener::TCP(TcpListener::from_raw_fd(
-                    s.into_raw_fd(),
-                )))
+                Ok(VarlinkListener::TCP(
+                    Some(TcpListener::from_raw_fd(s.into_raw_fd())),
+                    false,
+                ))
             }
         } else if address.starts_with("unix:") {
             let mut addr = String::from(address[5..].split(";").next().unwrap());
@@ -144,9 +147,10 @@ impl VarlinkListener {
                     if timeout != 0 {
                         s.set_read_timeout(Some(Duration::from_secs(timeout)))?;
                     }
-                    return Ok(VarlinkListener::UNIX(UnixListener::from_raw_fd(
-                        s.into_raw_fd(),
-                    )));
+                    return Ok(VarlinkListener::UNIX(
+                        Some(UnixListener::from_raw_fd(s.into_raw_fd())),
+                        false,
+                    ));
                 }
             }
             // ignore error on non-existant file
@@ -157,9 +161,10 @@ impl VarlinkListener {
                 if timeout != 0 {
                     s.set_read_timeout(Some(Duration::from_secs(timeout)))?;
                 }
-                Ok(VarlinkListener::UNIX(UnixListener::from_raw_fd(
-                    s.into_raw_fd(),
-                )))
+                Ok(VarlinkListener::UNIX(
+                    Some(UnixListener::from_raw_fd(s.into_raw_fd())),
+                    false,
+                ))
             }
         } else {
             Err(ErrorKind::InvalidAddress.into())
@@ -168,20 +173,22 @@ impl VarlinkListener {
 
     pub fn accept(&self) -> Result<VarlinkStream> {
         match self {
-            &VarlinkListener::TCP(ref l) => {
+            &VarlinkListener::TCP(Some(ref l), _) => {
                 let (mut s, _addr) = l.accept()?;
                 Ok(VarlinkStream::TCP(s))
             }
-            &VarlinkListener::UNIX(ref l) => {
+            &VarlinkListener::UNIX(Some(ref l), _) => {
                 let (mut s, _addr) = l.accept()?;
                 Ok(VarlinkStream::UNIX(s))
             }
+            _ => Err(ErrorKind::ConnectionClosed.into()),
         }
     }
     pub fn set_nonblocking(&self, b: bool) -> Result<()> {
         match self {
-            &VarlinkListener::TCP(ref l) => l.set_nonblocking(b)?,
-            &VarlinkListener::UNIX(ref l) => l.set_nonblocking(b)?,
+            &VarlinkListener::TCP(Some(ref l), _) => l.set_nonblocking(b)?,
+            &VarlinkListener::UNIX(Some(ref l), _) => l.set_nonblocking(b)?,
+            _ => Err(ErrorKind::ConnectionClosed)?,
         }
         Ok(())
     }
@@ -190,10 +197,18 @@ impl VarlinkListener {
 impl Drop for VarlinkListener {
     fn drop(&mut self) {
         match *self {
-            VarlinkListener::UNIX(ref listener) => {
+            VarlinkListener::UNIX(Some(ref listener), false) => {
                 if let Ok(local_addr) = listener.local_addr() {
                     if let Some(path) = local_addr.as_pathname() {
                         let _ = fs::remove_file(path);
+                    }
+                }
+            }
+            VarlinkListener::UNIX(ref mut listener, true) => {
+                if let Some(l) = listener.take() {
+                    unsafe {
+                        let s = UnixStream::from_raw_fd(l.into_raw_fd());
+                        let _ = s.set_read_timeout(None);
                     }
                 }
             }
@@ -209,6 +224,7 @@ enum Message {
 
 struct ThreadPool {
     workers: Vec<Worker>,
+    num_busy: Arc<RwLock<i64>>,
     sender: mpsc::Sender<Message>,
 }
 
@@ -241,11 +257,17 @@ impl ThreadPool {
 
         let mut workers = Vec::with_capacity(size);
 
+        let num_busy = Arc::new(RwLock::new(0 as i64));
+
         for _ in 0..size {
-            workers.push(Worker::new(Arc::clone(&receiver)));
+            workers.push(Worker::new(Arc::clone(&receiver), Arc::clone(&num_busy)));
         }
 
-        ThreadPool { workers, sender }
+        ThreadPool {
+            workers,
+            sender,
+            num_busy,
+        }
     }
 
     pub fn execute<F>(&self, f: F)
@@ -255,6 +277,11 @@ impl ThreadPool {
         let job = Box::new(f);
 
         self.sender.send(Message::NewJob(job)).unwrap();
+    }
+
+    pub fn num_busy(&self) -> i64 {
+        let num_busy = self.num_busy.read().unwrap();
+        *num_busy
     }
 }
 
@@ -277,13 +304,21 @@ struct Worker {
 }
 
 impl Worker {
-    fn new(receiver: Arc<Mutex<mpsc::Receiver<Message>>>) -> Worker {
+    fn new(receiver: Arc<Mutex<mpsc::Receiver<Message>>>, num_busy: Arc<RwLock<i64>>) -> Worker {
         let thread = thread::spawn(move || loop {
             let message = receiver.lock().unwrap().recv().unwrap();
 
             match message {
                 Message::NewJob(job) => {
+                    {
+                        let mut num_busy = num_busy.write().unwrap();
+                        *num_busy += 1;
+                    }
                     job.call_box();
+                    {
+                        let mut num_busy = num_busy.write().unwrap();
+                        *num_busy -= 1;
+                    }
                 }
                 Message::Terminate => {
                     break;
@@ -341,7 +376,10 @@ pub fn listen<S: ?Sized + AsRef<str>>(
     loop {
         let mut stream: VarlinkStream = match listener.accept() {
             Err(ref e) if e.kind() == ErrorKind::Io(::std::io::ErrorKind::WouldBlock) => {
-                return Err(ErrorKind::Timeout.into());
+                if pool.num_busy() == 0 {
+                    return Err(ErrorKind::Timeout.into());
+                }
+                continue;
             }
             r => r?,
         };

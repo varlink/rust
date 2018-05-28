@@ -35,7 +35,7 @@ fn main() {
     opts.optflag("", "client", "run in client mode");
     opts.optflag("h", "help", "print this help menu");
     opts.optopt("", "timeout", "server timeout", "<seconds>");
-    opts.optopt("", "sleep", "sleep duration", "<seconds>");
+    opts.optopt("", "sleep", "sleep duration", "<milliseconds>");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,

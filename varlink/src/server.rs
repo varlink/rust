@@ -1,6 +1,7 @@
 //! Handle network connections for a varlink service
 
-use {ErrorKind, Result};
+use failure::Fail;
+use {Error, ErrorKind, Result};
 //#![feature(getpid)]
 //use std::process;
 // FIXME
@@ -382,11 +383,15 @@ pub fn listen<S: ?Sized + AsRef<str>>(
 
     loop {
         let mut stream: VarlinkStream = match listener.accept() {
-            Err(ref e) if e.kind() == ErrorKind::Io(::std::io::ErrorKind::WouldBlock) => {
-                if pool.num_busy() == 0 {
-                    return Err(ErrorKind::Timeout.into());
+            Err(e) => {
+                if e.kind() == ErrorKind::Io(::std::io::ErrorKind::WouldBlock) {
+                    if pool.num_busy() == 0 {
+                        return Err(Error::from(e.context(ErrorKind::Timeout)));
+                    }
+                    continue;
+                } else {
+                    return Err(e);
                 }
-                continue;
             }
             r => r?,
         };
@@ -395,8 +400,13 @@ pub fn listen<S: ?Sized + AsRef<str>>(
         pool.execute(move || {
             let (mut r, mut w) = stream.split().expect("Could not split stream");
 
-            if let Err(_e) = service.handle(&mut r, &mut w) {
-                //println!("Handle Error: {}", e);
+            if let Err(err) = service.handle(&mut r, &mut w) {
+                if err.kind() != ErrorKind::ConnectionClosed {
+                    eprintln!("Worker error: {}", err);
+                    for cause in err.causes().skip(1) {
+                        eprintln!("  caused by: {}", cause);
+                    }
+                }
                 let _ = stream.shutdown();
             }
         });

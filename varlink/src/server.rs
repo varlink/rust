@@ -93,7 +93,6 @@ fn activation_listener() -> Result<Option<i32>> {
     Ok(None)
 }
 
-//FIXME: add Drop with shutdown() and unix file removal
 impl VarlinkListener {
     pub fn new<S: ?Sized + AsRef<str>>(address: &S, timeout: u64) -> Result<Self> {
         let address = address.as_ref();
@@ -208,6 +207,14 @@ impl Drop for VarlinkListener {
                 if let Some(l) = listener.take() {
                     unsafe {
                         let s = UnixStream::from_raw_fd(l.into_raw_fd());
+                        let _ = s.set_read_timeout(None);
+                    }
+                }
+            }
+            VarlinkListener::TCP(ref mut listener, true) => {
+                if let Some(l) = listener.take() {
+                    unsafe {
+                        let s = TcpStream::from_raw_fd(l.into_raw_fd());
                         let _ = s.set_read_timeout(None);
                     }
                 }

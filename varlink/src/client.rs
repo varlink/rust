@@ -113,13 +113,13 @@ impl<'a> VarlinkStream {
             new_address = address.into();
         }
 
-        if address.starts_with("tcp:") {
+        if new_address.starts_with("tcp:") {
             Ok((
-                VarlinkStream::TCP(TcpStream::connect(&address[4..])?),
+                VarlinkStream::TCP(TcpStream::connect(&new_address[4..])?),
                 new_address,
             ))
-        } else if address.starts_with("unix:") {
-            let mut addr = String::from(address[5..].split(";").next().unwrap());
+        } else if new_address.starts_with("unix:") {
+            let mut addr = String::from(new_address[5..].split(";").next().unwrap());
             if addr.starts_with("@") {
                 addr = addr.replacen("@", "\0", 1);
                 let l = AbstractStream::connect(addr)?;

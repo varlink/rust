@@ -1,6 +1,6 @@
 [package]
 name = "more"
-version = "1.0.2"
+version = "1.0.3"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 build = "build.rs"
 

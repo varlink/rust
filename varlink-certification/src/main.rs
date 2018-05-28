@@ -768,6 +768,12 @@ pub fn run_server(address: String, timeout: u64) -> varlink::Result<()> {
         "http://varlink.org",
         vec![Box::new(myinterface)],
     );
-    varlink::listen(service, &address, 10, timeout)?;
+
+    if let Err(e) = varlink::listen(service, &address, 10, timeout) {
+        match e.kind() {
+            ::varlink::ErrorKind::Timeout => {}
+            _ => Err(e)?,
+        }
+    }
     Ok(())
 }

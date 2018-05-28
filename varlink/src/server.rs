@@ -16,16 +16,17 @@ use std::thread;
 use std::time::Duration;
 // FIXME: abstract unix domains sockets still not in std
 // FIXME: https://github.com/rust-lang/rust/issues/14194
-use failure::ResultExt;
 use unix_socket::UnixListener as AbstractUnixListener;
 
 use {ErrorKind, Result};
 
+#[derive(Debug)]
 enum VarlinkListener {
     TCP(TcpListener),
     UNIX(UnixListener),
 }
 
+#[derive(Debug)]
 enum VarlinkStream {
     TCP(TcpStream),
     UNIX(UnixStream),
@@ -94,16 +95,28 @@ fn activation_listener() -> Result<Option<i32>> {
 
 //FIXME: add Drop with shutdown() and unix file removal
 impl VarlinkListener {
-    pub fn new<S: ?Sized + AsRef<str>>(address: &S) -> Result<Self> {
+    pub fn new<S: ?Sized + AsRef<str>>(address: &S, timeout: u64) -> Result<Self> {
         let address = address.as_ref();
         if let Some(l) = activation_listener()? {
             if address.starts_with("tcp:") {
                 unsafe {
-                    return Ok(VarlinkListener::TCP(TcpListener::from_raw_fd(l)));
+                    let s = TcpStream::from_raw_fd(l);
+                    if timeout != 0 {
+                        s.set_read_timeout(Some(Duration::from_secs(timeout)))?;
+                    }
+                    return Ok(VarlinkListener::TCP(TcpListener::from_raw_fd(
+                        s.into_raw_fd(),
+                    )));
                 }
             } else if address.starts_with("unix:") {
                 unsafe {
-                    return Ok(VarlinkListener::UNIX(UnixListener::from_raw_fd(l)));
+                    let s = UnixStream::from_raw_fd(l);
+                    if timeout != 0 {
+                        s.set_read_timeout(Some(Duration::from_secs(timeout)))?;
+                    }
+                    return Ok(VarlinkListener::UNIX(UnixListener::from_raw_fd(
+                        s.into_raw_fd(),
+                    )));
                 }
             } else {
                 return Err(ErrorKind::InvalidAddress.into());
@@ -111,21 +124,43 @@ impl VarlinkListener {
         }
 
         if address.starts_with("tcp:") {
-            Ok(VarlinkListener::TCP(TcpListener::bind(&address[4..])?))
+            let l = TcpListener::bind(&address[4..])?;
+            unsafe {
+                let s = TcpStream::from_raw_fd(l.into_raw_fd());
+                if timeout != 0 {
+                    s.set_read_timeout(Some(Duration::from_secs(timeout)))?;
+                }
+                Ok(VarlinkListener::TCP(TcpListener::from_raw_fd(
+                    s.into_raw_fd(),
+                )))
+            }
         } else if address.starts_with("unix:") {
             let mut addr = String::from(address[5..].split(";").next().unwrap());
             if addr.starts_with("@") {
                 addr = addr.replacen("@", "\0", 1);
                 let l = AbstractUnixListener::bind(addr)?;
                 unsafe {
+                    let s = UnixStream::from_raw_fd(l.into_raw_fd());
+                    if timeout != 0 {
+                        s.set_read_timeout(Some(Duration::from_secs(timeout)))?;
+                    }
                     return Ok(VarlinkListener::UNIX(UnixListener::from_raw_fd(
-                        l.into_raw_fd(),
+                        s.into_raw_fd(),
                     )));
                 }
             }
             // ignore error on non-existant file
             let _ = fs::remove_file(&*addr);
-            Ok(VarlinkListener::UNIX(UnixListener::bind(addr)?))
+            let l = UnixListener::bind(addr)?;
+            unsafe {
+                let s = UnixStream::from_raw_fd(l.into_raw_fd());
+                if timeout != 0 {
+                    s.set_read_timeout(Some(Duration::from_secs(timeout)))?;
+                }
+                Ok(VarlinkListener::UNIX(UnixListener::from_raw_fd(
+                    s.into_raw_fd(),
+                )))
+            }
         } else {
             Err(ErrorKind::InvalidAddress.into())
         }
@@ -149,6 +184,21 @@ impl VarlinkListener {
             &VarlinkListener::UNIX(ref l) => l.set_nonblocking(b)?,
         }
         Ok(())
+    }
+}
+
+impl Drop for VarlinkListener {
+    fn drop(&mut self) {
+        match *self {
+            VarlinkListener::UNIX(ref listener) => {
+                if let Ok(local_addr) = listener.local_addr() {
+                    if let Some(path) = local_addr.as_pathname() {
+                        let _ = fs::remove_file(path);
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 }
 
@@ -284,30 +334,17 @@ pub fn listen<S: ?Sized + AsRef<str>>(
     accept_timeout: u64,
 ) -> Result<()> {
     let service = Arc::new(service);
-    let listener = Arc::new(VarlinkListener::new(address)?);
+    let listener = Arc::new(VarlinkListener::new(address, accept_timeout)?);
     listener.set_nonblocking(false)?;
     let pool = ThreadPool::new(workers);
 
     loop {
-        let mut stream: VarlinkStream;
-        if accept_timeout != 0 {
-            let listener = listener.clone();
-            let (sender, receiver) = mpsc::channel();
-
-            let _t = thread::spawn(move || {
-                match sender.send(listener.accept()) {
-                    Ok(()) => {} // everything good
-                    Err(_) => {} // we have been released, don't panic
-                }
-            });
-
-            stream = receiver
-                .recv_timeout(Duration::from_secs(accept_timeout))
-                .context(ErrorKind::Timeout)??;
-        } else {
-            stream = listener.accept()?;
-        }
-
+        let mut stream: VarlinkStream = match listener.accept() {
+            Err(ref e) if e.kind() == ErrorKind::Io(::std::io::ErrorKind::WouldBlock) => {
+                return Err(ErrorKind::Timeout.into());
+            }
+            r => r?,
+        };
         let service = service.clone();
 
         pool.execute(move || {

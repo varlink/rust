@@ -10,8 +10,6 @@ cache:
   timeout: 1000
   cargo: true
 before_cache:
-  - ls -lart $HOME/.cargo/registry/*
-  - find -L $HOME/.cargo/registry -maxdepth 2 -atime +7 -print0 | xargs -0 rm -fvr
   - rm -rf target
 before_script:
   - export PATH=$HOME/.cargo/bin:$PATH

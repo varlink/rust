@@ -34,6 +34,8 @@ fn main() {
     opts.optopt("", "varlink", "varlink address URL", "<address>");
     opts.optflag("", "client", "run in client mode");
     opts.optflag("h", "help", "print this help menu");
+    opts.optopt("", "timeout", "server timeout", "<seconds>");
+    opts.optopt("", "sleep", "sleep duration", "<seconds>");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
@@ -51,6 +53,18 @@ fn main() {
 
     let client_mode = matches.opt_present("client");
 
+    let timeout = matches
+        .opt_str("timeout")
+        .unwrap_or("0".to_string())
+        .parse::<u64>()
+        .unwrap_or(0);
+
+    let sleep = matches
+        .opt_str("sleep")
+        .unwrap_or("1000".to_string())
+        .parse::<u64>()
+        .unwrap_or(1000);
+
     let address = match matches.opt_str("varlink") {
         None => {
             if !client_mode {
@@ -65,7 +79,7 @@ fn main() {
 
     let ret = match client_mode {
         true => run_client(address),
-        false => run_server(address, 0, 1000).map_err(|e| e.into()),
+        false => run_server(address, timeout, sleep).map_err(|e| e.into()),
     };
 
     exit(match ret {

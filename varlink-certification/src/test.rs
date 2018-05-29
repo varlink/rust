@@ -49,6 +49,10 @@ fn test_tcp() {
 }
 
 fn get_exec() -> Result<String> {
+    if ::std::path::Path::new("../../../target/debug/varlink-certification").exists() {
+        return Ok("exec:../../../target/debug/varlink-certification".into());
+    }
+
     if ::std::path::Path::new("../../target/debug/varlink-certification").exists() {
         return Ok("exec:../../target/debug/varlink-certification".into());
     }

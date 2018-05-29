@@ -1,6 +1,6 @@
 [package]
 name = "ping"
-version = "1.0.3"
+version = "1.0.4"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 build = "build.rs"
 

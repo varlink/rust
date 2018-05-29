@@ -49,14 +49,16 @@ fn test_tcp() {
 }
 
 fn get_exec() -> Result<String> {
-    let mut child = Command::new("cargo")
+    if let Ok(mut child) = Command::new("cargo")
         .arg("build")
         .arg("--package=varlink-certification")
         .arg("--bin=varlink-certification")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .spawn()?;
-    child.wait();
+        .spawn()
+    {
+        let _ = child.wait();
+    }
 
     if ::std::path::Path::new("../../../target/debug/varlink-certification").exists() {
         return Ok("exec:../../../target/debug/varlink-certification".into());

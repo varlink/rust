@@ -1,22 +1,20 @@
 //! Handle network connections for a varlink service
 
+use {ErrorKind, Result};
 use failure::Fail;
-use {Error, ErrorKind, Result};
 //#![feature(getpid)]
 //use std::process;
 // FIXME
-use libc::getpid;
+use libc;
 use std::env;
 use std::fs;
 use std::io::{Read, Write};
+use std::mem;
 use std::net::{Shutdown, TcpListener, TcpStream};
-use std::os::unix::io::{FromRawFd, IntoRawFd};
+use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd};
 use std::os::unix::net::{UnixListener, UnixStream};
-use std::sync::RwLock;
-use std::sync::mpsc;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, mpsc, Mutex, RwLock};
 use std::thread;
-use std::time::Duration;
 // FIXME: abstract unix domains sockets still not in std
 // FIXME: https://github.com/rust-lang/rust/issues/14194
 use unix_socket::UnixListener as AbstractUnixListener;
@@ -67,7 +65,7 @@ fn activation_listener() -> Result<Option<i32>> {
     unsafe {
         match env::var("LISTEN_PID") {
             //FIXME: replace Ok(getpid()) with Ok(process::id())
-            Ok(ref pid) if pid.parse::<i32>() == Ok(getpid()) => {}
+            Ok(ref pid) if pid.parse::<i32>() == Ok(libc::getpid()) => {}
             _ => return Ok(None),
         }
     }
@@ -95,28 +93,20 @@ fn activation_listener() -> Result<Option<i32>> {
 }
 
 impl VarlinkListener {
-    pub fn new<S: ?Sized + AsRef<str>>(address: &S, timeout: u64) -> Result<Self> {
+    pub fn new<S: ?Sized + AsRef<str>>(address: &S) -> Result<Self> {
         let address = address.as_ref();
         if let Some(l) = activation_listener()? {
             if address.starts_with("tcp:") {
                 unsafe {
-                    let s = TcpStream::from_raw_fd(l);
-                    if timeout != 0 {
-                        s.set_read_timeout(Some(Duration::from_secs(timeout)))?;
-                    }
                     return Ok(VarlinkListener::TCP(
-                        Some(TcpListener::from_raw_fd(s.into_raw_fd())),
+                        Some(TcpListener::from_raw_fd(l)),
                         true,
                     ));
                 }
             } else if address.starts_with("unix:") {
                 unsafe {
-                    let s = UnixStream::from_raw_fd(l);
-                    if timeout != 0 {
-                        s.set_read_timeout(Some(Duration::from_secs(timeout)))?;
-                    }
                     return Ok(VarlinkListener::UNIX(
-                        Some(UnixListener::from_raw_fd(s.into_raw_fd())),
+                        Some(UnixListener::from_raw_fd(l)),
                         true,
                     ));
                 }
@@ -126,29 +116,18 @@ impl VarlinkListener {
         }
 
         if address.starts_with("tcp:") {
-            let l = TcpListener::bind(&address[4..])?;
-            unsafe {
-                let s = TcpStream::from_raw_fd(l.into_raw_fd());
-                if timeout != 0 {
-                    s.set_read_timeout(Some(Duration::from_secs(timeout)))?;
-                }
-                Ok(VarlinkListener::TCP(
-                    Some(TcpListener::from_raw_fd(s.into_raw_fd())),
-                    false,
-                ))
-            }
+            Ok(VarlinkListener::TCP(
+                Some(TcpListener::bind(&address[4..])?),
+                false,
+            ))
         } else if address.starts_with("unix:") {
             let mut addr = String::from(address[5..].split(";").next().unwrap());
             if addr.starts_with("@") {
                 addr = addr.replacen("@", "\0", 1);
                 let l = AbstractUnixListener::bind(addr)?;
                 unsafe {
-                    let s = UnixStream::from_raw_fd(l.into_raw_fd());
-                    if timeout != 0 {
-                        s.set_read_timeout(Some(Duration::from_secs(timeout)))?;
-                    }
                     return Ok(VarlinkListener::UNIX(
-                        Some(UnixListener::from_raw_fd(s.into_raw_fd())),
+                        Some(UnixListener::from_raw_fd(l.into_raw_fd())),
                         false,
                     ));
                 }
@@ -157,12 +136,8 @@ impl VarlinkListener {
             let _ = fs::remove_file(&*addr);
             let l = UnixListener::bind(addr)?;
             unsafe {
-                let s = UnixStream::from_raw_fd(l.into_raw_fd());
-                if timeout != 0 {
-                    s.set_read_timeout(Some(Duration::from_secs(timeout)))?;
-                }
                 Ok(VarlinkListener::UNIX(
-                    Some(UnixListener::from_raw_fd(s.into_raw_fd())),
+                    Some(UnixListener::from_raw_fd(l.into_raw_fd())),
                     false,
                 ))
             }
@@ -171,7 +146,44 @@ impl VarlinkListener {
         }
     }
 
-    pub fn accept(&self) -> Result<VarlinkStream> {
+    pub fn accept(&self, timeout: u64) -> Result<VarlinkStream> {
+        if timeout > 0 {
+            let fd = match self {
+                VarlinkListener::TCP(Some(l), _) => l.as_raw_fd(),
+                VarlinkListener::UNIX(Some(l), _) => l.as_raw_fd(),
+                _ => return Err(ErrorKind::ConnectionClosed.into()),
+            };
+
+            unsafe {
+                let mut readfs: libc::fd_set = mem::uninitialized();
+                loop {
+                    libc::FD_ZERO(&mut readfs);
+                    let mut writefds: libc::fd_set = mem::uninitialized();
+                    libc::FD_ZERO(&mut writefds);
+                    let mut errorfds: libc::fd_set = mem::uninitialized();
+                    libc::FD_ZERO(&mut errorfds);
+                    let mut timeout = libc::timeval {
+                        tv_sec: timeout as libc::time_t,
+                        tv_usec: 0,
+                    };
+
+                    libc::FD_SET(fd, &mut readfs);
+                    let ret = libc::select(
+                        fd + 1,
+                        &mut readfs,
+                        &mut writefds,
+                        &mut errorfds,
+                        &mut timeout,
+                    );
+                    if ret != libc::EINTR && ret != libc::EAGAIN {
+                        break;
+                    }
+                }
+                if !libc::FD_ISSET(fd, &mut readfs) {
+                    return Err(ErrorKind::Timeout.into());
+                }
+            }
+        }
         match self {
             &VarlinkListener::TCP(Some(ref l), _) => {
                 let (mut s, _addr) = l.accept()?;
@@ -377,16 +389,16 @@ pub fn listen<S: ?Sized + AsRef<str>>(
     accept_timeout: u64,
 ) -> Result<()> {
     let service = Arc::new(service);
-    let listener = Arc::new(VarlinkListener::new(address, accept_timeout)?);
+    let listener = VarlinkListener::new(address)?;
     listener.set_nonblocking(false)?;
     let pool = ThreadPool::new(workers);
 
     loop {
-        let mut stream: VarlinkStream = match listener.accept() {
+        let mut stream = match listener.accept(accept_timeout) {
             Err(e) => {
-                if e.kind() == ErrorKind::Io(::std::io::ErrorKind::WouldBlock) {
+                if e.kind() == ErrorKind::Timeout {
                     if pool.num_busy() == 0 {
-                        return Err(Error::from(e.context(ErrorKind::Timeout)));
+                        return Err(e);
                     }
                     continue;
                 } else {

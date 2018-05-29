@@ -11,8 +11,7 @@ use std::net::{Shutdown, TcpStream};
 use std::os::unix::io::{FromRawFd, IntoRawFd};
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
-use std::process::Child;
-use std::process::Command;
+use std::process::{Child, Command};
 use tempfile::TempDir;
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 use tempfile::tempdir;

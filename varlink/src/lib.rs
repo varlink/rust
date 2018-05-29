@@ -156,8 +156,7 @@
 //!    "http://varlink.org",
 //!    vec![
 //!        Box::new(myorgexampleping_interface),
-//!        /* more interfaces ...*/
-//!    ],
+//!    ], // more interfaces ...
 //!);
 //!
 //!varlink::listen(service, &args[1], 10, 0);

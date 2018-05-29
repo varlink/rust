@@ -1,7 +1,7 @@
 //! Handle network connections for a varlink service
 
-use {ErrorKind, Result};
 use failure::Fail;
+use {ErrorKind, Result};
 //#![feature(getpid)]
 //use std::process;
 // FIXME
@@ -13,7 +13,7 @@ use std::mem;
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd};
 use std::os::unix::net::{UnixListener, UnixStream};
-use std::sync::{Arc, mpsc, Mutex, RwLock};
+use std::sync::{mpsc, Arc, Mutex, RwLock};
 use std::thread;
 // FIXME: abstract unix domains sockets still not in std
 // FIXME: https://github.com/rust-lang/rust/issues/14194

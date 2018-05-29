@@ -1,16 +1,15 @@
+use std::{thread, time};
 use *;
 
 #[test]
 fn test_listen() {
-    use std::{thread, time};
-
     fn run_app<S: ?Sized + AsRef<str>>(address: &S, timeout: u64) -> Result<()> {
         let service = VarlinkService::new(
             "org.varlink",
             "test service",
             "0.1",
             "http://varlink.org",
-            vec![/* Your varlink interfaces go here */],
+            vec![], // Your varlink interfaces go here
         );
 
         if let Err(e) = listen(service, &address, 10, timeout) {

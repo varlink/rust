@@ -203,8 +203,7 @@ fn replace_if_rust_keyword_annotate(v: &str, w: &mut Write) -> io::Result<(Strin
     }
 }
 
-
-fn varlink_to_rust(varlink : &Varlink, w: &mut Write) -> Result<()> {
+fn varlink_to_rust(varlink: &Varlink, w: &mut Write) -> Result<()> {
     let mut enumvec = EnumVec::new();
     let mut structvec = StructVec::new();
     let iface = &varlink.interface;
@@ -250,7 +249,7 @@ use varlink::{{self, CallTrait}};
                         e.vtype.to_rust(
                             format!("{}_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut structvec,
+                            &mut structvec
                         )?
                     )?;
                 }
@@ -290,7 +289,7 @@ use varlink::{{self, CallTrait}};
                 e.vtype.to_rust(
                     format!("{}_Reply_{}", t.name, e.name).as_ref(),
                     &mut enumvec,
-                    &mut structvec,
+                    &mut structvec
                 )?
             )?;
         }
@@ -317,7 +316,7 @@ use varlink::{{self, CallTrait}};
                 e.vtype.to_rust(
                     format!("{}_Args_{}", t.name, e.name).as_ref(),
                     &mut enumvec,
-                    &mut structvec,
+                    &mut structvec
                 )?
             )?;
         }
@@ -342,7 +341,7 @@ use varlink::{{self, CallTrait}};
                 e.vtype.to_rust(
                     format!("{}_Args_{}", t.name, e.name).as_ref(),
                     &mut enumvec,
-                    &mut structvec,
+                    &mut structvec
                 )?
             )?;
         }
@@ -370,7 +369,7 @@ use varlink::{{self, CallTrait}};
                         .to_rust(
                             format!("{}_{}", name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut nstructvec,
+                            &mut nstructvec
                         )
                         .unwrap()
                 )?;
@@ -381,7 +380,7 @@ use varlink::{{self, CallTrait}};
             write!(
                 w,
                 "#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]\n\
-                     pub enum {} {{\n",
+                 pub enum {} {{\n",
                 replace_if_rust_keyword(name.as_str())
             )?;
             let mut iter = v.iter();
@@ -410,7 +409,7 @@ use varlink::{{self, CallTrait}};
                     e.vtype.to_rust(
                         format!("{}_Args_{}", t.name, e.name).as_ref(),
                         &mut enumvec,
-                        &mut structvec,
+                        &mut structvec
                     )?
                 ).as_ref();
                 innames += format!("{}, ", replace_if_rust_keyword(e.name)).as_ref();
@@ -476,8 +475,8 @@ pub enum ErrorKind {{
         write!(
             w,
             "    \
-                 #[fail(display = \"{iname}.{ename}: {{:#?}}\", _0)]\n    \
-                 {ename}(Option<{ename}_Args>),\n",
+             #[fail(display = \"{iname}.{ename}: {{:#?}}\", _0)]\n    \
+             {ename}(Option<{ename}_Args>),\n",
             ename = t.name,
             iname = iface.name,
         )?;
@@ -603,7 +602,7 @@ impl From<varlink::Reply> for Error {{
                     e.vtype.to_rust(
                         format!("{}_Reply_{}", t.name, e.name).as_ref(),
                         &mut enumvec,
-                        &mut structvec,
+                        &mut structvec
                     )?
                 ).as_ref();
                 innames += format!("{}, ", replace_if_rust_keyword(e.name)).as_ref();
@@ -647,7 +646,7 @@ impl From<varlink::Reply> for Error {{
                     e.vtype.to_rust(
                         format!("{}_Args_{}", t.name, e.name).as_ref(),
                         &mut enumvec,
-                        &mut structvec,
+                        &mut structvec
                     )?
                 ).as_ref();
             }
@@ -684,7 +683,7 @@ impl From<varlink::Reply> for Error {{
                     e.vtype.to_rust(
                         format!("{}_Args_{}", t.name, e.name).as_ref(),
                         &mut enumvec,
-                        &mut structvec,
+                        &mut structvec
                     )?
                 ).as_ref();
             }
@@ -696,7 +695,7 @@ impl From<varlink::Reply> for Error {{
                     e.vtype.to_rust(
                         format!("{}_Reply_{}", t.name, e.name).as_ref(),
                         &mut enumvec,
-                        &mut structvec,
+                        &mut structvec
                     )?
                 ).as_ref();
             }
@@ -707,8 +706,8 @@ impl From<varlink::Reply> for Error {{
         write!(
             w,
             "    fn {sname}(&mut self{inparms}) -> varlink::MethodCall<{mname}_Args, \
-                 {mname}_Reply, Error>;\
-                 \n",
+             {mname}_Reply, Error>;\
+             \n",
             sname = to_snake_case(t.name),
             inparms = inparms,
             mname = t.name
@@ -764,7 +763,7 @@ impl VarlinkClientInterface for VarlinkClient {{
                     e.vtype.to_rust(
                         format!("{}_Args_{}", t.name, e.name).as_ref(),
                         &mut enumvec,
-                        &mut structvec,
+                        &mut structvec
                     )?
                 ).as_ref();
                 innames += format!("{}, ", replace_if_rust_keyword(e.name)).as_ref();
@@ -775,9 +774,9 @@ impl VarlinkClientInterface for VarlinkClient {{
         write!(
             w,
             "    fn {sname}(&mut self{inparms}) -> varlink::MethodCall<{mname}_Args, \
-                 {mname}_Reply, \
-                 Error> \
-                 {{\n",
+             {mname}_Reply, \
+             Error> \
+             {{\n",
             sname = to_snake_case(t.name),
             inparms = inparms,
             mname = t.name
@@ -786,11 +785,11 @@ impl VarlinkClientInterface for VarlinkClient {{
         write!(
             w,
             "            \
-                 varlink::MethodCall::<{mname}_Args, {mname}_Reply, Error>::new(\n            \
-                 self.connection.clone(),\n            \
-                 \"{iname}.{mname}\",\n            \
-                 {mname}_Args {{ {innames} }},\n        \
-                 )\n",
+             varlink::MethodCall::<{mname}_Args, {mname}_Reply, Error>::new(\n            \
+             self.connection.clone(),\n            \
+             \"{iname}.{mname}\",\n            \
+             {mname}_Args {{ {innames} }},\n        \
+             )\n",
             mname = t.name,
             iname = iface.name,
             innames = innames
@@ -871,10 +870,10 @@ impl varlink::Interface for VarlinkInterfaceProxy {{
             write!(
                 w,
                 concat!(
-                        "\n",
-                        "                return self.inner.{sname}(call as &mut Call_{mname});\n",
-                        "            }}\n"
-                    ),
+                    "\n",
+                    "                return self.inner.{sname}(call as &mut Call_{mname});\n",
+                    "            }}\n"
+                ),
                 sname = to_snake_case(t.name),
                 mname = t.name
             )?;
@@ -883,19 +882,18 @@ impl varlink::Interface for VarlinkInterfaceProxy {{
     write!(
         w,
         concat!(
-                "\n",
-                "            m => {{\n",
-                "                return call.reply_method_not_found(String::from(m));\n",
-                "            }}\n",
-                "        }}\n",
-                "    }}\n",
-                "}}"
-            )
+            "\n",
+            "            m => {{\n",
+            "                return call.reply_method_not_found(String::from(m));\n",
+            "            }}\n",
+            "        }}\n",
+            "    }}\n",
+            "}}"
+        )
     )?;
 
     Ok(())
 }
-
 
 /// `generate` reads a varlink interface definition from `reader` and writes
 /// the rust code to `writer`.
@@ -1036,14 +1034,14 @@ pub fn cargo_build_tosource<T: AsRef<Path> + ?Sized>(input_path: &T, rustfmt: bo
         if let Err(e) = Command::new("rustfmt")
             .arg(rust_path.to_str().unwrap())
             .output()
-            {
-                eprintln!(
-                    "Could not run rustfmt on file `{}` {}",
-                    rust_path.display(),
-                    e
-                );
-                exit(1);
-            }
+        {
+            eprintln!(
+                "Could not run rustfmt on file `{}` {}",
+                rust_path.display(),
+                e
+            );
+            exit(1);
+        }
     }
 
     println!("cargo:rerun-if-changed={}", input_path.display());

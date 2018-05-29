@@ -49,6 +49,15 @@ fn test_tcp() {
 }
 
 fn get_exec() -> Result<String> {
+    let mut child = Command::new("cargo")
+        .arg("build")
+        .arg("--package=varlink-certification")
+        .arg("--bin=varlink-certification")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()?;
+    child.wait();
+
     if ::std::path::Path::new("../../../target/debug/varlink-certification").exists() {
         return Ok("exec:../../../target/debug/varlink-certification".into());
     }
@@ -65,30 +74,6 @@ fn get_exec() -> Result<String> {
         return Ok("exec:./target/debug/varlink-certification".into());
     }
 
-    let mut child = Command::new("cargo")
-        .arg("install")
-        .arg("--force")
-        .arg("--path=varlink-certification")
-        .arg("--bin=varlink-certification")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()?;
-    match child.wait() {
-        Ok(e) if e.success() => return Ok("exec:varlink-certification".into()),
-        _ => {}
-    }
-
-    let mut child = Command::new("cargo")
-        .arg("install")
-        .arg("--force")
-        .arg("--bin=varlink-certification")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()?;
-    match child.wait() {
-        Ok(e) if e.success() => return Ok("exec:varlink-certification".into()),
-        _ => {}
-    }
     Err(ErrorKind::Io_Error(io::ErrorKind::NotFound).into())
 }
 

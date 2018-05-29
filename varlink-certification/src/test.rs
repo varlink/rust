@@ -57,6 +57,10 @@ fn get_exec() -> Result<String> {
         return Ok("exec:../../target/debug/varlink-certification".into());
     }
 
+    if ::std::path::Path::new("../target/debug/varlink-certification").exists() {
+        return Ok("exec:../target/debug/varlink-certification".into());
+    }
+
     if ::std::path::Path::new("./target/debug/varlink-certification").exists() {
         return Ok("exec:./target/debug/varlink-certification".into());
     }

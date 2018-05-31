@@ -5,7 +5,14 @@ rust:
 addons:
   apt:
     packages:
-    - libssl-dev
+      - libssl-dev
+      - libcurl4-openssl-dev
+      - libelf-dev
+      - libdw-dev
+      - binutils-dev
+      - cmake
+    sources:
+      - kalakris-cmake
 cache:
   timeout: 1000
   cargo: true
@@ -15,13 +22,15 @@ before_script:
   - export PATH=$HOME/.cargo/bin:$PATH
   - cargo install cargo-update || echo "cargo-update already installed"
   - cargo install cargo-tarpaulin || echo "cargo-tarpaulin already installed"
+  - cargo install cargo-travis   || echo "cargo-travis already installed"
   - cargo install-update -a # update outdated cached binaries
 script:
 - cargo build --all
 - cargo test --all
 after_success: |
   if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
-    cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
+    #cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
+    cargo coveralls --verbose
   fi
 env:
   global:

@@ -30,7 +30,7 @@ script:
 after_success: |
   if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
     #cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
-    cargo coveralls --verbose
+    cargo coveralls --verbose --kcov-build-location $(pwd)/target
   fi
 env:
   global:

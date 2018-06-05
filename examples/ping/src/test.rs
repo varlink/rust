@@ -5,7 +5,7 @@ fn run_self_test(address: String) -> io::Result<()> {
     let server_address = address.clone();
 
     let child = thread::spawn(move || {
-        if let Err(e) = ::run_server(server_address, 4) {
+        if let Err(e) = ::run_server(&server_address, 4) {
             match e.kind() {
                 ::varlink::ErrorKind::Timeout => {}
                 _ => panic!("error: {}", e),
@@ -16,7 +16,7 @@ fn run_self_test(address: String) -> io::Result<()> {
     // give server time to start
     thread::sleep(time::Duration::from_secs(1));
 
-    let ret = ::run_client(address);
+    let ret = ::run_client(&address);
     if let Err(e) = ret {
         panic!("error: {}", e);
     }

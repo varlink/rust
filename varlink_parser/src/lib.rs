@@ -187,18 +187,18 @@ macro_rules! printVTypeExt {
 
 impl<'a> fmt::Display for VTypeExt<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &VTypeExt::Plain(VType::Bool) => printVTypeExt!(self, f, "bool"),
-            &VTypeExt::Plain(VType::Int) => printVTypeExt!(self, f, "int"),
-            &VTypeExt::Plain(VType::Float) => printVTypeExt!(self, f, "float"),
-            &VTypeExt::Plain(VType::String) => printVTypeExt!(self, f, "string"),
-            &VTypeExt::Plain(VType::Object) => printVTypeExt!(self, f, "object"),
-            &VTypeExt::Plain(VType::Typename(ref v)) => printVTypeExt!(self, f, v),
-            &VTypeExt::Plain(VType::Struct(ref v)) => printVTypeExt!(self, f, v),
-            &VTypeExt::Plain(VType::Enum(ref v)) => printVTypeExt!(self, f, v),
-            &VTypeExt::Array(ref v) => write!(f, "[]{}", v)?,
-            &VTypeExt::Dict(ref v) => write!(f, "[dict]{}", v)?,
-            &VTypeExt::Option(ref v) => write!(f, "?{}", v)?,
+        match *self {
+            VTypeExt::Plain(VType::Bool) => printVTypeExt!(self, f, "bool"),
+            VTypeExt::Plain(VType::Int) => printVTypeExt!(self, f, "int"),
+            VTypeExt::Plain(VType::Float) => printVTypeExt!(self, f, "float"),
+            VTypeExt::Plain(VType::String) => printVTypeExt!(self, f, "string"),
+            VTypeExt::Plain(VType::Object) => printVTypeExt!(self, f, "object"),
+            VTypeExt::Plain(VType::Typename(ref v)) => printVTypeExt!(self, f, v),
+            VTypeExt::Plain(VType::Struct(ref v)) => printVTypeExt!(self, f, v),
+            VTypeExt::Plain(VType::Enum(ref v)) => printVTypeExt!(self, f, v),
+            VTypeExt::Array(ref v) => write!(f, "[]{}", v)?,
+            VTypeExt::Dict(ref v) => write!(f, "[dict]{}", v)?,
+            VTypeExt::Option(ref v) => write!(f, "?{}", v)?,
         }
         Ok(())
     }
@@ -251,14 +251,14 @@ impl<'a> fmt::Display for VEnum<'a> {
 
 impl<'a> fmt::Display for Interface<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.doc.len() > 0 {
-            write!(f, "{}\n", self.doc)?;
+        if !self.doc.is_empty() {
+            writeln!(f, "{}", self.doc)?;
         }
-        write!(f, "interface {}\n", self.name)?;
+        writeln!(f, "interface {}", self.name)?;
 
         for t in self.typedefs.values() {
-            write!(f, "\n")?;
-            if t.doc.len() > 0 {
+            writeln!(f)?;
+            if !t.doc.is_empty() {
                 write!(f, "{}\n", t.doc)?;
             }
             write!(f, "type {} {}\n", t.name, t.elt)?;
@@ -266,7 +266,7 @@ impl<'a> fmt::Display for Interface<'a> {
 
         for m in self.methods.values() {
             write!(f, "\n")?;
-            if m.doc.len() > 0 {
+            if !m.doc.is_empty() {
                 write!(f, "{}\n", m.doc)?;
             }
             write!(f, "method {}{} -> {}\n", m.name, m.input, m.output)?;
@@ -274,7 +274,7 @@ impl<'a> fmt::Display for Interface<'a> {
 
         for e in self.errors.values() {
             write!(f, "\n")?;
-            if e.doc.len() > 0 {
+            if !e.doc.is_empty() {
                 write!(f, "{}\n", e.doc)?;
             }
             write!(f, "error {} {}\n", e.name, e.parm)?;
@@ -292,10 +292,14 @@ fn trim_doc(s: &str) -> &str {
 }
 
 impl<'a> Interface<'a> {
-    fn from_token(n: &'a str, mt: Vec<MethodOrTypedefOrError<'a>>, doc: &'a str) -> Interface<'a> {
+    fn from_token(
+        name: &'a str,
+        mt: Vec<MethodOrTypedefOrError<'a>>,
+        doc: &'a str,
+    ) -> Interface<'a> {
         let mut i = Interface {
-            name: n,
-            doc: doc,
+            name,
+            doc,
             methods: BTreeMap::new(),
             typedefs: BTreeMap::new(),
             errors: BTreeMap::new(),
@@ -330,7 +334,7 @@ impl<'a> Interface<'a> {
                 }
             };
         }
-        if i.methods.len() == 0 {
+        if i.methods.is_empty() {
             i.error
                 .insert(format!("Interface `{}`: no method defined!", i.name));
         }
@@ -349,7 +353,7 @@ impl<'a> Varlink<'a> {
         let s = s.as_ref();
         let iface = VInterface(s).context(ErrorKind::Peg)?;
 
-        if iface.error.len() != 0 {
+        if !iface.error.is_empty() {
             Err(ErrorKind::InterfaceDefinition(iface.error.into_iter().sorted().join("\n")).into())
         } else {
             Ok(Varlink {

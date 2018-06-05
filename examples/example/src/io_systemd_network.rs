@@ -198,7 +198,7 @@ impl From<varlink::Reply> for Error {
                     _ => ErrorKind::UnknownNetworkIfIndex(None).into(),
                 }
             }
-            _ => return ErrorKind::VarlinkReply_Error(e).into(),
+            _ => ErrorKind::VarlinkReply_Error(e).into(),
         }
     }
 }
@@ -327,18 +327,14 @@ error UnknownError (text: string)
             "io.systemd.network.Info" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: Info_Args = serde_json::from_value(args)?;
-                    return self.inner.info(call as &mut Call_Info, args.ifindex);
+                    self.inner.info(call as &mut Call_Info, args.ifindex)
                 } else {
-                    return call.reply_invalid_parameter("parameters".into());
+                    call.reply_invalid_parameter("parameters".into())
                 }
             }
-            "io.systemd.network.List" => {
-                return self.inner.list(call as &mut Call_List);
-            }
+            "io.systemd.network.List" => self.inner.list(call as &mut Call_List),
 
-            m => {
-                return call.reply_method_not_found(String::from(m));
-            }
+            m => call.reply_method_not_found(String::from(m)),
         }
     }
 }

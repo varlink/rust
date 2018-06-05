@@ -93,23 +93,23 @@ impl<'short, 'long: 'short> ToRust<'short, 'long> for VType<'long> {
         enumvec: &mut EnumVec,
         structvec: &mut StructVec<'short>,
     ) -> Result<Cow<'long, str>> {
-        match self {
-            &VType::Bool => Ok("bool".into()),
-            &VType::Int => Ok("i64".into()),
-            &VType::Float => Ok("f64".into()),
-            &VType::String => Ok("String".into()),
-            &VType::Object => Ok("Value".into()),
-            &VType::Typename(v) => Ok(v.into()),
-            &VType::Enum(ref v) => {
+        match *self {
+            VType::Bool => Ok("bool".into()),
+            VType::Int => Ok("i64".into()),
+            VType::Float => Ok("f64".into()),
+            VType::String => Ok("String".into()),
+            VType::Object => Ok("Value".into()),
+            VType::Typename(v) => Ok(v.into()),
+            VType::Enum(ref v) => {
                 enumvec.push((
                     parent.into(),
                     Vec::from_iter(v.elts.iter().map(|s| String::from(*s))),
                 ));
-                Ok(format!("{}", parent).into())
+                Ok(Cow::Owned(parent.to_string()))
             }
-            &VType::Struct(ref v) => {
+            VType::Struct(ref v) => {
                 structvec.push((String::from(parent), v.as_ref()));
-                Ok(format!("{}", parent).into())
+                Ok(Cow::Owned(parent.to_string()))
             }
         }
     }
@@ -122,13 +122,13 @@ impl<'short, 'long: 'short> ToRust<'short, 'long> for VTypeExt<'long> {
         enumvec: &mut EnumVec,
         structvec: &mut StructVec<'short>,
     ) -> Result<Cow<'long, str>> {
-        match self {
-            &VTypeExt::Plain(ref vtype) => vtype.to_rust(parent, enumvec, structvec),
-            &VTypeExt::Array(ref v) => {
+        match *self {
+            VTypeExt::Plain(ref vtype) => vtype.to_rust(parent, enumvec, structvec),
+            VTypeExt::Array(ref v) => {
                 Ok(format!("Vec<{}>", v.to_rust(parent, enumvec, structvec)?).into())
             }
-            &VTypeExt::Dict(ref v) => match v.as_ref() {
-                &VTypeExt::Plain(VType::Struct(ref s)) if s.elts.len() == 0 => {
+            VTypeExt::Dict(ref v) => match *v.as_ref() {
+                VTypeExt::Plain(VType::Struct(ref s)) if s.elts.is_empty() => {
                     Ok("varlink::StringHashSet".into())
                 }
                 _ => Ok(format!(
@@ -136,7 +136,7 @@ impl<'short, 'long: 'short> ToRust<'short, 'long> for VTypeExt<'long> {
                     v.to_rust(parent, enumvec, structvec)?
                 ).into()),
             },
-            &VTypeExt::Option(ref v) => {
+            VTypeExt::Option(ref v) => {
                 Ok(format!("Option<{}>", v.to_rust(parent, enumvec, structvec)?).into())
             }
         }
@@ -391,7 +391,7 @@ use varlink::{{self, CallTrait}};
             write!(w, "\n}}\n\n")?;
         }
 
-        if nstructvec.len() == 0 {
+        if nstructvec.is_empty() {
             break;
         }
         structvec = nstructvec;
@@ -401,7 +401,7 @@ use varlink::{{self, CallTrait}};
     for t in iface.errors.values() {
         let mut inparms = String::new();
         let mut innames = String::new();
-        if t.parm.elts.len() > 0 {
+        if !t.parm.elts.is_empty() {
             for e in &t.parm.elts {
                 inparms += format!(
                     ", {}: {}",
@@ -428,7 +428,7 @@ use varlink::{{self, CallTrait}};
             iname = iface.name,
             ename = t.name,
         )?;
-        if t.parm.elts.len() > 0 {
+        if !t.parm.elts.is_empty() {
             write!(
                 w,
                 "            Some(serde_json::to_value({}_Args {{ {} }})?),",
@@ -584,7 +584,7 @@ impl From<varlink::Reply> for Error {{
 
     write!(
         w,
-        r#"            _ => return ErrorKind::VarlinkReply_Error(e).into(),
+        r#"            _ => ErrorKind::VarlinkReply_Error(e).into(),
         }}
     }}
 }}
@@ -594,7 +594,7 @@ impl From<varlink::Reply> for Error {{
     for t in iface.methods.values() {
         let mut inparms = String::new();
         let mut innames = String::new();
-        if t.output.elts.len() > 0 {
+        if !t.output.elts.is_empty() {
             for e in &t.output.elts {
                 inparms += format!(
                     ", {}: {}",
@@ -616,7 +616,7 @@ impl From<varlink::Reply> for Error {{
             "    fn reply(&mut self{}) -> varlink::Result<()> {{\n",
             inparms
         )?;
-        if t.output.elts.len() > 0 {
+        if !t.output.elts.is_empty() {
             write!(
                 w,
                 "        self.reply_struct({}_Reply {{ {} }}.into())\n",
@@ -638,7 +638,7 @@ impl From<varlink::Reply> for Error {{
     write!(w, "pub trait VarlinkInterface {{\n")?;
     for t in iface.methods.values() {
         let mut inparms = String::new();
-        if t.input.elts.len() > 0 {
+        if !t.input.elts.is_empty() {
             for e in &t.input.elts {
                 inparms += format!(
                     ", {}: {}",
@@ -675,7 +675,7 @@ impl From<varlink::Reply> for Error {{
     for t in iface.methods.values() {
         let mut inparms = String::new();
         let mut outparms = String::new();
-        if t.input.elts.len() > 0 {
+        if !t.input.elts.is_empty() {
             for e in &t.input.elts {
                 inparms += format!(
                     ", {}: {}",
@@ -688,7 +688,7 @@ impl From<varlink::Reply> for Error {{
                 ).as_ref();
             }
         }
-        if t.output.elts.len() > 0 {
+        if !t.output.elts.is_empty() {
             for e in &t.output.elts {
                 outparms += format!(
                     "{}, ",
@@ -755,7 +755,7 @@ impl VarlinkClientInterface for VarlinkClient {{
     for t in iface.methods.values() {
         let mut inparms = String::new();
         let mut innames = String::new();
-        if t.input.elts.len() > 0 {
+        if !t.input.elts.is_empty() {
             for e in &t.input.elts {
                 inparms += format!(
                     ", {}: {}",
@@ -847,21 +847,20 @@ impl varlink::Interface for VarlinkInterfaceProxy {{
             iname = iface.name,
             mname = t.name
         )?;
-        if t.input.elts.len() > 0 {
+        if !t.input.elts.is_empty() {
             write!(
                 w,
                 concat!(
-                        "\n",
-                        "                if let Some(args) = req.parameters.clone() {{\n",
-                        "                    let args: {mname}_Args = serde_json::from_value(args)?;\n",
-                        "                    return self.inner.{sname}(call as &mut \
-                        Call_{mname}{inparms});\n",
-                        "                }} else {{\n",
-                        "                    return call.reply_invalid_parameter(\"parameters\".into());\
-                        \n",
-                        "                }}\n",
-                        "            }}\n"
-                    ),
+                    "\n",
+                    "                if let Some(args) = req.parameters.clone() {{\n",
+                    "                    let args: {mname}_Args = serde_json::from_value(args)?;\n",
+                    "                    self.inner.{sname}(call as &mut Call_{mname}{inparms})\n",
+                    "                }} else {{\n",
+                    "                    call.reply_invalid_parameter(\"parameters\".into())\
+                     \n",
+                    "                }}\n",
+                    "            }}\n"
+                ),
                 mname = t.name,
                 sname = to_snake_case(t.name),
                 inparms = inparms
@@ -871,7 +870,7 @@ impl varlink::Interface for VarlinkInterfaceProxy {{
                 w,
                 concat!(
                     "\n",
-                    "                return self.inner.{sname}(call as &mut Call_{mname});\n",
+                    "                self.inner.{sname}(call as &mut Call_{mname})\n",
                     "            }}\n"
                 ),
                 sname = to_snake_case(t.name),
@@ -884,7 +883,7 @@ impl varlink::Interface for VarlinkInterfaceProxy {{
         concat!(
             "\n",
             "            m => {{\n",
-            "                return call.reply_method_not_found(String::from(m));\n",
+            "                call.reply_method_not_found(String::from(m))\n",
             "            }}\n",
             "        }}\n",
             "    }}\n",

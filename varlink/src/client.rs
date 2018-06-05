@@ -12,9 +12,9 @@ use std::os::unix::io::{FromRawFd, IntoRawFd};
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
 use std::process::{Child, Command};
-use tempfile::TempDir;
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 use tempfile::tempdir;
+use tempfile::TempDir;
 // FIXME: abstract unix domains sockets still not in std
 // FIXME: https://github.com/rust-lang/rust/issues/14194
 use unix_socket::UnixStream as AbstractStream;
@@ -63,8 +63,8 @@ pub fn varlink_exec<S: ?Sized + AsRef<str>>(
 ) -> Result<(Child, String, Option<TempDir>)> {
     let address = address.as_ref();
 
-    use unix_socket::UnixListener as AbstractUnixListener;
     use unix_socket::os::linux::SocketAddrExt;
+    use unix_socket::UnixListener as AbstractUnixListener;
 
     let executable = &address[5..];
     let listener = AbstractUnixListener::bind("")?;
@@ -101,16 +101,15 @@ impl<'a> VarlinkStream {
         let address = address.as_ref();
         let new_address: String;
         let mut my_child: Option<Child> = None;
-        let mut tmpdir: Option<TempDir> = None;
-
-        if address.starts_with("exec:") {
+        let tmpdir: Option<TempDir> = if address.starts_with("exec:") {
             let (c, a, t) = varlink_exec(address)?;
             new_address = a;
             my_child = Some(c);
-            tmpdir = t;
+            t
         } else {
             new_address = address.into();
-        }
+            None
+        };
 
         if new_address.starts_with("tcp:") {
             Ok((
@@ -118,9 +117,9 @@ impl<'a> VarlinkStream {
                 new_address,
             ))
         } else if new_address.starts_with("unix:") {
-            let mut addr = String::from(new_address[5..].split(";").next().unwrap());
-            if addr.starts_with("@") {
-                addr = addr.replacen("@", "\0", 1);
+            let mut addr = String::from(new_address[5..].split(';').next().unwrap());
+            if addr.starts_with('@') {
+                addr = addr.replacen('@', "\0", 1);
                 let l = AbstractStream::connect(addr)?;
                 unsafe {
                     return Ok((
@@ -162,9 +161,9 @@ impl<'a> VarlinkStream {
     }
 
     pub fn set_nonblocking(&self, b: bool) -> Result<()> {
-        match self {
-            &VarlinkStream::TCP(ref l) => l.set_nonblocking(b)?,
-            &VarlinkStream::UNIX(ref l, _, _) => l.set_nonblocking(b)?,
+        match *self {
+            VarlinkStream::TCP(ref l) => l.set_nonblocking(b)?,
+            VarlinkStream::UNIX(ref l, _, _) => l.set_nonblocking(b)?,
         }
         Ok(())
     }
@@ -173,16 +172,13 @@ impl<'a> VarlinkStream {
 impl Drop for VarlinkStream {
     fn drop(&mut self) {
         let _r = self.shutdown();
-        match *self {
-            VarlinkStream::UNIX(_, Some(ref mut child), ref mut tmpdir) => {
-                let _res = child.kill();
-                let _res = child.wait();
-                if let Some(dir) = tmpdir.take() {
-                    use std::fs;
-                    let _r = fs::remove_dir_all(dir);
-                }
+        if let VarlinkStream::UNIX(_, Some(ref mut child), ref mut tmpdir) = *self {
+            let _res = child.kill();
+            let _res = child.wait();
+            if let Some(dir) = tmpdir.take() {
+                use std::fs;
+                let _r = fs::remove_dir_all(dir);
             }
-            _ => {}
         }
     }
 }

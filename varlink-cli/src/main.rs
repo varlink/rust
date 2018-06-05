@@ -46,13 +46,13 @@ fn varlink_info(address: &str) -> Result<()> {
 }
 
 fn varlink_help(url: &str) -> Result<()> {
-    let del = url.rfind("/")
-        .ok_or(Error::from(ErrorKind::NotImplemented("Resolver".into())))?;
+    let del = url.rfind('/')
+        .ok_or_else(|| Error::from(ErrorKind::NotImplemented("Resolver".into())))?;
 
     let address = &url[0..del];
     let interface = &url[(del + 1)..];
 
-    if interface.find(".") == None {
+    if interface.find('.') == None {
         Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress))?
     }
 
@@ -71,13 +71,13 @@ fn varlink_help(url: &str) -> Result<()> {
 }
 
 fn varlink_call(url: &str, args: Option<&str>, more: bool) -> Result<()> {
-    let del = url.rfind("/")
-        .ok_or(Error::from(ErrorKind::NotImplemented("Resolver".into())))?;
+    let del = url.rfind('/')
+        .ok_or_else(|| Error::from(ErrorKind::NotImplemented("Resolver".into())))?;
 
     let address = &url[0..del];
     let method = &url[(del + 1)..];
 
-    if method.find(".") == None {
+    if method.find('.') == None {
         Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress))?
     }
 
@@ -105,7 +105,7 @@ fn varlink_call(url: &str, args: Option<&str>, more: bool) -> Result<()> {
     Ok(())
 }
 
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() -> Result<()> {
     let mut app = App::new("varlink")

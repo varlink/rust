@@ -244,8 +244,9 @@ impl From<Reply> for Error {
                         parameters: Some(p),
                         ..
                     } => match serde_json::from_value::<ErrorInterfaceNotFound>(p) {
-                        Ok(v) => ErrorKind::InterfaceNotFound(v.interface.unwrap_or(String::new()))
-                            .into(),
+                        Ok(v) => {
+                            ErrorKind::InterfaceNotFound(v.interface.unwrap_or_default()).into()
+                        }
                         Err(_) => ErrorKind::InterfaceNotFound(String::new()).into(),
                     },
                     _ => ErrorKind::InterfaceNotFound(String::new()).into(),
@@ -261,7 +262,7 @@ impl From<Reply> for Error {
                         ..
                     } => match serde_json::from_value::<ErrorInvalidParameter>(p) {
                         Ok(v) => {
-                            ErrorKind::InvalidParameter(v.parameter.unwrap_or(String::new())).into()
+                            ErrorKind::InvalidParameter(v.parameter.unwrap_or_default()).into()
                         }
                         Err(_) => ErrorKind::InvalidParameter(String::new()).into(),
                     },
@@ -277,9 +278,7 @@ impl From<Reply> for Error {
                         parameters: Some(p),
                         ..
                     } => match serde_json::from_value::<ErrorMethodNotFound>(p) {
-                        Ok(v) => {
-                            ErrorKind::MethodNotFound(v.method.unwrap_or(String::new())).into()
-                        }
+                        Ok(v) => ErrorKind::MethodNotFound(v.method.unwrap_or_default()).into(),
                         Err(_) => ErrorKind::MethodNotFound(String::new()).into(),
                     },
                     _ => ErrorKind::MethodNotFound(String::new()).into(),
@@ -294,16 +293,15 @@ impl From<Reply> for Error {
                         parameters: Some(p),
                         ..
                     } => match serde_json::from_value::<ErrorMethodNotImplemented>(p) {
-                        Ok(v) => ErrorKind::MethodNotImplemented(v.method.unwrap_or(String::new()))
-                            .into(),
+                        Ok(v) => {
+                            ErrorKind::MethodNotImplemented(v.method.unwrap_or_default()).into()
+                        }
                         Err(_) => ErrorKind::MethodNotImplemented(String::new()).into(),
                     },
                     _ => ErrorKind::MethodNotImplemented(String::new()).into(),
                 }
             }
-            _ => {
-                return ErrorKind::VarlinkErrorReply(e).into();
-            }
+            _ => ErrorKind::VarlinkErrorReply(e).into(),
         }
     }
 }
@@ -673,7 +671,7 @@ pub trait CallTrait {
 
 impl<'a> CallTrait for Call<'a> {
     fn reply_struct(&mut self, mut reply: Reply) -> Result<()> {
-        if self.continues & &!self.wants_more() {
+        if self.continues && !self.wants_more() {
             return Err(ErrorKind::CallContinuesMismatch.into());
         }
         if self.continues {
@@ -776,7 +774,7 @@ impl Connection {
         })))
     }
     pub fn address(&self) -> String {
-        return self.address.clone();
+        self.address.clone()
     }
 }
 
@@ -891,7 +889,7 @@ where
         let mut reader = self.reader.take().unwrap();
         reader.read_until(0, &mut buf)?;
         self.reader = Some(reader);
-        if buf.len() == 0 {
+        if buf.is_empty() {
             return Err(Error::from(ErrorKind::ConnectionClosed))?;
         }
         buf.pop();
@@ -899,7 +897,7 @@ where
             .context(ErrorKind::SerdeJsonDe(
                 String::from_utf8_lossy(&buf).to_string(),
             ))
-            .map_err(|e| Error::from(e))?;
+            .map_err(Error::from)?;
         match reply.continues {
             Some(true) => self.continues = true,
             _ => {
@@ -1069,35 +1067,29 @@ error InvalidParameter (parameter: string)
         let req = call.request.unwrap();
         match req.method.as_ref() {
             "org.varlink.service.GetInfo" => {
-                return call.reply_parameters(serde_json::to_value(&self.info)?);
+                call.reply_parameters(serde_json::to_value(&self.info)?)
             }
             "org.varlink.service.GetInterfaceDescription" => match req.parameters.as_ref() {
-                None => {
-                    return call.reply_invalid_parameter("parameters".into());
-                }
+                None => call.reply_invalid_parameter("parameters".into()),
                 Some(val) => {
                     let args: GetInterfaceDescriptionArgs = serde_json::from_value(val.clone())?;
                     match args.interface.as_ref() {
                         "org.varlink.service" => {
-                            return call.reply_parameters(
-                                json!({"description": self.get_description()}),
-                            );
+                            call.reply_parameters(json!({"description": self.get_description()}))
                         }
                         key => {
                             if self.ifaces.contains_key(key) {
-                                return call.reply_parameters(
+                                call.reply_parameters(
                                     json!({"description": self.ifaces[key].get_description()}),
-                                );
+                                )
                             } else {
-                                return call.reply_invalid_parameter("interface".into());
+                                call.reply_invalid_parameter("interface".into())
                             }
                         }
                     }
                 }
             },
-            m => {
-                return call.reply_method_not_found(m.to_string());
-            }
+            m => call.reply_method_not_found(m.to_string()),
         }
     }
 }
@@ -1153,11 +1145,7 @@ impl VarlinkService {
         }
         let mut ifnames: Vec<Cow<'static, str>> = Vec::new();
         ifnames.push("org.varlink.service".into());
-        ifnames.extend(
-            ifhashmap
-                .keys()
-                .map(|i| Cow::<'static, str>::from(i.clone())),
-        );
+        ifnames.extend(ifhashmap.keys().cloned());
         VarlinkService {
             info: ServiceInfo {
                 vendor: vendor.into(),
@@ -1170,27 +1158,27 @@ impl VarlinkService {
         }
     }
 
-    fn call(&self, iface: String, call: &mut Call) -> Result<()> {
-        match iface.as_ref() {
-            "org.varlink.service" => return self::Interface::call(self, call),
+    fn call(&self, iface: &str, call: &mut Call) -> Result<()> {
+        match iface {
+            "org.varlink.service" => self::Interface::call(self, call),
             key => {
                 if self.ifaces.contains_key(key) {
-                    return self.ifaces[key].call(call);
+                    self.ifaces[key].call(call)
                 } else {
-                    return call.reply_interface_not_found(Some(iface.clone()));
+                    call.reply_interface_not_found(Some(iface.into()))
                 }
             }
         }
     }
 
-    fn call_upgraded(&self, iface: String, call: &mut Call) -> Result<()> {
-        match iface.as_ref() {
-            "org.varlink.service" => return self::Interface::call_upgraded(self, call),
+    fn call_upgraded(&self, iface: &str, call: &mut Call) -> Result<()> {
+        match iface {
+            "org.varlink.service" => self::Interface::call_upgraded(self, call),
             key => {
                 if self.ifaces.contains_key(key) {
-                    return self.ifaces[key].call_upgraded(call);
+                    self.ifaces[key].call_upgraded(call)
                 } else {
-                    return call.reply_interface_not_found(Some(iface.clone()));
+                    call.reply_interface_not_found(Some(iface.into()))
                 }
             }
         }
@@ -1204,42 +1192,39 @@ impl VarlinkService {
         let mut upgraded = false;
         let mut last_iface = String::from("");
         loop {
-            match upgraded {
-                false => {
-                    let mut buf = Vec::new();
-                    if bufreader.read_until(b'\0', &mut buf)? <= 0 {
-                        break;
-                    }
-                    // pop the last zero byte
-                    buf.pop();
-                    let req: Request = serde_json::from_slice(&buf).context(
-                        ErrorKind::SerdeJsonDe(String::from_utf8_lossy(&buf).to_string()),
-                    )?;
-
-                    let n: usize = match req.method.rfind('.') {
-                        None => {
-                            let method: String = String::from(req.method.as_ref());
-                            let mut call = Call::new(writer, &req);
-                            return call.reply_interface_not_found(Some(method));
-                        }
-                        Some(x) => x,
-                    };
-
-                    let iface = String::from(&req.method[..n]);
-
-                    let mut call = Call::new(writer, &req);
-                    self.call(iface.clone(), &mut call)?;
-
-                    upgraded = call.upgraded;
-                    if upgraded {
-                        last_iface = iface;
-                    }
+            if !upgraded {
+                let mut buf = Vec::new();
+                if bufreader.read_until(b'\0', &mut buf)? == 0 {
+                    break;
                 }
-                true => {
-                    let mut call = Call::new_upgraded(writer);
-                    self.call_upgraded(last_iface.clone(), &mut call)?;
-                    upgraded = call.upgraded;
+                // pop the last zero byte
+                buf.pop();
+                let req: Request = serde_json::from_slice(&buf).context(ErrorKind::SerdeJsonDe(
+                    String::from_utf8_lossy(&buf).to_string(),
+                ))?;
+
+                let n: usize = match req.method.rfind('.') {
+                    None => {
+                        let method: String = String::from(req.method.as_ref());
+                        let mut call = Call::new(writer, &req);
+                        return call.reply_interface_not_found(Some(method));
+                    }
+                    Some(x) => x,
+                };
+
+                let iface = String::from(&req.method[..n]);
+
+                let mut call = Call::new(writer, &req);
+                self.call(&iface, &mut call)?;
+
+                upgraded = call.upgraded;
+                if upgraded {
+                    last_iface = iface;
                 }
+            } else {
+                let mut call = Call::new_upgraded(writer);
+                self.call_upgraded(&last_iface, &mut call)?;
+                upgraded = call.upgraded;
             }
         }
         Ok(())

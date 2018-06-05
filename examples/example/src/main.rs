@@ -21,7 +21,7 @@ mod test;
 
 // Main
 
-fn print_usage(program: &str, opts: getopts::Options) {
+fn print_usage(program: &str, opts: &getopts::Options) {
     let brief = format!("Usage: {} [--varlink=<address>] [--client]", program);
     print!("{}", opts.usage(&brief));
 }
@@ -39,13 +39,13 @@ fn main() {
         Ok(m) => m,
         Err(f) => {
             eprintln!("{}", f.to_string());
-            print_usage(&program, opts);
+            print_usage(&program, &opts);
             return;
         }
     };
 
     if matches.opt_present("h") {
-        print_usage(&program, opts);
+        print_usage(&program, &opts);
         return;
     }
 
@@ -55,7 +55,7 @@ fn main() {
         None => {
             if !client_mode {
                 eprintln!("Need varlink address in server mode.");
-                print_usage(&program, opts);
+                print_usage(&program, &opts);
                 return;
             }
             format!("exec:{}", program)
@@ -63,9 +63,10 @@ fn main() {
         Some(a) => a,
     };
 
-    let ret = match client_mode {
-        true => run_client(&address),
-        false => run_server(&address, 0),
+    let ret = if client_mode {
+        run_client(&address)
+    } else {
+        run_server(&address, 0)
     };
 
     exit(match ret {
@@ -89,10 +90,7 @@ fn run_client<S: ?Sized + AsRef<str>>(address: &S) -> varlink::Result<()> {
         assert_eq!(&info.product, "test service");
         assert_eq!(&info.version, "0.1");
         assert_eq!(&info.url, "http://varlink.org");
-        assert_eq!(
-            info.interfaces.get(1).unwrap().as_ref(),
-            "io.systemd.network"
-        );
+        assert_eq!(&info.interfaces[1], "io.systemd.network");
     }
     let description = iface.get_interface_description("io.systemd.network")?;
 
@@ -163,25 +161,19 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
         }
 
         match ifindex {
-            1 => {
-                return call.reply(NetdevInfo {
-                    ifindex: 1,
-                    ifname: "lo".into(),
-                });
-            }
-            2 => {
-                return call.reply(NetdevInfo {
-                    ifindex: 2,
-                    ifname: "eth".into(),
-                });
-            }
+            1 => call.reply(NetdevInfo {
+                ifindex: 1,
+                ifname: "lo".into(),
+            }),
+            2 => call.reply(NetdevInfo {
+                ifindex: 2,
+                ifname: "eth".into(),
+            }),
             3 => {
                 call.reply_invalid_parameter("ifindex".into())?;
-                return Ok(());
+                Ok(())
             }
-            _ => {
-                return call.reply_unknown_network_if_index(ifindex);
-            }
+            _ => call.reply_unknown_network_if_index(ifindex),
         }
     }
 
@@ -194,7 +186,7 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
 
             eprintln!("{}", *number);
         }
-        return call.reply(vec![
+        call.reply(vec![
             Netdev {
                 ifindex: 1,
                 ifname: "lo".into(),
@@ -203,7 +195,7 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
                 ifindex: 2,
                 ifname: "eth0".into(),
             },
-        ]);
+        ])
     }
 }
 

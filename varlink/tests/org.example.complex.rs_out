@@ -287,7 +287,7 @@ impl From<varlink::Reply> for Error {
                        _ => ErrorKind::ErrorFoo(None).into(),
                    }
                }
-            _ => return ErrorKind::VarlinkReply_Error(e).into(),
+            _ => ErrorKind::VarlinkReply_Error(e).into(),
         }
     }
 }
@@ -442,19 +442,19 @@ error ErrorBar ()
         let req = call.request.unwrap();
         match req.method.as_ref() {
             "org.example.complex.Bar" => {
-                return self.inner.bar(call as &mut Call_Bar);
+                self.inner.bar(call as &mut Call_Bar)
             }
             "org.example.complex.Foo" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: Foo_Args = serde_json::from_value(args)?;
-                    return self.inner.foo(call as &mut Call_Foo, args.enum_, args.foo, args.interface);
+                    self.inner.foo(call as &mut Call_Foo, args.enum_, args.foo, args.interface)
                 } else {
-                    return call.reply_invalid_parameter("parameters".into());
+                    call.reply_invalid_parameter("parameters".into())
                 }
             }
 
             m => {
-                return call.reply_method_not_found(String::from(m));
+                call.reply_method_not_found(String::from(m))
             }
         }
     }

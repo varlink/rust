@@ -7,7 +7,7 @@ fn run_self_test(address: String) -> io::Result<()> {
     let client_address = address.clone();
 
     let child = thread::spawn(move || {
-        if let Err(e) = ::run_server(address, 4) {
+        if let Err(e) = ::run_server(&address, 4) {
             match e.kind() {
                 ::varlink::ErrorKind::Timeout => {}
                 _ => panic!("error: {}", e),
@@ -18,7 +18,7 @@ fn run_self_test(address: String) -> io::Result<()> {
     // give server time to start
     thread::sleep(time::Duration::from_secs(1));
 
-    let ret = ::run_client(client_address);
+    let ret = ::run_client(&client_address);
     if let Err(e) = ret {
         panic!("error: {:?}", e);
     }
@@ -86,7 +86,7 @@ fn test_exec() {
             eprintln!("test test::test_exec ... skipping, no varlink-certification binary found");
             return;
         }
-        Ok(address) => assert!(::run_client(address).is_ok()),
+        Ok(address) => assert!(::run_client(&address).is_ok()),
     }
 }
 

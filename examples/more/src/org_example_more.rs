@@ -176,7 +176,7 @@ impl From<varlink::Reply> for Error {
                     _ => ErrorKind::TestMoreError(None).into(),
                 }
             }
-            _ => return ErrorKind::VarlinkReply_Error(e).into(),
+            _ => ErrorKind::VarlinkReply_Error(e).into(),
         }
     }
 }
@@ -323,26 +323,24 @@ error TestMoreError (reason: string)
             "org.example.more.Ping" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: Ping_Args = serde_json::from_value(args)?;
-                    return self.inner.ping(call as &mut Call_Ping, args.ping);
+                    self.inner.ping(call as &mut Call_Ping, args.ping)
                 } else {
-                    return call.reply_invalid_parameter("parameters".into());
+                    call.reply_invalid_parameter("parameters".into())
                 }
             }
             "org.example.more.StopServing" => {
-                return self.inner.stop_serving(call as &mut Call_StopServing);
+                self.inner.stop_serving(call as &mut Call_StopServing)
             }
             "org.example.more.TestMore" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: TestMore_Args = serde_json::from_value(args)?;
-                    return self.inner.test_more(call as &mut Call_TestMore, args.n);
+                    self.inner.test_more(call as &mut Call_TestMore, args.n)
                 } else {
-                    return call.reply_invalid_parameter("parameters".into());
+                    call.reply_invalid_parameter("parameters".into())
                 }
             }
 
-            m => {
-                return call.reply_method_not_found(String::from(m));
-            }
+            m => call.reply_method_not_found(String::from(m)),
         }
     }
 }

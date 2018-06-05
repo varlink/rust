@@ -20,7 +20,7 @@ mod test;
 
 // Main
 
-fn print_usage(program: &str, opts: getopts::Options) {
+fn print_usage(program: &str, opts: &getopts::Options) {
     let brief = format!("Usage: {} [--varlink=<address>] [--client]", program);
     print!("{}", opts.usage(&brief));
 }
@@ -38,13 +38,13 @@ fn main() {
         Ok(m) => m,
         Err(f) => {
             eprintln!("{}", f.to_string());
-            print_usage(&program, opts);
+            print_usage(&program, &opts);
             return;
         }
     };
 
     if matches.opt_present("h") {
-        print_usage(&program, opts);
+        print_usage(&program, &opts);
         return;
     }
 
@@ -54,7 +54,7 @@ fn main() {
         None => {
             if !client_mode {
                 eprintln!("Need varlink address in server mode.");
-                print_usage(&program, opts);
+                print_usage(&program, &opts);
                 return;
             }
             format!("exec:{}", program)
@@ -62,9 +62,10 @@ fn main() {
         Some(a) => a,
     };
 
-    let ret = match client_mode {
-        true => run_client(address),
-        false => run_server(address, 0).map_err(|e| e.into()),
+    let ret = if client_mode {
+        run_client(&address)
+    } else {
+        run_server(&address, 0).map_err(|e| e.into())
     };
 
     exit(match ret {
@@ -78,7 +79,7 @@ fn main() {
 
 // Client
 
-fn run_client(address: String) -> Result<()> {
+fn run_client(address: &str) -> Result<()> {
     let connection = varlink::Connection::new(&address)?;
     let mut iface = VarlinkClient::new(connection);
     let ping = String::from("Test");
@@ -104,11 +105,11 @@ struct MyOrgExamplePing;
 
 impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
     fn ping(&self, call: &mut Call_Ping, ping: String) -> varlink::Result<()> {
-        return call.reply(ping);
+        call.reply(ping)
     }
 }
 
-fn run_server(address: String, timeout: u64) -> varlink::Result<()> {
+fn run_server(address: &str, timeout: u64) -> varlink::Result<()> {
     let myorgexampleping = MyOrgExamplePing;
     let myinterface = org_example_ping::new(Box::new(myorgexampleping));
     let service = VarlinkService::new(

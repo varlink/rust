@@ -146,7 +146,7 @@ impl From<varlink::Reply> for Error {
                     _ => ErrorKind::PingError(None).into(),
                 }
             }
-            _ => return ErrorKind::VarlinkReply_Error(e).into(),
+            _ => ErrorKind::VarlinkReply_Error(e).into(),
         }
     }
 }
@@ -242,15 +242,13 @@ error PingError(parameter: int)"#####################################
             "org.example.ping.Ping" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: Ping_Args = serde_json::from_value(args)?;
-                    return self.inner.ping(call as &mut Call_Ping, args.ping);
+                    self.inner.ping(call as &mut Call_Ping, args.ping)
                 } else {
-                    return call.reply_invalid_parameter("parameters".into());
+                    call.reply_invalid_parameter("parameters".into())
                 }
             }
 
-            m => {
-                return call.reply_method_not_found(String::from(m));
-            }
+            m => call.reply_method_not_found(String::from(m)),
         }
     }
 }

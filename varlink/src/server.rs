@@ -83,7 +83,7 @@ fn activation_listener() -> Result<Option<i32>> {
         _ => return Ok(None),
     }
 
-    for (i, v) in fdnames.split(":").enumerate() {
+    for (i, v) in fdnames.split(':').enumerate() {
         if v == "varlink" {
             return Ok(Some(3 + i as i32));
         }
@@ -121,9 +121,9 @@ impl VarlinkListener {
                 false,
             ))
         } else if address.starts_with("unix:") {
-            let mut addr = String::from(address[5..].split(";").next().unwrap());
-            if addr.starts_with("@") {
-                addr = addr.replacen("@", "\0", 1);
+            let mut addr = String::from(address[5..].split(';').next().unwrap());
+            if addr.starts_with('@') {
+                addr = addr.replacen('@', "\0", 1);
                 let l = AbstractUnixListener::bind(addr)?;
                 unsafe {
                     return Ok(VarlinkListener::UNIX(
@@ -189,7 +189,7 @@ impl VarlinkListener {
                 let (mut s, _addr) = l.accept()?;
                 Ok(VarlinkStream::TCP(s))
             }
-            &VarlinkListener::UNIX(Some(ref l), _) => {
+            VarlinkListener::UNIX(Some(ref l), _) => {
                 let (mut s, _addr) = l.accept()?;
                 Ok(VarlinkStream::UNIX(s))
             }
@@ -197,9 +197,9 @@ impl VarlinkListener {
         }
     }
     pub fn set_nonblocking(&self, b: bool) -> Result<()> {
-        match self {
-            &VarlinkListener::TCP(Some(ref l), _) => l.set_nonblocking(b)?,
-            &VarlinkListener::UNIX(Some(ref l), _) => l.set_nonblocking(b)?,
+        match *self {
+            VarlinkListener::TCP(Some(ref l), _) => l.set_nonblocking(b)?,
+            VarlinkListener::UNIX(Some(ref l), _) => l.set_nonblocking(b)?,
             _ => Err(ErrorKind::ConnectionClosed)?,
         }
         Ok(())

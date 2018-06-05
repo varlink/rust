@@ -21,7 +21,7 @@ mod test;
 
 // Main
 
-fn print_usage(program: &str, opts: getopts::Options) {
+fn print_usage(program: &str, opts: &getopts::Options) {
     let brief = format!("Usage: {} [--varlink=<address>] [--client]", program);
     print!("{}", opts.usage(&brief));
 }
@@ -41,13 +41,13 @@ fn main() {
         Ok(m) => m,
         Err(f) => {
             eprintln!("{}", f.to_string());
-            print_usage(&program, opts);
+            print_usage(&program, &opts);
             return;
         }
     };
 
     if matches.opt_present("h") {
-        print_usage(&program, opts);
+        print_usage(&program, &opts);
         return;
     }
 
@@ -55,13 +55,13 @@ fn main() {
 
     let timeout = matches
         .opt_str("timeout")
-        .unwrap_or("0".to_string())
+        .unwrap_or_default()
         .parse::<u64>()
         .unwrap_or(0);
 
     let sleep = matches
         .opt_str("sleep")
-        .unwrap_or("1000".to_string())
+        .unwrap_or_default()
         .parse::<u64>()
         .unwrap_or(1000);
 
@@ -69,7 +69,7 @@ fn main() {
         None => {
             if !client_mode {
                 eprintln!("Need varlink address in server mode.");
-                print_usage(&program, opts);
+                print_usage(&program, &opts);
                 return;
             }
             format!("exec:{}", program)
@@ -77,9 +77,10 @@ fn main() {
         Some(a) => a,
     };
 
-    let ret = match client_mode {
-        true => run_client(address),
-        false => run_server(address, timeout, sleep).map_err(|e| e.into()),
+    let ret = if client_mode {
+        run_client(&address)
+    } else {
+        run_server(&address, timeout, sleep).map_err(|e| e.into())
     };
 
     exit(match ret {
@@ -93,7 +94,7 @@ fn main() {
 
 // Client
 
-fn run_client(address: String) -> Result<()> {
+fn run_client(address: &str) -> Result<()> {
     let con1 = varlink::Connection::new(&address)?;
     let new_addr;
     {
@@ -153,7 +154,7 @@ struct MyOrgExampleMore {
 
 impl VarlinkInterface for MyOrgExampleMore {
     fn ping(&self, call: &mut Call_Ping, ping: String) -> varlink::Result<()> {
-        return call.reply(ping);
+        call.reply(ping)
     }
 
     fn stop_serving(&self, call: &mut Call_StopServing) -> varlink::Result<()> {
@@ -202,7 +203,7 @@ impl VarlinkInterface for MyOrgExampleMore {
     }
 }
 
-fn run_server(address: String, timeout: u64, sleep_duration: u64) -> varlink::Result<()> {
+fn run_server(address: &str, timeout: u64, sleep_duration: u64) -> varlink::Result<()> {
     let myexamplemore = MyOrgExampleMore { sleep_duration };
     let myinterface = org_example_more::new(Box::new(myexamplemore));
     let service = VarlinkService::new(

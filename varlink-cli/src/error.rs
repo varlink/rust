@@ -100,11 +100,9 @@ impl From<::varlink::Error> for Error {
             }
             ::varlink::ErrorKind::SerdeJsonDe(buf) => e.context(ErrorKind::SerdeJsonDe(buf)).into(),
             ::varlink::ErrorKind::VarlinkErrorReply(reply) => e.context(ErrorKind::VarlinkError {
-                error: reply.error.unwrap_or("".into()).into(),
-                parameters: ::serde_json::to_string_pretty(&reply
-                    .parameters
-                    .unwrap_or(::serde_json::Value::default()))
-                    .unwrap_or(String::new()),
+                error: reply.error.unwrap_or_default().into(),
+                parameters: ::serde_json::to_string_pretty(&reply.parameters.unwrap_or_default())
+                    .unwrap_or_default(),
             }).into(),
             kind => e.context(ErrorKind::Varlink(kind)).into(),
         }

@@ -244,8 +244,9 @@ enum Message {
 
 struct ThreadPool {
     workers: Vec<Worker>,
-    num_busy: Arc<RwLock<i64>>,
+    num_busy: Arc<RwLock<usize>>,
     sender: mpsc::Sender<Message>,
+    receiver: Arc<Mutex<mpsc::Receiver<Message>>>,
 }
 
 trait FnBox {
@@ -277,7 +278,7 @@ impl ThreadPool {
 
         let mut workers = Vec::with_capacity(size);
 
-        let num_busy = Arc::new(RwLock::new(0 as i64));
+        let num_busy = Arc::new(RwLock::new(0 as usize));
 
         for _ in 0..size {
             workers.push(Worker::new(Arc::clone(&receiver), Arc::clone(&num_busy)));
@@ -286,20 +287,26 @@ impl ThreadPool {
         ThreadPool {
             workers,
             sender,
+            receiver,
             num_busy,
         }
     }
 
-    pub fn execute<F>(&self, f: F)
+    pub fn execute<F>(&mut self, f: F)
     where
         F: FnOnce() + Send + 'static,
     {
         let job = Box::new(f);
-
         self.sender.send(Message::NewJob(job)).unwrap();
+        if (self.num_busy() + 1) >= self.workers.len() {
+            self.workers.push(Worker::new(
+                Arc::clone(&self.receiver),
+                Arc::clone(&self.num_busy),
+            ));
+        }
     }
 
-    pub fn num_busy(&self) -> i64 {
+    pub fn num_busy(&self) -> usize {
         let num_busy = self.num_busy.read().unwrap();
         *num_busy
     }
@@ -324,7 +331,7 @@ struct Worker {
 }
 
 impl Worker {
-    fn new(receiver: Arc<Mutex<mpsc::Receiver<Message>>>, num_busy: Arc<RwLock<i64>>) -> Worker {
+    fn new(receiver: Arc<Mutex<mpsc::Receiver<Message>>>, num_busy: Arc<RwLock<usize>>) -> Worker {
         let thread = thread::spawn(move || loop {
             let message = receiver.lock().unwrap().recv().unwrap();
 
@@ -385,13 +392,13 @@ impl Worker {
 pub fn listen<S: ?Sized + AsRef<str>>(
     service: ::VarlinkService,
     address: &S,
-    workers: usize,
+    initial_worker_threads: usize,
     accept_timeout: u64,
 ) -> Result<()> {
     let service = Arc::new(service);
     let listener = VarlinkListener::new(address)?;
     listener.set_nonblocking(false)?;
-    let pool = ThreadPool::new(workers);
+    let mut pool = ThreadPool::new(initial_worker_threads);
 
     loop {
         let mut stream = match listener.accept(accept_timeout) {

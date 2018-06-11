@@ -53,10 +53,7 @@ use std::fmt::{self, Display};
 
 #[cfg(test)]
 mod test;
-
-mod varlink_grammar {
-    include!(concat!(env!("OUT_DIR"), "/varlink_grammar.rs"));
-}
+mod varlink_grammar;
 
 #[derive(Debug)]
 pub struct Error {

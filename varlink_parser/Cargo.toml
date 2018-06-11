@@ -2,7 +2,6 @@
 name = "varlink_parser"
 version = "1.0.4"
 authors = ["Harald Hoyer <harald@redhat.com>"]
-build = "build.rs"
 license = "MIT/Apache-2.0"
 documentation = "https://docs.rs/varlink_parser/"
 homepage = "https://github.com/varlink/rust"
@@ -21,7 +20,4 @@ itertools = "0"
 bytes = "0"
 failure_derive = "0.1"
 failure = "0.1"
-
-[build-dependencies]
-peg = "0.5"
 

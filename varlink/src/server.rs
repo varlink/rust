@@ -8,7 +8,7 @@ use {ErrorKind, Result};
 use libc;
 use std::env;
 use std::fs;
-use std::io::{Read, Write};
+use std::io::{BufReader, Read, Write};
 use std::mem;
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd};
@@ -32,6 +32,7 @@ enum VarlinkStream {
 }
 
 impl<'a> VarlinkStream {
+    #[allow(dead_code)]
     pub fn split(&mut self) -> Result<(Box<Read + Send + Sync>, Box<Write + Send + Sync>)> {
         match *self {
             VarlinkStream::TCP(ref mut s) => {
@@ -48,6 +49,73 @@ impl<'a> VarlinkStream {
             VarlinkStream::UNIX(ref mut s) => s.shutdown(Shutdown::Both)?,
         }
         Ok(())
+    }
+
+    pub fn try_clone(&mut self) -> ::std::io::Result<VarlinkStream> {
+        match *self {
+            VarlinkStream::TCP(ref mut s) => Ok(VarlinkStream::TCP(s.try_clone()?)),
+            VarlinkStream::UNIX(ref mut s) => Ok(VarlinkStream::UNIX(s.try_clone()?)),
+        }
+    }
+}
+
+impl ::std::io::Write for VarlinkStream {
+    fn write(&mut self, buf: &[u8]) -> ::std::io::Result<usize> {
+        match *self {
+            VarlinkStream::TCP(ref mut s) => s.write(buf),
+            VarlinkStream::UNIX(ref mut s) => s.write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> ::std::io::Result<()> {
+        match *self {
+            VarlinkStream::TCP(ref mut s) => s.flush(),
+            VarlinkStream::UNIX(ref mut s) => s.flush(),
+        }
+    }
+
+    fn write_all(&mut self, buf: &[u8]) -> ::std::io::Result<()> {
+        match *self {
+            VarlinkStream::TCP(ref mut s) => s.write_all(buf),
+            VarlinkStream::UNIX(ref mut s) => s.write_all(buf),
+        }
+    }
+
+    fn write_fmt(&mut self, fmt: ::std::fmt::Arguments) -> ::std::io::Result<()> {
+        match *self {
+            VarlinkStream::TCP(ref mut s) => s.write_fmt(fmt),
+            VarlinkStream::UNIX(ref mut s) => s.write_fmt(fmt),
+        }
+    }
+}
+
+impl ::std::io::Read for VarlinkStream {
+    fn read(&mut self, buf: &mut [u8]) -> ::std::io::Result<usize> {
+        match *self {
+            VarlinkStream::TCP(ref mut s) => s.read(buf),
+            VarlinkStream::UNIX(ref mut s) => s.read(buf),
+        }
+    }
+
+    fn read_to_end(&mut self, buf: &mut Vec<u8>) -> ::std::io::Result<usize> {
+        match *self {
+            VarlinkStream::TCP(ref mut s) => s.read_to_end(buf),
+            VarlinkStream::UNIX(ref mut s) => s.read_to_end(buf),
+        }
+    }
+
+    fn read_to_string(&mut self, buf: &mut String) -> ::std::io::Result<usize> {
+        match *self {
+            VarlinkStream::TCP(ref mut s) => s.read_to_string(buf),
+            VarlinkStream::UNIX(ref mut s) => s.read_to_string(buf),
+        }
+    }
+
+    fn read_exact(&mut self, buf: &mut [u8]) -> ::std::io::Result<()> {
+        match *self {
+            VarlinkStream::TCP(ref mut s) => s.read_exact(buf),
+            VarlinkStream::UNIX(ref mut s) => s.read_exact(buf),
+        }
     }
 }
 
@@ -417,9 +485,10 @@ pub fn listen<S: ?Sized + AsRef<str>>(
         let service = service.clone();
 
         pool.execute(move || {
-            let (mut r, mut w) = stream.split().expect("Could not split stream");
-
-            if let Err(err) = service.handle(&mut r, &mut w) {
+            if let Err(err) = service.handle(
+                &mut BufReader::new(stream.try_clone().expect("Could not split stream")),
+                &mut stream,
+            ) {
                 if err.kind() != ErrorKind::ConnectionClosed {
                     eprintln!("Worker error: {}", err);
                     for cause in err.causes().skip(1) {

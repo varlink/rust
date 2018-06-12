@@ -1187,8 +1187,7 @@ impl VarlinkService {
     /// Handles incoming varlink messages from `reader` and sends the reply on `writer`.
     ///
     /// This method can be used to implement your own server.
-    pub fn handle(&self, reader: &mut Read, writer: &mut Write) -> Result<()> {
-        let mut bufreader = BufReader::new(reader);
+    pub fn handle(&self, bufreader: &mut BufRead, writer: &mut Write) -> Result<()> {
         let mut upgraded = false;
         let mut last_iface = String::from("");
         loop {

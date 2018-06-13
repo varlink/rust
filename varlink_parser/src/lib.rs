@@ -53,6 +53,13 @@ use std::fmt::{self, Display};
 
 #[cfg(test)]
 mod test;
+
+#[cfg(feature = "peg")]
+mod varlink_grammar {
+    include!(concat!(env!("OUT_DIR"), "/varlink_grammar.rs"));
+}
+
+#[cfg(not(feature = "peg"))]
 mod varlink_grammar;
 
 #[derive(Debug)]

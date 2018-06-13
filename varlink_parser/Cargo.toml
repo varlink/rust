@@ -1,6 +1,6 @@
 [package]
 name = "varlink_parser"
-version = "1.0.4"
+version = "1.0.5"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 license = "MIT/Apache-2.0"
 documentation = "https://docs.rs/varlink_parser/"
@@ -11,6 +11,7 @@ readme = "README.md"
 
 keywords = ["parser", "varlink", "ipc", "rpc", "protocol"]
 categories = ["parsing", "development-tools"]
+build = "build.rs"
 
 [badges]
 travis-ci = { repository = "varlink/rust" }
@@ -21,3 +22,8 @@ bytes = "0"
 failure_derive = "0.1"
 failure = "0.1"
 
+[features]
+dynamic_peg = [ "peg" ]
+
+[build-dependencies]
+peg = {version = "0.5", optional = true }

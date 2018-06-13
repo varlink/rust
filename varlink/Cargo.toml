@@ -1,6 +1,6 @@
 [package]
 name = "varlink"
-version = "1.0.5"
+version = "1.0.6"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 license = "MIT/Apache-2.0"
 documentation = "https://github.com/varlink/rust/blob/master/varlink/README.md"
@@ -22,7 +22,7 @@ path = "src/bin/varlink-rust-generator.rs"
 
 [dependencies]
 libc = "0"
-unix_socket = "0.5.0"
+unix_socket = "0.5"
 itertools = "0"
 serde = "1"
 serde_derive = "1"

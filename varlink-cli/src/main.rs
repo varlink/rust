@@ -14,8 +14,10 @@ use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 use std::str;
-use varlink::{Connection, GetInterfaceDescriptionReply, MethodCall, OrgVarlinkServiceClient,
-              OrgVarlinkServiceInterface};
+use varlink::{
+    Connection, GetInterfaceDescriptionReply, MethodCall, OrgVarlinkServiceClient,
+    OrgVarlinkServiceInterface,
+};
 use varlink_parser::Varlink;
 
 mod error;
@@ -46,7 +48,8 @@ fn varlink_info(address: &str) -> Result<()> {
 }
 
 fn varlink_help(url: &str) -> Result<()> {
-    let del = url.rfind('/')
+    let del = url
+        .rfind('/')
         .ok_or_else(|| Error::from(ErrorKind::NotImplemented("Resolver".into())))?;
 
     let address = &url[0..del];
@@ -71,7 +74,8 @@ fn varlink_help(url: &str) -> Result<()> {
 }
 
 fn varlink_call(url: &str, args: Option<&str>, more: bool) -> Result<()> {
-    let del = url.rfind('/')
+    let del = url
+        .rfind('/')
         .ok_or_else(|| Error::from(ErrorKind::NotImplemented("Resolver".into())))?;
 
     let address = &url[0..del];

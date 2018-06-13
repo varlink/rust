@@ -338,10 +338,6 @@ impl<'a> Interface<'a> {
                 }
             };
         }
-        if i.methods.is_empty() {
-            i.error
-                .insert(format!("Interface `{}`: no method defined!", i.name));
-        }
 
         i
     }

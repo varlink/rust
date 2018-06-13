@@ -149,19 +149,6 @@ fn test_domainnames() {
 }
 
 #[test]
-fn test_no_method() {
-    assert!(
-        Varlink::from_string(
-            "
-interface org.varlink.service
-type Interface (name: string, types: []Type, methods: []Method)
-type Property (key: string, value: string)
-",
-        ).is_err()
-    );
-}
-
-#[test]
 fn test_type_no_args() {
     assert!(Varlink::from_string("interface foo.bar\n type I ()\nmethod F()->()").is_ok());
 }

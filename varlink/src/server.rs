@@ -20,101 +20,101 @@ use std::thread;
 use unix_socket::UnixListener as AbstractUnixListener;
 
 #[derive(Debug)]
-enum VarlinkListener {
+enum Listener {
     TCP(Option<TcpListener>, bool),
     UNIX(Option<UnixListener>, bool),
 }
 
 #[derive(Debug)]
-enum VarlinkStream {
+enum Stream {
     TCP(TcpStream),
     UNIX(UnixStream),
 }
 
-impl<'a> VarlinkStream {
+impl<'a> Stream {
     #[allow(dead_code)]
     pub fn split(&mut self) -> Result<(Box<Read + Send + Sync>, Box<Write + Send + Sync>)> {
         match *self {
-            VarlinkStream::TCP(ref mut s) => {
+            Stream::TCP(ref mut s) => {
                 Ok((Box::new(s.try_clone()?), Box::new(s.try_clone()?)))
             }
-            VarlinkStream::UNIX(ref mut s) => {
+            Stream::UNIX(ref mut s) => {
                 Ok((Box::new(s.try_clone()?), Box::new(s.try_clone()?)))
             }
         }
     }
     pub fn shutdown(&mut self) -> Result<()> {
         match *self {
-            VarlinkStream::TCP(ref mut s) => s.shutdown(Shutdown::Both)?,
-            VarlinkStream::UNIX(ref mut s) => s.shutdown(Shutdown::Both)?,
+            Stream::TCP(ref mut s) => s.shutdown(Shutdown::Both)?,
+            Stream::UNIX(ref mut s) => s.shutdown(Shutdown::Both)?,
         }
         Ok(())
     }
 
-    pub fn try_clone(&mut self) -> ::std::io::Result<VarlinkStream> {
+    pub fn try_clone(&mut self) -> ::std::io::Result<Stream> {
         match *self {
-            VarlinkStream::TCP(ref mut s) => Ok(VarlinkStream::TCP(s.try_clone()?)),
-            VarlinkStream::UNIX(ref mut s) => Ok(VarlinkStream::UNIX(s.try_clone()?)),
+            Stream::TCP(ref mut s) => Ok(Stream::TCP(s.try_clone()?)),
+            Stream::UNIX(ref mut s) => Ok(Stream::UNIX(s.try_clone()?)),
         }
     }
 }
 
-impl ::std::io::Write for VarlinkStream {
+impl ::std::io::Write for Stream {
     fn write(&mut self, buf: &[u8]) -> ::std::io::Result<usize> {
         match *self {
-            VarlinkStream::TCP(ref mut s) => s.write(buf),
-            VarlinkStream::UNIX(ref mut s) => s.write(buf),
+            Stream::TCP(ref mut s) => s.write(buf),
+            Stream::UNIX(ref mut s) => s.write(buf),
         }
     }
 
     fn flush(&mut self) -> ::std::io::Result<()> {
         match *self {
-            VarlinkStream::TCP(ref mut s) => s.flush(),
-            VarlinkStream::UNIX(ref mut s) => s.flush(),
+            Stream::TCP(ref mut s) => s.flush(),
+            Stream::UNIX(ref mut s) => s.flush(),
         }
     }
 
     fn write_all(&mut self, buf: &[u8]) -> ::std::io::Result<()> {
         match *self {
-            VarlinkStream::TCP(ref mut s) => s.write_all(buf),
-            VarlinkStream::UNIX(ref mut s) => s.write_all(buf),
+            Stream::TCP(ref mut s) => s.write_all(buf),
+            Stream::UNIX(ref mut s) => s.write_all(buf),
         }
     }
 
     fn write_fmt(&mut self, fmt: ::std::fmt::Arguments) -> ::std::io::Result<()> {
         match *self {
-            VarlinkStream::TCP(ref mut s) => s.write_fmt(fmt),
-            VarlinkStream::UNIX(ref mut s) => s.write_fmt(fmt),
+            Stream::TCP(ref mut s) => s.write_fmt(fmt),
+            Stream::UNIX(ref mut s) => s.write_fmt(fmt),
         }
     }
 }
 
-impl ::std::io::Read for VarlinkStream {
+impl ::std::io::Read for Stream {
     fn read(&mut self, buf: &mut [u8]) -> ::std::io::Result<usize> {
         match *self {
-            VarlinkStream::TCP(ref mut s) => s.read(buf),
-            VarlinkStream::UNIX(ref mut s) => s.read(buf),
+            Stream::TCP(ref mut s) => s.read(buf),
+            Stream::UNIX(ref mut s) => s.read(buf),
         }
     }
 
     fn read_to_end(&mut self, buf: &mut Vec<u8>) -> ::std::io::Result<usize> {
         match *self {
-            VarlinkStream::TCP(ref mut s) => s.read_to_end(buf),
-            VarlinkStream::UNIX(ref mut s) => s.read_to_end(buf),
+            Stream::TCP(ref mut s) => s.read_to_end(buf),
+            Stream::UNIX(ref mut s) => s.read_to_end(buf),
         }
     }
 
     fn read_to_string(&mut self, buf: &mut String) -> ::std::io::Result<usize> {
         match *self {
-            VarlinkStream::TCP(ref mut s) => s.read_to_string(buf),
-            VarlinkStream::UNIX(ref mut s) => s.read_to_string(buf),
+            Stream::TCP(ref mut s) => s.read_to_string(buf),
+            Stream::UNIX(ref mut s) => s.read_to_string(buf),
         }
     }
 
     fn read_exact(&mut self, buf: &mut [u8]) -> ::std::io::Result<()> {
         match *self {
-            VarlinkStream::TCP(ref mut s) => s.read_exact(buf),
-            VarlinkStream::UNIX(ref mut s) => s.read_exact(buf),
+            Stream::TCP(ref mut s) => s.read_exact(buf),
+            Stream::UNIX(ref mut s) => s.read_exact(buf),
         }
     }
 }
@@ -160,20 +160,20 @@ fn activation_listener() -> Result<Option<i32>> {
     Ok(None)
 }
 
-impl VarlinkListener {
+impl Listener {
     pub fn new<S: ?Sized + AsRef<str>>(address: &S) -> Result<Self> {
         let address = address.as_ref();
         if let Some(l) = activation_listener()? {
             if address.starts_with("tcp:") {
                 unsafe {
-                    return Ok(VarlinkListener::TCP(
+                    return Ok(Listener::TCP(
                         Some(TcpListener::from_raw_fd(l)),
                         true,
                     ));
                 }
             } else if address.starts_with("unix:") {
                 unsafe {
-                    return Ok(VarlinkListener::UNIX(
+                    return Ok(Listener::UNIX(
                         Some(UnixListener::from_raw_fd(l)),
                         true,
                     ));
@@ -184,7 +184,7 @@ impl VarlinkListener {
         }
 
         if address.starts_with("tcp:") {
-            Ok(VarlinkListener::TCP(
+            Ok(Listener::TCP(
                 Some(TcpListener::bind(&address[4..])?),
                 false,
             ))
@@ -194,7 +194,7 @@ impl VarlinkListener {
                 addr = addr.replacen('@', "\0", 1);
                 let l = AbstractUnixListener::bind(addr)?;
                 unsafe {
-                    return Ok(VarlinkListener::UNIX(
+                    return Ok(Listener::UNIX(
                         Some(UnixListener::from_raw_fd(l.into_raw_fd())),
                         false,
                     ));
@@ -204,7 +204,7 @@ impl VarlinkListener {
             let _ = fs::remove_file(&*addr);
             let l = UnixListener::bind(addr)?;
             unsafe {
-                Ok(VarlinkListener::UNIX(
+                Ok(Listener::UNIX(
                     Some(UnixListener::from_raw_fd(l.into_raw_fd())),
                     false,
                 ))
@@ -214,11 +214,11 @@ impl VarlinkListener {
         }
     }
 
-    pub fn accept(&self, timeout: u64) -> Result<VarlinkStream> {
+    pub fn accept(&self, timeout: u64) -> Result<Stream> {
         if timeout > 0 {
             let fd = match self {
-                VarlinkListener::TCP(Some(l), _) => l.as_raw_fd(),
-                VarlinkListener::UNIX(Some(l), _) => l.as_raw_fd(),
+                Listener::TCP(Some(l), _) => l.as_raw_fd(),
+                Listener::UNIX(Some(l), _) => l.as_raw_fd(),
                 _ => return Err(ErrorKind::ConnectionClosed.into()),
             };
 
@@ -253,38 +253,38 @@ impl VarlinkListener {
             }
         }
         match self {
-            &VarlinkListener::TCP(Some(ref l), _) => {
+            &Listener::TCP(Some(ref l), _) => {
                 let (mut s, _addr) = l.accept()?;
-                Ok(VarlinkStream::TCP(s))
+                Ok(Stream::TCP(s))
             }
-            VarlinkListener::UNIX(Some(ref l), _) => {
+            Listener::UNIX(Some(ref l), _) => {
                 let (mut s, _addr) = l.accept()?;
-                Ok(VarlinkStream::UNIX(s))
+                Ok(Stream::UNIX(s))
             }
             _ => Err(ErrorKind::ConnectionClosed.into()),
         }
     }
     pub fn set_nonblocking(&self, b: bool) -> Result<()> {
         match *self {
-            VarlinkListener::TCP(Some(ref l), _) => l.set_nonblocking(b)?,
-            VarlinkListener::UNIX(Some(ref l), _) => l.set_nonblocking(b)?,
+            Listener::TCP(Some(ref l), _) => l.set_nonblocking(b)?,
+            Listener::UNIX(Some(ref l), _) => l.set_nonblocking(b)?,
             _ => Err(ErrorKind::ConnectionClosed)?,
         }
         Ok(())
     }
 }
 
-impl Drop for VarlinkListener {
+impl Drop for Listener {
     fn drop(&mut self) {
         match *self {
-            VarlinkListener::UNIX(Some(ref listener), false) => {
+            Listener::UNIX(Some(ref listener), false) => {
                 if let Ok(local_addr) = listener.local_addr() {
                     if let Some(path) = local_addr.as_pathname() {
                         let _ = fs::remove_file(path);
                     }
                 }
             }
-            VarlinkListener::UNIX(ref mut listener, true) => {
+            Listener::UNIX(ref mut listener, true) => {
                 if let Some(l) = listener.take() {
                     unsafe {
                         let s = UnixStream::from_raw_fd(l.into_raw_fd());
@@ -292,7 +292,7 @@ impl Drop for VarlinkListener {
                     }
                 }
             }
-            VarlinkListener::TCP(ref mut listener, true) => {
+            Listener::TCP(ref mut listener, true) => {
                 if let Some(l) = listener.take() {
                     unsafe {
                         let s = TcpStream::from_raw_fd(l.into_raw_fd());
@@ -457,14 +457,14 @@ impl Worker {
 ///# Note
 /// You don't have to use this simple server. With the `VarlinkService::handle()` method you
 /// can implement your own server model using whatever framework you prefer.
-pub fn listen<S: ?Sized + AsRef<str>>(
-    service: ::VarlinkService,
+pub fn listen<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + Sync + 'static>(
+    handler: H,
     address: &S,
     initial_worker_threads: usize,
     accept_timeout: u64,
 ) -> Result<()> {
-    let service = Arc::new(service);
-    let listener = VarlinkListener::new(address)?;
+    let handler = Arc::new(handler);
+    let listener = Listener::new(address)?;
     listener.set_nonblocking(false)?;
     let mut pool = ThreadPool::new(initial_worker_threads);
 
@@ -482,10 +482,10 @@ pub fn listen<S: ?Sized + AsRef<str>>(
             }
             r => r?,
         };
-        let service = service.clone();
+        let handler = handler.clone();
 
         pool.execute(move || {
-            if let Err(err) = service.handle(
+            if let Err(err) = handler.handle(
                 &mut BufReader::new(stream.try_clone().expect("Could not split stream")),
                 &mut stream,
             ) {

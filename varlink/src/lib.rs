@@ -206,6 +206,9 @@ use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, RwLock};
 
 mod client;
+
+pub use client::VarlinkStream;
+
 mod error;
 pub mod generator;
 mod server;
@@ -713,7 +716,7 @@ impl<'a> CallTrait for Call<'a> {
 }
 
 impl<'a> Call<'a> {
-    fn new(writer: &'a mut Write, request: &'a Request<'a>) -> Self {
+    pub fn new(writer: &'a mut Write, request: &'a Request<'a>) -> Self {
         Call {
             writer,
             request: Some(request),
@@ -730,7 +733,7 @@ impl<'a> Call<'a> {
         }
     }
 
-    fn reply_interface_not_found(&mut self, arg: Option<String>) -> Result<()> {
+    pub fn reply_interface_not_found(&mut self, arg: Option<String>) -> Result<()> {
         self.reply_struct(Reply::error(
             "org.varlink.service.InterfaceNotFound",
             match arg {
@@ -797,9 +800,9 @@ where
     phantom_error: PhantomData<MError>,
 }
 
-impl<MRequest, MReply, MError> MethodCall<MRequest, MReply, MError>
+impl<MRequestParameters, MReply, MError> MethodCall<MRequestParameters, MReply, MError>
 where
-    MRequest: Serialize,
+    MRequestParameters: Serialize,
     MReply: DeserializeOwned,
     MError: std::convert::From<Error>
         + std::convert::From<std::io::Error>
@@ -809,11 +812,11 @@ where
     pub fn new<S: Into<Cow<'static, str>>>(
         connection: Arc<RwLock<Connection>>,
         method: S,
-        request: MRequest,
+        parameters: MRequestParameters,
     ) -> Self {
-        MethodCall::<MRequest, MReply, MError> {
+        MethodCall::<MRequestParameters, MReply, MError> {
             connection,
-            request: Some(request),
+            request: Some(parameters),
             method: Some(method.into()),
             continues: false,
             reader: None,
@@ -1183,11 +1186,17 @@ impl VarlinkService {
             }
         }
     }
+}
 
+pub trait ConnectionHandler {
+    fn handle(&self, bufreader: &mut BufRead, writer: &mut Write) -> Result<()>;
+}
+
+impl ConnectionHandler for VarlinkService {
     /// Handles incoming varlink messages from `reader` and sends the reply on `writer`.
     ///
     /// This method can be used to implement your own server.
-    pub fn handle(&self, bufreader: &mut BufRead, writer: &mut Write) -> Result<()> {
+    fn handle(&self, bufreader: &mut BufRead, writer: &mut Write) -> Result<()> {
         let mut upgraded = false;
         let mut last_iface = String::from("");
         loop {

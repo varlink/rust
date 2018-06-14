@@ -14,7 +14,7 @@ before_cache:
 before_script:
   - export PATH=$HOME/.cargo/bin:$PATH
   - cargo install cargo-update || echo "cargo-update already installed"
-  - cargo install cargo-tarpaulin || echo "cargo-tarpaulin already installed"
+  - RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin || echo "cargo-tarpaulin already installed"
   - cargo install-update -a || echo "update failed"
 script:
 - cargo build --all

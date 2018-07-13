@@ -83,7 +83,17 @@ trait ToRust<'short, 'long: 'short> {
         parent: &str,
         enumvec: &mut EnumVec,
         structvec: &mut StructVec<'short>,
+        options: &'long GeneratorOptions,
     ) -> Result<Cow<'long, str>>;
+}
+
+#[derive(Default)]
+pub struct GeneratorOptions {
+    pub bool_type: Option<&'static str>,
+    pub int_type: Option<&'static str>,
+    pub float_type: Option<&'static str>,
+    pub string_type: Option<&'static str>,
+    pub preamble: Option<&'static str>,
 }
 
 impl<'short, 'long: 'short> ToRust<'short, 'long> for VType<'long> {
@@ -92,12 +102,13 @@ impl<'short, 'long: 'short> ToRust<'short, 'long> for VType<'long> {
         parent: &str,
         enumvec: &mut EnumVec,
         structvec: &mut StructVec<'short>,
+        options: &'long GeneratorOptions,
     ) -> Result<Cow<'long, str>> {
         match *self {
-            VType::Bool => Ok("bool".into()),
-            VType::Int => Ok("i64".into()),
-            VType::Float => Ok("f64".into()),
-            VType::String => Ok("String".into()),
+            VType::Bool => Ok(options.bool_type.unwrap_or("bool".into()).into()),
+            VType::Int => Ok(options.int_type.unwrap_or("i64".into()).into()),
+            VType::Float => Ok(options.float_type.unwrap_or("f64".into()).into()),
+            VType::String => Ok(options.string_type.unwrap_or("String".into()).into()),
             VType::Object => Ok("Value".into()),
             VType::Typename(v) => Ok(v.into()),
             VType::Enum(ref v) => {
@@ -121,11 +132,12 @@ impl<'short, 'long: 'short> ToRust<'short, 'long> for VTypeExt<'long> {
         parent: &str,
         enumvec: &mut EnumVec,
         structvec: &mut StructVec<'short>,
+        options: &'long GeneratorOptions,
     ) -> Result<Cow<'long, str>> {
         match *self {
-            VTypeExt::Plain(ref vtype) => vtype.to_rust(parent, enumvec, structvec),
+            VTypeExt::Plain(ref vtype) => vtype.to_rust(parent, enumvec, structvec, options),
             VTypeExt::Array(ref v) => {
-                Ok(format!("Vec<{}>", v.to_rust(parent, enumvec, structvec)?).into())
+                Ok(format!("Vec<{}>", v.to_rust(parent, enumvec, structvec, options)?).into())
             }
             VTypeExt::Dict(ref v) => match *v.as_ref() {
                 VTypeExt::Plain(VType::Struct(ref s)) if s.elts.is_empty() => {
@@ -133,12 +145,13 @@ impl<'short, 'long: 'short> ToRust<'short, 'long> for VTypeExt<'long> {
                 }
                 _ => Ok(format!(
                     "varlink::StringHashMap<{}>",
-                    v.to_rust(parent, enumvec, structvec)?
+                    v.to_rust(parent, enumvec, structvec, options)?
                 ).into()),
             },
-            VTypeExt::Option(ref v) => {
-                Ok(format!("Option<{}>", v.to_rust(parent, enumvec, structvec)?).into())
-            }
+            VTypeExt::Option(ref v) => Ok(format!(
+                "Option<{}>",
+                v.to_rust(parent, enumvec, structvec, options)?
+            ).into()),
         }
     }
 }
@@ -203,7 +216,7 @@ fn replace_if_rust_keyword_annotate(v: &str, w: &mut Write) -> io::Result<(Strin
     }
 }
 
-fn varlink_to_rust(varlink: &Varlink, w: &mut Write) -> Result<()> {
+fn varlink_to_rust(varlink: &Varlink, w: &mut Write, options: &GeneratorOptions) -> Result<()> {
     let mut enumvec = EnumVec::new();
     let mut structvec = StructVec::new();
     let iface = &varlink.interface;
@@ -229,6 +242,10 @@ use varlink::{{self, CallTrait}};
 "#
     )?;
 
+    if options.preamble.is_some() {
+        write!(w, "{}", options.preamble.unwrap())?;
+    }
+
     for t in iface.typedefs.values() {
         match t.elt {
             VStructOrEnum::VStruct(ref v) => {
@@ -249,7 +266,8 @@ use varlink::{{self, CallTrait}};
                         e.vtype.to_rust(
                             format!("{}_{}", t.name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut structvec
+                            &mut structvec,
+                            options
                         )?
                     )?;
                 }
@@ -289,7 +307,8 @@ use varlink::{{self, CallTrait}};
                 e.vtype.to_rust(
                     format!("{}_Reply_{}", t.name, e.name).as_ref(),
                     &mut enumvec,
-                    &mut structvec
+                    &mut structvec,
+                    options
                 )?
             )?;
         }
@@ -316,7 +335,8 @@ use varlink::{{self, CallTrait}};
                 e.vtype.to_rust(
                     format!("{}_Args_{}", t.name, e.name).as_ref(),
                     &mut enumvec,
-                    &mut structvec
+                    &mut structvec,
+                    options
                 )?
             )?;
         }
@@ -341,7 +361,8 @@ use varlink::{{self, CallTrait}};
                 e.vtype.to_rust(
                     format!("{}_Args_{}", t.name, e.name).as_ref(),
                     &mut enumvec,
-                    &mut structvec
+                    &mut structvec,
+                    options
                 )?
             )?;
         }
@@ -369,7 +390,8 @@ use varlink::{{self, CallTrait}};
                         .to_rust(
                             format!("{}_{}", name, e.name).as_ref(),
                             &mut enumvec,
-                            &mut nstructvec
+                            &mut nstructvec,
+                            options
                         )
                         .unwrap()
                 )?;
@@ -409,7 +431,8 @@ use varlink::{{self, CallTrait}};
                     e.vtype.to_rust(
                         format!("{}_Args_{}", t.name, e.name).as_ref(),
                         &mut enumvec,
-                        &mut structvec
+                        &mut structvec,
+                        options
                     )?
                 ).as_ref();
                 innames += format!("{}, ", replace_if_rust_keyword(e.name)).as_ref();
@@ -602,7 +625,8 @@ impl From<varlink::Reply> for Error {{
                     e.vtype.to_rust(
                         format!("{}_Reply_{}", t.name, e.name).as_ref(),
                         &mut enumvec,
-                        &mut structvec
+                        &mut structvec,
+                        options
                     )?
                 ).as_ref();
                 innames += format!("{}, ", replace_if_rust_keyword(e.name)).as_ref();
@@ -646,7 +670,8 @@ impl From<varlink::Reply> for Error {{
                     e.vtype.to_rust(
                         format!("{}_Args_{}", t.name, e.name).as_ref(),
                         &mut enumvec,
-                        &mut structvec
+                        &mut structvec,
+                        options
                     )?
                 ).as_ref();
             }
@@ -683,7 +708,8 @@ impl From<varlink::Reply> for Error {{
                     e.vtype.to_rust(
                         format!("{}_Args_{}", t.name, e.name).as_ref(),
                         &mut enumvec,
-                        &mut structvec
+                        &mut structvec,
+                        options
                     )?
                 ).as_ref();
             }
@@ -695,7 +721,8 @@ impl From<varlink::Reply> for Error {{
                     e.vtype.to_rust(
                         format!("{}_Reply_{}", t.name, e.name).as_ref(),
                         &mut enumvec,
-                        &mut structvec
+                        &mut structvec,
+                        options
                     )?
                 ).as_ref();
             }
@@ -763,7 +790,8 @@ impl VarlinkClientInterface for VarlinkClient {{
                     e.vtype.to_rust(
                         format!("{}_Args_{}", t.name, e.name).as_ref(),
                         &mut enumvec,
-                        &mut structvec
+                        &mut structvec,
+                        options
                     )?
                 ).as_ref();
                 innames += format!("{}, ", replace_if_rust_keyword(e.name)).as_ref();
@@ -897,13 +925,29 @@ impl varlink::Interface for VarlinkInterfaceProxy {{
 /// `generate` reads a varlink interface definition from `reader` and writes
 /// the rust code to `writer`.
 pub fn generate(reader: &mut Read, writer: &mut Write) -> Result<()> {
+    generate_with_options(
+        reader,
+        writer,
+        &GeneratorOptions {
+            ..Default::default()
+        },
+    )
+}
+
+/// `generate_with_options` reads a varlink interface definition from `reader` and writes
+/// the rust code to `writer`.
+pub fn generate_with_options(
+    reader: &mut Read,
+    writer: &mut Write,
+    options: &GeneratorOptions,
+) -> Result<()> {
     let mut buffer = String::new();
 
     reader.read_to_string(&mut buffer)?;
 
     let vr = Varlink::from_string(&buffer)?;
 
-    varlink_to_rust(&vr, writer)?;
+    varlink_to_rust(&vr, writer, options)?;
 
     Ok(())
 }
@@ -926,6 +970,36 @@ pub fn generate(reader: &mut Read, writer: &mut Write) -> Result<()> {
 ///```
 ///
 pub fn cargo_build<T: AsRef<Path> + ?Sized>(input_path: &T) {
+    cargo_build_options(
+        input_path,
+        &GeneratorOptions {
+            ..Default::default()
+        },
+    )
+}
+
+/// cargo build helper function
+///
+/// `cargo_build` is used in a `build.rs` program to build the rust code
+/// from a varlink interface definition.
+///
+/// Errors are emitted to stderr and terminate the process.
+///
+///# Examples
+///
+///```rust,no_run
+///extern crate varlink;
+///
+///fn main() {
+///    varlink::generator::cargo_build_options("src/org.example.ping.varlink",
+///       &varlink::generator::GeneratorOptions {
+///           int_type: Some("i128"),
+///            ..Default::default()
+///        });
+///}
+///```
+///
+pub fn cargo_build_options<T: AsRef<Path> + ?Sized>(input_path: &T, options: &GeneratorOptions) {
     let input_path = input_path.as_ref();
 
     let out_dir: PathBuf = env::var_os("OUT_DIR").unwrap().into();
@@ -951,7 +1025,7 @@ pub fn cargo_build<T: AsRef<Path> + ?Sized>(input_path: &T) {
         exit(1);
     }));
 
-    if let Err(e) = generate(reader, writer) {
+    if let Err(e) = generate_with_options(reader, writer, options) {
         eprintln!(
             "Could not generate rust code from varlink file `{}`: {}",
             input_path.display(),
@@ -989,6 +1063,50 @@ pub fn cargo_build<T: AsRef<Path> + ?Sized>(input_path: &T) {
 ///```
 ///
 pub fn cargo_build_tosource<T: AsRef<Path> + ?Sized>(input_path: &T, rustfmt: bool) {
+    cargo_build_tosource_options(
+        input_path,
+        rustfmt,
+        &GeneratorOptions {
+            ..Default::default()
+        },
+    )
+}
+
+/// cargo build helper function
+///
+/// `cargo_build_tosource_options` is used in a `build.rs` program to build the rust code
+/// from a varlink interface definition. This function saves the rust code
+/// in the same directory as the varlink file. The name is the name of the varlink file
+/// and "." replaced with "_" and of course ending with ".rs".
+///
+/// Use this, if you are using an IDE with code completion, as most cannot cope with
+/// `include!(concat!(env!("OUT_DIR"), "<varlink_file>"));`
+///
+/// Set `rustfmt` to `true`, if you want the generator to run rustfmt on the generated
+/// code. This might be good practice to avoid large changes after a global `cargo fmt` run.
+///
+/// Errors are emitted to stderr and terminate the process.
+///
+///# Examples
+///
+///```rust,no_run
+///extern crate varlink;
+///
+///fn main() {
+///    varlink::generator::cargo_build_tosource_options("src/org.example.ping.varlink", true,
+///        &varlink::generator::GeneratorOptions {
+///           int_type: Some("i128"),
+///            ..Default::default()
+///        }
+///    );
+///}
+///```
+///
+pub fn cargo_build_tosource_options<T: AsRef<Path> + ?Sized>(
+    input_path: &T,
+    rustfmt: bool,
+    options: &GeneratorOptions,
+) {
     let input_path = input_path.as_ref();
     let noextension = input_path.with_extension("");
     let newfilename = noextension
@@ -1020,7 +1138,7 @@ pub fn cargo_build_tosource<T: AsRef<Path> + ?Sized>(input_path: &T, rustfmt: bo
         exit(1);
     }));
 
-    if let Err(e) = generate(reader, writer) {
+    if let Err(e) = generate_with_options(reader, writer, options) {
         eprintln!(
             "Could not generate rust code from varlink file `{}`: {}",
             input_path.display(),

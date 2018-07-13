@@ -14,8 +14,10 @@ use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 use std::str;
-use varlink::{Connection, GetInterfaceDescriptionReply, MethodCall, OrgVarlinkServiceClient,
-              OrgVarlinkServiceInterface};
+use varlink::{
+    Connection, GetInterfaceDescriptionReply, MethodCall, OrgVarlinkServiceClient,
+    OrgVarlinkServiceInterface,
+};
 use varlink_parser::Varlink;
 
 mod error;

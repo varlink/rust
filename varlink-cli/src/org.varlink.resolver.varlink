@@ -1,0 +1,18 @@
+# Interface to resolve reverse-domain interface names to
+# service adresses
+interface org.varlink.resolver
+
+# Get a list of all resolvable interfaces and information
+# about the resolver's identity.
+method GetInfo() -> (
+  vendor: string,
+  product: string,
+  version: string,
+  url: string,
+  interfaces: []string
+)
+
+# Resolve an interface name to a registered varlink service address
+method Resolve(interface: string) -> (address: string)
+
+error InterfaceNotFound (interface: string)

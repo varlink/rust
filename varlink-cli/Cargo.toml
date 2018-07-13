@@ -7,6 +7,7 @@ documentation = "https://github.com/varlink/rust/blob/master/varlink/README.md"
 homepage = "https://github.com/varlink/rust/blob/master/varlink"
 repository = "https://github.com/varlink/rust"
 description = "varlink command line tool"
+build = "build.rs"
 
 [[bin]]
 name = "varlink"

@@ -2,6 +2,8 @@ extern crate clap;
 extern crate failure;
 #[macro_use]
 extern crate failure_derive;
+#[macro_use]
+extern crate serde_derive;
 extern crate serde_json;
 extern crate varlink;
 extern crate varlink_parser;
@@ -9,18 +11,21 @@ extern crate varlink_parser;
 use clap::{App, Arg, SubCommand};
 use error::{Error, ErrorKind, Result};
 use failure::ResultExt;
+use proxy::Proxy;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 use std::str;
 use varlink::{
-    Connection, GetInterfaceDescriptionReply, MethodCall, OrgVarlinkServiceClient,
-    OrgVarlinkServiceInterface,
+    Connection, ConnectionHandler, GetInterfaceDescriptionReply, MethodCall,
+    OrgVarlinkServiceClient, OrgVarlinkServiceInterface,
 };
 use varlink_parser::Varlink;
 
 mod error;
+mod org_varlink_resolver;
+mod proxy;
 
 fn varlink_format(filename: &str) -> Result<()> {
     let mut buffer = String::new();
@@ -104,6 +109,16 @@ fn varlink_call(url: &str, args: Option<&str>, more: bool) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+fn varlink_bridge() -> Result<()> {
+    let proxy = Proxy {};
+
+    let stdin = ::std::io::stdin();
+    let stdout = ::std::io::stdout();
+
+    proxy.handle(&mut stdin.lock(), &mut stdout.lock())?;
     Ok(())
 }
 
@@ -216,6 +231,7 @@ fn main() -> Result<()> {
             let address = sub_matches.value_of("ADDRESS").unwrap();
             varlink_info(address)?
         }
+        ("bridge", _) => varlink_bridge()?,
         ("help", Some(sub_matches)) => {
             let interface = sub_matches.value_of("INTERFACE").unwrap();
             varlink_help(interface)?

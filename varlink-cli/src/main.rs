@@ -9,7 +9,7 @@ extern crate varlink;
 extern crate varlink_parser;
 
 use clap::{App, Arg, SubCommand};
-use error::{Error, ErrorKind, Result};
+use error::{ErrorKind, Result};
 use failure::ResultExt;
 use proxy::Proxy;
 use std::fs::File;
@@ -21,6 +21,8 @@ use varlink::{
     Connection, ConnectionHandler, GetInterfaceDescriptionReply, MethodCall,
     OrgVarlinkServiceClient, OrgVarlinkServiceInterface,
 };
+use org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
+
 use varlink_parser::Varlink;
 
 mod error;
@@ -53,11 +55,22 @@ fn varlink_info(address: &str) -> Result<()> {
 }
 
 fn varlink_help(url: &str) -> Result<()> {
-    let del = url.rfind('/')
-        .ok_or_else(|| Error::from(ErrorKind::NotImplemented("Resolver".into())))?;
+    let resolved_address: String;
+    let address: &str;
+    let interface: &str;
 
-    let address = &url[0..del];
-    let interface = &url[(del + 1)..];
+    if let Some(del) = url.rfind('/') {
+        address = &url[0..del];
+        interface = &url[(del + 1)..];
+    } else {
+        let conn = Connection::new("unix:/run/org.varlink.resolver")?;
+        let mut resolver = VarlinkClient::new(conn);
+        address = match resolver.resolve(url.into()).call() {
+            Ok(r) => { resolved_address = r.address.clone(); resolved_address.as_ref() },
+            _ => Err(varlink::Error::from(varlink::ErrorKind::InterfaceNotFound(url.into())))?
+        };
+        interface = url;
+    }
 
     if interface.find('.') == None {
         Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress))?
@@ -70,7 +83,7 @@ fn varlink_help(url: &str) -> Result<()> {
             description: Some(desc),
         } => println!("{}", desc),
         _ => {
-            return Err(ErrorKind::NotImplemented(format!("No description for {}", url)).into());
+            return Err(ErrorKind::NoDescription(format!("No description for {}", url)).into());
         }
     };
 
@@ -78,14 +91,33 @@ fn varlink_help(url: &str) -> Result<()> {
 }
 
 fn varlink_call(url: &str, args: Option<&str>, more: bool) -> Result<()> {
-    let del = url.rfind('/')
-        .ok_or_else(|| Error::from(ErrorKind::NotImplemented("Resolver".into())))?;
+    let resolved_address: String;
+    let address: &str;
+    let interface: &str;
+    let method: &str;
 
-    let address = &url[0..del];
-    let method = &url[(del + 1)..];
-
-    if method.find('.') == None {
-        Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress))?
+    if let Some(del) = url.rfind('/') {
+        address = &url[0..del];
+        method = &url[(del + 1)..];
+        if method.find('.') == None {
+            return Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress).into());
+        }
+    } else {
+        if let Some(del) = url.rfind('.') {
+            interface = &url[0..del];
+            method = url;
+            if method.find('.') == None {
+                return Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress).into());
+            }
+        } else {
+            return Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress).into());
+        }
+        let conn = Connection::new("unix:/run/org.varlink.resolver")?;
+        let mut resolver = VarlinkClient::new(conn);
+        address = match resolver.resolve(interface.into()).call() {
+            Ok(r) => { resolved_address = r.address.clone(); resolved_address.as_ref() },
+            _ => Err(varlink::Error::from(varlink::ErrorKind::InterfaceNotFound(interface.into())))?
+        };
     }
 
     let conn = Connection::new(address).context(ErrorKind::Connection(address.into()))?;

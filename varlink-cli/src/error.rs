@@ -13,7 +13,7 @@ pub enum ErrorKind {
     #[fail(display = "JSON Deserialization Error of '{}'", _0)]
     SerdeJsonDe(String),
     #[fail(display = "Not yet implemented: '{}'", _0)]
-    NotImplemented(String),
+    NoDescription(String),
     #[fail(display = "Parse Error: '{}'", _0)]
     Parser(::varlink_parser::ErrorKind),
     #[fail(display = "Argument Error")]

@@ -22,7 +22,7 @@ impl ConnectionHandler for Proxy {
                 let mut buf = Vec::new();
                 match bufreader.read_until(b'\0', &mut buf) {
                     Ok(0) => break,
-                    Err(e) => break,
+                    Err(_e) => break,
                     _ => {}
                 }
 

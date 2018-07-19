@@ -6,15 +6,13 @@ use {ErrorKind, Result};
 //use std::process;
 // FIXME
 use libc;
-use std::env;
-use std::fs;
-use std::io::{BufReader, Read, Write};
-use std::mem;
+use std::{self, env, fs, mem, thread};
+use std::collections::HashMap;
+use std::io::{BufReader, Error, Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
-use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd};
+use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::sync::{mpsc, Arc, Mutex, RwLock};
-use std::thread;
 // FIXME: abstract unix domains sockets still not in std
 // FIXME: https://github.com/rust-lang/rust/issues/14194
 use unix_socket::UnixListener as AbstractUnixListener;
@@ -55,6 +53,20 @@ impl<'a> Stream {
         match *self {
             Stream::TCP(ref mut s) => Ok(Stream::TCP(s.try_clone()?)),
             Stream::UNIX(ref mut s) => Ok(Stream::UNIX(s.try_clone()?)),
+        }
+    }
+
+    pub fn set_nonblocking(&mut self, b: bool) -> Result<()> {
+        match *self {
+            Stream::TCP(ref mut s) => Ok(s.set_nonblocking(b)?),
+            Stream::UNIX(ref mut s) => Ok(s.set_nonblocking(b)?),
+        }
+    }
+
+    pub fn as_raw_fd(&mut self) -> RawFd {
+        match *self {
+            Stream::TCP(ref mut s) => s.as_raw_fd(),
+            Stream::UNIX(ref mut s) => s.as_raw_fd(),
         }
     }
 }
@@ -271,6 +283,14 @@ impl Listener {
             _ => Err(ErrorKind::ConnectionClosed)?,
         }
         Ok(())
+    }
+
+    pub fn as_raw_fd(&self) -> RawFd {
+        match *self {
+            Listener::TCP(Some(ref l), _) => l.as_raw_fd(),
+            Listener::UNIX(Some(ref l), _) => l.as_raw_fd(),
+            _ => panic!("pattern `TCP(None, _)` not covered"),
+        }
     }
 }
 
@@ -498,5 +518,112 @@ pub fn listen<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + Sync + 'st
                 let _ = stream.shutdown();
             }
         });
+    }
+}
+
+pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + Sync + 'static>(
+    handler: H,
+    address: &S,
+    accept_timeout: u64,
+) -> Result<()> {
+    let handler = Arc::new(handler);
+    let mut fd_to_stream: HashMap<i32, Stream> = HashMap::new();
+    let mut fds = Vec::new();
+
+    let listener = Listener::new(address)?;
+    listener.set_nonblocking(true)?;
+
+    fds.push(libc::pollfd {
+        fd: listener.as_raw_fd(),
+        revents:0,
+        events: libc::POLLIN,
+    });
+
+    loop {
+        // Read activity on listening socket
+        if fds[0].revents != 0 {
+            let mut client = match listener.accept(accept_timeout) {
+                Err(e) => {
+                    if e.kind() == ErrorKind::Timeout {
+                        continue;
+                    } else {
+                        return Err(e);
+                    }
+                }
+                Ok(s) => s,
+            };
+
+            client.set_nonblocking(true)?;
+
+            let fd = client.as_raw_fd();
+            fds.push(libc::pollfd {
+                fd,
+                revents: 0,
+                events: libc::POLLIN,
+            });
+
+            fd_to_stream.insert(fd, client);
+        }
+
+        // Store which indices to remove
+        let mut indices_to_remove = vec!();
+
+        // Check client connections ...
+        for i in 1..fds.len() {
+            if fds[i].revents != 0 {
+
+                // It appears we are unable to leave the stream in the hashmap and have it
+                // mutable for the call into handle, thus we remove and re-insert if we need too.
+                // Perhaps there is a better way to handle this.
+                let mut client = fd_to_stream.remove(&fds[i].fd).unwrap();
+                let mut reader = BufReader::new(client.try_clone().expect("Could not split stream"));
+
+                match handler.handle(&mut reader, &mut client) {
+                    Ok(_) => {
+                        // When we get an Ok result the socket went EOF, lets shut it down.
+                        let _ = client.shutdown();
+                        indices_to_remove.push(i);
+                    },
+                    Err(e) => {
+                        match e.kind() {
+                            ErrorKind::ConnectionClosed => {
+                                let _ = client.shutdown();
+                                indices_to_remove.push(i);
+                            },
+                            ErrorKind::Io(n) => {
+                                if n == std::io::ErrorKind::WouldBlock {
+                                    // Hmmmm, this is our indication that we can continue, stuff
+                                    // the stream and associated fd back into mapping.
+                                    fd_to_stream.insert(fds[i].fd, client);
+                                } else {
+                                    // Other IO errors, we will shut down.
+                                    let _ = client.shutdown();
+                                    indices_to_remove.push(i);
+                                }
+                            }
+                            err => {
+                                eprintln!("handler error: {}", err);
+                                for cause in err.causes().skip(1) {
+                                    eprintln!("  caused by: {}", cause);
+                                }
+                                let _ = client.shutdown();
+                                indices_to_remove.push(i);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // We can't modify the vector while we are traversing it, so update now.
+        for i in indices_to_remove {
+            fds.remove(i);
+        }
+
+        let r = unsafe { libc::poll(fds.as_mut_ptr(), fds.len() as libc::c_ulong, -1) };
+
+        if r < 0 {
+            return Err(Error::last_os_error().into());
+        }
     }
 }

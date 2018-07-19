@@ -120,6 +120,9 @@ fn run_server(address: &str, timeout: u64) -> varlink::Result<()> {
         vec![Box::new(myinterface)],
     );
 
-    varlink::listen(service, &address, 10, timeout)?;
+    //varlink::listen(service, &address, 10, timeout)?;
+    // Demonstrate a single process service
+    varlink::listen_multiplex(service, &address, timeout)?;
+
     Ok(())
 }

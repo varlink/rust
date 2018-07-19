@@ -197,6 +197,7 @@ use serde::de::{self, DeserializeOwned};
 use serde::ser::{Serialize, SerializeMap, Serializer};
 use serde_json::Value;
 pub use server::listen;
+pub use server::listen_multiplex;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::convert::From;

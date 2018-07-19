@@ -11,6 +11,7 @@ extern crate varlink_parser;
 use clap::{App, Arg, SubCommand};
 use error::{ErrorKind, Result};
 use failure::ResultExt;
+use org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 use proxy::Proxy;
 use std::fs::File;
 use std::io;
@@ -21,7 +22,6 @@ use varlink::{
     Connection, ConnectionHandler, GetInterfaceDescriptionReply, MethodCall,
     OrgVarlinkServiceClient, OrgVarlinkServiceInterface,
 };
-use org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 
 use varlink_parser::Varlink;
 
@@ -66,8 +66,13 @@ fn varlink_help(url: &str) -> Result<()> {
         let conn = Connection::new("unix:/run/org.varlink.resolver")?;
         let mut resolver = VarlinkClient::new(conn);
         address = match resolver.resolve(url.into()).call() {
-            Ok(r) => { resolved_address = r.address.clone(); resolved_address.as_ref() },
-            _ => Err(varlink::Error::from(varlink::ErrorKind::InterfaceNotFound(url.into())))?
+            Ok(r) => {
+                resolved_address = r.address.clone();
+                resolved_address.as_ref()
+            }
+            _ => Err(varlink::Error::from(varlink::ErrorKind::InterfaceNotFound(
+                url.into(),
+            )))?,
         };
         interface = url;
     }
@@ -115,8 +120,13 @@ fn varlink_call(url: &str, args: Option<&str>, more: bool) -> Result<()> {
         let conn = Connection::new("unix:/run/org.varlink.resolver")?;
         let mut resolver = VarlinkClient::new(conn);
         address = match resolver.resolve(interface.into()).call() {
-            Ok(r) => { resolved_address = r.address.clone(); resolved_address.as_ref() },
-            _ => Err(varlink::Error::from(varlink::ErrorKind::InterfaceNotFound(interface.into())))?
+            Ok(r) => {
+                resolved_address = r.address.clone();
+                resolved_address.as_ref()
+            }
+            _ => Err(varlink::Error::from(varlink::ErrorKind::InterfaceNotFound(
+                interface.into(),
+            )))?,
         };
     }
 

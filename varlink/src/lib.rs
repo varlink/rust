@@ -191,12 +191,14 @@ extern crate tempfile;
 extern crate unix_socket;
 extern crate varlink_parser;
 
+pub use client::VarlinkStream;
 pub use error::{Error, ErrorKind, Result};
 use failure::ResultExt;
 use serde::de::{self, DeserializeOwned};
 use serde::ser::{Serialize, SerializeMap, Serializer};
 use serde_json::Value;
-pub use server::listen;
+pub use server::{listen, Listener};
+pub use server::Stream as ServerStream;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::convert::From;
@@ -206,8 +208,6 @@ use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, RwLock};
 
 mod client;
-
-pub use client::VarlinkStream;
 
 mod error;
 pub mod generator;
@@ -241,69 +241,69 @@ impl From<Reply> for Error {
             Reply {
                 error: Some(ref t), ..
             } if t == "org.varlink.service.InterfaceNotFound" =>
-            {
-                match e {
-                    Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value::<ErrorInterfaceNotFound>(p) {
-                        Ok(v) => {
-                            ErrorKind::InterfaceNotFound(v.interface.unwrap_or_default()).into()
-                        }
-                        Err(_) => ErrorKind::InterfaceNotFound(String::new()).into(),
-                    },
-                    _ => ErrorKind::InterfaceNotFound(String::new()).into(),
+                {
+                    match e {
+                        Reply {
+                            parameters: Some(p),
+                            ..
+                        } => match serde_json::from_value::<ErrorInterfaceNotFound>(p) {
+                            Ok(v) => {
+                                ErrorKind::InterfaceNotFound(v.interface.unwrap_or_default()).into()
+                            }
+                            Err(_) => ErrorKind::InterfaceNotFound(String::new()).into(),
+                        },
+                        _ => ErrorKind::InterfaceNotFound(String::new()).into(),
+                    }
                 }
-            }
             Reply {
                 error: Some(ref t), ..
             } if t == "org.varlink.service.InvalidParameter" =>
-            {
-                match e {
-                    Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value::<ErrorInvalidParameter>(p) {
-                        Ok(v) => {
-                            ErrorKind::InvalidParameter(v.parameter.unwrap_or_default()).into()
-                        }
-                        Err(_) => ErrorKind::InvalidParameter(String::new()).into(),
-                    },
-                    _ => ErrorKind::InvalidParameter(String::new()).into(),
+                {
+                    match e {
+                        Reply {
+                            parameters: Some(p),
+                            ..
+                        } => match serde_json::from_value::<ErrorInvalidParameter>(p) {
+                            Ok(v) => {
+                                ErrorKind::InvalidParameter(v.parameter.unwrap_or_default()).into()
+                            }
+                            Err(_) => ErrorKind::InvalidParameter(String::new()).into(),
+                        },
+                        _ => ErrorKind::InvalidParameter(String::new()).into(),
+                    }
                 }
-            }
             Reply {
                 error: Some(ref t), ..
             } if t == "org.varlink.service.MethodNotFound" =>
-            {
-                match e {
-                    Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value::<ErrorMethodNotFound>(p) {
-                        Ok(v) => ErrorKind::MethodNotFound(v.method.unwrap_or_default()).into(),
-                        Err(_) => ErrorKind::MethodNotFound(String::new()).into(),
-                    },
-                    _ => ErrorKind::MethodNotFound(String::new()).into(),
+                {
+                    match e {
+                        Reply {
+                            parameters: Some(p),
+                            ..
+                        } => match serde_json::from_value::<ErrorMethodNotFound>(p) {
+                            Ok(v) => ErrorKind::MethodNotFound(v.method.unwrap_or_default()).into(),
+                            Err(_) => ErrorKind::MethodNotFound(String::new()).into(),
+                        },
+                        _ => ErrorKind::MethodNotFound(String::new()).into(),
+                    }
                 }
-            }
             Reply {
                 error: Some(ref t), ..
             } if t == "org.varlink.service.MethodNotImplemented" =>
-            {
-                match e {
-                    Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value::<ErrorMethodNotImplemented>(p) {
-                        Ok(v) => {
-                            ErrorKind::MethodNotImplemented(v.method.unwrap_or_default()).into()
-                        }
-                        Err(_) => ErrorKind::MethodNotImplemented(String::new()).into(),
-                    },
-                    _ => ErrorKind::MethodNotImplemented(String::new()).into(),
+                {
+                    match e {
+                        Reply {
+                            parameters: Some(p),
+                            ..
+                        } => match serde_json::from_value::<ErrorMethodNotImplemented>(p) {
+                            Ok(v) => {
+                                ErrorKind::MethodNotImplemented(v.method.unwrap_or_default()).into()
+                            }
+                            Err(_) => ErrorKind::MethodNotImplemented(String::new()).into(),
+                        },
+                        _ => ErrorKind::MethodNotImplemented(String::new()).into(),
+                    }
                 }
-            }
             _ => ErrorKind::VarlinkErrorReply(e).into(),
         }
     }
@@ -394,8 +394,8 @@ impl DerefMut for StringHashSet {
 
 impl Serialize for StringHashSet {
     fn serialize<S>(&self, serializer: S) -> ::std::result::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
+        where
+            S: Serializer,
     {
         let null_obj: serde_json::Value = serde_json::Value::Object(serde_json::Map::new());
 
@@ -410,8 +410,8 @@ impl Serialize for StringHashSet {
 impl<'de> de::Deserialize<'de> for StringHashSet {
     #[inline]
     fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
-    where
-        D: de::Deserializer<'de>,
+        where
+            D: de::Deserializer<'de>,
     {
         struct Visitor;
 
@@ -424,16 +424,16 @@ impl<'de> de::Deserialize<'de> for StringHashSet {
 
             #[inline]
             fn visit_unit<E>(self) -> ::std::result::Result<Self::Value, E>
-            where
-                E: de::Error,
+                where
+                    E: de::Error,
             {
                 Ok(StringHashSet::new())
             }
 
             #[inline]
             fn visit_map<V>(self, mut visitor: V) -> ::std::result::Result<Self::Value, V::Error>
-            where
-                V: de::MapAccess<'de>,
+                where
+                    V: de::MapAccess<'de>,
             {
                 let mut values = StringHashSet::new();
 
@@ -492,8 +492,8 @@ impl Reply {
 }
 
 impl<T> From<T> for Reply
-where
-    T: VarlinkReply + Serialize,
+    where
+        T: VarlinkReply + Serialize,
 {
     fn from(a: T) -> Self {
         Reply::parameters(Some(serde_json::to_value(a).unwrap()))
@@ -695,8 +695,8 @@ impl<'a> CallTrait for Call<'a> {
     fn is_oneway(&self) -> bool {
         match self.request {
             Some(Request {
-                oneway: Some(true), ..
-            }) => true,
+                     oneway: Some(true), ..
+                 }) => true,
             _ => false,
         }
     }
@@ -705,8 +705,8 @@ impl<'a> CallTrait for Call<'a> {
     fn wants_more(&self) -> bool {
         match self.request {
             Some(Request {
-                more: Some(true), ..
-            }) => true,
+                     more: Some(true), ..
+                 }) => true,
             _ => false,
         }
     }
@@ -782,10 +782,10 @@ impl Connection {
 }
 
 pub struct MethodCall<MRequest, MReply, MError>
-where
-    MRequest: Serialize,
-    MReply: DeserializeOwned,
-    MError: std::convert::From<Error>
+    where
+        MRequest: Serialize,
+        MReply: DeserializeOwned,
+        MError: std::convert::From<Error>
         + std::convert::From<std::io::Error>
         + std::convert::From<serde_json::Error>
         + std::convert::From<Reply>,
@@ -801,10 +801,10 @@ where
 }
 
 impl<MRequestParameters, MReply, MError> MethodCall<MRequestParameters, MReply, MError>
-where
-    MRequestParameters: Serialize,
-    MReply: DeserializeOwned,
-    MError: std::convert::From<Error>
+    where
+        MRequestParameters: Serialize,
+        MReply: DeserializeOwned,
+        MError: std::convert::From<Error>
         + std::convert::From<std::io::Error>
         + std::convert::From<serde_json::Error>
         + std::convert::From<Reply>,
@@ -934,10 +934,10 @@ where
 }
 
 impl<MRequest, MReply, MError> Iterator for MethodCall<MRequest, MReply, MError>
-where
-    MRequest: Serialize,
-    MReply: DeserializeOwned,
-    MError: std::convert::From<Error>
+    where
+        MRequest: Serialize,
+        MReply: DeserializeOwned,
+        MError: std::convert::From<Error>
         + std::convert::From<std::io::Error>
         + std::convert::From<serde_json::Error>
         + std::convert::From<Reply>,
@@ -1193,12 +1193,40 @@ pub trait ConnectionHandler {
 }
 
 impl ConnectionHandler for VarlinkService {
-    /// Handles incoming varlink messages from `reader` and sends the reply on `writer`.
+
+    /// ```handle()``` consumes every null terminated message from ```reader```
+    /// and writes the reply to ```writer```.
     ///
     /// This method can be used to implement your own server.
+    /// Pass it one or more null terminated received messages in a ```BufReader``` and reply to the
+    /// sender with the filled ```writer``` buffer.
+    ///
+    ///# Examples
+    ///
+    ///```rust
+    ///# #![allow(non_camel_case_types)]
+    ///# #![allow(non_snake_case)]
+    ///# use std::io;
+    ///use varlink::{ConnectionHandler, VarlinkService};
+    ///
+    ///# fn main_func() {
+    ///let service = VarlinkService::new(
+    ///    "org.varlink",
+    ///    "test service",
+    ///    "0.1",
+    ///    "http://varlink.org",
+    ///    vec![], // more interfaces ...
+    ///);
+    ///let mut in_buf = io::BufReader::new("received null terminated message(s) go here \000".as_bytes());
+    ///let mut out: Vec<u8> = Vec::new();
+    ///assert!(service.handle(&mut in_buf, &mut out).is_ok());
+    ///# }
+    ///# fn main() {}
+    ///```
     fn handle(&self, bufreader: &mut BufRead, writer: &mut Write) -> Result<()> {
         let mut upgraded = false;
         let mut last_iface = String::from("");
+
         loop {
             if !upgraded {
                 let mut buf = Vec::new();

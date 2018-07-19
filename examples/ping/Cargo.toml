@@ -12,6 +12,7 @@ serde_json = "1"
 getopts = "0"
 failure_derive = "0.1"
 failure = "0.1"
+libc = "0"
 
 [build-dependencies]
 varlink = { path = "../../varlink" }

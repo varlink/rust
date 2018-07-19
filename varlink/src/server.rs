@@ -1,32 +1,30 @@
 //! Handle network connections for a varlink service
+#![allow(dead_code)]
 
-use failure::Fail;
 use {ErrorKind, Result};
+use failure::Fail;
 //#![feature(getpid)]
 //use std::process;
 // FIXME
 use libc;
-use std::env;
-use std::fs;
+use std::{env, fs, mem, thread};
 use std::io::{BufReader, Read, Write};
-use std::mem;
 use std::net::{Shutdown, TcpListener, TcpStream};
-use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd};
+use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use std::os::unix::net::{UnixListener, UnixStream};
-use std::sync::{mpsc, Arc, Mutex, RwLock};
-use std::thread;
+use std::sync::{Arc, mpsc, Mutex, RwLock};
 // FIXME: abstract unix domains sockets still not in std
 // FIXME: https://github.com/rust-lang/rust/issues/14194
 use unix_socket::UnixListener as AbstractUnixListener;
 
 #[derive(Debug)]
-enum Listener {
+pub enum Listener {
     TCP(Option<TcpListener>, bool),
     UNIX(Option<UnixListener>, bool),
 }
 
 #[derive(Debug)]
-enum Stream {
+pub enum Stream {
     TCP(TcpStream),
     UNIX(UnixStream),
 }
@@ -35,12 +33,8 @@ impl<'a> Stream {
     #[allow(dead_code)]
     pub fn split(&mut self) -> Result<(Box<Read + Send + Sync>, Box<Write + Send + Sync>)> {
         match *self {
-            Stream::TCP(ref mut s) => {
-                Ok((Box::new(s.try_clone()?), Box::new(s.try_clone()?)))
-            }
-            Stream::UNIX(ref mut s) => {
-                Ok((Box::new(s.try_clone()?), Box::new(s.try_clone()?)))
-            }
+            Stream::TCP(ref mut s) => Ok((Box::new(s.try_clone()?), Box::new(s.try_clone()?))),
+            Stream::UNIX(ref mut s) => Ok((Box::new(s.try_clone()?), Box::new(s.try_clone()?))),
         }
     }
     pub fn shutdown(&mut self) -> Result<()> {
@@ -55,6 +49,20 @@ impl<'a> Stream {
         match *self {
             Stream::TCP(ref mut s) => Ok(Stream::TCP(s.try_clone()?)),
             Stream::UNIX(ref mut s) => Ok(Stream::UNIX(s.try_clone()?)),
+        }
+    }
+
+    pub fn set_nonblocking(&mut self, b: bool) -> Result<()> {
+        match *self {
+            Stream::TCP(ref mut s) => Ok(s.set_nonblocking(b)?),
+            Stream::UNIX(ref mut s) => Ok(s.set_nonblocking(b)?),
+        }
+    }
+
+    pub fn as_raw_fd(&mut self) -> RawFd {
+        match *self {
+            Stream::TCP(ref mut s) => s.as_raw_fd(),
+            Stream::UNIX(ref mut s) => s.as_raw_fd(),
         }
     }
 }
@@ -166,17 +174,11 @@ impl Listener {
         if let Some(l) = activation_listener()? {
             if address.starts_with("tcp:") {
                 unsafe {
-                    return Ok(Listener::TCP(
-                        Some(TcpListener::from_raw_fd(l)),
-                        true,
-                    ));
+                    return Ok(Listener::TCP(Some(TcpListener::from_raw_fd(l)), true));
                 }
             } else if address.starts_with("unix:") {
                 unsafe {
-                    return Ok(Listener::UNIX(
-                        Some(UnixListener::from_raw_fd(l)),
-                        true,
-                    ));
+                    return Ok(Listener::UNIX(Some(UnixListener::from_raw_fd(l)), true));
                 }
             } else {
                 return Err(ErrorKind::InvalidAddress.into());
@@ -272,6 +274,14 @@ impl Listener {
         }
         Ok(())
     }
+
+    pub fn as_raw_fd(&self) -> RawFd {
+        match *self {
+            Listener::TCP(Some(ref l), _) => l.as_raw_fd(),
+            Listener::UNIX(Some(ref l), _) => l.as_raw_fd(),
+            _ => panic!("pattern `TCP(None, _)` not covered"),
+        }
+    }
 }
 
 impl Drop for Listener {
@@ -361,8 +371,8 @@ impl ThreadPool {
     }
 
     pub fn execute<F>(&mut self, f: F)
-    where
-        F: FnOnce() + Send + 'static,
+        where
+            F: FnOnce() + Send + 'static,
     {
         let job = Box::new(f);
         self.sender.send(Message::NewJob(job)).unwrap();
@@ -500,3 +510,4 @@ pub fn listen<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + Sync + 'st
         });
     }
 }
+

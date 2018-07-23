@@ -52,7 +52,7 @@
 //!# impl<'a> Call_Ping for varlink::Call<'a> {}
 //!# pub trait VarlinkInterface {
 //!#     fn ping(&self, call: &mut Call_Ping, ping: String) -> Result<()>;
-//!#     fn call_upgraded(&self, _call: &mut varlink::Call) -> Result<()> {Ok(())}
+//!#     fn call_upgraded(&self, _call: &mut varlink::Call, bufreader: &mut io::BufRead) -> Result<()> {Ok(())}
 //!# }
 //!# pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
 //!# pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
@@ -62,7 +62,7 @@
 //!#     fn get_description(&self) -> &'static str { "interface org.example.ping\n\
 //!#                                                  method Ping(ping: string) -> (pong: string)" }
 //!#     fn get_name(&self) -> &'static str { "org.example.ping" }
-//!#     fn call_upgraded(&self, call: &mut varlink::Call) -> Result<()> { Ok(()) }
+//!#     fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut io::BufRead) -> Result<()> { Ok(()) }
 //!#     fn call(&self, call: &mut varlink::Call) -> Result<()> { Ok(()) }
 //!# }
 //!# fn main() {}
@@ -122,7 +122,7 @@
 //!# impl<'a> Call_Ping for varlink::Call<'a> {}
 //!# pub trait VarlinkInterface {
 //!#     fn ping(&self, call: &mut Call_Ping, ping: String) -> Result<()>;
-//!#     fn call_upgraded(&self, _call: &mut varlink::Call) -> Result<()> {Ok(())}
+//!#     fn call_upgraded(&self, _call: &mut varlink::Call, bufreader: &mut io::BufRead) -> Result<()> {Ok(())}
 //!# }
 //!# pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
 //!# pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
@@ -132,7 +132,7 @@
 //!#     fn get_description(&self) -> &'static str { "interface org.example.ping\n\
 //!#                                                  method Ping(ping: string) -> (pong: string)" }
 //!#     fn get_name(&self) -> &'static str { "org.example.ping" }
-//!#     fn call_upgraded(&self, call: &mut varlink::Call) -> Result<()> { Ok(()) }
+//!#     fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut io::BufRead) -> Result<()> { Ok(()) }
 //!#     fn call(&self, call: &mut varlink::Call) -> Result<()> { Ok(()) }
 //!# }}
 //!# use org_example_ping::*;
@@ -202,7 +202,7 @@ pub use server::Stream as ServerStream;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::convert::From;
-use std::io::{BufRead, BufReader, Read, Write};
+    use std::io::{BufRead, BufReader, Read, Write};
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, RwLock};
@@ -1114,7 +1114,7 @@ impl VarlinkService {
     ///# fn get_description(&self) -> &'static str {
     ///#                    "interface org.example.ping\nmethod Ping(ping: string) -> (pong: string)" }
     ///# fn get_name(&self) -> &'static str { "org.example.ping" }
-    ///# fn call_upgraded(&self, call: &mut varlink::Call) -> varlink::Result<()> { Ok(()) }
+    ///# fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut io::BufRead) -> varlink::Result<()> { Ok(()) }
     ///# fn call(&self, call: &mut varlink::Call) -> varlink::Result<()> { Ok(()) }
     ///# }
     ///# fn main_f() {

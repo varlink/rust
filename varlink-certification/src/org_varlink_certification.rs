@@ -8,7 +8,7 @@
 
 use failure::{Backtrace, Context, Fail, ResultExt};
 use serde_json::{self, Value};
-use std::io;
+use std::io::{self, BufRead};
 use std::sync::{Arc, RwLock};
 use varlink::{self, CallTrait};
 
@@ -573,7 +573,11 @@ pub trait VarlinkInterface {
         client_id: String,
         last_more_replies: Vec<String>,
     ) -> varlink::Result<()>;
-    fn call_upgraded(&self, _call: &mut varlink::Call) -> varlink::Result<()> {
+    fn call_upgraded(
+        &self,
+        _call: &mut varlink::Call,
+        bufreader: &mut BufRead,
+    ) -> varlink::Result<()> {
         Ok(())
     }
 }
@@ -922,8 +926,12 @@ error CertificationError (wants: object, got: object)
         "org.varlink.certification"
     }
 
-    fn call_upgraded(&self, call: &mut varlink::Call) -> varlink::Result<()> {
-        self.inner.call_upgraded(call)
+    fn call_upgraded(
+        &self,
+        call: &mut varlink::Call,
+        bufreader: &mut BufRead,
+    ) -> varlink::Result<()> {
+        self.inner.call_upgraded(call, bufreader)
     }
 
     fn call(&self, call: &mut varlink::Call) -> varlink::Result<()> {

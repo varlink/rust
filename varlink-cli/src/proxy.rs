@@ -9,7 +9,7 @@ use varlink::{
 pub struct Proxy {}
 
 impl ConnectionHandler for Proxy {
-    fn handle(&self, bufreader: &mut BufRead, writer: &mut Write) -> Result<()> {
+    fn handle(&self, bufreader: &mut BufRead, writer: &mut Write) -> Result<bool> {
         let conn = Connection::new("unix:/run/org.varlink.resolver")?;
         let mut resolver = VarlinkClient::new(conn);
 
@@ -41,7 +41,8 @@ impl ConnectionHandler for Proxy {
                     None => {
                         let method: String = String::from(req.method.as_ref());
                         let mut call = Call::new(writer, &req);
-                        return call.reply_interface_not_found(Some(method));
+                        call.reply_interface_not_found(Some(method))?;
+                        return Ok(false);
                     }
                     Some(x) => x,
                 };
@@ -56,7 +57,8 @@ impl ConnectionHandler for Proxy {
                             Ok(r) => r.address,
                             _ => {
                                 let mut call = Call::new(writer, &req);
-                                return call.reply_interface_not_found(Some(iface));
+                                call.reply_interface_not_found(Some(iface))?;
+                                return Ok(false);
                             }
                         };
                     }
@@ -67,7 +69,8 @@ impl ConnectionHandler for Proxy {
                     Ok((a, _)) => a,
                     _ => {
                         let mut call = Call::new(writer, &req);
-                        return call.reply_interface_not_found(Some(iface));
+                        call.reply_interface_not_found(Some(iface))?;
+                        return Ok(false);
                     }
                 };
 
@@ -107,6 +110,7 @@ impl ConnectionHandler for Proxy {
                     }
                 }
             } else {
+                // TODO: also read() from writer and send back the output
                 let mut buf = vec![0; 2048];
                 let mut size = bufreader.read(&mut buf)?;
                 loop {
@@ -117,6 +121,6 @@ impl ConnectionHandler for Proxy {
                 }
             }
         }
-        Ok(())
+        Ok(upgraded)
     }
 }

@@ -185,7 +185,7 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
                                 let mut out: Vec<u8> = Vec::new();
                                 match handler.handle(&mut BufReader::new(&buf[0..n]), &mut out) {
                                     // TODO: buffer output and write only on POLLOUT
-                                    Ok(_) => match client.write(out.as_ref()) {
+                                    Ok(false) => match client.write(out.as_ref()) {
                                         Err(e) => {
                                             eprintln!("write error: {}", e);
                                             let _ = client.shutdown();
@@ -194,6 +194,21 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
                                         }
                                         Ok(_) => {}
                                     },
+                                    Ok(true) => {
+                                        match client.write(out.as_ref()) {
+                                            Err(e) => {
+                                                eprintln!("write error: {}", e);
+                                                let _ = client.shutdown();
+                                                indices_to_remove.push(i);
+                                                break;
+                                            }
+                                            Ok(_) => {}
+                                        }
+                                        // TODO: now switch to upgraded mode.
+                                        // threading away the service.handle() with a socketpair()
+                                        // polling if it sends something and feed it with the
+                                        // client input.
+                                    }
                                     Err(e) => match e.kind() {
                                         err => {
                                             eprintln!("handler error: {}", err);

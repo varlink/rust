@@ -235,7 +235,7 @@ fn varlink_to_rust(varlink: &Varlink, w: &mut Write, options: &GeneratorOptions)
 
 use failure::{{Backtrace, Context, Fail, ResultExt}};
 use serde_json::{{self, Value}};
-use std::io;
+use std::io::{{self, BufRead}};
 use std::sync::{{Arc, RwLock}};
 use varlink::{{self, CallTrait}};
 
@@ -688,7 +688,7 @@ impl From<varlink::Reply> for Error {{
 
     write!(
         w,
-        r#"    fn call_upgraded(&self, _call: &mut varlink::Call) -> varlink::Result<()> {{
+        r#"    fn call_upgraded(&self, _call: &mut varlink::Call, bufreader: &mut BufRead) -> varlink::Result<()> {{
         Ok(())
     }}
 }}
@@ -853,8 +853,8 @@ impl varlink::Interface for VarlinkInterfaceProxy {{
 
     write!(
         w,
-        r#"    fn call_upgraded(&self, call: &mut varlink::Call) -> varlink::Result<()> {{
-        self.inner.call_upgraded(call)
+        r#"    fn call_upgraded(&self, call: &mut varlink::Call, bufreader: &mut BufRead) -> varlink::Result<()> {{
+        self.inner.call_upgraded(call, bufreader)
     }}
 
     fn call(&self, call: &mut varlink::Call) -> varlink::Result<()> {{

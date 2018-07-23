@@ -8,7 +8,7 @@
 
 use failure::{Backtrace, Context, Fail, ResultExt};
 use serde_json::{self, Value};
-use std::io;
+use std::io::{self, BufRead};
 use std::sync::{Arc, RwLock};
 use varlink::{self, CallTrait};
 
@@ -221,7 +221,11 @@ impl<'a> Call_List for varlink::Call<'a> {}
 pub trait VarlinkInterface {
     fn info(&self, call: &mut Call_Info, ifindex: i64) -> varlink::Result<()>;
     fn list(&self, call: &mut Call_List) -> varlink::Result<()>;
-    fn call_upgraded(&self, _call: &mut varlink::Call) -> varlink::Result<()> {
+    fn call_upgraded(
+        &self,
+        _call: &mut varlink::Call,
+        bufreader: &mut BufRead,
+    ) -> varlink::Result<()> {
         Ok(())
     }
 }
@@ -317,8 +321,12 @@ error UnknownError (text: string)
         "io.systemd.network"
     }
 
-    fn call_upgraded(&self, call: &mut varlink::Call) -> varlink::Result<()> {
-        self.inner.call_upgraded(call)
+    fn call_upgraded(
+        &self,
+        call: &mut varlink::Call,
+        bufreader: &mut BufRead,
+    ) -> varlink::Result<()> {
+        self.inner.call_upgraded(call, bufreader)
     }
 
     fn call(&self, call: &mut varlink::Call) -> varlink::Result<()> {

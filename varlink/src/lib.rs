@@ -330,7 +330,7 @@ impl Error {
 pub trait Interface {
     fn get_description(&self) -> &'static str;
     fn get_name(&self) -> &'static str;
-    fn call_upgraded(&self, call: &mut Call) -> Result<()>;
+    fn call_upgraded(&self, call: &mut Call, bufreader: &mut BufRead) -> Result<()>;
     fn call(&self, call: &mut Call) -> Result<()>;
 }
 
@@ -1061,7 +1061,7 @@ error InvalidParameter (parameter: string)
         "org.varlink.service"
     }
 
-    fn call_upgraded(&self, call: &mut Call) -> Result<()> {
+    fn call_upgraded(&self, call: &mut Call, _bufreader: &mut BufRead) -> Result<()> {
         call.upgraded = false;
         Ok(())
     }
@@ -1174,12 +1174,12 @@ impl VarlinkService {
         }
     }
 
-    fn call_upgraded(&self, iface: &str, call: &mut Call) -> Result<()> {
+    fn call_upgraded(&self, iface: &str, call: &mut Call, bufreader: &mut BufRead) -> Result<()> {
         match iface {
-            "org.varlink.service" => self::Interface::call_upgraded(self, call),
+            "org.varlink.service" => self::Interface::call_upgraded(self, call, bufreader),
             key => {
                 if self.ifaces.contains_key(key) {
-                    self.ifaces[key].call_upgraded(call)
+                    self.ifaces[key].call_upgraded(call, bufreader)
                 } else {
                     call.reply_interface_not_found(Some(iface.into()))
                 }
@@ -1199,6 +1199,9 @@ impl ConnectionHandler for VarlinkService {
     /// This method can be used to implement your own server.
     /// Pass it one or more null terminated received messages in a ```BufReader``` and reply to the
     /// sender with the filled ```writer``` buffer.
+    ///
+    /// Returns Ok(true), if the connection is ```upgraded```. For ```upgraded``` connections
+    /// messages are in legacy format and
     ///
     ///# Examples
     ///
@@ -1242,7 +1245,8 @@ impl ConnectionHandler for VarlinkService {
                     None => {
                         let method: String = String::from(req.method.as_ref());
                         let mut call = Call::new(writer, &req);
-                        return call.reply_interface_not_found(Some(method));
+                        call.reply_interface_not_found(Some(method))?;
+                        return Ok(false);
                     }
                     Some(x) => x,
                 };
@@ -1258,7 +1262,7 @@ impl ConnectionHandler for VarlinkService {
                 }
             } else {
                 let mut call = Call::new_upgraded(writer);
-                self.call_upgraded(&last_iface, &mut call)?;
+                self.call_upgraded(&last_iface, &mut call, bufreader)?;
                 upgraded = call.upgraded;
             }
         }

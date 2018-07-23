@@ -8,7 +8,7 @@
 
 use failure::{Backtrace, Context, Fail, ResultExt};
 use serde_json::{self, Value};
-use std::io;
+use std::io::{self, BufRead};
 use std::sync::{Arc, RwLock};
 use varlink::{self, CallTrait};
 
@@ -208,7 +208,11 @@ pub trait VarlinkInterface {
     fn ping(&self, call: &mut Call_Ping, ping: String) -> varlink::Result<()>;
     fn stop_serving(&self, call: &mut Call_StopServing) -> varlink::Result<()>;
     fn test_more(&self, call: &mut Call_TestMore, n: i64) -> varlink::Result<()>;
-    fn call_upgraded(&self, _call: &mut varlink::Call) -> varlink::Result<()> {
+    fn call_upgraded(
+        &self,
+        _call: &mut varlink::Call,
+        bufreader: &mut BufRead,
+    ) -> varlink::Result<()> {
         Ok(())
     }
 }
@@ -313,8 +317,12 @@ error TestMoreError (reason: string)
         "org.example.more"
     }
 
-    fn call_upgraded(&self, call: &mut varlink::Call) -> varlink::Result<()> {
-        self.inner.call_upgraded(call)
+    fn call_upgraded(
+        &self,
+        call: &mut varlink::Call,
+        bufreader: &mut BufRead,
+    ) -> varlink::Result<()> {
+        self.inner.call_upgraded(call, bufreader)
     }
 
     fn call(&self, call: &mut varlink::Call) -> varlink::Result<()> {

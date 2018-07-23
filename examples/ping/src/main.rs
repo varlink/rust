@@ -237,7 +237,7 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
         let r = unsafe {
             libc::poll(
                 fds.as_mut_ptr(),
-                fds.len() as u32,
+                fds.len().into(),
                 (accept_timeout * 1000) as i32,
             )
         };

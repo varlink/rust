@@ -1189,11 +1189,10 @@ impl VarlinkService {
 }
 
 pub trait ConnectionHandler {
-    fn handle(&self, bufreader: &mut BufRead, writer: &mut Write) -> Result<()>;
+    fn handle(&self, bufreader: &mut BufRead, writer: &mut Write) -> Result<bool>;
 }
 
 impl ConnectionHandler for VarlinkService {
-
     /// ```handle()``` consumes every null terminated message from ```reader```
     /// and writes the reply to ```writer```.
     ///
@@ -1223,7 +1222,7 @@ impl ConnectionHandler for VarlinkService {
     ///# }
     ///# fn main() {}
     ///```
-    fn handle(&self, bufreader: &mut BufRead, writer: &mut Write) -> Result<()> {
+    fn handle(&self, bufreader: &mut BufRead, writer: &mut Write) -> Result<bool> {
         let mut upgraded = false;
         let mut last_iface = String::from("");
 
@@ -1263,6 +1262,6 @@ impl ConnectionHandler for VarlinkService {
                 upgraded = call.upgraded;
             }
         }
-        Ok(())
+        Ok(upgraded)
     }
 }

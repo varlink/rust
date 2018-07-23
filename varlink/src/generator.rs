@@ -105,10 +105,10 @@ impl<'short, 'long: 'short> ToRust<'short, 'long> for VType<'long> {
         options: &'long GeneratorOptions,
     ) -> Result<Cow<'long, str>> {
         match *self {
-            VType::Bool => Ok(options.bool_type.unwrap_or("bool".into()).into()),
-            VType::Int => Ok(options.int_type.unwrap_or("i64".into()).into()),
-            VType::Float => Ok(options.float_type.unwrap_or("f64".into()).into()),
-            VType::String => Ok(options.string_type.unwrap_or("String".into()).into()),
+            VType::Bool => Ok(options.bool_type.unwrap_or("bool").into()),
+            VType::Int => Ok(options.int_type.unwrap_or("i64").into()),
+            VType::Float => Ok(options.float_type.unwrap_or("f64").into()),
+            VType::String => Ok(options.string_type.unwrap_or("String").into()),
             VType::Object => Ok("Value".into()),
             VType::Typename(v) => Ok(v.into()),
             VType::Enum(ref v) => {

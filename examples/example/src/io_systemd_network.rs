@@ -224,7 +224,7 @@ pub trait VarlinkInterface {
     fn call_upgraded(
         &self,
         _call: &mut varlink::Call,
-        bufreader: &mut BufRead,
+        _bufreader: &mut BufRead,
     ) -> varlink::Result<()> {
         Ok(())
     }

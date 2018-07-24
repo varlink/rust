@@ -954,7 +954,7 @@ impl<MRequest, MReply, MError> Iterator for MethodCall<MRequest, MReply, MError>
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Default, Clone)]
 pub struct GetInterfaceDescriptionArgs<'a> {
-    interface: Cow<'a, str>,
+    pub interface: Cow<'a, str>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Default, Clone)]

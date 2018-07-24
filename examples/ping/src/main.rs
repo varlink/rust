@@ -12,10 +12,11 @@ use failure::Fail;
 use org_example_ping::*;
 use std::collections::HashMap;
 use std::env;
-use std::io::{BufReader, Error, Read, Write};
+use std::io::{BufRead, BufReader, Error, Read, Write};
 use std::process::exit;
 use std::sync::Arc;
-use varlink::{ConnectionHandler, Listener, ServerStream, VarlinkService};
+use std::thread;
+use varlink::{Call, CallTrait, ConnectionHandler, Listener, ServerStream, VarlinkService};
 
 // Dynamically build the varlink rust code.
 mod org_example_ping;
@@ -86,21 +87,40 @@ fn main() {
 
 fn run_client(address: &str) -> Result<()> {
     let connection = varlink::Connection::new(&address)?;
-    let mut iface = VarlinkClient::new(connection);
-    let ping = String::from("Test");
+    {
+        let mut iface = VarlinkClient::new(connection.clone());
+        let ping = String::from("Test");
 
-    let reply = iface.ping(ping.clone()).call()?;
-    assert_eq!(ping, reply.pong);
-    println!("Pong: '{}'", reply.pong);
+        let reply = iface.ping(ping.clone()).call()?;
+        assert_eq!(ping, reply.pong);
+        println!("Pong: '{}'", reply.pong);
 
-    let reply = iface.ping(ping.clone()).call()?;
-    assert_eq!(ping, reply.pong);
-    println!("Pong: '{}'", reply.pong);
+        let reply = iface.ping(ping.clone()).call()?;
+        assert_eq!(ping, reply.pong);
+        println!("Pong: '{}'", reply.pong);
 
-    let reply = iface.ping(ping.clone()).call()?;
-    assert_eq!(ping, reply.pong);
-    println!("Pong: '{}'", reply.pong);
+        let reply = iface.ping(ping.clone()).call()?;
+        assert_eq!(ping, reply.pong);
+        println!("Pong: '{}'", reply.pong);
 
+        let _reply = iface.upgrade().call()?;
+        println!("Client: upgrade()");
+    }
+    {
+        let mut conn = connection.write().unwrap();
+        let mut writer = conn.writer.take().unwrap();
+        writer.write_all("test test\n".as_bytes())?;
+        conn.writer = Some(writer);
+        let mut buf = Vec::new();
+        let mut reader = conn.reader.take().unwrap();
+        if reader.read_until('\n' as u8, &mut buf)? == 0 {
+            // incomplete data, in real life, store all bytes for the next call
+            // for now just read the rest
+            reader.read_to_end(&mut buf)?;
+        };
+        eprintln!("Client: upgraded got: {}", String::from_utf8_lossy(&buf));
+        conn.reader = Some(reader);
+    }
     Ok(())
 }
 
@@ -111,6 +131,31 @@ struct MyOrgExamplePing;
 impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
     fn ping(&self, call: &mut Call_Ping, ping: String) -> varlink::Result<()> {
         call.reply(ping)
+    }
+
+    fn upgrade(&self, call: &mut Call_Upgrade) -> varlink::Result<()> {
+        eprintln!("Server: called upgrade");
+        call.set_upgraded(true);
+        call.reply()
+    }
+
+    fn call_upgraded(&self, call: &mut Call, bufreader: &mut BufRead) -> varlink::Result<usize> {
+        let mut buf = String::new();
+        let len = bufreader.read_line(&mut buf)?;
+        if len == 0 {
+            // incomplete data, in real life, store all bytes for the next call
+            // for now just drop out of upgraded
+            call.set_upgraded(false);
+
+            return Ok(len);
+            //return Err(varlink::ErrorKind::ConnectionClosed.into());
+        }
+        eprintln!("Server: upgraded got: {}", buf);
+
+        call.writer.write_all("server reply\n".as_bytes())?;
+
+        call.set_upgraded(true);
+        Ok(len)
     }
 }
 
@@ -123,7 +168,7 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
     let mut fd_to_stream: HashMap<i32, ServerStream> = HashMap::new();
     let mut fd_to_buffer: HashMap<i32, Vec<u8>> = HashMap::new();
     let mut fds = Vec::new();
-
+    let mut threads = Vec::new();
     let listener = Listener::new(address)?;
     listener.set_nonblocking(true)?;
 
@@ -157,6 +202,7 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
         // Check client connections ...
         for i in 1..fds.len() {
             if fds[i].revents != 0 {
+                let mut upgraded_iface: Option<String> = None;
                 let mut client = fd_to_stream.get_mut(&fds[i].fd).unwrap();
                 let mut buf = fd_to_buffer.get_mut(&fds[i].fd).unwrap();
                 loop {
@@ -183,9 +229,13 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
                             // if zero byte found, handle message and write output.
                             if let Some(n) = msg_index {
                                 let mut out: Vec<u8> = Vec::new();
-                                match handler.handle(&mut BufReader::new(&buf[0..n]), &mut out) {
+                                match handler.handle(
+                                    &mut BufReader::new(&buf[0..n]),
+                                    &mut out,
+                                    None,
+                                ) {
                                     // TODO: buffer output and write only on POLLOUT
-                                    Ok(false) => match client.write(out.as_ref()) {
+                                    Ok(None) => match client.write(out.as_ref()) {
                                         Err(e) => {
                                             eprintln!("write error: {}", e);
                                             let _ = client.shutdown();
@@ -194,21 +244,17 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
                                         }
                                         Ok(_) => {}
                                     },
-                                    Ok(true) => {
-                                        match client.write(out.as_ref()) {
-                                            Err(e) => {
-                                                eprintln!("write error: {}", e);
-                                                let _ = client.shutdown();
-                                                indices_to_remove.push(i);
-                                                break;
-                                            }
-                                            Ok(_) => {}
+                                    Ok(Some(last_iface)) => match client.write(out.as_ref()) {
+                                        Err(e) => {
+                                            eprintln!("write error: {}", e);
+                                            let _ = client.shutdown();
+                                            indices_to_remove.push(i);
+                                            break;
                                         }
-                                        // TODO: now switch to upgraded mode.
-                                        // threading away the service.handle() with a socketpair()
-                                        // polling if it sends something and feed it with the
-                                        // client input.
-                                    }
+                                        Ok(_) => {
+                                            upgraded_iface = Some(last_iface);
+                                        }
+                                    },
                                     Err(e) => match e.kind() {
                                         err => {
                                             eprintln!("handler error: {}", err);
@@ -239,6 +285,28 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
                         },
                     }
                 }
+                if upgraded_iface.is_some() {
+                    eprintln!("Upgraded MODE");
+                    // upgraded mode... thread away the server
+                    // feed it directly with the client stream
+                    indices_to_remove.push(i);
+                    let mut stream = client.try_clone().unwrap();
+                    let j = thread::spawn({
+                        eprintln!("upgraded thread");
+                        let handler = handler.clone();
+                        move || {
+                            let _r = stream.set_nonblocking(false);
+                            let (reader, mut writer) = stream.split().unwrap();
+
+                            let _r = handler.handle(
+                                &mut BufReader::new(reader),
+                                &mut writer,
+                                upgraded_iface,
+                            );
+                        }
+                    });
+                    threads.push(j);
+                }
             }
         }
 
@@ -262,6 +330,10 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
         }
 
         if r == 0 && fds.len() == 1 {
+            for t in threads {
+                let _r = t.join();
+            }
+
             return Err(varlink::Error::from(varlink::ErrorKind::Timeout));
         }
     }
@@ -277,6 +349,8 @@ fn run_server(address: &str, timeout: u64) -> varlink::Result<()> {
         "http://varlink.org",
         vec![Box::new(myinterface)],
     );
+
+    //varlink::listen(service, &address, 10, timeout)?;
 
     // Demonstrate a single process, single-threaded service
     listen_multiplex(service, &address, timeout)?;

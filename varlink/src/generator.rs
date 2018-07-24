@@ -688,8 +688,8 @@ impl From<varlink::Reply> for Error {{
 
     write!(
         w,
-        r#"    fn call_upgraded(&self, _call: &mut varlink::Call, _bufreader: &mut BufRead) -> varlink::Result<()> {{
-        Ok(())
+        r#"    fn call_upgraded(&self, _call: &mut varlink::Call, _bufreader: &mut BufRead) -> varlink::Result<usize> {{
+        Ok(0)
     }}
 }}
 
@@ -853,7 +853,7 @@ impl varlink::Interface for VarlinkInterfaceProxy {{
 
     write!(
         w,
-        r#"    fn call_upgraded(&self, call: &mut varlink::Call, bufreader: &mut BufRead) -> varlink::Result<()> {{
+        r#"    fn call_upgraded(&self, call: &mut varlink::Call, bufreader: &mut BufRead) -> varlink::Result<usize> {{
         self.inner.call_upgraded(call, bufreader)
     }}
 

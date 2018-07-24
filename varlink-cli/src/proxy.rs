@@ -1,10 +1,10 @@
 use failure::ResultExt;
 use org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
-use serde_json::{from_slice, to_string, from_value};
-use std::io::{self, BufRead, Write, copy};
+use serde_json::{from_slice, from_value, to_string};
+use std::io::{self, copy, BufRead, Write};
 use std::thread;
 use varlink::{
-    Call, Connection, ErrorKind, Reply, Request, Result, VarlinkStream,GetInterfaceDescriptionArgs
+    Call, Connection, ErrorKind, GetInterfaceDescriptionArgs, Reply, Request, Result, VarlinkStream,
 };
 
 pub fn handle<R, W>(mut client_reader: R, mut client_writer: W) -> Result<bool>
@@ -17,7 +17,7 @@ where
 
     let mut upgraded = false;
     let mut last_iface = String::new();
-    let mut last_service_stream : Option<VarlinkStream> = None;
+    let mut last_service_stream: Option<VarlinkStream> = None;
     let mut address = String::new();
 
     loop {
@@ -50,7 +50,7 @@ where
                 Some(x) => x,
             };
 
-            let iface= {
+            let iface = {
                 if req.method == "org.varlink.service.GetInterfaceDescription" {
                     let val = req.parameters.clone().unwrap_or_default();
                     let args: GetInterfaceDescriptionArgs = from_value(val)?;
@@ -126,12 +126,10 @@ where
                 // Should copy back and forth, until someone disconnects.
                 let (mut service_reader, mut service_writer) = service_stream.split()?;
                 {
-                    let copy1 = thread::spawn(move || {
-                        copy(&mut client_reader, &mut service_writer)
-                    });
-                    let copy2 = thread::spawn(move || {
-                        copy(&mut service_reader, &mut client_writer)
-                    });
+                    let copy1 =
+                        thread::spawn(move || copy(&mut client_reader, &mut service_writer));
+                    let copy2 =
+                        thread::spawn(move || copy(&mut service_reader, &mut client_writer));
                     let r = copy1.join();
                     r.unwrap_or(Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
                     let r = copy2.join();

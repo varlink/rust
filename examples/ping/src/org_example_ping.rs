@@ -25,6 +25,14 @@ pub struct Ping_Args {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct Upgrade_Reply {}
+
+impl varlink::VarlinkReply for Upgrade_Reply {}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct Upgrade_Args {}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct PingError_Args {
     pub parameter: i64,
 }
@@ -158,19 +166,29 @@ pub trait Call_Ping: VarlinkCallError {
 
 impl<'a> Call_Ping for varlink::Call<'a> {}
 
+pub trait Call_Upgrade: VarlinkCallError {
+    fn reply(&mut self) -> varlink::Result<()> {
+        self.reply_struct(varlink::Reply::parameters(None))
+    }
+}
+
+impl<'a> Call_Upgrade for varlink::Call<'a> {}
+
 pub trait VarlinkInterface {
     fn ping(&self, call: &mut Call_Ping, ping: String) -> varlink::Result<()>;
+    fn upgrade(&self, call: &mut Call_Upgrade) -> varlink::Result<()>;
     fn call_upgraded(
         &self,
         _call: &mut varlink::Call,
         _bufreader: &mut BufRead,
-    ) -> varlink::Result<()> {
-        Ok(())
+    ) -> varlink::Result<usize> {
+        Ok(0)
     }
 }
 
 pub trait VarlinkClientInterface {
     fn ping(&mut self, ping: String) -> varlink::MethodCall<Ping_Args, Ping_Reply, Error>;
+    fn upgrade(&mut self) -> varlink::MethodCall<Upgrade_Args, Upgrade_Reply, Error>;
 }
 
 pub struct VarlinkClient {
@@ -211,6 +229,13 @@ impl VarlinkClientInterface for VarlinkClient {
             Ping_Args { ping },
         )
     }
+    fn upgrade(&mut self) -> varlink::MethodCall<Upgrade_Args, Upgrade_Reply, Error> {
+        varlink::MethodCall::<Upgrade_Args, Upgrade_Reply, Error>::new(
+            self.connection.clone(),
+            "org.example.ping.Upgrade",
+            Upgrade_Args {},
+        )
+    }
 }
 
 pub struct VarlinkInterfaceProxy {
@@ -229,6 +254,8 @@ interface org.example.ping
 # Returns the same string
 method Ping(ping: string) -> (pong: string)
 
+method Upgrade() -> ()
+
 error PingError(parameter: int)"#####################################
     }
 
@@ -240,7 +267,7 @@ error PingError(parameter: int)"#####################################
         &self,
         call: &mut varlink::Call,
         bufreader: &mut BufRead,
-    ) -> varlink::Result<()> {
+    ) -> varlink::Result<usize> {
         self.inner.call_upgraded(call, bufreader)
     }
 
@@ -255,6 +282,7 @@ error PingError(parameter: int)"#####################################
                     call.reply_invalid_parameter("parameters".into())
                 }
             }
+            "org.example.ping.Upgrade" => self.inner.upgrade(call as &mut Call_Upgrade),
 
             m => call.reply_method_not_found(String::from(m)),
         }

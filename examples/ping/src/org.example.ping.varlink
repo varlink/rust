@@ -4,4 +4,6 @@ interface org.example.ping
 # Returns the same string
 method Ping(ping: string) -> (pong: string)
 
+method Upgrade() -> ()
+
 error PingError(parameter: int)

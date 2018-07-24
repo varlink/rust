@@ -1,18 +1,18 @@
 //! Handle network connections for a varlink service
 #![allow(dead_code)]
 
-use {ErrorKind, Result};
 use failure::Fail;
+use {ErrorKind, Result};
 //#![feature(getpid)]
 //use std::process;
 // FIXME
 use libc;
-use std::{env, fs, mem, thread};
 use std::io::{BufReader, Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use std::os::unix::net::{UnixListener, UnixStream};
-use std::sync::{Arc, mpsc, Mutex, RwLock};
+use std::sync::{mpsc, Arc, Mutex, RwLock};
+use std::{env, fs, mem, thread};
 // FIXME: abstract unix domains sockets still not in std
 // FIXME: https://github.com/rust-lang/rust/issues/14194
 use unix_socket::UnixListener as AbstractUnixListener;
@@ -371,8 +371,8 @@ impl ThreadPool {
     }
 
     pub fn execute<F>(&mut self, f: F)
-        where
-            F: FnOnce() + Send + 'static,
+    where
+        F: FnOnce() + Send + 'static,
     {
         let job = Box::new(f);
         self.sender.send(Message::NewJob(job)).unwrap();
@@ -498,6 +498,7 @@ pub fn listen<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + Sync + 'st
             if let Err(err) = handler.handle(
                 &mut BufReader::new(stream.try_clone().expect("Could not split stream")),
                 &mut stream,
+                None,
             ) {
                 if err.kind() != ErrorKind::ConnectionClosed {
                     eprintln!("Worker error: {}", err);
@@ -510,4 +511,3 @@ pub fn listen<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + Sync + 'st
         });
     }
 }
-

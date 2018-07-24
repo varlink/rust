@@ -20,8 +20,8 @@ use std::os::unix::io::{AsRawFd, FromRawFd};
 use std::path::Path;
 use std::str;
 use varlink::{
-    Connection, GetInterfaceDescriptionReply, MethodCall,
-    OrgVarlinkServiceClient, OrgVarlinkServiceInterface,
+    Connection, GetInterfaceDescriptionReply, MethodCall, OrgVarlinkServiceClient,
+    OrgVarlinkServiceInterface,
 };
 
 use varlink_parser::Varlink;
@@ -159,7 +159,8 @@ fn varlink_bridge() -> Result<()> {
     let stdin = ::std::io::stdin();
     let stdout = ::std::io::stdout();
 
-    let inbuf = unsafe { ::std::io::BufReader::new(::std::fs::File::from_raw_fd(stdin.as_raw_fd())) };
+    let inbuf =
+        unsafe { ::std::io::BufReader::new(::std::fs::File::from_raw_fd(stdin.as_raw_fd())) };
     let outw = unsafe { ::std::fs::File::from_raw_fd(stdout.as_raw_fd()) };
 
     handle(inbuf, outw)?;

@@ -12,14 +12,15 @@ use clap::{App, Arg, SubCommand};
 use error::{ErrorKind, Result};
 use failure::ResultExt;
 use org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
-use proxy::Proxy;
+use proxy::handle;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
+use std::os::unix::io::{AsRawFd, FromRawFd};
 use std::path::Path;
 use std::str;
 use varlink::{
-    Connection, ConnectionHandler, GetInterfaceDescriptionReply, MethodCall,
+    Connection, GetInterfaceDescriptionReply, MethodCall,
     OrgVarlinkServiceClient, OrgVarlinkServiceInterface,
 };
 
@@ -155,12 +156,13 @@ fn varlink_call(url: &str, args: Option<&str>, more: bool) -> Result<()> {
 }
 
 fn varlink_bridge() -> Result<()> {
-    let proxy = Proxy {};
-
     let stdin = ::std::io::stdin();
     let stdout = ::std::io::stdout();
 
-    proxy.handle(&mut stdin.lock(), &mut stdout.lock())?;
+    let inbuf = unsafe { ::std::io::BufReader::new(::std::fs::File::from_raw_fd(stdin.as_raw_fd())) };
+    let outw = unsafe { ::std::fs::File::from_raw_fd(stdout.as_raw_fd()) };
+
+    handle(inbuf, outw)?;
     Ok(())
 }
 

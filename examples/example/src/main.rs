@@ -11,8 +11,7 @@ use io_systemd_network::*;
 use std::env;
 use std::process::exit;
 use std::sync::{Arc, RwLock};
-use varlink::OrgVarlinkServiceInterface;
-use varlink::VarlinkService;
+use varlink::{Connection, OrgVarlinkServiceInterface, VarlinkService};
 
 mod io_systemd_network;
 
@@ -51,28 +50,26 @@ fn main() {
 
     let client_mode = matches.opt_present("client");
 
-    let address = match matches.opt_str("varlink") {
-        None => {
-            if !client_mode {
-                eprintln!("Need varlink address in server mode.");
-                print_usage(&program, &opts);
-                return;
-            }
-            format!("exec:{}", program)
-        }
-        Some(a) => a,
-    };
-
     let ret = if client_mode {
-        run_client(&address)
+        let connection = match matches.opt_str("varlink") {
+            None => Connection::with_activate(&format!("{} --varlink=$VARLINK_ADDRESS", program))
+                .unwrap(),
+            Some(address) => Connection::with_address(&address).unwrap(),
+        };
+        run_client(connection)
     } else {
-        run_server(&address, 0)
+        if let Some(address) = matches.opt_str("varlink") {
+            run_server(&address, 0).map_err(|e| e.into())
+        } else {
+            print_usage(&program, &opts);
+            eprintln!("Need varlink address in server mode.");
+            exit(1);
+        }
     };
-
     exit(match ret {
         Ok(_) => 0,
         Err(err) => {
-            eprintln!("error: {}", err);
+            eprintln!("error: {:?}", err);
             1
         }
     });
@@ -80,10 +77,8 @@ fn main() {
 
 // Client
 
-fn run_client<S: ?Sized + AsRef<str>>(address: &S) -> varlink::Result<()> {
-    let conn = varlink::Connection::new(address)?;
-
-    let mut iface = varlink::OrgVarlinkServiceClient::new(conn.clone());
+fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
+    let mut iface = varlink::OrgVarlinkServiceClient::new(connection.clone());
     {
         let info = iface.get_info()?;
         assert_eq!(&info.vendor, "org.varlink");
@@ -96,7 +91,7 @@ fn run_client<S: ?Sized + AsRef<str>>(address: &S) -> varlink::Result<()> {
 
     assert!(description.description.is_some());
 
-    let mut iface = VarlinkClient::new(conn);
+    let mut iface = VarlinkClient::new(connection);
 
     match iface.list().call() {
         Ok(List_Reply { netdevs: vec }) => {

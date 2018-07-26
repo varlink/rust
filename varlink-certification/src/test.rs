@@ -1,9 +1,10 @@
 use std::io;
 use std::process::{Command, Stdio};
 use std::{thread, time};
+use varlink::Connection;
 use {ErrorKind, Result};
 
-fn run_self_test(address: String) -> io::Result<()> {
+fn run_self_test(address: String) -> Result<()> {
     let client_address = address.clone();
 
     let child = thread::spawn(move || {
@@ -18,7 +19,7 @@ fn run_self_test(address: String) -> io::Result<()> {
     // give server time to start
     thread::sleep(time::Duration::from_secs(1));
 
-    let ret = ::run_client(&client_address);
+    let ret = ::run_client(Connection::with_address(&client_address)?);
     if let Err(e) = ret {
         panic!("error: {:?}", e);
     }
@@ -26,7 +27,7 @@ fn run_self_test(address: String) -> io::Result<()> {
         Err(io::Error::new(
             io::ErrorKind::ConnectionRefused,
             format!("{:#?}", e),
-        ))
+        ).into())
     } else {
         Ok(())
     }
@@ -61,19 +62,19 @@ fn get_exec() -> Result<String> {
     }
 
     if ::std::path::Path::new("../../../target/debug/varlink-certification").exists() {
-        return Ok("exec:../../../target/debug/varlink-certification".into());
+        return Ok("../../../target/debug/varlink-certification".into());
     }
 
     if ::std::path::Path::new("../../target/debug/varlink-certification").exists() {
-        return Ok("exec:../../target/debug/varlink-certification".into());
+        return Ok("../../target/debug/varlink-certification".into());
     }
 
     if ::std::path::Path::new("../target/debug/varlink-certification").exists() {
-        return Ok("exec:../target/debug/varlink-certification".into());
+        return Ok("../target/debug/varlink-certification".into());
     }
 
     if ::std::path::Path::new("./target/debug/varlink-certification").exists() {
-        return Ok("exec:./target/debug/varlink-certification".into());
+        return Ok("./target/debug/varlink-certification".into());
     }
 
     Err(ErrorKind::Io_Error(io::ErrorKind::NotFound).into())
@@ -86,7 +87,12 @@ fn test_exec() {
             eprintln!("test test::test_exec ... skipping, no varlink-certification binary found");
             return;
         }
-        Ok(address) => assert!(::run_client(&address).is_ok()),
+        Ok(program) => assert!(
+            ::run_client(Connection::with_activate(&format!(
+                "{} --varlink=$VARLINK_ADDRESS",
+                program
+            )).unwrap()).is_ok()
+        ),
     }
 }
 

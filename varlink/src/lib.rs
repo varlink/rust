@@ -52,7 +52,8 @@
 //!# impl<'a> Call_Ping for varlink::Call<'a> {}
 //!# pub trait VarlinkInterface {
 //!#     fn ping(&self, call: &mut Call_Ping, ping: String) -> Result<()>;
-//!#     fn call_upgraded(&self, _call: &mut varlink::Call, bufreader: &mut io::BufRead) -> Result<()> {Ok(())}
+//!#     fn call_upgraded(&self, _call: &mut varlink::Call, bufreader: &mut io::BufRead) ->
+//!# Result<usize> {Ok(0)}
 //!# }
 //!# pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
 //!# pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
@@ -62,7 +63,8 @@
 //!#     fn get_description(&self) -> &'static str { "interface org.example.ping\n\
 //!#                                                  method Ping(ping: string) -> (pong: string)" }
 //!#     fn get_name(&self) -> &'static str { "org.example.ping" }
-//!#     fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut io::BufRead) -> Result<()> { Ok(()) }
+//!#     fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut io::BufRead) ->
+//!# Result<usize> { Ok(0) }
 //!#     fn call(&self, call: &mut varlink::Call) -> Result<()> { Ok(()) }
 //!# }
 //!# fn main() {}
@@ -122,7 +124,8 @@
 //!# impl<'a> Call_Ping for varlink::Call<'a> {}
 //!# pub trait VarlinkInterface {
 //!#     fn ping(&self, call: &mut Call_Ping, ping: String) -> Result<()>;
-//!#     fn call_upgraded(&self, _call: &mut varlink::Call, bufreader: &mut io::BufRead) -> Result<()> {Ok(())}
+//!#     fn call_upgraded(&self, _call: &mut varlink::Call, bufreader: &mut io::BufRead) ->
+//!# Result<usize> {Ok(0)}
 //!# }
 //!# pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
 //!# pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
@@ -132,7 +135,8 @@
 //!#     fn get_description(&self) -> &'static str { "interface org.example.ping\n\
 //!#                                                  method Ping(ping: string) -> (pong: string)" }
 //!#     fn get_name(&self) -> &'static str { "org.example.ping" }
-//!#     fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut io::BufRead) -> Result<()> { Ok(()) }
+//!#     fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut io::BufRead) ->
+//!# Result<usize> { Ok(0) }
 //!#     fn call(&self, call: &mut varlink::Call) -> Result<()> { Ok(()) }
 //!# }}
 //!# use org_example_ping::*;
@@ -172,9 +176,6 @@
 //!- TCP `tcp:127.0.0.1:12345` hostname/IP address and port
 //!- UNIX socket `unix:/run/org.example.ftl` optional access `;mode=0666` parameter
 //!- UNIX abstract namespace socket `unix:@org.example.ftl` (on Linux only)
-//!- executed binary `exec:/usr/bin/org.example.ftl` via
-//!  [socket activation](https://github.com/varlink/documentation/wiki#activation)
-//!  (on Linux only)
 
 extern crate bytes;
 extern crate failure;
@@ -191,7 +192,7 @@ extern crate tempfile;
 extern crate unix_socket;
 extern crate varlink_parser;
 
-pub use client::VarlinkStream;
+pub use client::{varlink_exec, VarlinkStream};
 pub use error::{Error, ErrorKind, Result};
 use failure::ResultExt;
 use serde::de::{self, DeserializeOwned};
@@ -205,7 +206,9 @@ use std::convert::From;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
+use std::process::Child;
 use std::sync::{Arc, RwLock};
+use tempfile::TempDir;
 
 mod client;
 
@@ -763,16 +766,23 @@ impl<'a> Call<'a> {
     }
 }
 
+#[derive(Default)]
 pub struct Connection {
     pub reader: Option<BufReader<Box<Read + Send + Sync>>>,
     pub writer: Option<Box<Write + Send + Sync>>,
     address: String,
     #[allow(dead_code)] // For the stream Drop()
-    stream: client::VarlinkStream,
+    stream: Option<client::VarlinkStream>,
+    child: Option<Child>,
+    tempdir: Option<TempDir>,
 }
 
 impl Connection {
     pub fn new<S: ?Sized + AsRef<str>>(address: &S) -> Result<Arc<RwLock<Self>>> {
+        Self::with_address(address)
+    }
+
+    pub fn with_address<S: ?Sized + AsRef<str>>(address: &S) -> Result<Arc<RwLock<Self>>> {
         let (mut stream, address) = client::VarlinkStream::connect(address)?;
         let (r, w) = stream.split()?;
         let bufreader = BufReader::new(r);
@@ -780,11 +790,48 @@ impl Connection {
             reader: Some(bufreader),
             writer: Some(w),
             address,
-            stream,
+            stream: Some(stream),
+            child: None,
+            tempdir: None,
         })))
     }
+
+    pub fn with_activate<S: ?Sized + AsRef<str>>(command: &S) -> Result<Arc<RwLock<Self>>> {
+        let (c, a, t) = varlink_exec(command)?;
+        let (mut stream, address) = client::VarlinkStream::connect(&a)?;
+        let (r, w) = stream.split()?;
+        let bufreader = BufReader::new(r);
+        Ok(Arc::new(RwLock::new(Connection {
+            reader: Some(bufreader),
+            writer: Some(w),
+            address,
+            stream: Some(stream),
+            child: Some(c),
+            tempdir: t,
+        })))
+    }
+
+    pub fn with_bridge<S: ?Sized + AsRef<str>>(_command: &S) -> Result<Arc<RwLock<Self>>> {
+        unimplemented!()
+    }
+
     pub fn address(&self) -> String {
         self.address.clone()
+    }
+}
+
+impl Drop for Connection {
+    fn drop(&mut self) {
+        if let Some(ref mut child) = self.child {
+            let _res = child.kill();
+            let _res = child.wait();
+        }
+        if self.tempdir.is_some() {
+            if let Some(dir) = self.tempdir.take() {
+                use std::fs;
+                let _r = fs::remove_dir_all(dir);
+            }
+        }
     }
 }
 
@@ -1121,7 +1168,8 @@ impl VarlinkService {
     ///# fn get_description(&self) -> &'static str {
     ///#                    "interface org.example.ping\nmethod Ping(ping: string) -> (pong: string)" }
     ///# fn get_name(&self) -> &'static str { "org.example.ping" }
-    ///# fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut io::BufRead) -> varlink::Result<()> { Ok(()) }
+    ///# fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut io::BufRead) ->
+    ///# varlink::Result<usize> { Ok(0) }
     ///# fn call(&self, call: &mut varlink::Call) -> varlink::Result<()> { Ok(()) }
     ///# }
     ///# fn main_f() {
@@ -1239,7 +1287,7 @@ impl ConnectionHandler for VarlinkService {
     ///);
     ///let mut in_buf = io::BufReader::new("received null terminated message(s) go here \000".as_bytes());
     ///let mut out: Vec<u8> = Vec::new();
-    ///assert!(service.handle(&mut in_buf, &mut out).is_ok());
+    ///assert!(service.handle(&mut in_buf, &mut out, None).is_ok());
     ///# }
     ///# fn main() {}
     ///```

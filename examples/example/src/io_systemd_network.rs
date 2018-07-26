@@ -225,8 +225,8 @@ pub trait VarlinkInterface {
         &self,
         _call: &mut varlink::Call,
         _bufreader: &mut BufRead,
-    ) -> varlink::Result<()> {
-        Ok(())
+    ) -> varlink::Result<usize> {
+        Ok(0)
     }
 }
 
@@ -325,7 +325,7 @@ error UnknownError (text: string)
         &self,
         call: &mut varlink::Call,
         bufreader: &mut BufRead,
-    ) -> varlink::Result<()> {
+    ) -> varlink::Result<usize> {
         self.inner.call_upgraded(call, bufreader)
     }
 

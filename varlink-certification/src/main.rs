@@ -16,7 +16,7 @@ use std::io;
 use std::process::exit;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
-use varlink::{StringHashMap, StringHashSet, VarlinkService};
+use varlink::{Connection, StringHashMap, StringHashSet, VarlinkService};
 
 mod org_varlink_certification;
 #[cfg(test)]
@@ -59,30 +59,28 @@ fn main() -> Result<()> {
         .parse::<u64>()
         .unwrap_or(0);
 
-    let address = match matches.opt_str("varlink") {
-        None => {
-            if !client_mode {
-                print_usage(&program, &opts);
-                eprintln!("Need varlink address in server mode.");
-                exit(1);
-            }
-            format!("exec:{}", program)
-        }
-        Some(a) => a,
-    };
-
     if client_mode {
-        run_client(&address)?
+        let connection = match matches.opt_str("varlink") {
+            None => Connection::with_activate(&format!("{} --varlink=$VARLINK_ADDRESS", program))?,
+            Some(address) => Connection::with_address(&address)?,
+        };
+        run_client(connection)?
     } else {
-        run_server(&address, timeout)?
+        if let Some(address) = matches.opt_str("varlink") {
+            run_server(&address, timeout)?
+        } else {
+            print_usage(&program, &opts);
+            eprintln!("Need varlink address in server mode.");
+            exit(1);
+        }
     }
+
     Ok(())
 }
 
 // Client
 
-fn run_client(address: &str) -> Result<()> {
-    let connection = varlink::Connection::new(&address)?;
+fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
     let mut iface = VarlinkClient::new(connection);
 
     let ret = iface.start().call()?;

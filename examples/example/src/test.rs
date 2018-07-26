@@ -1,7 +1,10 @@
-use failure::{self, Error, Fail};
+use failure::Fail;
+use std::io;
 use std::{thread, time};
+use varlink::Connection;
+use Result;
 
-fn run_self_test(address: &'static str) -> Result<(), Error> {
+fn run_self_test(address: &'static str) -> Result<()> {
     let child = thread::spawn(move || {
         if let Err(e) = ::run_server(address, 4) {
             if e.kind() != ::varlink::ErrorKind::Timeout {
@@ -13,14 +16,12 @@ fn run_self_test(address: &'static str) -> Result<(), Error> {
     // give server time to start
     thread::sleep(time::Duration::from_secs(1));
 
-    let ret = ::run_client(address);
+    let ret = ::run_client(Connection::with_address(&address)?);
     if let Err(e) = ret {
-        eprintln!("error: {:#?}", e.cause());
-        return Err(e.into());
+        panic!("error: {}", e);
     }
-
     if let Err(e) = child.join() {
-        Err(failure::err_msg(format!("{:#?}", e)))
+        Err(io::Error::new(io::ErrorKind::ConnectionRefused, format!("{:#?}", e)).into())
     } else {
         Ok(())
     }

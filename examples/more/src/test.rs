@@ -1,7 +1,9 @@
 use std::io;
 use std::{thread, time};
+use varlink::Connection;
+use Result;
 
-fn run_self_test(address: String) -> io::Result<()> {
+fn run_self_test(address: String) -> Result<()> {
     let client_address = address.clone();
 
     let child = thread::spawn(move || {
@@ -16,15 +18,12 @@ fn run_self_test(address: String) -> io::Result<()> {
     // give server time to start
     thread::sleep(time::Duration::from_secs(1));
 
-    let ret = ::run_client(&client_address);
+    let ret = ::run_client(Connection::with_address(&client_address)?);
     if let Err(e) = ret {
         panic!("error: {}", e);
     }
     if let Err(e) = child.join() {
-        Err(io::Error::new(
-            io::ErrorKind::ConnectionRefused,
-            format!("{:#?}", e),
-        ))
+        Err(io::Error::new(io::ErrorKind::ConnectionRefused, format!("{:#?}", e)).into())
     } else {
         Ok(())
     }

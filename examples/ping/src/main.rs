@@ -14,9 +14,11 @@ use std::collections::HashMap;
 use std::env;
 use std::io::{BufRead, BufReader, Error, Read, Write};
 use std::process::exit;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::thread;
-use varlink::{Call, CallTrait, ConnectionHandler, Listener, ServerStream, VarlinkService};
+use varlink::{
+    Call, CallTrait, Connection, ConnectionHandler, Listener, ServerStream, VarlinkService,
+};
 
 // Dynamically build the varlink rust code.
 mod org_example_ping;
@@ -56,24 +58,22 @@ fn main() {
 
     let client_mode = matches.opt_present("client");
 
-    let address = match matches.opt_str("varlink") {
-        None => {
-            if !client_mode {
-                eprintln!("Need varlink address in server mode.");
-                print_usage(&program, &opts);
-                return;
-            }
-            format!("exec:{}", program)
-        }
-        Some(a) => a,
-    };
-
     let ret = if client_mode {
-        run_client(&address)
+        let connection = match matches.opt_str("varlink") {
+            None => Connection::with_activate(&format!("{} --varlink=$VARLINK_ADDRESS", program))
+                .unwrap(),
+            Some(address) => Connection::with_address(&address).unwrap(),
+        };
+        run_client(connection)
     } else {
-        run_server(&address, 0).map_err(|e| e.into())
+        if let Some(address) = matches.opt_str("varlink") {
+            run_server(&address, 0).map_err(|e| e.into())
+        } else {
+            print_usage(&program, &opts);
+            eprintln!("Need varlink address in server mode.");
+            exit(1);
+        }
     };
-
     exit(match ret {
         Ok(_) => 0,
         Err(err) => {
@@ -85,8 +85,7 @@ fn main() {
 
 // Client
 
-fn run_client(address: &str) -> Result<()> {
-    let connection = varlink::Connection::new(&address)?;
+fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
     {
         let mut iface = VarlinkClient::new(connection.clone());
         let ping = String::from("Test");

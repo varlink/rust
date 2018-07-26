@@ -10,8 +10,9 @@ extern crate varlink;
 use org_example_more::*;
 use std::env;
 use std::process::exit;
+use std::sync::{Arc, RwLock};
 use std::{thread, time};
-use varlink::VarlinkService;
+use varlink::{Connection, VarlinkService};
 
 // Dynamically build the varlink rust code.
 mod org_example_more;
@@ -65,24 +66,22 @@ fn main() {
         .parse::<u64>()
         .unwrap_or(1000);
 
-    let address = match matches.opt_str("varlink") {
-        None => {
-            if !client_mode {
-                eprintln!("Need varlink address in server mode.");
-                print_usage(&program, &opts);
-                return;
-            }
-            format!("exec:{}", program)
-        }
-        Some(a) => a,
-    };
-
     let ret = if client_mode {
-        run_client(&address)
+        let connection = match matches.opt_str("varlink") {
+            None => Connection::with_activate(&format!("{} --varlink=$VARLINK_ADDRESS", program))
+                .unwrap(),
+            Some(address) => Connection::with_address(&address).unwrap(),
+        };
+        run_client(connection)
     } else {
-        run_server(&address, timeout, sleep).map_err(|e| e.into())
+        if let Some(address) = matches.opt_str("varlink") {
+            run_server(&address, timeout, sleep).map_err(|e| e.into())
+        } else {
+            print_usage(&program, &opts);
+            eprintln!("Need varlink address in server mode.");
+            exit(1);
+        }
     };
-
     exit(match ret {
         Ok(_) => 0,
         Err(err) => {
@@ -94,16 +93,14 @@ fn main() {
 
 // Client
 
-fn run_client(address: &str) -> Result<()> {
-    let con1 = varlink::Connection::new(&address)?;
-    let new_addr;
-    {
-        let conn = con1.read().unwrap();
-        new_addr = conn.address();
-    }
-    let mut iface = org_example_more::VarlinkClient::new(con1);
+fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
+    let new_addr = {
+        let conn = connection.read().unwrap();
+        conn.address()
+    };
+    let mut iface = org_example_more::VarlinkClient::new(connection);
 
-    let con2 = varlink::Connection::new(&new_addr)?;
+    let con2 = varlink::Connection::with_address(&new_addr)?;
     let mut pingiface = org_example_more::VarlinkClient::new(con2);
 
     for reply in iface.test_more(10).more()? {

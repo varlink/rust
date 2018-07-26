@@ -19,6 +19,7 @@ use std::io::prelude::*;
 use std::os::unix::io::{AsRawFd, FromRawFd};
 use std::path::Path;
 use std::str;
+use std::sync::{Arc, RwLock};
 use varlink::{
     Connection, GetInterfaceDescriptionReply, MethodCall, OrgVarlinkServiceClient,
     OrgVarlinkServiceInterface,
@@ -39,9 +40,8 @@ fn varlink_format(filename: &str) -> Result<()> {
     Ok(())
 }
 
-fn varlink_info(address: &str) -> Result<()> {
-    let conn = Connection::new(address).context(ErrorKind::Connection(address.into()))?;
-    let mut call = OrgVarlinkServiceClient::new(conn);
+fn varlink_info(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
+    let mut call = OrgVarlinkServiceClient::new(connection);
     let info = call.get_info()?;
     println!("Vendor: {}", info.vendor);
     println!("Product: {}", info.product);
@@ -96,49 +96,63 @@ fn varlink_help(url: &str) -> Result<()> {
     Ok(())
 }
 
-fn varlink_call(url: &str, args: Option<&str>, more: bool, resolver: &str) -> Result<()> {
+fn varlink_call(
+    url: &str,
+    args: Option<&str>,
+    more: bool,
+    resolver: &str,
+    activate: Option<&str>,
+) -> Result<()> {
     let resolved_address: String;
     let address: &str;
     let interface: &str;
     let method: &str;
 
-    if let Some(del) = url.rfind('/') {
-        address = &url[0..del];
-        method = &url[(del + 1)..];
-        if method.find('.') == None {
-            return Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress).into());
-        }
-    } else {
-        if let Some(del) = url.rfind('.') {
-            interface = &url[0..del];
+    let connection = match activate {
+        Some(activate) => {
             method = url;
-            if method.find('.') == None {
-                return Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress).into());
-            }
-        } else {
-            return Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress).into());
+            Connection::with_activate(activate)?
         }
-        let conn = Connection::new(resolver)?;
-        let mut resolver = VarlinkClient::new(conn);
-        address = match resolver.resolve(interface.into()).call() {
-            Ok(r) => {
-                resolved_address = r.address.clone();
-                resolved_address.as_ref()
+        None => {
+            if let Some(del) = url.rfind('/') {
+                address = &url[0..del];
+                method = &url[(del + 1)..];
+                if method.find('.') == None {
+                    return Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress).into());
+                }
+            } else {
+                if let Some(del) = url.rfind('.') {
+                    interface = &url[0..del];
+                    method = url;
+                    if method.find('.') == None {
+                        return Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress).into());
+                    }
+                } else {
+                    return Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress).into());
+                }
+                let conn = Connection::new(resolver)?;
+                let mut resolver = VarlinkClient::new(conn);
+                address = match resolver.resolve(interface.into()).call() {
+                    Ok(r) => {
+                        resolved_address = r.address.clone();
+                        resolved_address.as_ref()
+                    }
+                    _ => Err(varlink::Error::from(varlink::ErrorKind::InterfaceNotFound(
+                        interface.into(),
+                    )))?,
+                };
             }
-            _ => Err(varlink::Error::from(varlink::ErrorKind::InterfaceNotFound(
-                interface.into(),
-            )))?,
-        };
-    }
+            Connection::with_address(address).context(ErrorKind::Connection(address.into()))?
+        }
+    };
 
-    let conn = Connection::new(address).context(ErrorKind::Connection(address.into()))?;
     let args = match args {
         Some(args) => serde_json::from_str(args).context(ErrorKind::SerdeJsonDe(args.to_string()))?,
         None => serde_json::Value::Null,
     };
 
     let mut call = MethodCall::<serde_json::Value, serde_json::Value, varlink::Error>::new(
-        conn.clone(),
+        connection.clone(),
         String::from(method),
         args,
     );
@@ -219,9 +233,9 @@ fn main() -> Result<()> {
         .subcommand(
             SubCommand::with_name("bridge")
                 .version(VERSION)
-                .about("Bridge varlink messages to services on this machine")
+                .about("Bridge varlink messages from stdio to services on this machine")
                 .long_about(
-                    "Bridge varlink messages on standard in and out to varlink services on this \
+                    "Bridge varlink messages on stdin and stdout to varlink services on this \
                      machine.",
                 )
                 .arg(
@@ -267,7 +281,7 @@ fn main() -> Result<()> {
                 .version(VERSION)
                 .about("Print information about a service")
                 .long_about("Prints information about the service running at ADDRESS.")
-                .arg(Arg::with_name("ADDRESS").required(true)),
+                .arg(Arg::with_name("ADDRESS").required(false)),
         )
         .subcommand(
             SubCommand::with_name("help")
@@ -313,8 +327,18 @@ fn main() -> Result<()> {
             varlink_format(filename)?
         }
         ("info", Some(sub_matches)) => {
-            let address = sub_matches.value_of("ADDRESS").unwrap();
-            varlink_info(address)?
+            let connection = match activate {
+                Some(activate) => Connection::with_activate(activate)?,
+                None => match sub_matches.value_of("ADDRESS") {
+                    Some(address) => Connection::with_address(address)?,
+                    None => {
+                        app.print_help().context(ErrorKind::Argument)?;
+                        println!();
+                        return Err(ErrorKind::Connection("No ADDRESS or activation".into()).into());
+                    }
+                },
+            };
+            varlink_info(connection)?
         }
         ("bridge", Some(sub_matches)) => {
             let address = sub_matches.value_of("connect");
@@ -328,7 +352,7 @@ fn main() -> Result<()> {
             let method = sub_matches.value_of("METHOD").unwrap();
             let args = sub_matches.value_of("ARGUMENTS");
             let more = sub_matches.is_present("more");
-            varlink_call(method, args, more, resolver)?
+            varlink_call(method, args, more, resolver, activate)?
         }
         (_, _) => {
             app.print_help().context(ErrorKind::Argument)?;

@@ -12,7 +12,6 @@ use std::os::unix::io::{FromRawFd, IntoRawFd};
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
 use std::process::{Child, Command};
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
 use tempfile::tempdir;
 use tempfile::TempDir;
 // FIXME: abstract unix domains sockets still not in std
@@ -22,14 +21,13 @@ use {ErrorKind, Result};
 
 pub enum VarlinkStream {
     TCP(TcpStream),
-    UNIX(UnixStream, Option<Child>, Option<TempDir>),
+    UNIX(UnixStream),
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
 pub fn varlink_exec<S: ?Sized + AsRef<str>>(
     address: &S,
 ) -> Result<(Child, String, Option<TempDir>)> {
-    let address = address.as_ref();
+    let executable = address.as_ref();
     use unix_socket::UnixListener;
 
     let dir = tempdir()?;
@@ -38,78 +36,32 @@ pub fn varlink_exec<S: ?Sized + AsRef<str>>(
     let listener = UnixListener::bind(file_path.clone())?;
     let fd = listener.into_raw_fd();
 
-    let executable = &address[5..];
-    let child = Command::new(executable)
-        .arg(format!("--varlink=unix:{}", file_path.clone().display()))
-        .before_exec(move || {
+    let child = Command::new("sh")
+        .arg("-c")
+        .arg(executable)
+        .before_exec({
+            let file_path = file_path.clone();
+            move || {
             unsafe {
                 if fd != 3 {
                     close(3);
                     dup2(fd, 3);
                 }
+                env::set_var("VARLINK_ADDRESS", format!("unix:{}", file_path.display()));
                 env::set_var("LISTEN_FDS", "1");
                 env::set_var("LISTEN_FDNAMES", "varlink");
                 env::set_var("LISTEN_PID", format!("{}", getpid()));
             }
             Ok(())
-        })
+        }})
         .spawn()?;
     Ok((child, format!("unix:{}", file_path.display()), Some(dir)))
-}
-
-#[cfg(any(target_os = "linux", target_os = "android"))]
-pub fn varlink_exec<S: ?Sized + AsRef<str>>(
-    address: &S,
-) -> Result<(Child, String, Option<TempDir>)> {
-    let address = address.as_ref();
-
-    use unix_socket::os::linux::SocketAddrExt;
-    use unix_socket::UnixListener as AbstractUnixListener;
-
-    let executable = &address[5..];
-    let listener = AbstractUnixListener::bind("")?;
-    let local_addr = listener.local_addr()?;
-    let path = local_addr.as_abstract();
-    let fd = listener.into_raw_fd();
-    let child = Command::new(executable)
-        .arg(format!(
-            "--varlink=unix:@{}",
-            String::from_utf8_lossy(path.unwrap())
-        ))
-        .before_exec(move || {
-            unsafe {
-                if fd != 3 {
-                    close(3);
-                    dup2(fd, 3);
-                }
-                env::set_var("LISTEN_FDS", "1");
-                env::set_var("LISTEN_FDNAMES", "varlink");
-                env::set_var("LISTEN_PID", format!("{}", getpid()));
-            }
-            Ok(())
-        })
-        .spawn()?;
-    Ok((
-        child,
-        format!("unix:@{}", String::from_utf8_lossy(path.unwrap())),
-        None,
-    ))
 }
 
 impl<'a> VarlinkStream {
     pub fn connect<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Self, String)> {
         let address = address.as_ref();
-        let new_address: String;
-        let mut my_child: Option<Child> = None;
-        let tmpdir: Option<TempDir> = if address.starts_with("exec:") {
-            let (c, a, t) = varlink_exec(address)?;
-            new_address = a;
-            my_child = Some(c);
-            t
-        } else {
-            new_address = address.into();
-            None
-        };
+        let new_address: String = address.into();
 
         if new_address.starts_with("tcp:") {
             Ok((
@@ -123,19 +75,12 @@ impl<'a> VarlinkStream {
                 let l = AbstractStream::connect(addr)?;
                 unsafe {
                     return Ok((
-                        VarlinkStream::UNIX(
-                            UnixStream::from_raw_fd(l.into_raw_fd()),
-                            my_child,
-                            tmpdir,
-                        ),
+                        VarlinkStream::UNIX(UnixStream::from_raw_fd(l.into_raw_fd())),
                         new_address,
                     ));
                 }
             }
-            Ok((
-                VarlinkStream::UNIX(UnixStream::connect(addr)?, my_child, tmpdir),
-                new_address,
-            ))
+            Ok((VarlinkStream::UNIX(UnixStream::connect(addr)?), new_address))
         } else {
             Err(ErrorKind::InvalidAddress)?
         }
@@ -146,7 +91,7 @@ impl<'a> VarlinkStream {
             VarlinkStream::TCP(ref mut s) => {
                 Ok((Box::new(s.try_clone()?), Box::new(s.try_clone()?)))
             }
-            VarlinkStream::UNIX(ref mut s, _, _) => {
+            VarlinkStream::UNIX(ref mut s) => {
                 Ok((Box::new(s.try_clone()?), Box::new(s.try_clone()?)))
             }
         }
@@ -155,7 +100,7 @@ impl<'a> VarlinkStream {
     pub fn shutdown(&mut self) -> Result<()> {
         match *self {
             VarlinkStream::TCP(ref mut s) => s.shutdown(Shutdown::Both)?,
-            VarlinkStream::UNIX(ref mut s, _, _) => s.shutdown(Shutdown::Both)?,
+            VarlinkStream::UNIX(ref mut s) => s.shutdown(Shutdown::Both)?,
         }
         Ok(())
     }
@@ -163,7 +108,7 @@ impl<'a> VarlinkStream {
     pub fn set_nonblocking(&self, b: bool) -> Result<()> {
         match *self {
             VarlinkStream::TCP(ref l) => l.set_nonblocking(b)?,
-            VarlinkStream::UNIX(ref l, _, _) => l.set_nonblocking(b)?,
+            VarlinkStream::UNIX(ref l) => l.set_nonblocking(b)?,
         }
         Ok(())
     }
@@ -172,13 +117,5 @@ impl<'a> VarlinkStream {
 impl Drop for VarlinkStream {
     fn drop(&mut self) {
         let _r = self.shutdown();
-        if let VarlinkStream::UNIX(_, Some(ref mut child), ref mut tmpdir) = *self {
-            let _res = child.kill();
-            let _res = child.wait();
-            if let Some(dir) = tmpdir.take() {
-                use std::fs;
-                let _r = fs::remove_dir_all(dir);
-            }
-        }
     }
 }

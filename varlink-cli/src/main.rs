@@ -12,7 +12,7 @@ use clap::{App, Arg, SubCommand};
 use error::{ErrorKind, Result};
 use failure::ResultExt;
 use org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
-use proxy::handle;
+use proxy::{handle, handle_connect};
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
@@ -96,7 +96,7 @@ fn varlink_help(url: &str) -> Result<()> {
     Ok(())
 }
 
-fn varlink_call(url: &str, args: Option<&str>, more: bool) -> Result<()> {
+fn varlink_call(url: &str, args: Option<&str>, more: bool, resolver: &str) -> Result<()> {
     let resolved_address: String;
     let address: &str;
     let interface: &str;
@@ -118,7 +118,7 @@ fn varlink_call(url: &str, args: Option<&str>, more: bool) -> Result<()> {
         } else {
             return Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress).into());
         }
-        let conn = Connection::new("unix:/run/org.varlink.resolver")?;
+        let conn = Connection::new(resolver)?;
         let mut resolver = VarlinkClient::new(conn);
         address = match resolver.resolve(interface.into()).call() {
             Ok(r) => {
@@ -155,7 +155,7 @@ fn varlink_call(url: &str, args: Option<&str>, more: bool) -> Result<()> {
     Ok(())
 }
 
-fn varlink_bridge() -> Result<()> {
+fn varlink_bridge(address: Option<&str>) -> Result<()> {
     let stdin = ::std::io::stdin();
     let stdout = ::std::io::stdout();
 
@@ -163,7 +163,11 @@ fn varlink_bridge() -> Result<()> {
         unsafe { ::std::io::BufReader::new(::std::fs::File::from_raw_fd(stdin.as_raw_fd())) };
     let outw = unsafe { ::std::fs::File::from_raw_fd(stdout.as_raw_fd()) };
 
-    handle(inbuf, outw)?;
+    if let Some(address) = address {
+        handle_connect(address, inbuf, outw)?;
+    } else {
+        handle(inbuf, outw)?;
+    }
     Ok(())
 }
 
@@ -172,21 +176,45 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 fn main() -> Result<()> {
     let mut app = App::new("varlink")
         .version(VERSION)
-        .arg(
-            Arg::with_name("timeout")
-                .short("t")
-                .long("timeout")
-                .value_name("SECONDS")
-                .help("time in seconds to wait for a reply")
-                .takes_value(true),
-        )
+        /*
+                .arg(
+                    Arg::with_name("timeout")
+                        .short("t")
+                        .long("timeout")
+                        .value_name("SECONDS")
+                        .help("time in seconds to wait for a reply")
+                        .takes_value(true),
+                )
+        */
         .arg(
             Arg::with_name("resolver")
                 .short("R")
                 .long("resolver")
                 .value_name("ADDRESS")
                 .help("address of the resolver")
-                .takes_value(true),
+                .takes_value(true)
+                .required(false)
+                .default_value("unix:/run/org.varlink.resolver"),
+        )
+        .arg(
+            Arg::with_name("bridge")
+                .short("b")
+                .long("bridge")
+                .value_name("COMMAND")
+                .help("Command to execute and connect to")
+                .takes_value(true)
+                .required(false)
+        )
+        .arg(
+            Arg::with_name("activate")
+                .short("A")
+                .long("activate")
+                .value_name("COMMAND")
+                .help("Service to socket-activate and connect to")
+                .long_help("Service to socket-activate and connect to. The temporary UNIX socket \
+                address is exported as $VARLINK_ADDRESS.")
+                .takes_value(true)
+                .required(false)
         )
         .subcommand(
             SubCommand::with_name("bridge")
@@ -195,6 +223,15 @@ fn main() -> Result<()> {
                 .long_about(
                     "Bridge varlink messages on standard in and out to varlink services on this \
                      machine.",
+                )
+                .arg(
+                    Arg::with_name("connect")
+                        .short("C")
+                        .long("connect")
+                        .value_name("ADDRESS")
+                        .help("connect directly to ADDRESS")
+                        .required(false)
+                        .takes_value(true),
                 ),
         )
         .subcommand(
@@ -262,6 +299,9 @@ fn main() -> Result<()> {
                 ),
         );
     let matches = app.clone().get_matches();
+    let resolver = matches.value_of("resolver").unwrap();
+    let bridge = matches.value_of("bridge");
+    let activate = matches.value_of("activate");
 
     match matches.subcommand() {
         ("completions", Some(sub_matches)) => {
@@ -276,7 +316,10 @@ fn main() -> Result<()> {
             let address = sub_matches.value_of("ADDRESS").unwrap();
             varlink_info(address)?
         }
-        ("bridge", _) => varlink_bridge()?,
+        ("bridge", Some(sub_matches)) => {
+            let address = sub_matches.value_of("connect");
+            varlink_bridge(address)?
+        }
         ("help", Some(sub_matches)) => {
             let interface = sub_matches.value_of("INTERFACE").unwrap();
             varlink_help(interface)?
@@ -285,7 +328,7 @@ fn main() -> Result<()> {
             let method = sub_matches.value_of("METHOD").unwrap();
             let args = sub_matches.value_of("ARGUMENTS");
             let more = sub_matches.is_present("more");
-            varlink_call(method, args, more)?
+            varlink_call(method, args, more, resolver)?
         }
         (_, _) => {
             app.print_help().context(ErrorKind::Argument)?;

@@ -141,3 +141,105 @@ where
     }
     Ok(upgraded)
 }
+
+pub fn handle_connect<R, W>(
+    address: &str,
+    mut client_reader: R,
+    mut client_writer: W,
+) -> Result<bool>
+where
+    R: BufRead + Send + Sync + 'static,
+    W: Write + Send + Sync + 'static,
+{
+    let mut upgraded = false;
+    let mut last_iface = String::new();
+    let (mut stream, _) = VarlinkStream::connect(&address)?;
+
+    loop {
+        if !upgraded {
+            let (service_reader, mut service_writer) = stream.split()?;
+
+            let mut buf = Vec::new();
+            match client_reader.read_until(b'\0', &mut buf) {
+                Ok(0) => break,
+                Err(_e) => break,
+                _ => {}
+            }
+
+            // pop the last zero byte
+            buf.pop();
+
+            let req: Request = from_slice(&buf).context(ErrorKind::SerdeJsonDe(
+                String::from_utf8_lossy(&buf).to_string(),
+            ))?;
+
+            if req.oneway.unwrap_or(false) {
+                continue;
+            }
+            let n: usize = match req.method.rfind('.') {
+                None => {
+                    let method: String = String::from(req.method.as_ref());
+                    let mut call = Call::new(&mut client_writer, &req);
+                    call.reply_interface_not_found(Some(method))?;
+                    return Ok(false);
+                }
+                Some(x) => x,
+            };
+
+            let iface = String::from(&req.method[..n]);
+
+            if iface != last_iface {
+                last_iface = iface.clone();
+            }
+
+            {
+                let b = to_string(&req)? + "\0";
+
+                service_writer.write_all(b.as_bytes())?;
+                service_writer.flush()?;
+            }
+
+            let mut service_bufreader = ::std::io::BufReader::new(service_reader);
+
+            loop {
+                let mut buf = Vec::new();
+
+                if service_bufreader.read_until(0, &mut buf)? == 0 {
+                    break;
+                }
+                if buf.is_empty() {
+                    return Err(ErrorKind::ConnectionClosed)?;
+                }
+
+                client_writer.write_all(&buf)?;
+                client_writer.flush()?;
+
+                buf.pop();
+
+                let reply: Reply = from_slice(&buf).context(ErrorKind::SerdeJsonDe(
+                    String::from_utf8_lossy(&buf).to_string(),
+                ))?;
+
+                upgraded = reply.upgraded.unwrap_or(false);
+
+                if upgraded || !reply.continues.unwrap_or(false) {
+                    break;
+                }
+            }
+        } else {
+            let (mut service_reader, mut service_writer) = stream.split()?;
+
+            // Should copy back and forth, until someone disconnects.
+            {
+                let copy1 = thread::spawn(move || copy(&mut client_reader, &mut service_writer));
+                let copy2 = thread::spawn(move || copy(&mut service_reader, &mut client_writer));
+                let r = copy1.join();
+                r.unwrap_or(Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
+                let r = copy2.join();
+                r.unwrap_or(Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
+            }
+            return Ok(true);
+        }
+    }
+    Ok(upgraded)
+}

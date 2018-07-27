@@ -32,7 +32,13 @@ fn main() -> Result<()> {
     let program = args[0].clone();
 
     let mut opts = getopts::Options::new();
-    opts.optopt("", "varlink", "varlink address URL", "<address>");
+    opts.optopt("", "varlink", "varlink address URL", "<ADDRESS>");
+    opts.optopt(
+        "b",
+        "bridge",
+        "Command to execute and connect to",
+        "<COMMAND>",
+    );
     opts.optflag("", "client", "run in client mode");
     opts.optflag("h", "help", "print this help menu");
     opts.optopt("", "timeout", "server timeout", "<seconds>");
@@ -61,7 +67,14 @@ fn main() -> Result<()> {
 
     if client_mode {
         let connection = match matches.opt_str("varlink") {
-            None => Connection::with_activate(&format!("{} --varlink=$VARLINK_ADDRESS", program))?,
+            None => match matches.opt_str("bridge") {
+                Some(bridge) => Connection::with_bridge(&bridge)?,
+                None => Connection::with_activate(&format!(
+                    "{} \
+                     --varlink=$VARLINK_ADDRESS",
+                    program
+                ))?,
+            },
             Some(address) => Connection::with_address(&address)?,
         };
         run_client(connection)?

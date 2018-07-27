@@ -1,6 +1,6 @@
 [package]
 name = "varlink-certification"
-version = "1.0.4"
+version = "2.0.0"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 build = "build.rs"
 

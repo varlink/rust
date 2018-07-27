@@ -2,9 +2,7 @@
 
 #![allow(dead_code)]
 
-use libc::close;
-use libc::dup2;
-use libc::getpid;
+use libc::{close, dup2, getpid};
 use std::env;
 use std::io::{Read, Write};
 use std::net::{Shutdown, TcpStream};
@@ -42,20 +40,38 @@ pub fn varlink_exec<S: ?Sized + AsRef<str>>(
         .before_exec({
             let file_path = file_path.clone();
             move || {
-            unsafe {
-                if fd != 3 {
-                    close(3);
-                    dup2(fd, 3);
+                unsafe {
+                    if fd != 3 {
+                        close(3);
+                        dup2(fd, 3);
+                    }
+                    env::set_var("VARLINK_ADDRESS", format!("unix:{}", file_path.display()));
+                    env::set_var("LISTEN_FDS", "1");
+                    env::set_var("LISTEN_FDNAMES", "varlink");
+                    env::set_var("LISTEN_PID", format!("{}", getpid()));
                 }
-                env::set_var("VARLINK_ADDRESS", format!("unix:{}", file_path.display()));
-                env::set_var("LISTEN_FDS", "1");
-                env::set_var("LISTEN_FDNAMES", "varlink");
-                env::set_var("LISTEN_PID", format!("{}", getpid()));
+                Ok(())
             }
-            Ok(())
-        }})
+        })
         .spawn()?;
     Ok((child, format!("unix:{}", file_path.display()), Some(dir)))
+}
+
+pub fn varlink_bridge<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Child, VarlinkStream)> {
+    let executable = address.as_ref();
+    //use unix_socket::UnixStream;
+    let (stream0, stream1) = UnixStream::pair()?;
+    let fd = stream1.into_raw_fd();
+    let childin = unsafe { ::std::fs::File::from_raw_fd(fd) };
+    let childout = unsafe { ::std::fs::File::from_raw_fd(fd) };
+
+    let child = Command::new("sh")
+        .arg("-c")
+        .arg(executable)
+        .stdin(childin)
+        .stdout(childout)
+        .spawn()?;
+    Ok((child, VarlinkStream::UNIX(stream0)))
 }
 
 impl<'a> VarlinkStream {

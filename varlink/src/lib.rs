@@ -192,7 +192,7 @@ extern crate tempfile;
 extern crate unix_socket;
 extern crate varlink_parser;
 
-pub use client::{varlink_exec, VarlinkStream};
+pub use client::{varlink_bridge, varlink_exec, VarlinkStream};
 pub use error::{Error, ErrorKind, Result};
 use failure::ResultExt;
 use serde::de::{self, DeserializeOwned};
@@ -811,8 +811,18 @@ impl Connection {
         })))
     }
 
-    pub fn with_bridge<S: ?Sized + AsRef<str>>(_command: &S) -> Result<Arc<RwLock<Self>>> {
-        unimplemented!()
+    pub fn with_bridge<S: ?Sized + AsRef<str>>(command: &S) -> Result<Arc<RwLock<Self>>> {
+        let (child, mut stream) = varlink_bridge(command)?;
+        let (r, w) = stream.split()?;
+        let bufreader = BufReader::new(r);
+        Ok(Arc::new(RwLock::new(Connection {
+            reader: Some(bufreader),
+            writer: Some(w),
+            address: "bridge".into(),
+            stream: Some(stream),
+            child: Some(child),
+            tempdir: None,
+        })))
     }
 
     pub fn address(&self) -> String {
@@ -822,6 +832,9 @@ impl Connection {
 
 impl Drop for Connection {
     fn drop(&mut self) {
+        if let Some(ref mut stream) = self.stream {
+            let _r = stream.shutdown();
+        }
         if let Some(ref mut child) = self.child {
             let _res = child.kill();
             let _res = child.wait();

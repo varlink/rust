@@ -102,6 +102,7 @@ fn varlink_call(
     more: bool,
     resolver: &str,
     activate: Option<&str>,
+    bridge: Option<&str>,
 ) -> Result<()> {
     let resolved_address: String;
     let address: &str;
@@ -113,37 +114,45 @@ fn varlink_call(
             method = url;
             Connection::with_activate(activate)?
         }
-        None => {
-            if let Some(del) = url.rfind('/') {
-                address = &url[0..del];
-                method = &url[(del + 1)..];
-                if method.find('.') == None {
-                    return Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress).into());
-                }
-            } else {
-                if let Some(del) = url.rfind('.') {
-                    interface = &url[0..del];
-                    method = url;
+        None => match bridge {
+            Some(bridge) => {
+                method = url;
+                Connection::with_bridge(bridge)?
+            }
+            None => {
+                if let Some(del) = url.rfind('/') {
+                    address = &url[0..del];
+                    method = &url[(del + 1)..];
                     if method.find('.') == None {
                         return Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress).into());
                     }
                 } else {
-                    return Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress).into());
-                }
-                let conn = Connection::new(resolver)?;
-                let mut resolver = VarlinkClient::new(conn);
-                address = match resolver.resolve(interface.into()).call() {
-                    Ok(r) => {
-                        resolved_address = r.address.clone();
-                        resolved_address.as_ref()
+                    if let Some(del) = url.rfind('.') {
+                        interface = &url[0..del];
+                        method = url;
+                        if method.find('.') == None {
+                            return Err(
+                                varlink::Error::from(varlink::ErrorKind::InvalidAddress).into()
+                            );
+                        }
+                    } else {
+                        return Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress).into());
                     }
-                    _ => Err(varlink::Error::from(varlink::ErrorKind::InterfaceNotFound(
-                        interface.into(),
-                    )))?,
-                };
+                    let conn = Connection::new(resolver)?;
+                    let mut resolver = VarlinkClient::new(conn);
+                    address = match resolver.resolve(interface.into()).call() {
+                        Ok(r) => {
+                            resolved_address = r.address.clone();
+                            resolved_address.as_ref()
+                        }
+                        _ => Err(varlink::Error::from(varlink::ErrorKind::InterfaceNotFound(
+                            interface.into(),
+                        )))?,
+                    };
+                }
+                Connection::with_address(address).context(ErrorKind::Connection(address.into()))?
             }
-            Connection::with_address(address).context(ErrorKind::Connection(address.into()))?
-        }
+        },
     };
 
     let args = match args {
@@ -329,13 +338,18 @@ fn main() -> Result<()> {
         ("info", Some(sub_matches)) => {
             let connection = match activate {
                 Some(activate) => Connection::with_activate(activate)?,
-                None => match sub_matches.value_of("ADDRESS") {
-                    Some(address) => Connection::with_address(address)?,
-                    None => {
-                        app.print_help().context(ErrorKind::Argument)?;
-                        println!();
-                        return Err(ErrorKind::Connection("No ADDRESS or activation".into()).into());
-                    }
+                None => match bridge {
+                    Some(bridge) => Connection::with_bridge(bridge)?,
+                    None => match sub_matches.value_of("ADDRESS") {
+                        Some(address) => Connection::with_address(address)?,
+                        None => {
+                            app.print_help().context(ErrorKind::Argument)?;
+                            println!();
+                            return Err(
+                                ErrorKind::Connection("No ADDRESS or activation".into()).into()
+                            );
+                        }
+                    },
                 },
             };
             varlink_info(connection)?
@@ -352,7 +366,7 @@ fn main() -> Result<()> {
             let method = sub_matches.value_of("METHOD").unwrap();
             let args = sub_matches.value_of("ARGUMENTS");
             let more = sub_matches.is_present("more");
-            varlink_call(method, args, more, resolver, activate)?
+            varlink_call(method, args, more, resolver, activate, bridge)?
         }
         (_, _) => {
             app.print_help().context(ErrorKind::Argument)?;

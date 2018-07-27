@@ -24,10 +24,7 @@ fn run_self_test(address: String) -> Result<()> {
         panic!("error: {:?}", e);
     }
     if let Err(e) = child.join() {
-        Err(io::Error::new(
-            io::ErrorKind::ConnectionRefused,
-            format!("{:#?}", e),
-        ).into())
+        Err(io::Error::new(io::ErrorKind::ConnectionRefused, format!("{:#?}", e)).into())
     } else {
         Ok(())
     }
@@ -88,10 +85,10 @@ fn test_exec() {
             return;
         }
         Ok(program) => assert!(
-            ::run_client(Connection::with_activate(&format!(
-                "{} --varlink=$VARLINK_ADDRESS",
-                program
-            )).unwrap()).is_ok()
+            ::run_client(
+                Connection::with_activate(&format!("{} --varlink=$VARLINK_ADDRESS", program))
+                    .unwrap(),
+            ).is_ok()
         ),
     }
 }

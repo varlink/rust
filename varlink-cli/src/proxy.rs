@@ -96,6 +96,10 @@ where
                 service_writer.flush()?;
             }
 
+            if req.oneway.unwrap_or(false) {
+                continue;
+            }
+
             loop {
                 let mut buf = Vec::new();
 
@@ -117,7 +121,7 @@ where
 
                 upgraded = reply.upgraded.unwrap_or(false);
 
-                if upgraded || !reply.continues.unwrap_or(false) {
+                if upgraded || (!reply.continues.unwrap_or(false)) {
                     break;
                 }
             }
@@ -173,9 +177,6 @@ where
                 String::from_utf8_lossy(&buf).to_string(),
             ))?;
 
-            if req.oneway.unwrap_or(false) {
-                continue;
-            }
             let n: usize = match req.method.rfind('.') {
                 None => {
                     let method: String = String::from(req.method.as_ref());
@@ -197,6 +198,10 @@ where
 
                 service_writer.write_all(b.as_bytes())?;
                 service_writer.flush()?;
+            }
+
+            if req.oneway.unwrap_or(false) {
+                continue;
             }
 
             let mut service_bufreader = ::std::io::BufReader::new(service_reader);

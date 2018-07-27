@@ -54,9 +54,9 @@ fn get_exec() -> Result<String> {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
-    {
-        let _ = child.wait();
-    }
+        {
+            let _ = child.wait();
+        }
 
     if ::std::path::Path::new("../../../target/debug/varlink-certification").exists() {
         return Ok("../../../target/debug/varlink-certification".into());
@@ -84,12 +84,15 @@ fn test_exec() {
             eprintln!("test test::test_exec ... skipping, no varlink-certification binary found");
             return;
         }
-        Ok(program) => assert!(
-            ::run_client(
-                Connection::with_activate(&format!("{} --varlink=$VARLINK_ADDRESS", program))
-                    .unwrap(),
-            ).is_ok()
-        ),
+        Ok(program) => {
+            eprintln!("with --activate='{} --varlink=$VARLINK_ADDRESS'", program);
+            assert!(
+                ::run_client(
+                    Connection::with_activate(&format!("{} --varlink=$VARLINK_ADDRESS", program))
+                        .unwrap(),
+                ).is_ok()
+            );
+        }
     }
 }
 

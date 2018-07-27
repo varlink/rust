@@ -20,7 +20,7 @@ before_script:
   - unset RUSTFLAGS
 script:
 - cargo build --all
-- cargo test --all
+- cargo test --all -- --nocapture
 after_success: |
   if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
     cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID

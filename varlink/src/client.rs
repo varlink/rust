@@ -25,7 +25,7 @@ pub enum VarlinkStream {
 pub fn varlink_exec<S: ?Sized + AsRef<str>>(
     address: &S,
 ) -> Result<(Child, String, Option<TempDir>)> {
-    let executable = address.as_ref();
+    let executable = String::from("exec ") + address.as_ref();
     use unix_socket::UnixListener;
 
     let dir = tempdir()?;

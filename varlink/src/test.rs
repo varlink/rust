@@ -1,3 +1,4 @@
+use serde_json::{from_slice, from_value};
 use std::{thread, time};
 use *;
 
@@ -127,4 +128,49 @@ error InvalidParameter (parameter: string)
     assert!(run_client_app(address).is_ok());
 
     assert!(child.join().is_ok());
+}
+
+#[test]
+fn test_handle() {
+    let service = VarlinkService::new(
+        "org.varlink",
+        "test service",
+        "0.1",
+        "http://varlink.org",
+        vec![],
+    );
+
+    let mut br = concat!(r#"{"method" : "org.varlink.service.GetInfo"}"#, "\0").as_bytes();
+    let mut w = vec![];
+    let r = service.handle(&mut br, &mut w, None);
+    assert!(r.is_ok());
+    assert!(r.unwrap().is_none());
+
+    w.pop();
+
+    assert_eq!(
+        w,
+        concat!(
+            r#"{"parameters":{"interfaces":["org.varlink.service"],"product":"test service","#,
+            r#""url":"http://varlink.org","vendor":"org.varlink","version":"0.1"}}"#
+        ).as_bytes()
+    );
+
+    let reply = from_slice::<Reply>(&w).unwrap();
+
+    match from_value::<ServiceInfo>(reply.parameters.unwrap()) {
+        Ok(si) => {
+            assert_eq!(
+                si,
+                ServiceInfo {
+                    vendor: "org.varlink".into(),
+                    product: "test service".into(),
+                    version: "0.1".into(),
+                    url: "http://varlink.org".into(),
+                    interfaces: vec!["org.varlink.service".into()],
+                }
+            );
+        }
+        Err(e) => panic!(e.to_string()),
+    };
 }

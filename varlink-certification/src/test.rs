@@ -54,24 +54,18 @@ fn get_exec() -> Result<String> {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
-        {
-            let _ = child.wait();
+    {
+        let _ = child.wait();
+    }
+
+    if let Ok(dir) = ::std::env::var("CARGO_MANIFEST_DIR") {
+        let e = dir + "/../target/debug/"
+            + ::std::env::var("CARGO_PKG_NAME")
+                .unwrap_or("varlink-certification".to_string())
+                .as_ref();
+        if ::std::path::Path::new(&e).exists() {
+            return Ok(e);
         }
-
-    if ::std::path::Path::new("../../../target/debug/varlink-certification").exists() {
-        return Ok("../../../target/debug/varlink-certification".into());
-    }
-
-    if ::std::path::Path::new("../../target/debug/varlink-certification").exists() {
-        return Ok("../../target/debug/varlink-certification".into());
-    }
-
-    if ::std::path::Path::new("../target/debug/varlink-certification").exists() {
-        return Ok("../target/debug/varlink-certification".into());
-    }
-
-    if ::std::path::Path::new("./target/debug/varlink-certification").exists() {
-        return Ok("./target/debug/varlink-certification".into());
     }
 
     Err(ErrorKind::Io_Error(io::ErrorKind::NotFound).into())
@@ -85,7 +79,6 @@ fn test_exec() {
             return;
         }
         Ok(program) => {
-            eprintln!("with --activate='{} --varlink=$VARLINK_ADDRESS'", program);
             assert!(
                 ::run_client(
                     Connection::with_activate(&format!("{} --varlink=$VARLINK_ADDRESS", program))

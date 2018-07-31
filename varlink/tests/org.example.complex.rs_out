@@ -310,8 +310,9 @@ impl<'a> Call_Foo for varlink::Call<'a> {}
 pub trait VarlinkInterface {
     fn bar(&self, call: &mut Call_Bar) -> varlink::Result<()>;
     fn foo(&self, call: &mut Call_Foo, enum_: Foo_Args_enum, foo: TypeFoo, interface: Interface) -> varlink::Result<()>;
-    fn call_upgraded(&self, _call: &mut varlink::Call, _bufreader: &mut BufRead) -> varlink::Result<usize> {
-        Ok(0)
+    fn call_upgraded(&self, _call: &mut varlink::Call, _bufreader: &mut BufRead) ->
+        varlink::Result<Vec<u8>> {
+        Ok(Vec::new())
     }
 }
 
@@ -434,7 +435,8 @@ error ErrorBar ()
         "org.example.complex"
     }
 
-    fn call_upgraded(&self, call: &mut varlink::Call, bufreader: &mut BufRead) -> varlink::Result<usize> {
+    fn call_upgraded(&self, call: &mut varlink::Call, bufreader: &mut BufRead) ->
+        varlink::Result<Vec<u8>> {
         self.inner.call_upgraded(call, bufreader)
     }
 

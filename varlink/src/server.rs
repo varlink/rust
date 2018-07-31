@@ -7,7 +7,7 @@ use {ErrorKind, Result};
 //use std::process;
 // FIXME
 use libc;
-use std::io::{BufReader, Read, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use std::os::unix::net::{UnixListener, UnixStream};
@@ -493,18 +493,36 @@ pub fn listen<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + Sync + 'st
         let handler = handler.clone();
 
         pool.execute(move || {
-            if let Err(err) = handler.handle(
-                &mut BufReader::new(stream.try_clone().expect("Could not split stream")),
-                &mut stream,
-                None,
-            ) {
-                if err.kind() != ErrorKind::ConnectionClosed {
-                    eprintln!("Worker error: {}", err);
-                    for cause in err.causes().skip(1) {
-                        eprintln!("  caused by: {}", cause);
+            let (r, mut w) = stream.split().unwrap();
+            let mut br = BufReader::new(r);
+            let mut iface: Option<String> = None;
+            loop {
+                match handler.handle(&mut br, &mut w, iface.clone()) {
+                    Ok((_, i)) => {
+                        iface = i;
+                        match br.fill_buf() {
+                            Err(_) => break,
+                            Ok(buf) if buf.len() == 0 => break,
+                            _ => {}
+                        }
+                    }
+                    Err(err) => {
+                        match err.kind() {
+                            | ErrorKind::ConnectionClosed
+                            | ErrorKind::Io(::std::io::ErrorKind::BrokenPipe)
+                            | ErrorKind::Io(::std::io::ErrorKind::ConnectionReset)
+                            | ErrorKind::Io(::std::io::ErrorKind::ConnectionAborted) => {}
+                            _ => {
+                                eprintln!("Worker error: {}", err);
+                                for cause in err.causes().skip(1) {
+                                    eprintln!("  caused by: {}", cause);
+                                }
+                            }
+                        }
+                        let _ = stream.shutdown();
+                        break;
                     }
                 }
-                let _ = stream.shutdown();
             }
         });
     }

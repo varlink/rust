@@ -577,8 +577,8 @@ pub trait VarlinkInterface {
         &self,
         _call: &mut varlink::Call,
         _bufreader: &mut BufRead,
-    ) -> varlink::Result<usize> {
-        Ok(0)
+    ) -> varlink::Result<Vec<u8>> {
+        Ok(Vec::new())
     }
 }
 
@@ -930,7 +930,7 @@ error CertificationError (wants: object, got: object)
         &self,
         call: &mut varlink::Call,
         bufreader: &mut BufRead,
-    ) -> varlink::Result<usize> {
+    ) -> varlink::Result<Vec<u8>> {
         self.inner.call_upgraded(call, bufreader)
     }
 

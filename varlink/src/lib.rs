@@ -53,7 +53,7 @@
 //!# pub trait VarlinkInterface {
 //!#     fn ping(&self, call: &mut Call_Ping, ping: String) -> Result<()>;
 //!#     fn call_upgraded(&self, _call: &mut varlink::Call, bufreader: &mut io::BufRead) ->
-//!# Result<usize> {Ok(0)}
+//!# Result<Vec<u8>> {Ok(Vec::new())}
 //!# }
 //!# pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
 //!# pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
@@ -64,7 +64,7 @@
 //!#                                                  method Ping(ping: string) -> (pong: string)" }
 //!#     fn get_name(&self) -> &'static str { "org.example.ping" }
 //!#     fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut io::BufRead) ->
-//!# Result<usize> { Ok(0) }
+//!# Result<Vec<u8>> { Ok(Vec::new()) }
 //!#     fn call(&self, call: &mut varlink::Call) -> Result<()> { Ok(()) }
 //!# }
 //!# fn main() {}
@@ -125,7 +125,7 @@
 //!# pub trait VarlinkInterface {
 //!#     fn ping(&self, call: &mut Call_Ping, ping: String) -> Result<()>;
 //!#     fn call_upgraded(&self, _call: &mut varlink::Call, bufreader: &mut io::BufRead) ->
-//!# Result<usize> {Ok(0)}
+//!# Result<Vec<u8>> {Ok(Vec::new())}
 //!# }
 //!# pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
 //!# pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
@@ -136,7 +136,7 @@
 //!#                                                  method Ping(ping: string) -> (pong: string)" }
 //!#     fn get_name(&self) -> &'static str { "org.example.ping" }
 //!#     fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut io::BufRead) ->
-//!# Result<usize> { Ok(0) }
+//!# Result<Vec<u8>> { Ok(Vec::new()) }
 //!#     fn call(&self, call: &mut varlink::Call) -> Result<()> { Ok(()) }
 //!# }}
 //!# use org_example_ping::*;
@@ -333,7 +333,7 @@ impl Error {
 pub trait Interface {
     fn get_description(&self) -> &'static str;
     fn get_name(&self) -> &'static str;
-    fn call_upgraded(&self, call: &mut Call, bufreader: &mut BufRead) -> Result<usize>;
+    fn call_upgraded(&self, call: &mut Call, bufreader: &mut BufRead) -> Result<Vec<u8>>;
     fn call(&self, call: &mut Call) -> Result<()>;
 }
 
@@ -636,7 +636,7 @@ pub trait CallTrait {
     ///```
     fn set_continues(&mut self, cont: bool);
 
-    fn set_upgraded(&mut self, upgraded: bool);
+    fn to_upgraded(&mut self);
 
     /// True, if this request does not want a reply.
     fn is_oneway(&self) -> bool;
@@ -697,8 +697,8 @@ impl<'a> CallTrait for Call<'a> {
         self.continues = cont;
     }
 
-    fn set_upgraded(&mut self, upgraded: bool) {
-        self.upgraded = upgraded;
+    fn to_upgraded(&mut self) {
+        self.upgraded = true;
     }
 
     /// True, if this request does not want a reply.
@@ -1128,9 +1128,9 @@ error InvalidParameter (parameter: string)
         "org.varlink.service"
     }
 
-    fn call_upgraded(&self, call: &mut Call, _bufreader: &mut BufRead) -> Result<usize> {
+    fn call_upgraded(&self, call: &mut Call, _bufreader: &mut BufRead) -> Result<Vec<u8>> {
         call.upgraded = false;
-        Ok(0)
+        Ok(Vec::new())
     }
 
     fn call(&self, call: &mut Call) -> Result<()> {
@@ -1182,7 +1182,7 @@ impl VarlinkService {
     ///#                    "interface org.example.ping\nmethod Ping(ping: string) -> (pong: string)" }
     ///# fn get_name(&self) -> &'static str { "org.example.ping" }
     ///# fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut io::BufRead) ->
-    ///# varlink::Result<usize> { Ok(0) }
+    ///# varlink::Result<Vec<u8>> { Ok(Vec::new()) }
     ///# fn call(&self, call: &mut varlink::Call) -> varlink::Result<()> { Ok(()) }
     ///# }
     ///# fn main_f() {
@@ -1247,7 +1247,7 @@ impl VarlinkService {
         iface: &str,
         call: &mut Call,
         bufreader: &mut BufRead,
-    ) -> Result<usize> {
+    ) -> Result<Vec<u8>> {
         match iface {
             "org.varlink.service" => self::Interface::call_upgraded(self, call, bufreader),
             key => {
@@ -1255,7 +1255,7 @@ impl VarlinkService {
                     self.ifaces[key].call_upgraded(call, bufreader)
                 } else {
                     call.reply_interface_not_found(Some(iface.into()))?;
-                    Ok(0)
+                    Ok(Vec::new())
                 }
             }
         }
@@ -1268,7 +1268,7 @@ pub trait ConnectionHandler {
         bufreader: &mut BufRead,
         writer: &mut Write,
         upgraded_iface: Option<String>,
-    ) -> Result<Option<String>>;
+    ) -> Result<(Vec<u8>, Option<String>)>;
 }
 
 impl ConnectionHandler for VarlinkService {
@@ -1308,24 +1308,28 @@ impl ConnectionHandler for VarlinkService {
         &self,
         bufreader: &mut BufRead,
         writer: &mut Write,
-        mut upgraded_iface: Option<String>,
-    ) -> Result<Option<String>> {
+        upgraded_iface: Option<String>,
+    ) -> Result<(Vec<u8>, Option<String>)> {
+        let mut upgraded_iface = upgraded_iface.clone();
         loop {
-            if let Some(last_iface) = upgraded_iface.take() {
+            if let Some(iface) = upgraded_iface {
                 let mut call = Call::new_upgraded(writer);
-                let len = self.call_upgraded(&last_iface, &mut call, bufreader)?;
-                if call.upgraded {
-                    upgraded_iface = Some(last_iface);
-                }
-                if len == 0 {
-                    break;
-                }
+                let unread = self.call_upgraded(&iface, &mut call, bufreader)?;
+                return Ok((unread, Some(iface)));
             } else {
                 let mut buf = Vec::new();
-                if bufreader.read_until(b'\0', &mut buf)? == 0 {
+                let len = bufreader.read_until(b'\0', &mut buf)?;
+
+                if len == 0 {
                     // EOF
-                    break;
+                    return Ok((buf, None));
                 }
+
+                if buf.get(len - 1).unwrap_or(&b'x') != &b'\0' {
+                    // Incomplete message
+                    return Ok((buf, None));
+                }
+
                 // pop the last zero byte
                 buf.pop();
                 let req: Request = serde_json::from_slice(&buf).context(ErrorKind::SerdeJsonDe(
@@ -1337,7 +1341,7 @@ impl ConnectionHandler for VarlinkService {
                         let method: String = String::from(req.method.as_ref());
                         let mut call = Call::new(writer, &req);
                         call.reply_interface_not_found(Some(method))?;
-                        return Ok(None);
+                        return Ok((Vec::new(), None));
                     }
                     Some(x) => x,
                 };
@@ -1353,6 +1357,10 @@ impl ConnectionHandler for VarlinkService {
                 }
             }
         }
-        Ok(upgraded_iface)
+        #[cfg(any(feature = "bufreader_buffer", feature = "nightly"))]
+        return Ok((bufreader.buffer(), upgraded_iface));
+
+        #[cfg(not(any(feature = "bufreader_buffer", feature = "nightly")))]
+        return Ok((Vec::new(), upgraded_iface));
     }
 }

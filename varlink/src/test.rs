@@ -140,11 +140,38 @@ fn test_handle() {
         vec![],
     );
 
-    let mut br = concat!(r#"{"method" : "org.varlink.service.GetInfo"}"#, "\0").as_bytes();
+    let br = concat!(r#"{"method" : "org.varlink.service.GetInfo"}"#, "\0").as_bytes();
+
+    let a = br[0..10].to_vec();
+    let b = br[10..20].to_vec();
+    let c = br[20..].to_vec();
+
     let mut w = vec![];
-    let r = service.handle(&mut br, &mut w, None);
-    assert!(r.is_ok());
-    assert!(r.unwrap().is_none());
+
+    let mut buf = Vec::<u8>::new();
+
+    for mut i in vec![a, b, c] {
+        buf.append(&mut i);
+
+        match {
+            let mut br = buf.as_slice();
+            service.handle(&mut br, &mut w, None)
+        } {
+            Err(e) => {
+                panic!("Unexpected handle error {:#?}", e);
+            }
+            Ok((_, Some(iface))) => {
+                panic!("Unexpected handle return value {}", iface);
+            }
+            Ok((v, None)) => {
+                if v.len() == 0 {
+                    break;
+                }
+                //eprintln!("unhandled: {}", String::from_utf8_lossy(&v));
+                buf.clone_from(&v);
+            }
+        }
+    }
 
     w.pop();
 

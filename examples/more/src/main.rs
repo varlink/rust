@@ -133,7 +133,7 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
                 eprintln!("Progress: {}", progress);
                 if progress > 50 {
                     let reply = pingiface.ping("Test".into()).call()?;
-                    println!("Pong: '{}'", reply.pong);
+                    eprintln!("Pong: '{}'", reply.pong);
                 }
             }
             _ => eprintln!("Got unknown state: {:?}", state),

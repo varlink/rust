@@ -508,7 +508,7 @@ pub fn listen<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + Sync + 'st
                     }
                     Err(err) => {
                         match err.kind() {
-                            | ErrorKind::ConnectionClosed
+                            ErrorKind::ConnectionClosed
                             | ErrorKind::Io(::std::io::ErrorKind::BrokenPipe)
                             | ErrorKind::Io(::std::io::ErrorKind::ConnectionReset)
                             | ErrorKind::Io(::std::io::ErrorKind::ConnectionAborted) => {}

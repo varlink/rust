@@ -16,9 +16,7 @@ use std::io::{self, BufRead, BufReader, Error, Read, Write};
 use std::process::exit;
 use std::sync::{Arc, RwLock};
 use std::thread;
-use varlink::{
-    Call, Connection, ConnectionHandler, Listener, ServerStream, VarlinkService,
-};
+use varlink::{Call, Connection, ConnectionHandler, Listener, ServerStream, VarlinkService};
 
 // Dynamically build the varlink rust code.
 mod org_example_ping;

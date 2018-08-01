@@ -15,6 +15,7 @@ use std::sync::{mpsc, Arc, Mutex, RwLock};
 use std::{env, fs, mem, thread};
 // FIXME: abstract unix domains sockets still not in std
 // FIXME: https://github.com/rust-lang/rust/issues/14194
+use std::process;
 use unix_socket::UnixListener as AbstractUnixListener;
 
 #[derive(Debug)]
@@ -138,12 +139,9 @@ fn activation_listener() -> Result<Option<i32>> {
         _ => return Ok(None),
     }
 
-    unsafe {
-        match env::var("LISTEN_PID") {
-            //FIXME: replace Ok(getpid()) with Ok(process::id())
-            Ok(ref pid) if pid.parse::<i32>() == Ok(libc::getpid()) => {}
-            _ => return Ok(None),
-        }
+    match env::var("LISTEN_PID") {
+        Ok(ref pid) if pid.parse::<u32>() == Ok(process::id()) => {}
+        _ => return Ok(None),
     }
 
     if nfds == 1 {

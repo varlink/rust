@@ -22,7 +22,7 @@ pub enum ErrorKind {
     Connection(String),
     #[fail(display = "Call failed with error: {}\n{}", error, parameters)]
     VarlinkError { error: String, parameters: String },
-    #[fail(display = "{}", _0)]
+    #[fail(display = "Varlink Error: {}", _0)]
     Varlink(::varlink::ErrorKind),
 }
 
@@ -44,7 +44,12 @@ impl ::std::fmt::Display for Error {
 
 impl ::std::fmt::Debug for Error {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        ::std::fmt::Display::fmt(&self.inner, f)
+        ::std::fmt::Display::fmt(&self.inner, f)?;
+        for cause in Fail::iter_causes(&self.inner).skip(1) {
+            ::std::fmt::Display::fmt(" caused by: ", f)?;
+            ::std::fmt::Display::fmt(cause, f)?;
+        }
+        Ok(())
     }
 }
 

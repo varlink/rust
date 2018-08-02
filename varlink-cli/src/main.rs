@@ -4,6 +4,8 @@ extern crate failure;
 extern crate failure_derive;
 #[macro_use]
 extern crate serde_derive;
+#[cfg(test)]
+extern crate assert_cmd;
 extern crate serde_json;
 extern crate varlink;
 extern crate varlink_parser;
@@ -26,6 +28,9 @@ use varlink::{
 };
 
 use varlink_parser::Varlink;
+
+#[cfg(test)]
+mod test;
 
 mod error;
 mod org_varlink_resolver;

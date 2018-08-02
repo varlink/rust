@@ -1,3 +1,5 @@
+#[cfg(test)]
+extern crate assert_cmd;
 extern crate failure;
 #[macro_use]
 extern crate failure_derive;

@@ -15,3 +15,7 @@ failure = "0.1.2"
 
 [build-dependencies]
 varlink = { path = "../varlink" }
+
+[dev-dependencies]
+assert_cmd = "0.9"
+varlink = { version = "2", path = "../varlink" }

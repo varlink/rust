@@ -1,8 +1,9 @@
+use assert_cmd::cargo::{main_binary_path, CargoError};
 use std::io;
-use std::process::{Command, Stdio};
+use std::result;
 use std::{thread, time};
 use varlink::Connection;
-use {ErrorKind, Result};
+use Result;
 
 fn run_self_test(address: String) -> Result<()> {
     let client_address = address.clone();
@@ -46,29 +47,8 @@ fn test_tcp() {
     assert!(run_self_test("tcp:0.0.0.0:23456".into()).is_ok());
 }
 
-fn get_exec() -> Result<String> {
-    if let Ok(mut child) = Command::new("cargo")
-        .arg("build")
-        .arg("--package=varlink-certification")
-        .arg("--bin=varlink-certification")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-    {
-        let _ = child.wait();
-    }
-
-    if let Ok(dir) = ::std::env::var("CARGO_MANIFEST_DIR") {
-        let e = dir + "/../target/debug/"
-            + ::std::env::var("CARGO_PKG_NAME")
-                .unwrap_or("varlink-certification".to_string())
-                .as_ref();
-        if ::std::path::Path::new(&e).exists() {
-            return Ok(e);
-        }
-    }
-
-    Err(ErrorKind::Io_Error(io::ErrorKind::NotFound).into())
+fn get_exec() -> result::Result<String, CargoError> {
+    Ok(main_binary_path()?.to_string_lossy().to_string())
 }
 
 #[test]

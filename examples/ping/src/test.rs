@@ -17,6 +17,7 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
 
     // give server time to start
     thread::sleep(time::Duration::from_secs(1));
+
     {
         let con = Connection::with_address(&address)?;
 

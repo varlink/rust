@@ -10,8 +10,7 @@ extern crate serde_json;
 extern crate varlink;
 
 use org_varlink_certification::*;
-use std::collections::hash_map::DefaultHasher;
-use std::collections::VecDeque;
+use std::collections::{hash_map::DefaultHasher, VecDeque};
 use std::env;
 use std::hash::{Hash, Hasher};
 use std::io;

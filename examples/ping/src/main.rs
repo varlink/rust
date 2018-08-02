@@ -266,8 +266,11 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
                                     tracker.fill_buffer(&unprocessed_bytes);
 
                                     match tracker.write(out.as_ref()) {
-                                        Err(e) => {
-                                            eprintln!("write error: {}", e);
+                                        Err(err) => {
+                                            eprintln!("write error: {}", err);
+                                            for cause in Fail::iter_causes(&err) {
+                                                eprintln!("  caused by: {}", cause);
+                                            }
                                             let _ = tracker.shutdown();
                                             indices_to_remove.push(i);
                                             break;
@@ -278,7 +281,7 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
                                 Err(e) => match e.kind() {
                                     err => {
                                         eprintln!("handler error: {}", err);
-                                        for cause in err.causes().skip(1) {
+                                        for cause in Fail::iter_causes(&err).skip(1) {
                                             eprintln!("  caused by: {}", cause);
                                         }
                                         let _ = tracker.shutdown();
@@ -349,7 +352,7 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
                                         }
                                         _ => {
                                             eprintln!("Upgraded end: {}", err);
-                                            for cause in err.causes().skip(1) {
+                                            for cause in Fail::iter_causes(&err).skip(1) {
                                                 eprintln!("  caused by: {}", cause);
                                             }
                                             break;

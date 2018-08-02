@@ -514,7 +514,7 @@ pub fn listen<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + Sync + 'st
                             | ErrorKind::Io(::std::io::ErrorKind::ConnectionAborted) => {}
                             _ => {
                                 eprintln!("Worker error: {}", err);
-                                for cause in err.causes().skip(1) {
+                                for cause in Fail::iter_causes(&err).skip(1) {
                                     eprintln!("  caused by: {}", cause);
                                 }
                             }

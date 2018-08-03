@@ -16,7 +16,6 @@ static GLOBAL: System = System;
 use clap::{App, Arg, SubCommand};
 use error::{ErrorKind, Result};
 use failure::ResultExt;
-use varlink_service::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 use proxy::{handle, handle_connect};
 use std::fs::File;
 use std::io;
@@ -28,6 +27,7 @@ use varlink::{
     Connection, GetInterfaceDescriptionReply, MethodCall, OrgVarlinkServiceClient,
     OrgVarlinkServiceInterface,
 };
+use varlink_service::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 
 use varlink_parser::Varlink;
 

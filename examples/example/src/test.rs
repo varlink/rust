@@ -1,8 +1,8 @@
 use failure::Fail;
+use io_systemd_network::Result;
 use std::io;
 use std::{thread, time};
 use varlink::Connection;
-use Result;
 
 fn run_self_test(address: &'static str) -> Result<()> {
     let child = thread::spawn(move || {

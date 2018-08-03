@@ -7,13 +7,14 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate varlink;
 
-use io_systemd_network::*;
 use std::env;
 use std::process::exit;
 use std::sync::{Arc, RwLock};
 use varlink::{Connection, OrgVarlinkServiceInterface, VarlinkService};
 
 mod io_systemd_network;
+
+use io_systemd_network::VarlinkClientInterface;
 
 #[cfg(test)]
 mod test;
@@ -77,7 +78,7 @@ fn main() {
 
 // Client
 
-fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
+fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> io_systemd_network::Result<()> {
     let mut iface = varlink::OrgVarlinkServiceClient::new(connection.clone());
     {
         let info = iface.get_info()?;
@@ -91,10 +92,10 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
 
     assert!(description.description.is_some());
 
-    let mut iface = VarlinkClient::new(connection);
+    let mut iface = io_systemd_network::VarlinkClient::new(connection);
 
     match iface.list().call() {
-        Ok(List_Reply { netdevs: vec }) => {
+        Ok(io_systemd_network::List_Reply { netdevs: vec }) => {
             assert_eq!(vec.len(), 2);
             assert_eq!(vec[0].ifindex, 1);
             assert_eq!(vec[0].ifname, String::from("lo"));
@@ -105,9 +106,9 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
     }
 
     match iface.info(1).call() {
-        Ok(Info_Reply {
+        Ok(io_systemd_network::Info_Reply {
             info:
-                NetdevInfo {
+                io_systemd_network::NetdevInfo {
                     ifindex: 1,
                     ifname: ref p,
                 },
@@ -116,9 +117,9 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
     }
 
     match iface.info(2).call() {
-        Ok(Info_Reply {
+        Ok(io_systemd_network::Info_Reply {
             info:
-                NetdevInfo {
+                io_systemd_network::NetdevInfo {
                     ifindex: 2,
                     ifname: ref p,
                 },
@@ -127,13 +128,16 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
     }
 
     match iface.info(3).call().err().unwrap().kind() {
-        ErrorKind::Varlink_Error(varlink::ErrorKind::InvalidParameter(ref p)) if p == "ifindex" => {
-        }
+        io_systemd_network::ErrorKind::Varlink_Error(varlink::ErrorKind::InvalidParameter(
+            ref p,
+        )) if p == "ifindex" => {}
         res => panic!("Unknown result {:?}", res),
     }
 
     match iface.info(4).call().err().unwrap().kind() {
-        ErrorKind::UnknownNetworkIfIndex(Some(UnknownNetworkIfIndex_Args { ifindex: 4 })) => {}
+        io_systemd_network::ErrorKind::UnknownNetworkIfIndex(Some(
+            io_systemd_network::UnknownNetworkIfIndex_Args { ifindex: 4 },
+        )) => {}
         res => panic!("Unknown result {:?}", res),
     }
 
@@ -145,7 +149,7 @@ struct MyIoSystemdNetwork {
 }
 
 impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
-    fn info(&self, call: &mut Call_Info, ifindex: i64) -> varlink::Result<()> {
+    fn info(&self, call: &mut io_systemd_network::Call_Info, ifindex: i64) -> varlink::Result<()> {
         // State example
         {
             let mut number = self.state.write().unwrap();
@@ -156,11 +160,11 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
         }
 
         match ifindex {
-            1 => call.reply(NetdevInfo {
+            1 => call.reply(io_systemd_network::NetdevInfo {
                 ifindex: 1,
                 ifname: "lo".into(),
             }),
-            2 => call.reply(NetdevInfo {
+            2 => call.reply(io_systemd_network::NetdevInfo {
                 ifindex: 2,
                 ifname: "eth".into(),
             }),
@@ -172,7 +176,7 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
         }
     }
 
-    fn list(&self, call: &mut Call_List) -> varlink::Result<()> {
+    fn list(&self, call: &mut io_systemd_network::Call_List) -> varlink::Result<()> {
         // State example
         {
             let mut number = self.state.write().unwrap();
@@ -182,11 +186,11 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
             eprintln!("{}", *number);
         }
         call.reply(vec![
-            Netdev {
+            io_systemd_network::Netdev {
                 ifindex: 1,
                 ifname: "lo".into(),
             },
-            Netdev {
+            io_systemd_network::Netdev {
                 ifindex: 2,
                 ifname: "eth0".into(),
             },

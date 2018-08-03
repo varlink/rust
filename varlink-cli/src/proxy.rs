@@ -1,11 +1,11 @@
 use failure::ResultExt;
-use varlink_service::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 use serde_json::{from_slice, from_value, to_string};
 use std::io::{self, copy, BufRead, Write};
 use std::thread;
 use varlink::{
     Call, Connection, ErrorKind, GetInterfaceDescriptionArgs, Reply, Request, Result, VarlinkStream,
 };
+use varlink_service::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 
 pub fn handle<R, W>(mut client_reader: R, mut client_writer: W) -> Result<bool>
 where

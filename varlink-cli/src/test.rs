@@ -1,5 +1,5 @@
-use std::process::Command;
 use assert_cmd::prelude::*;
+use std::process::Command;
 
 #[test]
 fn test_exec() {

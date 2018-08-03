@@ -38,6 +38,7 @@ fn main() {
     let mut opts = getopts::Options::new();
     opts.optopt("", "varlink", "varlink address URL", "<address>");
     opts.optflag("", "client", "run in client mode");
+    opts.optflag("m", "multiplex", "run in multiplex mode");
     opts.optflag("h", "help", "print this help menu");
 
     let matches = match opts.parse(&args[1..]) {
@@ -65,7 +66,7 @@ fn main() {
         run_client(connection)
     } else {
         if let Some(address) = matches.opt_str("varlink") {
-            run_server(&address, 0, true).map_err(|e| e.into())
+            run_server(&address, 0, matches.opt_present("m")).map_err(|e| e.into())
         } else {
             print_usage(&program, &opts);
             eprintln!("Need varlink address in server mode.");

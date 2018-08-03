@@ -9,6 +9,10 @@ extern crate assert_cmd;
 extern crate serde_json;
 extern crate varlink;
 extern crate varlink_parser;
+use std::alloc::System;
+
+#[global_allocator]
+static GLOBAL: System = System;
 
 use clap::{App, Arg, SubCommand};
 use error::{ErrorKind, Result};

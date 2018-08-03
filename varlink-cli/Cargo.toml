@@ -1,6 +1,6 @@
 [package]
 name = "varlink-cli"
-version = "2.0.0"
+version = "2.1.0"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 license = "MIT/Apache-2.0"
 documentation = "https://github.com/varlink/rust/blob/master/varlink/README.md"
@@ -14,7 +14,7 @@ name = "varlink"
 path = "src/main.rs"
 
 [dependencies]
-varlink = { version = "2", path = "../varlink" }
+varlink = { version = "3", path = "../varlink" }
 varlink_parser = { version = "1", path = "../varlink_parser" }
 serde = "1"
 serde_derive = "1"
@@ -24,9 +24,9 @@ failure_derive = "0.1.2"
 failure = "0.1.2"
 
 [build-dependencies]
-varlink = { version = "2", path = "../varlink" }
+varlink = { version = "3", path = "../varlink" }
 
 [dev-dependencies]
 assert_cmd = "0.9"
 varlink_parser = { version = "1", path = "../varlink_parser" }
-varlink = { version = "2", path = "../varlink" }
+varlink = { version = "3", path = "../varlink" }

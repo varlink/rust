@@ -511,7 +511,8 @@ pub fn listen<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + Sync + 'st
                             ErrorKind::ConnectionClosed
                             | ErrorKind::Io(::std::io::ErrorKind::BrokenPipe)
                             | ErrorKind::Io(::std::io::ErrorKind::ConnectionReset)
-                            | ErrorKind::Io(::std::io::ErrorKind::ConnectionAborted) => {}
+                            | ErrorKind::Io(::std::io::ErrorKind::ConnectionAborted)
+                            | ErrorKind::SerdeJsonDe(_)=> {}
                             _ => {
                                 eprintln!("Worker error: {}", err);
                                 for cause in Fail::iter_causes(&err).skip(1) {

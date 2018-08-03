@@ -5,7 +5,7 @@ use std::thread;
 use varlink::{
     Call, Connection, ErrorKind, GetInterfaceDescriptionArgs, Reply, Request, Result, VarlinkStream,
 };
-use varlink_service::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
+use varlink_stdinterfaces::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 
 pub fn handle<R, W>(mut client_reader: R, mut client_writer: W) -> Result<bool>
 where

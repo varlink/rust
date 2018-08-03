@@ -7,7 +7,7 @@ extern crate assert_cmd;
 extern crate serde_json;
 extern crate varlink;
 extern crate varlink_parser;
-extern crate varlink_service;
+extern crate varlink_stdinterfaces;
 use std::alloc::System;
 
 #[global_allocator]
@@ -27,7 +27,7 @@ use varlink::{
     Connection, GetInterfaceDescriptionReply, MethodCall, OrgVarlinkServiceClient,
     OrgVarlinkServiceInterface,
 };
-use varlink_service::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
+use varlink_stdinterfaces::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 
 use varlink_parser::Varlink;
 

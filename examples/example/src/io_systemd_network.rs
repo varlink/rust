@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 // DO NOT EDIT
@@ -111,6 +110,7 @@ impl ::std::fmt::Display for Error {
 }
 
 impl Error {
+    #[allow(dead_code)]
     pub fn kind(&self) -> ErrorKind {
         self.inner.get_context().clone()
     }
@@ -144,6 +144,7 @@ impl From<serde_json::Error> for Error {
     }
 }
 
+#[allow(dead_code)]
 pub type Result<T> = ::std::result::Result<T, Error>;
 
 impl From<varlink::Error> for Error {
@@ -233,33 +234,15 @@ pub trait VarlinkClientInterface {
     fn list(&mut self) -> varlink::MethodCall<List_Args, List_Reply, Error>;
 }
 
+#[allow(dead_code)]
 pub struct VarlinkClient {
     connection: Arc<RwLock<varlink::Connection>>,
-    more: bool,
-    oneway: bool,
 }
 
 impl VarlinkClient {
+    #[allow(dead_code)]
     pub fn new(connection: Arc<RwLock<varlink::Connection>>) -> Self {
-        VarlinkClient {
-            connection,
-            more: false,
-            oneway: false,
-        }
-    }
-    pub fn more(&self) -> Self {
-        VarlinkClient {
-            connection: self.connection.clone(),
-            more: true,
-            oneway: false,
-        }
-    }
-    pub fn oneway(&self) -> Self {
-        VarlinkClient {
-            connection: self.connection.clone(),
-            more: false,
-            oneway: true,
-        }
+        VarlinkClient { connection }
     }
 }
 
@@ -280,10 +263,12 @@ impl VarlinkClientInterface for VarlinkClient {
     }
 }
 
+#[allow(dead_code)]
 pub struct VarlinkInterfaceProxy {
     inner: Box<VarlinkInterface + Send + Sync>,
 }
 
+#[allow(dead_code)]
 pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> VarlinkInterfaceProxy {
     VarlinkInterfaceProxy { inner }
 }

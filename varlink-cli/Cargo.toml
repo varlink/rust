@@ -7,7 +7,6 @@ documentation = "https://github.com/varlink/rust/blob/master/varlink/README.md"
 homepage = "https://github.com/varlink/rust/blob/master/varlink"
 repository = "https://github.com/varlink/rust"
 description = "varlink command line tool"
-build = "build.rs"
 
 [[bin]]
 name = "varlink"
@@ -15,9 +14,9 @@ path = "src/main.rs"
 
 [dependencies]
 varlink = { version = "3", path = "../varlink" }
+varlink_service = { version = "0.1", path = "../varlink_service" }
 varlink_parser = { version = "1", path = "../varlink_parser" }
 serde = "1"
-serde_derive = "1"
 serde_json = "1"
 clap = "2"
 failure_derive = "0.1.2"
@@ -30,3 +29,4 @@ varlink = { version = "3", path = "../varlink" }
 assert_cmd = "0.9"
 varlink_parser = { version = "1", path = "../varlink_parser" }
 varlink = { version = "3", path = "../varlink" }
+varlink_service = { version = "0.1", path = "../varlink_service" }

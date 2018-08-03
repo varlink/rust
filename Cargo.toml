@@ -2,6 +2,7 @@
 members = [
     "varlink_parser",
     "varlink",
+    "varlink_service",
     "varlink-cli",
     "varlink-certification",
     "examples/example",

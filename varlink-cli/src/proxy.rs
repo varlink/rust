@@ -1,5 +1,5 @@
 use failure::ResultExt;
-use org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
+use varlink_service::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 use serde_json::{from_slice, from_value, to_string};
 use std::io::{self, copy, BufRead, Write};
 use std::thread;

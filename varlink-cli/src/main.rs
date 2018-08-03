@@ -2,13 +2,12 @@ extern crate clap;
 extern crate failure;
 #[macro_use]
 extern crate failure_derive;
-#[macro_use]
-extern crate serde_derive;
 #[cfg(test)]
 extern crate assert_cmd;
 extern crate serde_json;
 extern crate varlink;
 extern crate varlink_parser;
+extern crate varlink_service;
 use std::alloc::System;
 
 #[global_allocator]
@@ -17,7 +16,7 @@ static GLOBAL: System = System;
 use clap::{App, Arg, SubCommand};
 use error::{ErrorKind, Result};
 use failure::ResultExt;
-use org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
+use varlink_service::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 use proxy::{handle, handle_connect};
 use std::fs::File;
 use std::io;
@@ -36,7 +35,6 @@ use varlink_parser::Varlink;
 mod test;
 
 mod error;
-mod org_varlink_resolver;
 mod proxy;
 
 fn varlink_format(filename: &str) -> Result<()> {

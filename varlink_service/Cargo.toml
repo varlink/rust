@@ -1,0 +1,21 @@
+[package]
+name = "varlink_service"
+version = "0.1.0"
+authors = ["Harald Hoyer <harald@redhat.com>"]
+build = "build.rs"
+
+[dependencies]
+varlink = { version = "3", path = "../varlink" }
+varlink_parser = { version = "1", path = "../varlink_parser" }
+serde = "1"
+serde_derive = "1"
+serde_json = "1"
+failure = "0.1.2"
+failure_derive = "0.1.2"
+
+[build-dependencies]
+varlink = { version = "3", path = "../varlink" }
+
+[dev-dependencies]
+varlink_parser = { version = "1", path = "../varlink_parser" }
+varlink = { version = "3", path = "../varlink" }

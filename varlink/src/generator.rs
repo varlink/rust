@@ -237,6 +237,7 @@ use failure::{{Backtrace, Context, Fail, ResultExt}};
 use serde_json::{{self, Value}};
 use std::io::{{self, BufRead}};
 use std::sync::{{Arc, RwLock}};
+use std::error::Error as StdError;
 use varlink::{{self, CallTrait}};
 
 "#
@@ -883,7 +884,10 @@ impl varlink::Interface for VarlinkInterfaceProxy {{
                 concat!(
                     "\n",
                     "                if let Some(args) = req.parameters.clone() {{\n",
-                    "                    let args: {mname}_Args = serde_json::from_value(args)?;\n",
+                    "                    let args: {mname}_Args = match serde_json::from_value(args) {{\
+                     Ok(v) => v, Err(e) => {{ let es = format!(\"{{}}\", e); let _ = call\
+                     .reply_invalid_parameter(es.clone()); return \
+                      Err(varlink::ErrorKind::SerdeJsonDe(es).into()); }} }};\n",
                     "                    self.inner.{sname}(call as &mut Call_{mname}{inparms})\n",
                     "                }} else {{\n",
                     "                    call.reply_invalid_parameter(\"parameters\".into())\

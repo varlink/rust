@@ -10,3 +10,4 @@ extern crate varlink;
 extern crate varlink_parser;
 
 pub mod org_varlink_resolver;
+pub mod org_varlink_service;

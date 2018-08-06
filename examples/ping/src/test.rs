@@ -56,7 +56,8 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
             assert!(
                 writer
                     .write_all(
-                        concat!(r#"{"method" : "org.example.ping.Upgrade"}"#, "\0").as_bytes(),
+                        concat!(r#"{"method" : "org.example.ping.Upgrade", "upgrade" : true}"#, "\0")
+                        .as_bytes(),
                     )
                     .is_ok()
             );

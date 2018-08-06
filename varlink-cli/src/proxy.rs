@@ -100,6 +100,8 @@ where
                 continue;
             }
 
+            upgraded = req.upgrade.unwrap_or(false);
+
             loop {
                 let mut buf = Vec::new();
 
@@ -118,8 +120,6 @@ where
                 let reply: Reply = from_slice(&buf).context(ErrorKind::SerdeJsonDe(
                     String::from_utf8_lossy(&buf).to_string(),
                 ))?;
-
-                upgraded = reply.upgraded.unwrap_or(false);
 
                 if upgraded || (!reply.continues.unwrap_or(false)) {
                     break;
@@ -204,6 +204,8 @@ where
                 continue;
             }
 
+            upgraded = req.upgrade.unwrap_or(false);
+
             let mut service_bufreader = ::std::io::BufReader::new(service_reader);
 
             loop {
@@ -224,8 +226,6 @@ where
                 let reply: Reply = from_slice(&buf).context(ErrorKind::SerdeJsonDe(
                     String::from_utf8_lossy(&buf).to_string(),
                 ))?;
-
-                upgraded = reply.upgraded.unwrap_or(false);
 
                 if upgraded || !reply.continues.unwrap_or(false) {
                     break;

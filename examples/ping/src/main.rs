@@ -101,7 +101,7 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
         assert_eq!(ping, reply.pong);
         println!("Pong: '{}'", reply.pong);
 
-        let _reply = iface.upgrade().call()?;
+        let _reply = iface.upgrade().upgrade()?;
         println!("Client: upgrade()");
     }
     {

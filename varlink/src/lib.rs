@@ -467,8 +467,6 @@ pub struct Reply {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub continues: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub upgraded: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<Cow<'static, str>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parameters: Option<Value>,
@@ -478,7 +476,6 @@ impl Reply {
     pub fn parameters(parameters: Option<Value>) -> Self {
         Reply {
             continues: None,
-            upgraded: None,
             error: None,
             parameters,
         }
@@ -487,7 +484,6 @@ impl Reply {
     pub fn error<S: Into<Cow<'static, str>>>(name: S, parameters: Option<Value>) -> Self {
         Reply {
             continues: None,
-            upgraded: None,
             error: Some(name.into()),
             parameters,
         }
@@ -893,7 +889,12 @@ where
         }
     }
 
-    fn send(&mut self, oneway: bool, more: bool) -> ::std::result::Result<(), MError> {
+    fn send(
+        &mut self,
+        oneway: bool,
+        more: bool,
+        upgrade: bool,
+    ) -> ::std::result::Result<(), MError> {
         {
             let mut conn = self.connection.write().unwrap();
             let mut req = match (self.method.take(), self.request.take()) {
@@ -919,6 +920,10 @@ where
                 req.more = Some(true);
             }
 
+            if upgrade {
+                req.upgrade = Some(true);
+            }
+
             let mut w = conn.writer.take().unwrap();
 
             let b = serde_json::to_string(&req)? + "\0";
@@ -935,17 +940,22 @@ where
     }
 
     pub fn call(&mut self) -> ::std::result::Result<MReply, MError> {
-        self.send(false, false)?;
+        self.send(false, false, false)?;
+        self.recv()
+    }
+
+    pub fn upgrade(&mut self) -> ::std::result::Result<MReply, MError> {
+        self.send(false, false, true)?;
         self.recv()
     }
 
     pub fn oneway(&mut self) -> ::std::result::Result<(), MError> {
-        self.send(true, false)
+        self.send(true, false, false)
     }
 
     pub fn more(&mut self) -> ::std::result::Result<&mut Self, MError> {
         self.continues = true;
-        self.send(false, true)?;
+        self.send(false, true, false)?;
         Ok(self)
     }
 

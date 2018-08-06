@@ -319,6 +319,7 @@ enum Message {
 }
 
 struct ThreadPool {
+    max_workers: usize,
     workers: Vec<Worker>,
     num_busy: Arc<RwLock<usize>>,
     sender: mpsc::Sender<Message>,
@@ -340,27 +341,28 @@ type Job = Box<FnBox + Send + 'static>;
 impl ThreadPool {
     /// Create a new ThreadPool.
     ///
-    /// The size is the number of threads in the pool.
+    /// The initial_worker is the number of threads in the pool.
     ///
     /// # Panics
     ///
-    /// The `new` function will panic if the size is zero.
-    pub fn new(size: usize) -> ThreadPool {
-        assert!(size > 0);
+    /// The `new` function will panic if the initial_worker is zero.
+    pub fn new(initial_worker: usize, max_workers: usize) -> ThreadPool {
+        assert!(initial_worker > 0);
 
         let (sender, receiver) = mpsc::channel();
 
         let receiver = Arc::new(Mutex::new(receiver));
 
-        let mut workers = Vec::with_capacity(size);
+        let mut workers = Vec::with_capacity(initial_worker);
 
         let num_busy = Arc::new(RwLock::new(0 as usize));
 
-        for _ in 0..size {
+        for _ in 0..initial_worker {
             workers.push(Worker::new(Arc::clone(&receiver), Arc::clone(&num_busy)));
         }
 
         ThreadPool {
+            max_workers,
             workers,
             sender,
             receiver,
@@ -374,7 +376,8 @@ impl ThreadPool {
     {
         let job = Box::new(f);
         self.sender.send(Message::NewJob(job)).unwrap();
-        if (self.num_busy() + 1) >= self.workers.len() {
+        if ((self.num_busy() + 1) >= self.workers.len()) && (self.workers.len() <= self.max_workers)
+        {
             self.workers.push(Worker::new(
                 Arc::clone(&self.receiver),
                 Arc::clone(&self.num_busy),
@@ -456,7 +459,7 @@ impl Worker {
 ///     vec![/* Your varlink interfaces go here */],
 /// );
 ///
-/// if let Err(e) = varlink::listen(service, "unix:/tmp/test_listen_timeout", 10, 1) {
+/// if let Err(e) = varlink::listen(service, "unix:/tmp/test_listen_timeout", 1, 10, 1) {
 ///     if e.kind() != varlink::ErrorKind::Timeout {
 ///         panic!("Error listen: {:?}", e.cause());
 ///     }
@@ -469,12 +472,13 @@ pub fn listen<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + Sync + 'st
     handler: H,
     address: &S,
     initial_worker_threads: usize,
+    max_worker_threads: usize,
     idle_timeout: u64,
 ) -> Result<()> {
     let handler = Arc::new(handler);
     let listener = Listener::new(address)?;
     listener.set_nonblocking(false)?;
-    let mut pool = ThreadPool::new(initial_worker_threads);
+    let mut pool = ThreadPool::new(initial_worker_threads, max_worker_threads);
 
     loop {
         let mut stream = match listener.accept(idle_timeout) {

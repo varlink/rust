@@ -769,7 +769,7 @@ pub fn run_server(address: &str, timeout: u64) -> varlink::Result<()> {
         vec![Box::new(myinterface)],
     );
 
-    if let Err(e) = varlink::listen(service, &address, 10, timeout) {
+    if let Err(e) = varlink::listen(service, &address, 1, 10, timeout) {
         match e.kind() {
             ::varlink::ErrorKind::Timeout => {}
             _ => Err(e)?,

@@ -210,6 +210,6 @@ fn run_server<S: ?Sized + AsRef<str>>(address: &S, timeout: u64) -> varlink::Res
         vec![Box::new(myinterface)],
     );
 
-    varlink::listen(service, address, 10, timeout)?;
+    varlink::listen(service, address, 1, 10, timeout)?;
     Ok(())
 }

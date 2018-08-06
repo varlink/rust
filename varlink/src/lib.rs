@@ -163,7 +163,7 @@
 //!    ], // more interfaces ...
 //!);
 //!
-//!varlink::listen(service, &args[1], 10, 0);
+//!varlink::listen(service, &args[1], 1, 10, 0);
 //!# }
 //!# fn main() {}
 //!```

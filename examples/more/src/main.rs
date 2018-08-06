@@ -210,6 +210,6 @@ fn run_server(address: &str, timeout: u64, sleep_duration: u64) -> varlink::Resu
         "http://varlink.org",
         vec![Box::new(myinterface)],
     );
-    varlink::listen(service, &address, 10, timeout)?;
+    varlink::listen(service, &address, 1, 10, timeout)?;
     Ok(())
 }

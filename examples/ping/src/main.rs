@@ -105,6 +105,7 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
         println!("Client: upgrade()");
     }
     {
+        // serve upgraded connection
         let mut conn = connection.write().unwrap();
         let mut writer = conn.writer.take().unwrap();
         writer.write_all("test test\nEnd\n".as_bytes())?;
@@ -405,7 +406,7 @@ fn run_server(address: &str, timeout: u64, multiplex: bool) -> varlink::Result<(
         // Demonstrate a single process, single-threaded service
         listen_multiplex(service, &address, timeout)?;
     } else {
-        varlink::listen(service, &address, 10, timeout)?;
+        varlink::listen(service, &address, 1, 10, timeout)?;
     }
     Ok(())
 }

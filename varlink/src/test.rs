@@ -13,7 +13,7 @@ fn test_listen() {
             vec![], // Your varlink interfaces go here
         );
 
-        if let Err(e) = listen(service, &address, 10, timeout) {
+        if let Err(e) = listen(service, &address, 1, 10, timeout) {
             if e.kind() != ErrorKind::Timeout {
                 panic!("Error listen: {:#?}", e);
             }

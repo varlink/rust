@@ -186,9 +186,9 @@ impl FdTracker {
 pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + Sync + 'static>(
     handler: H,
     address: &S,
-    accept_timeout: u64,
+    idle_timeout: u64,
 ) -> varlink::Result<()> {
-    let timeout: i32 = match accept_timeout {
+    let timeout: i32 = match idle_timeout {
         0 => -1,
         n => (n * 1000) as i32,
     };

@@ -437,7 +437,7 @@ impl Worker {
 
 /// `listen` creates a server, with `num_worker` threads listening on `varlink_uri`.
 ///
-/// If an `accept_timeout` != 0 is specified, this function returns after the specified
+/// If an `idle_timeout` != 0 is specified, this function returns after the specified
 /// amount of seconds, if no new connection is made in that time frame. It still waits for
 /// all pending connections to finish.
 ///
@@ -469,7 +469,7 @@ pub fn listen<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + Sync + 'st
     handler: H,
     address: &S,
     initial_worker_threads: usize,
-    accept_timeout: u64,
+    idle_timeout: u64,
 ) -> Result<()> {
     let handler = Arc::new(handler);
     let listener = Listener::new(address)?;
@@ -477,7 +477,7 @@ pub fn listen<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + Sync + 'st
     let mut pool = ThreadPool::new(initial_worker_threads);
 
     loop {
-        let mut stream = match listener.accept(accept_timeout) {
+        let mut stream = match listener.accept(idle_timeout) {
             Err(e) => {
                 if e.kind() == ErrorKind::Timeout {
                     if pool.num_busy() == 0 {

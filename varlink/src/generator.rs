@@ -188,12 +188,12 @@ fn to_snake_case(mut str: &str) -> String {
 
 fn is_rust_keyword(v: &str) -> bool {
     match v {
-        "abstract" | "alignof" | "as" | "become" | "box" | "break" | "const" | "continue"
-        | "crate" | "do" | "else" | "enum" | "extern" | "false" | "final" | "fn" | "for" | "if"
-        | "impl" | "in" | "let" | "loop" | "macro" | "match" | "mod" | "move" | "mut"
-        | "offsetof" | "override" | "priv" | "proc" | "pub" | "pure" | "ref" | "return"
-        | "Self" | "self" | "sizeof" | "static" | "struct" | "super" | "trait" | "true"
-        | "type" | "typeof" | "unsafe" | "unsized" | "use" | "virtual" | "where" | "while"
+        | "abstract" | "as" | "async" | "auto" | "become" | "box" | "break" | "catch" | "const"
+        | "continue" | "crate" | "default" | "do" | "dyn" | "else" | "enum" | "extern"
+        | "false" | "final" | "fn" | "for" | "if" | "impl" | "in" | "let" | "loop" | "macro"
+        | "match" | "mod" | "move" | "mut" | "override" | "priv" | "pub" | "ref" | "return"
+        | "Self" | "self" | "static" | "struct" | "super" | "trait" | "true" | "type"
+        | "typeof" | "union" | "unsafe" | "unsized" | "use" | "virtual" | "where" | "while"
         | "yield" => true,
         _ => false,
     }

@@ -263,25 +263,25 @@ impl<'a> fmt::Display for Interface<'a> {
         for t in self.typedefs.values() {
             writeln!(f)?;
             if !t.doc.is_empty() {
-                write!(f, "{}\n", t.doc)?;
+                writeln!(f, "{}", t.doc)?;
             }
-            write!(f, "type {} {}\n", t.name, t.elt)?;
+            writeln!(f, "type {} {}", t.name, t.elt)?;
         }
 
         for m in self.methods.values() {
-            write!(f, "\n")?;
+            writeln!(f)?;
             if !m.doc.is_empty() {
-                write!(f, "{}\n", m.doc)?;
+                writeln!(f, "{}", m.doc)?;
             }
-            write!(f, "method {}{} -> {}\n", m.name, m.input, m.output)?;
+            writeln!(f, "method {}{} -> {}", m.name, m.input, m.output)?;
         }
 
         for e in self.errors.values() {
-            write!(f, "\n")?;
+            writeln!(f)?;
             if !e.doc.is_empty() {
-                write!(f, "{}\n", e.doc)?;
+                writeln!(f, "{}", e.doc)?;
             }
-            write!(f, "error {} {}\n", e.name, e.parm)?;
+            writeln!(f, "error {} {}", e.name, e.parm)?;
         }
         Ok(())
     }

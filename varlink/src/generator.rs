@@ -856,7 +856,7 @@ pub fn generate_with_options(
     let vr = Varlink::from_string(&buffer)?;
 
     let ts = varlink_to_rust(&vr, options, tosource)?;
-    writer.write(ts.to_string().as_bytes())?;
+    writer.write_all(ts.to_string().as_bytes())?;
     Ok(())
 }
 
@@ -1059,14 +1059,14 @@ pub fn cargo_build_tosource_options<T: AsRef<Path> + ?Sized>(
         if let Err(e) = Command::new("rustfmt")
             .arg(rust_path.to_str().unwrap())
             .output()
-            {
-                eprintln!(
-                    "Could not run rustfmt on file `{}` {}",
-                    rust_path.display(),
-                    e
-                );
-                exit(1);
-            }
+        {
+            eprintln!(
+                "Could not run rustfmt on file `{}` {}",
+                rust_path.display(),
+                e
+            );
+            exit(1);
+        }
     }
 
     println!("cargo:rerun-if-changed={}", input_path.display());

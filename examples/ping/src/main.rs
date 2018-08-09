@@ -63,15 +63,13 @@ fn main() {
                 .unwrap(),
             Some(address) => Connection::with_address(&address).unwrap(),
         };
-        run_client(connection)
+        run_client(&connection)
+    } else if let Some(address) = matches.opt_str("varlink") {
+        run_server(&address, 0, matches.opt_present("m")).map_err(|e| e.into())
     } else {
-        if let Some(address) = matches.opt_str("varlink") {
-            run_server(&address, 0, matches.opt_present("m")).map_err(|e| e.into())
-        } else {
-            print_usage(&program, &opts);
-            eprintln!("Need varlink address in server mode.");
-            exit(1);
-        }
+        print_usage(&program, &opts);
+        eprintln!("Need varlink address in server mode.");
+        exit(1);
     };
     exit(match ret {
         Ok(_) => 0,
@@ -84,7 +82,7 @@ fn main() {
 
 // Client
 
-fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
+fn run_client(connection: &Arc<RwLock<varlink::Connection>>) -> Result<()> {
     {
         let mut iface = VarlinkClient::new(connection.clone());
         let ping = String::from("Test");
@@ -108,11 +106,11 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
         // serve upgraded connection
         let mut conn = connection.write().unwrap();
         let mut writer = conn.writer.take().unwrap();
-        writer.write_all("test test\nEnd\n".as_bytes())?;
+        writer.write_all(b"test test\nEnd\n")?;
         conn.writer = Some(writer);
         let mut buf = Vec::new();
         let mut reader = conn.reader.take().unwrap();
-        if reader.read_until('\n' as u8, &mut buf)? == 0 {
+        if reader.read_until(b'\n', &mut buf)? == 0 {
             // incomplete data, in real life, store all bytes for the next call
             // for now just read the rest
             reader.read_to_end(&mut buf)?;
@@ -151,7 +149,7 @@ impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
         }
         eprintln!("Server: upgraded got: {}", buf);
 
-        call.writer.write_all("server reply: ".as_bytes())?;
+        call.writer.write_all(b"server reply: ")?;
         call.writer.write_all(buf.as_bytes())?;
 
         Ok(Vec::new())
@@ -177,7 +175,7 @@ impl FdTracker {
         self.buffer.as_mut().unwrap().as_slice()
     }
     fn write(&mut self, out: &[u8]) -> io::Result<usize> {
-        self.stream.as_mut().unwrap().write(out.as_ref())
+        self.stream.as_mut().unwrap().write(out)
     }
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.stream.as_mut().unwrap().read(buf)
@@ -234,10 +232,10 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
         let mut indices_to_remove = vec![];
 
         // Check client connections ...
-        for i in 1..fds.len() {
-            if fds[i].revents != 0 {
+        for (i, fds_item) in fds.iter().enumerate().skip(1) {
+            if fds_item.revents != 0 {
                 let mut upgraded_iface: Option<String> = None;
-                let mut tracker = fdmap.get_mut(&fds[i].fd).unwrap();
+                let mut tracker = fdmap.get_mut(&fds_item.fd).unwrap();
                 loop {
                     let mut readbuf: [u8; 8192] = [0; 8192];
 
@@ -259,7 +257,7 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
                                 // TODO: buffer output and write only on POLLOUT
                                 Ok((unprocessed_bytes, last_iface)) => {
                                     upgraded_iface = last_iface;
-                                    if unprocessed_bytes.len() > 0 {
+                                    if !unprocessed_bytes.is_empty() {
                                         eprintln!(
                                             "Unprocessed bytes: {}",
                                             String::from_utf8_lossy(&unprocessed_bytes)
@@ -267,17 +265,14 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
                                     }
                                     tracker.fill_buffer(&unprocessed_bytes);
 
-                                    match tracker.write(out.as_ref()) {
-                                        Err(err) => {
-                                            eprintln!("write error: {}", err);
-                                            for cause in Fail::iter_causes(&err) {
-                                                eprintln!("  caused by: {}", cause);
-                                            }
-                                            let _ = tracker.shutdown();
-                                            indices_to_remove.push(i);
-                                            break;
+                                    if let Err(err) = tracker.write(out.as_ref()) {
+                                        eprintln!("write error: {}", err);
+                                        for cause in Fail::iter_causes(&err) {
+                                            eprintln!("  caused by: {}", cause);
                                         }
-                                        Ok(_) => {}
+                                        let _ = tracker.shutdown();
+                                        indices_to_remove.push(i);
+                                        break;
                                     }
                                 }
                                 Err(e) => match e.kind() {
@@ -333,7 +328,7 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
                                                 eprintln!("Upgraded end");
                                                 break;
                                             }
-                                            Ok(buf) if buf.len() == 0 => {
+                                            Ok(buf) if buf.is_empty() => {
                                                 eprintln!("Upgraded end");
                                                 break;
                                             }

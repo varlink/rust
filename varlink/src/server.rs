@@ -55,8 +55,14 @@ impl<'a> Stream {
 
     pub fn set_nonblocking(&mut self, b: bool) -> Result<()> {
         match *self {
-            Stream::TCP(ref mut s) => Ok(s.set_nonblocking(b)?),
-            Stream::UNIX(ref mut s) => Ok(s.set_nonblocking(b)?),
+            Stream::TCP(ref mut s) => {
+                s.set_nonblocking(b)?;
+                Ok(())
+            }
+            Stream::UNIX(ref mut s) => {
+                s.set_nonblocking(b)?;
+                Ok(())
+            }
         }
     }
 
@@ -506,7 +512,7 @@ pub fn listen<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + Sync + 'st
                         iface = i;
                         match br.fill_buf() {
                             Err(_) => break,
-                            Ok(buf) if buf.len() == 0 => break,
+                            Ok(buf) if buf.is_empty() => break,
                             _ => {}
                         }
                     }

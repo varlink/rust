@@ -128,7 +128,7 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
     {
         let con = Connection::with_address(&address)?;
 
-        let ret = ::run_client(con);
+        let ret = ::run_client(&con);
         if let Err(e) = ret {
             panic!("error: {:#?}", e);
         }

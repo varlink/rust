@@ -73,14 +73,12 @@ fn main() {
             Some(address) => Connection::with_address(&address).unwrap(),
         };
         run_client(connection)
+    } else if let Some(address) = matches.opt_str("varlink") {
+        run_server(&address, timeout, sleep).map_err(|e| e.into())
     } else {
-        if let Some(address) = matches.opt_str("varlink") {
-            run_server(&address, timeout, sleep).map_err(|e| e.into())
-        } else {
-            print_usage(&program, &opts);
-            eprintln!("Need varlink address in server mode.");
-            exit(1);
-        }
+        print_usage(&program, &opts);
+        eprintln!("Need varlink address in server mode.");
+        exit(1);
     };
     exit(match ret {
         Ok(_) => 0,

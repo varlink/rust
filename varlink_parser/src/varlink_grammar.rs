@@ -46,7 +46,7 @@ impl ::std::fmt::Display for ParseError {
         try!(
             write!(fmt, "error at {}:{}: expected ", self.line, self.column))
         ;
-        if self.expected.len() == 0 { try!(write!(fmt, "EOF")); } else if self.expected.len() == 1 {
+        if self.expected.is_empty() { try!(write!(fmt, "EOF")); } else if self.expected.len() == 1 {
             try!(
                 write!(
                     fmt, "`{}`", escape_default(

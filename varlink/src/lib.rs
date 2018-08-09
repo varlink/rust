@@ -797,17 +797,17 @@ impl Connection {
     }
 
     pub fn with_activate<S: ?Sized + AsRef<str>>(command: &S) -> Result<Arc<RwLock<Self>>> {
-        let (c, a, t) = varlink_exec(command)?;
-        let (mut stream, address) = client::VarlinkStream::connect(&a)?;
-        let (r, w) = stream.split()?;
-        let bufreader = BufReader::new(r);
+        let (child, unix_address, temp_dir) = varlink_exec(command)?;
+        let (mut stream, address) = client::VarlinkStream::connect(&unix_address)?;
+        let (reader, writer) = stream.split()?;
+        let bufreader = BufReader::new(reader);
         Ok(Arc::new(RwLock::new(Connection {
             reader: Some(bufreader),
-            writer: Some(w),
+            writer: Some(writer),
             address,
             stream: Some(stream),
-            child: Some(c),
-            tempdir: t,
+            child: Some(child),
+            tempdir: temp_dir,
         })))
     }
 

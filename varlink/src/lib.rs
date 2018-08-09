@@ -177,17 +177,21 @@
 //!- UNIX socket `unix:/run/org.example.ftl` optional access `;mode=0666` parameter
 //!- UNIX abstract namespace socket `unix:@org.example.ftl` (on Linux only)
 
+#![recursion_limit = "512"]
 extern crate bytes;
 extern crate failure;
 #[macro_use]
 extern crate failure_derive;
 extern crate itertools;
 extern crate libc;
+#[macro_use]
+extern crate quote;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 #[macro_use]
 extern crate serde_json;
+extern crate proc_macro2;
 extern crate tempfile;
 extern crate unix_socket;
 extern crate varlink_parser;

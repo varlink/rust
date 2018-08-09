@@ -1,15 +1,18 @@
 //! Generate rust code from varlink interface definition files
 
 use failure::{Backtrace, Context, Fail};
+use proc_macro2::{Ident, Span, TokenStream};
 use std::borrow::Cow;
 use std::env;
 use std::fmt::{self, Display};
 use std::fs::File;
-use std::io::{self, Read, Write};
-use std::iter::FromIterator;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{exit, Command};
-use varlink_parser::{self, VStruct, VStructOrEnum, VType, VTypeExt, Varlink};
+use std::str::FromStr;
+use varlink_parser::{
+    self, Typedef, VEnum, VError, VStruct, VStructOrEnum, VType, VTypeExt, Varlink,
+};
 
 #[derive(Debug)]
 pub struct Error {
@@ -74,17 +77,22 @@ impl From<varlink_parser::Error> for Error {
 
 pub type Result<T> = ::std::result::Result<T, Error>;
 
-type EnumVec<'a> = Vec<(String, Vec<String>)>;
-type StructVec<'a> = Vec<(String, &'a VStruct<'a>)>;
-
-trait ToRust<'short, 'long: 'short> {
-    fn to_rust(
+trait ToRustString<'short, 'long: 'short> {
+    fn to_rust_string(
         &'long self,
-        parent: &str,
-        enumvec: &mut EnumVec,
-        structvec: &mut StructVec<'short>,
+        name: &str,
+        tokenstream: &mut TokenStream,
         options: &'long GeneratorOptions,
-    ) -> Result<Cow<'long, str>>;
+    ) -> Cow<'long, str>;
+}
+
+trait ToTokenStream<'short, 'long: 'short> {
+    fn to_tokenstream(
+        &'long self,
+        name: &str,
+        tokenstream: &mut TokenStream,
+        options: &'long GeneratorOptions,
+    );
 }
 
 #[derive(Default)]
@@ -93,65 +101,59 @@ pub struct GeneratorOptions {
     pub int_type: Option<&'static str>,
     pub float_type: Option<&'static str>,
     pub string_type: Option<&'static str>,
-    pub preamble: Option<&'static str>,
+    pub preamble: Option<TokenStream>,
 }
 
-impl<'short, 'long: 'short> ToRust<'short, 'long> for VType<'long> {
-    fn to_rust(
+impl<'short, 'long: 'short> ToRustString<'short, 'long> for VType<'long> {
+    fn to_rust_string(
         &'long self,
-        parent: &str,
-        enumvec: &mut EnumVec,
-        structvec: &mut StructVec<'short>,
+        name: &str,
+        tokenstream: &mut TokenStream,
         options: &'long GeneratorOptions,
-    ) -> Result<Cow<'long, str>> {
+    ) -> Cow<'long, str> {
         match *self {
-            VType::Bool => Ok(options.bool_type.unwrap_or("bool").into()),
-            VType::Int => Ok(options.int_type.unwrap_or("i64").into()),
-            VType::Float => Ok(options.float_type.unwrap_or("f64").into()),
-            VType::String => Ok(options.string_type.unwrap_or("String").into()),
-            VType::Object => Ok("serde_json::Value".into()),
-            VType::Typename(v) => Ok(v.into()),
+            VType::Bool => options.bool_type.unwrap_or("bool").into(),
+            VType::Int => options.int_type.unwrap_or("i64").into(),
+            VType::Float => options.float_type.unwrap_or("f64").into(),
+            VType::String => options.string_type.unwrap_or("String").into(),
+            VType::Object => "serde_json::Value".into(),
+            VType::Typename(v) => v.into(),
             VType::Enum(ref v) => {
-                enumvec.push((
-                    parent.into(),
-                    Vec::from_iter(v.elts.iter().map(|s| String::from(*s))),
-                ));
-                Ok(Cow::Owned(parent.to_string()))
+                v.to_tokenstream(name, tokenstream, options);
+                Cow::Owned(name.to_string())
             }
             VType::Struct(ref v) => {
-                structvec.push((String::from(parent), v.as_ref()));
-                Ok(Cow::Owned(parent.to_string()))
+                v.to_tokenstream(name, tokenstream, options);
+                Cow::Owned(name.to_string())
             }
         }
     }
 }
 
-impl<'short, 'long: 'short> ToRust<'short, 'long> for VTypeExt<'long> {
-    fn to_rust(
+impl<'short, 'long: 'short> ToRustString<'short, 'long> for VTypeExt<'long> {
+    fn to_rust_string(
         &'long self,
-        parent: &str,
-        enumvec: &mut EnumVec,
-        structvec: &mut StructVec<'short>,
+        name: &str,
+        tokenstream: &mut TokenStream,
         options: &'long GeneratorOptions,
-    ) -> Result<Cow<'long, str>> {
+    ) -> Cow<'long, str> {
         match *self {
-            VTypeExt::Plain(ref vtype) => vtype.to_rust(parent, enumvec, structvec, options),
+            VTypeExt::Plain(ref vtype) => vtype.to_rust_string(name, tokenstream, options),
             VTypeExt::Array(ref v) => {
-                Ok(format!("Vec<{}>", v.to_rust(parent, enumvec, structvec, options)?).into())
+                format!("Vec<{}>", v.to_rust_string(name, tokenstream, options)).into()
             }
             VTypeExt::Dict(ref v) => match *v.as_ref() {
                 VTypeExt::Plain(VType::Struct(ref s)) if s.elts.is_empty() => {
-                    Ok("varlink::StringHashSet".into())
+                    "varlink::StringHashSet".into()
                 }
-                _ => Ok(format!(
+                _ => format!(
                     "varlink::StringHashMap<{}>",
-                    v.to_rust(parent, enumvec, structvec, options)?
-                ).into()),
+                    v.to_rust_string(name, tokenstream, options)
+                ).into(),
             },
-            VTypeExt::Option(ref v) => Ok(format!(
-                "Option<{}>",
-                v.to_rust(parent, enumvec, structvec, options)?
-            ).into()),
+            VTypeExt::Option(ref v) => {
+                format!("Option<{}>", v.to_rust_string(name, tokenstream, options)).into()
+            }
         }
     }
 }
@@ -207,719 +209,623 @@ fn replace_if_rust_keyword(v: &str) -> String {
     }
 }
 
-fn replace_if_rust_keyword_annotate(v: &str, w: &mut Write) -> io::Result<(String)> {
+fn replace_if_rust_keyword_annotate2(v: &str) -> (String, TokenStream) {
     if is_rust_keyword(v) {
-        write!(w, " #[serde(rename = \"{}\")]", v)?;
-        Ok(String::from(v) + "_")
+        (
+            String::from(v) + "_",
+            TokenStream::from_str(format!(" #[serde(rename = \"{}\")]", v).as_ref()).unwrap(),
+        )
     } else {
-        Ok(String::from(v))
+        (String::from(v), TokenStream::new())
+    }
+}
+
+impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VStruct<'long> {
+    fn to_tokenstream(
+        &'long self,
+        name: &str,
+        tokenstream: &mut TokenStream,
+        options: &'long GeneratorOptions,
+    ) {
+        let tname = Ident::new(replace_if_rust_keyword(name).as_ref(), Span::call_site());
+
+        let mut enames = vec![];
+        let mut etypes = vec![];
+        let mut anot = vec![];
+        for e in &self.elts {
+            let (ename, tt) = replace_if_rust_keyword_annotate2(e.name);
+            anot.push(tt);
+            enames.push(Ident::new(&ename, Span::call_site()));
+            etypes.push(
+                TokenStream::from_str(
+                    e.vtype
+                        .to_rust_string(
+                            format!("{}_{}", name, e.name).as_ref(),
+                            tokenstream,
+                            options,
+                        )
+                        .as_ref(),
+                ).unwrap(),
+            );
+        }
+        tokenstream.extend(quote!(
+                    #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+                    pub struct #tname {
+                        #(#anot pub #enames: #etypes,)*
+                    }
+                    ));
+    }
+}
+
+impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VEnum<'long> {
+    fn to_tokenstream(
+        &'long self,
+        name: &str,
+        tokenstream: &mut TokenStream,
+        _options: &'long GeneratorOptions,
+    ) {
+        let tname = Ident::new(replace_if_rust_keyword(name).as_ref(), Span::call_site());
+
+        let mut enames = vec![];
+        let mut anot = vec![];
+
+        for elt in &self.elts {
+            let (ename, tt) = replace_if_rust_keyword_annotate2(elt);
+            anot.push(tt);
+            enames.push(Ident::new(&ename, Span::call_site()));
+        }
+        tokenstream.extend(quote!(
+                #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+                pub enum #tname {
+                    #(#anot #enames, )*
+                }
+                ));
+    }
+}
+
+impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for Typedef<'long> {
+    fn to_tokenstream(
+        &'long self,
+        _name: &str,
+        tokenstream: &mut TokenStream,
+        options: &'long GeneratorOptions,
+    ) {
+        match self.elt {
+            VStructOrEnum::VStruct(ref v) => v.to_tokenstream(self.name, tokenstream, options),
+            VStructOrEnum::VEnum(ref v) => v.to_tokenstream(self.name, tokenstream, options),
+        }
+    }
+}
+
+impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VError<'long> {
+    fn to_tokenstream(
+        &'long self,
+        _name: &str,
+        tokenstream: &mut TokenStream,
+        options: &'long GeneratorOptions,
+    ) {
+        let args_name = Ident::new(&format!("{}_Args", self.name), Span::call_site());
+        let mut args_enames = vec![];
+        let mut args_etypes = vec![];
+        let mut args_anot = vec![];
+        for e in &self.parm.elts {
+            let mut a = if let VTypeExt::Option(_) = e.vtype {
+                quote!(#[serde(skip_serializing_if = "Option::is_none")])
+            } else {
+                quote!()
+            };
+            let (ename, tt) = replace_if_rust_keyword_annotate2(e.name);
+            a.extend(tt);
+            args_anot.push(a);
+            args_enames.push(Ident::new(&ename, Span::call_site()));
+            args_etypes.push(
+                TokenStream::from_str(
+                    e.vtype
+                        .to_rust_string(
+                            format!("{}_Args_{}", self.name, e.name).as_ref(),
+                            tokenstream,
+                            options,
+                        )
+                        .as_ref(),
+                ).unwrap(),
+            );
+        }
+        tokenstream.extend(quote!(
+        #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+        pub struct #args_name {
+                        #(#args_anot pub #args_enames: #args_etypes,)*
+        }
+
+        ));
     }
 }
 
 fn varlink_to_rust(
     varlink: &Varlink,
-    w: &mut Write,
     options: &GeneratorOptions,
     tosource: bool,
-) -> Result<()> {
-    let mut enumvec = EnumVec::new();
-    let mut structvec = StructVec::new();
+) -> Result<TokenStream> {
     let iface = &varlink.interface;
+    let mut ts = TokenStream::new();
 
     if tosource {
-        write!(
-            w,
-            r#"#![allow(non_camel_case_types)]
+        ts.extend(quote!(
+#![doc = "This file was automatically generated by the varlink rust generator" ]
+#![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
-"#
-        )?;
+            ));
     }
 
-    write!(
-        w,
-        r#"// DO NOT EDIT
-// This file is automatically generated by the varlink rust generator
-
+    ts.extend(quote!(
 use failure::{{Backtrace, Context, Fail}};
 use serde_json;
 use std::io::BufRead;
 use std::sync::{{Arc, RwLock}};
 use varlink::{{self, CallTrait}};
+));
 
-"#
-    )?;
-
-    if options.preamble.is_some() {
-        write!(w, "{}", options.preamble.unwrap())?;
+    if let Some(ref v) = options.preamble {
+        ts.extend(v.clone());
     }
 
     for t in iface.typedefs.values() {
-        match t.elt {
-            VStructOrEnum::VStruct(ref v) => {
-                write!(
-                    w,
-                    "#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]\n"
-                )?;
-                write!(w, "pub struct {} {{\n", replace_if_rust_keyword(t.name))?;
-                for e in &v.elts {
-                    if let VTypeExt::Option(_) = e.vtype {
-                        write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
+        t.to_tokenstream("", &mut ts, options);
+    }
+
+    for t in iface.errors.values() {
+        t.to_tokenstream("", &mut ts, options);
+    }
+
+    // Errors traits
+    {
+        let mut error_structs_and_enums = TokenStream::new();
+        let mut funcs = TokenStream::new();
+        for t in iface.errors.values() {
+            let mut inparms_name = Vec::new();
+            let mut inparms_type = Vec::new();
+
+            let inparms;
+            let parms;
+            let args_name = Ident::new(&format!("{}_Args", t.name), Span::call_site());
+            if !t.parm.elts.is_empty() {
+                for e in &t.parm.elts {
+                    let ident = Ident::new(&replace_if_rust_keyword(e.name), Span::call_site());
+                    inparms_name.push(ident);
+                    inparms_type.push(
+                        TokenStream::from_str(
+                            e.vtype
+                                .to_rust_string(
+                                    format!("{}_Args_{}", t.name, e.name).as_ref(),
+                                    &mut error_structs_and_enums,
+                                    options,
+                                )
+                                .as_ref(),
+                        ).unwrap(),
+                    );
+                }
+                let innames = inparms_name.iter();
+                let innames2 = inparms_name.iter();
+                inparms = quote!(#(#innames : #inparms_type),*);
+                parms = quote!(Some(serde_json::to_value(#args_name {#(#innames2),*})?));
+            } else {
+                parms = quote!(None);
+                inparms = quote!();
+            }
+            let errorname = format!("{iname}.{ename}", iname = iface.name, ename = t.name);
+            let func_name = Ident::new(
+                &format!("reply_{}", to_snake_case(t.name)),
+                Span::call_site(),
+            );
+
+            funcs.extend(quote!(
+                    fn #func_name(&mut self, #inparms) -> varlink::Result<()> {
+                        self.reply_struct(varlink::Reply::error(#errorname, #parms))
                     }
-                    let ename = replace_if_rust_keyword_annotate(e.name, w)?;
-                    write!(
-                        w,
-                        " pub {}: {},\n",
-                        ename,
-                        e.vtype.to_rust(
-                            format!("{}_{}", t.name, e.name).as_ref(),
-                            &mut enumvec,
-                            &mut structvec,
-                            options
-                        )?
-                    )?;
-                }
-            }
-            VStructOrEnum::VEnum(ref v) => {
-                write!(
-                    w,
-                    "#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]\n"
-                )?;
-                write!(w, "pub enum {} {{\n", t.name)?;
-                let mut iter = v.elts.iter();
-                for elt in iter {
-                    let eltname = replace_if_rust_keyword_annotate(elt, w)?;
-                    write!(w, "   {},\n", eltname)?;
-                }
-                write!(w, "\n")?;
-            }
+                ));
         }
-        write!(w, "}}\n\n")?;
+        ts.extend(quote!(
+            #error_structs_and_enums
+            pub trait VarlinkCallError: varlink::CallTrait {
+                #funcs
+            }
+        ));
     }
 
-    for t in iface.methods.values() {
-        write!(
-            w,
-            "#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]\n"
-        )?;
-        write!(w, "pub struct {}_Reply {{\n", t.name)?;
-        for e in &t.output.elts {
-            if let VTypeExt::Option(_) = e.vtype {
-                write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
-            }
-            let ename = replace_if_rust_keyword_annotate(e.name, w)?;
-            write!(
-                w,
-                " pub {}: {},\n",
-                ename,
-                e.vtype.to_rust(
-                    format!("{}_Reply_{}", t.name, e.name).as_ref(),
-                    &mut enumvec,
-                    &mut structvec,
-                    options
-                )?
-            )?;
+    ts.extend(quote!(
+        impl<'a> VarlinkCallError for varlink::Call<'a> {}
+
+        #[derive(Debug)]
+        pub struct Error {
+            inner: Context<ErrorKind>,
         }
-        write!(w, "}}\n\n")?;
-        write!(
-            w,
-            "impl varlink::VarlinkReply for {}_Reply {{}}\n\n",
-            t.name
-        )?;
-        write!(
-            w,
-            "#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]\n"
-        )?;
-        write!(w, "pub struct {}_Args {{\n", t.name)?;
-        for e in &t.input.elts {
-            if let VTypeExt::Option(_) = e.vtype {
-                write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
-            }
-            let ename = replace_if_rust_keyword_annotate(e.name, w)?;
-            write!(
-                w,
-                " pub {}: {},\n",
-                ename,
-                e.vtype.to_rust(
-                    format!("{}_Args_{}", t.name, e.name).as_ref(),
-                    &mut enumvec,
-                    &mut structvec,
-                    options
-                )?
-            )?;
+    ));
+
+    {
+        let mut errors = Vec::new();
+        for t in iface.errors.values() {
+            errors.push(
+                TokenStream::from_str(&format!(
+                    "#[fail(display = \"{iname}.{ename}: {{:#?}}\", _0)]\
+                     {ename}(Option<{ename}_Args>)",
+                    ename = t.name,
+                    iname = iface.name,
+                )).unwrap(),
+            );
         }
-        write!(w, "}}\n\n")?;
+
+        ts.extend(quote!(
+            #[derive(Clone, PartialEq, Debug, Fail)]
+            pub enum ErrorKind {
+                #[fail(display = "IO error")]
+                Io_Error(::std::io::ErrorKind),
+                #[fail(display = "(De)Serialization Error")]
+                SerdeJson_Error(serde_json::error::Category),
+                #[fail(display = "Varlink Error")]
+                Varlink_Error(varlink::ErrorKind),
+                #[fail(display = "Unknown error reply: '{:#?}'", _0)]
+                VarlinkReply_Error(varlink::Reply),
+                #(#errors),*
+            }
+        ));
     }
 
-    for t in iface.errors.values() {
-        write!(
-            w,
-            "#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]\n"
-        )?;
-        write!(w, "pub struct {}_Args {{\n", t.name)?;
-        for e in &t.parm.elts {
-            if let VTypeExt::Option(_) = e.vtype {
-                write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
-            }
-            let ename = replace_if_rust_keyword_annotate(e.name, w)?;
-            write!(
-                w,
-                " pub {}: {},\n",
-                ename,
-                e.vtype.to_rust(
-                    format!("{}_Args_{}", t.name, e.name).as_ref(),
-                    &mut enumvec,
-                    &mut structvec,
-                    options
-                )?
-            )?;
+    ts.extend(quote!(
+    impl Fail for Error {
+        fn cause(&self) -> Option<&Fail> {
+            self.inner.cause()
         }
-        write!(w, "}}\n\n")?;
+
+        fn backtrace(&self) -> Option<&Backtrace> {
+            self.inner.backtrace()
+        }
     }
 
-    loop {
-        let mut nstructvec = StructVec::new();
-        for (name, v) in structvec.drain(..) {
-            write!(
-                w,
-                "#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]\n"
-            )?;
-            write!(w, "pub struct {} {{\n", replace_if_rust_keyword(&name))?;
-            for e in &v.elts {
-                if let VTypeExt::Option(_) = e.vtype {
-                    write!(w, "    #[serde(skip_serializing_if = \"Option::is_none\")]")?;
-                }
-                let ename = replace_if_rust_keyword_annotate(e.name, w)?;
-                write!(
-                    w,
-                    " pub {}: {},\n",
-                    ename,
-                    e.vtype
-                        .to_rust(
-                            format!("{}_{}", name, e.name).as_ref(),
-                            &mut enumvec,
-                            &mut nstructvec,
-                            options
-                        )
-                        .unwrap()
-                )?;
-            }
-            write!(w, "}}\n\n")?;
+    impl ::std::fmt::Display for Error {
+        fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+            ::std::fmt::Display::fmt(&self.inner, f)
         }
-        for (name, v) in enumvec.drain(..) {
-            write!(
-                w,
-                "#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]\n\
-                 pub enum {} {{\n",
-                replace_if_rust_keyword(name.as_str())
-            )?;
-            let mut iter = v.iter();
-            for elt in iter {
-                let eltname = replace_if_rust_keyword_annotate(elt, w)?;
-                write!(w, "   {},\n", eltname)?;
-            }
-            write!(w, "\n}}\n\n")?;
-        }
-
-        if nstructvec.is_empty() {
-            break;
-        }
-        structvec = nstructvec;
     }
 
-    write!(w, "pub trait VarlinkCallError: varlink::CallTrait {{\n")?;
-    for t in iface.errors.values() {
-        let mut inparms = String::new();
-        let mut innames = String::new();
-        if !t.parm.elts.is_empty() {
-            for e in &t.parm.elts {
-                inparms += format!(
-                    ", {}: {}",
-                    replace_if_rust_keyword(e.name),
-                    e.vtype.to_rust(
-                        format!("{}_Args_{}", t.name, e.name).as_ref(),
-                        &mut enumvec,
-                        &mut structvec,
-                        options
-                    )?
-                ).as_ref();
-                innames += format!("{}, ", replace_if_rust_keyword(e.name)).as_ref();
+    impl Error {
+        #[allow(dead_code)]
+        pub fn kind(&self) -> ErrorKind {
+            self.inner.get_context().clone()
+        }
+    }
+
+    impl From<ErrorKind> for Error {
+        fn from(kind: ErrorKind) -> Error {
+            Error {
+                inner: Context::new(kind),
             }
-            innames.pop();
-            innames.pop();
         }
-        write!(
-            w,
-            r#"    fn reply_{sname}(&mut self{inparms}) -> varlink::Result<()> {{
-        self.reply_struct(varlink::Reply::error(
-            "{iname}.{ename}",
-"#,
-            sname = to_snake_case(t.name),
-            inparms = inparms,
-            iname = iface.name,
-            ename = t.name,
-        )?;
-        if !t.parm.elts.is_empty() {
-            write!(
-                w,
-                "            Some(serde_json::to_value({}_Args {{ {} }})?),",
-                t.name, innames
-            )?;
-        } else {
-            write!(w, "        None,\n")?;
+    }
+
+    impl From<Context<ErrorKind>> for Error {
+        fn from(inner: Context<ErrorKind>) -> Error {
+            Error { inner }
         }
-
-        write!(
-            w,
-            r#"
-        ))
-    }}
-"#
-        )?;
     }
-    write!(
-        w,
-        "}}\n\nimpl<'a> VarlinkCallError for varlink::Call<'a> {{}}\n\n"
-    )?;
 
-    write!(
-        w,
-        r#"
-#[derive(Debug)]
-pub struct Error {{
-    inner: Context<ErrorKind>,
-}}
-
-#[derive(Clone, PartialEq, Debug, Fail)]
-pub enum ErrorKind {{
-    #[fail(display = "IO error")]
-    Io_Error(::std::io::ErrorKind),
-    #[fail(display = "(De)Serialization Error")]
-    SerdeJson_Error(serde_json::error::Category),
-    #[fail(display = "Varlink Error")]
-    Varlink_Error(varlink::ErrorKind),
-    #[fail(display = "Unknown error reply: '{{:#?}}'", _0)]
-    VarlinkReply_Error(varlink::Reply),
-"#
-    )?;
-    for t in iface.errors.values() {
-        write!(
-            w,
-            "    \
-             #[fail(display = \"{iname}.{ename}: {{:#?}}\", _0)]\n    \
-             {ename}(Option<{ename}_Args>),\n",
-            ename = t.name,
-            iname = iface.name,
-        )?;
+    impl From<::std::io::Error> for Error {
+        fn from(e: ::std::io::Error) -> Error {
+            let kind = e.kind();
+            e.context(ErrorKind::Io_Error(kind)).into()
+        }
     }
-    write!(
-        w,
-        r#"}}
 
-impl Fail for Error {{
-    fn cause(&self) -> Option<&Fail> {{
-        self.inner.cause()
-    }}
+    impl From<serde_json::Error> for Error {
+        fn from(e: serde_json::Error) -> Error {
+            let cat = e.classify();
+            e.context(ErrorKind::SerdeJson_Error(cat)).into()
+        }
+    }
 
-    fn backtrace(&self) -> Option<&Backtrace> {{
-        self.inner.backtrace()
-    }}
-}}
-
-impl ::std::fmt::Display for Error {{
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {{
-        ::std::fmt::Display::fmt(&self.inner, f)
-    }}
-}}
-
-impl Error {{
     #[allow(dead_code)]
-    pub fn kind(&self) -> ErrorKind {{
-        self.inner.get_context().clone()
-    }}
-}}
+    pub type Result<T> = ::std::result::Result<T, Error>;
 
-impl From<ErrorKind> for Error {{
-    fn from(kind: ErrorKind) -> Error {{
-        Error {{
-            inner: Context::new(kind),
-        }}
-    }}
-}}
+    impl From<varlink::Error> for Error {
+        fn from(e: varlink::Error) -> Self {
+            let kind = e.kind();
+            match kind {
+                varlink::ErrorKind::Io(kind) => e.context(ErrorKind::Io_Error(kind)).into(),
+                varlink::ErrorKind::SerdeJsonSer(cat) => e.context(ErrorKind::SerdeJson_Error(cat)).into(),
+                kind => e.context(ErrorKind::Varlink_Error(kind)).into(),
+            }
+        }
+    }
+        ));
 
-impl From<Context<ErrorKind>> for Error {{
-    fn from(inner: Context<ErrorKind>) -> Error {{
-        Error {{ inner }}
-    }}
-}}
-
-impl From<::std::io::Error> for Error {{
-    fn from(e: ::std::io::Error) -> Error {{
-        let kind = e.kind();
-        e.context(ErrorKind::Io_Error(kind)).into()
-    }}
-}}
-
-impl From<serde_json::Error> for Error {{
-    fn from(e: serde_json::Error) -> Error {{
-        let cat = e.classify();
-        e.context(ErrorKind::SerdeJson_Error(cat)).into()
-    }}
-}}
-
-#[allow(dead_code)]
-pub type Result<T> = ::std::result::Result<T, Error>;
-
-impl From<varlink::Error> for Error {{
-    fn from(e: varlink::Error) -> Self {{
-        let kind = e.kind();
-        match kind {{
-            varlink::ErrorKind::Io(kind) => e.context(ErrorKind::Io_Error(kind)).into(),
-            varlink::ErrorKind::SerdeJsonSer(cat) => e.context(ErrorKind::SerdeJson_Error(cat)).into(),
-            kind => e.context(ErrorKind::Varlink_Error(kind)).into(),
-        }}
-    }}
-}}
-
-impl From<varlink::Reply> for Error {{
-    fn from(e: varlink::Reply) -> Self {{
-        if varlink::Error::is_error(&e) {{
-            return varlink::Error::from(e).into();
-        }}
-
-        match e {{
-"#
-    )?;
-
-    for t in iface.errors.values() {
-        write!(
-            w,
-            r#"            varlink::Reply {{
-                     error: Some(ref t), ..
-                }} if t == "{iname}.{ename}" =>
-                {{
-                   match e {{
-                       varlink::Reply {{
+    {
+        let mut arms = TokenStream::new();
+        for t in iface.errors.values() {
+            let error_name = format!("{iname}.{ename}", iname = iface.name, ename = t.name);
+            let ename = TokenStream::from_str(&format!("ErrorKind::{}", t.name)).unwrap();
+            arms.extend(quote!(
+                varlink::Reply { error: Some(ref t), .. } if t == #error_name => {
+                    match e {
+                       varlink::Reply {
                            parameters: Some(p),
                            ..
-                       }} => match serde_json::from_value(p) {{
-                           Ok(v) => ErrorKind::{ename}(v).into(),
-                           Err(_) => ErrorKind::{ename}(None).into(),
-                       }},
-                       _ => ErrorKind::{ename}(None).into(),
-                   }}
-               }}
-"#,
-            iname = iface.name,
-            ename = t.name
-        )?;
+                       } => match serde_json::from_value(p) {
+                           Ok(v) => #ename(v).into(),
+                           Err(_) => #ename(None).into(),
+                       },
+                       _ => #ename(None).into(),
+                    }
+                }
+            ));
+        }
+
+        ts.extend(quote!(
+            impl From<varlink::Reply> for Error {
+                fn from(e: varlink::Reply) -> Self {
+                    if varlink::Error::is_error(&e) {
+                        return varlink::Error::from(e).into();
+                    }
+
+                    match e {
+                    #arms
+                    _ => ErrorKind::VarlinkReply_Error(e).into(),
+                    }
+                }
+            }
+        ));
     }
 
-    write!(
-        w,
-        r#"            _ => ErrorKind::VarlinkReply_Error(e).into(),
-        }}
-    }}
-}}
-"#
-    )?;
+    let mut server_method_decls = TokenStream::new();
+    let mut client_method_decls = TokenStream::new();
+    let mut server_method_impls = TokenStream::new();
+    let mut client_method_impls = TokenStream::new();
+    let iname = iface.name;
+    let description = varlink.description;
 
     for t in iface.methods.values() {
-        let mut inparms = String::new();
-        let mut innames = String::new();
-        if !t.output.elts.is_empty() {
+        let mut in_field_types = Vec::new();
+        let mut in_field_names = Vec::new();
+        let in_struct_name = Ident::new(&format!("{}_Args", t.name), Span::call_site());
+        let mut in_anot = Vec::new();
+
+        let mut out_field_types = Vec::new();
+        let mut out_field_names = Vec::new();
+        let out_struct_name = Ident::new(&format!("{}_Reply", t.name), Span::call_site());
+        let mut out_anot = Vec::new();
+
+        let call_name = Ident::new(&format!("Call_{}", t.name), Span::call_site());
+        let method_name = Ident::new(&to_snake_case(t.name), Span::call_site());
+        let varlink_method_name = format!("{}.{}", iface.name, t.name);
+
+        {
+            for e in &t.input.elts {
+                let mut a = if let VTypeExt::Option(_) = e.vtype {
+                    quote!(#[serde(skip_serializing_if = "Option::is_none")])
+                } else {
+                    quote!()
+                };
+                let (ename, tt) = replace_if_rust_keyword_annotate2(e.name);
+                a.extend(tt);
+                in_anot.push(a);
+
+                in_field_names.push(Ident::new(&ename, Span::call_site()));
+                in_field_types.push(
+                    TokenStream::from_str(
+                        e.vtype
+                            .to_rust_string(
+                                format!("{}_Args_{}", t.name, e.name).as_ref(),
+                                &mut ts,
+                                options,
+                            )
+                            .as_ref(),
+                    ).unwrap(),
+                );
+            }
+        }
+        {
             for e in &t.output.elts {
-                inparms += format!(
-                    ", {}: {}",
-                    replace_if_rust_keyword(e.name),
-                    e.vtype.to_rust(
-                        format!("{}_Reply_{}", t.name, e.name).as_ref(),
-                        &mut enumvec,
-                        &mut structvec,
-                        options
-                    )?
-                ).as_ref();
-                innames += format!("{}, ", replace_if_rust_keyword(e.name)).as_ref();
-            }
-            innames.pop();
-            innames.pop();
-        }
-        write!(w, "pub trait Call_{}: VarlinkCallError {{\n", t.name)?;
-        write!(
-            w,
-            "    fn reply(&mut self{}) -> varlink::Result<()> {{\n",
-            inparms
-        )?;
-        if !t.output.elts.is_empty() {
-            write!(
-                w,
-                "        self.reply_struct({}_Reply {{ {} }}.into())\n",
-                t.name, innames
-            )?;
-        } else {
-            write!(
-                w,
-                "        self.reply_struct(varlink::Reply::parameters(None))\n"
-            )?;
-        }
-        write!(
-            w,
-            "    }}\n}}\n\nimpl<'a> Call_{} for varlink::Call<'a> {{}}\n\n",
-            t.name
-        )?;
-    }
+                let mut a = if let VTypeExt::Option(_) = e.vtype {
+                    quote!(#[serde(skip_serializing_if = "Option::is_none")])
+                } else {
+                    quote!()
+                };
+                let (ename, tt) = replace_if_rust_keyword_annotate2(e.name);
+                a.extend(tt);
+                out_anot.push(a);
 
-    write!(w, "pub trait VarlinkInterface {{\n")?;
-    for t in iface.methods.values() {
-        let mut inparms = String::new();
-        if !t.input.elts.is_empty() {
-            for e in &t.input.elts {
-                inparms += format!(
-                    ", {}: {}",
-                    replace_if_rust_keyword(e.name),
-                    e.vtype.to_rust(
-                        format!("{}_Args_{}", t.name, e.name).as_ref(),
-                        &mut enumvec,
-                        &mut structvec,
-                        options
-                    )?
-                ).as_ref();
+                out_field_names.push(Ident::new(&ename, Span::call_site()));
+                out_field_types.push(
+                    TokenStream::from_str(
+                        e.vtype
+                            .to_rust_string(
+                                format!("{}_Reply_{}", t.name, e.name).as_ref(),
+                                &mut ts,
+                                options,
+                            )
+                            .as_ref(),
+                    ).unwrap(),
+                );
             }
         }
+        {
+            let out_field_names = out_field_names.iter();
+            let out_field_types = out_field_types.iter();
+            let in_field_names = in_field_names.iter();
+            let in_field_types = in_field_types.iter();
 
-        write!(
-            w,
-            "    fn {}(&self, call: &mut Call_{}{}) -> varlink::Result<()>;\n",
-            to_snake_case(t.name),
-            t.name,
-            inparms
-        )?;
-    }
+            ts.extend(quote!(
+                #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+                pub struct #out_struct_name {
+                                #(#out_anot pub #out_field_names: #out_field_types,)*
+                }
 
-    write!(
-        w,
-        r#"    fn call_upgraded(&self, _call: &mut varlink::Call, _bufreader: &mut BufRead) ->
-        varlink::Result<Vec<u8>> {{
-        Ok(Vec::new())
-    }}
-}}
+                impl varlink::VarlinkReply for #out_struct_name {}
 
-"#
-    )?;
+                #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+                pub struct #in_struct_name {
+                                #(#in_anot pub #in_field_names: #in_field_types,)*
+                }
+            ));
+        }
 
-    write!(w, "pub trait VarlinkClientInterface {{\n")?;
-    for t in iface.methods.values() {
-        let mut inparms = String::new();
-        let mut outparms = String::new();
-        if !t.input.elts.is_empty() {
-            for e in &t.input.elts {
-                inparms += format!(
-                    ", {}: {}",
-                    replace_if_rust_keyword(e.name),
-                    e.vtype.to_rust(
-                        format!("{}_Args_{}", t.name, e.name).as_ref(),
-                        &mut enumvec,
-                        &mut structvec,
-                        options
-                    )?
-                ).as_ref();
+        {
+            let field_names_1 = out_field_names.iter();
+            let field_names_2 = out_field_names.iter();
+            let field_types_1 = out_field_types.iter();
+            if !t.output.elts.is_empty() {
+                ts.extend(quote!(
+                pub trait #call_name: VarlinkCallError {
+                    fn reply(&mut self, #(#field_names_1: #field_types_1),*) -> varlink::Result<()> {
+                        self.reply_struct(#out_struct_name { #(#field_names_2),* }.into())
+                    }
+                }
+            ));
+            } else {
+                ts.extend(quote!(
+                pub trait #call_name: VarlinkCallError {
+                    fn reply(&mut self) -> varlink::Result<()> {
+                        self.reply_struct(varlink::Reply::parameters(None))
+                    }
+                }
+            ));
             }
         }
-        if !t.output.elts.is_empty() {
-            for e in &t.output.elts {
-                outparms += format!(
-                    "{}, ",
-                    e.vtype.to_rust(
-                        format!("{}_Reply_{}", t.name, e.name).as_ref(),
-                        &mut enumvec,
-                        &mut structvec,
-                        options
-                    )?
-                ).as_ref();
+
+        ts.extend(quote!(
+            impl<'a> #call_name for varlink::Call<'a> {}
+        ));
+
+        // #server_method_decls
+        {
+            let in_field_names = in_field_names.iter();
+            let in_field_types = in_field_types.iter();
+            server_method_decls.extend(quote!(
+                fn #method_name (&self, call: &mut #call_name, #(#in_field_names: #in_field_types),*) ->
+                varlink::Result<()>;
+            ));
+        }
+
+        // #client_method_decls
+        {
+            let in_field_names = in_field_names.iter();
+            let in_field_types = in_field_types.iter();
+            client_method_decls.extend(quote!(
+                fn #method_name(&mut self, #(#in_field_names: #in_field_types),*) ->
+                varlink::MethodCall<#in_struct_name, #out_struct_name, Error>;
+            ));
+        }
+
+        // #client_method_impls
+        {
+            let in_field_names_2 = in_field_names.iter();
+            let in_field_names = in_field_names.iter();
+            let in_field_types = in_field_types.iter();
+
+            client_method_impls.extend(quote!(
+            fn #method_name(&mut self, #(#in_field_names: #in_field_types),*) -> varlink::MethodCall<#in_struct_name, #out_struct_name,
+            Error> {
+             varlink::MethodCall::<#in_struct_name, #out_struct_name, Error>::new(
+                self.connection.clone(),
+                #varlink_method_name,
+                #in_struct_name {#(#in_field_names_2),*})
+             }
+            ));
+        }
+
+        // #server_method_impls
+        {
+            let in_field_names = in_field_names.iter();
+
+            if !t.input.elts.is_empty() {
+                server_method_impls.extend(quote!(
+                    #varlink_method_name => {
+                        if let Some(args) = req.parameters.clone() {
+                            let args: #in_struct_name = match serde_json::from_value(args) {
+                                Ok(v) => v,
+                                Err(e) => {
+                                    let es = format!("{}", e);
+                                    let _ = call.reply_invalid_parameter(es.clone());
+                                    return Err(varlink::ErrorKind::SerdeJsonDe(es).into());
+                                }
+                            };
+                            self.inner.#method_name(call as &mut #call_name, #(args.#in_field_names),*)
+                        } else {
+                            call.reply_invalid_parameter("parameters".into())
+                        }
+                    },
+                ));
+            } else {
+                server_method_impls.extend(quote!(
+                    #varlink_method_name => self.inner.#method_name(call as &mut #call_name),
+                ));
             }
-            outparms.pop();
-            outparms.pop();
         }
-
-        write!(
-            w,
-            "    fn {sname}(&mut self{inparms}) -> varlink::MethodCall<{mname}_Args, \
-             {mname}_Reply, Error>;\
-             \n",
-            sname = to_snake_case(t.name),
-            inparms = inparms,
-            mname = t.name
-        )?;
     }
 
-    write!(w, "}}\n")?;
+    ts.extend(quote!(
+        pub trait VarlinkInterface {
+            #server_method_decls
 
-    write!(
-        w,
-        r#"
-#[allow(dead_code)]
-pub struct VarlinkClient {{
-    connection: Arc<RwLock<varlink::Connection>>,
-}}
-
-impl VarlinkClient {{
-    #[allow(dead_code)]
-    pub fn new(connection: Arc<RwLock<varlink::Connection>>) -> Self {{
-        VarlinkClient {{
-            connection,
-        }}
-    }}
-}}
-
-impl VarlinkClientInterface for VarlinkClient {{
-"#
-    )?;
-    for t in iface.methods.values() {
-        let mut inparms = String::new();
-        let mut innames = String::new();
-        if !t.input.elts.is_empty() {
-            for e in &t.input.elts {
-                inparms += format!(
-                    ", {}: {}",
-                    replace_if_rust_keyword(e.name),
-                    e.vtype.to_rust(
-                        format!("{}_Args_{}", t.name, e.name).as_ref(),
-                        &mut enumvec,
-                        &mut structvec,
-                        options
-                    )?
-                ).as_ref();
-                innames += format!("{}, ", replace_if_rust_keyword(e.name)).as_ref();
+            fn call_upgraded(&self, _call: &mut varlink::Call, _bufreader: &mut BufRead) -> varlink::Result<Vec<u8>> {
+                Ok(Vec::new())
             }
-            innames.pop();
-            innames.pop();
         }
-        write!(
-            w,
-            "    fn {sname}(&mut self{inparms}) -> varlink::MethodCall<{mname}_Args, \
-             {mname}_Reply, \
-             Error> \
-             {{\n",
-            sname = to_snake_case(t.name),
-            inparms = inparms,
-            mname = t.name
-        )?;
-
-        write!(
-            w,
-            "            \
-             varlink::MethodCall::<{mname}_Args, {mname}_Reply, Error>::new(\n            \
-             self.connection.clone(),\n            \
-             \"{iname}.{mname}\",\n            \
-             {mname}_Args {{ {innames} }},\n        \
-             )\n",
-            mname = t.name,
-            iname = iface.name,
-            innames = innames
-        )?;
-        write!(w, "    }}\n")?;
-    }
-    write!(w, "}}\n")?;
-
-    write!(
-        w,
-        r########################################################################################"
-#[allow(dead_code)]
-pub struct VarlinkInterfaceProxy {{
-    inner: Box<VarlinkInterface + Send + Sync>,
-}}
-
-#[allow(dead_code)]
-pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> VarlinkInterfaceProxy {{
-    VarlinkInterfaceProxy {{ inner }}
-}}
-
-impl varlink::Interface for VarlinkInterfaceProxy {{
-    fn get_description(&self) -> &'static str {{
-        r#####################################"{description}"#####################################
-    }}
-
-    fn get_name(&self) -> &'static str {{
-        "{iname}"
-    }}
-
-"########################################################################################,
-        description = varlink.description,
-        iname = iface.name
-    )?;
-
-    write!(
-        w,
-        r#"    fn call_upgraded(&self, call: &mut varlink::Call, bufreader: &mut BufRead) ->
-        varlink::Result<Vec<u8>> {{
-        self.inner.call_upgraded(call, bufreader)
-    }}
-
-    fn call(&self, call: &mut varlink::Call) -> varlink::Result<()> {{
-        let req = call.request.unwrap();
-        match req.method.as_ref() {{
-"#
-    )?;
-
-    for t in iface.methods.values() {
-        let mut inparms = String::new();
-        for e in &t.input.elts {
-            inparms += format!(", args.{}", replace_if_rust_keyword(e.name)).as_ref();
+        pub trait VarlinkClientInterface {
+            #client_method_decls
         }
 
-        write!(
-            w,
-            "            \"{iname}.{mname}\" => {{",
-            iname = iface.name,
-            mname = t.name
-        )?;
-        if !t.input.elts.is_empty() {
-            write!(
-                w,
-                concat!(
-                    "\n",
-                    "                if let Some(args) = req.parameters.clone() {{\n",
-                    "                    let args: {mname}_Args = match serde_json::from_value(args) {{\
-                     Ok(v) => v, Err(e) => {{ let es = format!(\"{{}}\", e); let _ = call\
-                     .reply_invalid_parameter(es.clone()); return \
-                      Err(varlink::ErrorKind::SerdeJsonDe(es).into()); }} }};\n",
-                    "                    self.inner.{sname}(call as &mut Call_{mname}{inparms})\n",
-                    "                }} else {{\n",
-                    "                    call.reply_invalid_parameter(\"parameters\".into())\
-                     \n",
-                    "                }}\n",
-                    "            }}\n"
-                ),
-                mname = t.name,
-                sname = to_snake_case(t.name),
-                inparms = inparms
-            )?;
-        } else {
-            write!(
-                w,
-                concat!(
-                    "\n",
-                    "                self.inner.{sname}(call as &mut Call_{mname})\n",
-                    "            }}\n"
-                ),
-                sname = to_snake_case(t.name),
-                mname = t.name
-            )?;
+        #[allow(dead_code)]
+        pub struct VarlinkClient {
+            connection: Arc<RwLock<varlink::Connection>>,
         }
-    }
-    write!(
-        w,
-        concat!(
-            "\n",
-            "            m => {{\n",
-            "                call.reply_method_not_found(String::from(m))\n",
-            "            }}\n",
-            "        }}\n",
-            "    }}\n",
-            "}}"
-        )
-    )?;
 
-    Ok(())
+        impl VarlinkClient {
+            #[allow(dead_code)]
+            pub fn new(connection: Arc<RwLock<varlink::Connection>>) -> Self {
+                VarlinkClient {
+                    connection,
+                }
+            }
+        }
+
+        impl VarlinkClientInterface for VarlinkClient {
+            #client_method_impls
+        }
+
+        #[allow(dead_code)]
+        pub struct VarlinkInterfaceProxy {
+            inner: Box<VarlinkInterface + Send + Sync>,
+        }
+
+        #[allow(dead_code)]
+        pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> VarlinkInterfaceProxy {
+            VarlinkInterfaceProxy { inner }
+        }
+
+        impl varlink::Interface for VarlinkInterfaceProxy {
+            fn get_description(&self) -> &'static str {
+                #description
+            }
+
+            fn get_name(&self) -> &'static str {
+                #iname
+            }
+
+            fn call_upgraded(&self, call: &mut varlink::Call, bufreader: &mut BufRead) -> varlink::Result<Vec<u8>> {
+                self.inner.call_upgraded(call, bufreader)
+            }
+
+            fn call(&self, call: &mut varlink::Call) -> varlink::Result<()> {
+                let req = call.request.unwrap();
+                match req.method.as_ref() {
+                    #server_method_impls
+                    m => {
+                        call.reply_method_not_found(String::from(m))
+                    }
+                }
+            }
+        }
+    ));
+
+    Ok(ts)
 }
 
 /// `generate` reads a varlink interface definition from `reader` and writes
@@ -949,8 +855,8 @@ pub fn generate_with_options(
 
     let vr = Varlink::from_string(&buffer)?;
 
-    varlink_to_rust(&vr, writer, options, tosource)?;
-
+    let ts = varlink_to_rust(&vr, options, tosource)?;
+    writer.write(ts.to_string().as_bytes())?;
     Ok(())
 }
 
@@ -1153,14 +1059,14 @@ pub fn cargo_build_tosource_options<T: AsRef<Path> + ?Sized>(
         if let Err(e) = Command::new("rustfmt")
             .arg(rust_path.to_str().unwrap())
             .output()
-        {
-            eprintln!(
-                "Could not run rustfmt on file `{}` {}",
-                rust_path.display(),
-                e
-            );
-            exit(1);
-        }
+            {
+                eprintln!(
+                    "Could not run rustfmt on file `{}` {}",
+                    rust_path.display(),
+                    e
+                );
+                exit(1);
+            }
     }
 
     println!("cargo:rerun-if-changed={}", input_path.display());

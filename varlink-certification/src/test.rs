@@ -1,4 +1,4 @@
-use assert_cmd::cargo::{main_binary_path, CargoError};
+use escargot::{CargoBuild, CargoError};
 use std::io;
 use std::result;
 use std::{thread, time};
@@ -48,7 +48,8 @@ fn test_tcp() {
 }
 
 fn get_exec() -> result::Result<String, CargoError> {
-    Ok(main_binary_path()?.to_string_lossy().to_string())
+    let runner = CargoBuild::new().current_release().run()?;
+    Ok(runner.path().to_owned().to_string_lossy().to_string())
 }
 
 #[test]

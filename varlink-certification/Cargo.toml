@@ -17,5 +17,5 @@ failure = "0.1.2"
 varlink = { version = "3", path = "../varlink" }
 
 [dev-dependencies]
-assert_cmd = "0.9"
 varlink = { version = "3", path = "../varlink" }
+escargot = "0.3"

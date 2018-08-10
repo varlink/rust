@@ -3,7 +3,7 @@ extern crate failure;
 #[macro_use]
 extern crate failure_derive;
 #[cfg(test)]
-extern crate assert_cmd;
+extern crate escargot;
 extern crate serde_json;
 extern crate varlink;
 extern crate varlink_parser;

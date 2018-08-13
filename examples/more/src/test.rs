@@ -30,6 +30,6 @@ fn run_self_test(address: String) -> Result<()> {
 }
 
 #[test]
-fn test_unix() {
-    assert!(run_self_test("unix:/tmp/org.example.more".into()).is_ok());
+fn test_unix() -> Result<()> {
+    run_self_test("unix:/tmp/org.example.more".into())
 }

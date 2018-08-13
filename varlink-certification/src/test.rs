@@ -1,6 +1,6 @@
-use escargot::{CargoBuild, CargoError};
+use escargot::CargoBuild;
+use failure::ResultExt;
 use std::io;
-use std::result;
 use std::{thread, time};
 use varlink::Connection;
 use Result;
@@ -32,42 +32,35 @@ fn run_self_test(address: String) -> Result<()> {
 }
 
 #[test]
-fn test_unix() {
-    assert!(run_self_test("unix:/tmp/org.varlink.certification".into()).is_ok());
+fn test_unix() -> ::Result<()> {
+    run_self_test("unix:/tmp/org.varlink.certification".into())
 }
 
 #[test]
 #[cfg(any(target_os = "linux", target_os = "android"))]
-fn test_unix_abstract() {
-    assert!(run_self_test("unix:@org.varlink.certification".into()).is_ok());
+fn test_unix_abstract() -> Result<()> {
+    run_self_test("unix:@org.varlink.certification".into())
 }
 
 #[test]
-fn test_tcp() {
-    assert!(run_self_test("tcp:0.0.0.0:23456".into()).is_ok());
+fn test_tcp() -> Result<()> {
+    run_self_test("tcp:0.0.0.0:23456".into())
 }
 
-fn get_exec() -> result::Result<String, CargoError> {
-    let runner = CargoBuild::new().current_release().run()?;
+fn get_exec() -> Result<String> {
+    let runner = CargoBuild::new()
+        .current_release()
+        .run()
+        .context(::ErrorKind::Io_Error(::std::io::ErrorKind::NotFound))?;
     Ok(runner.path().to_owned().to_string_lossy().to_string())
 }
 
 #[test]
-fn test_exec() {
-    match get_exec() {
-        Err(_) => {
-            eprintln!("test test::test_exec ... skipping, no varlink-certification binary found");
-            return;
-        }
-        Ok(program) => {
-            assert!(
-                ::run_client(
-                    Connection::with_activate(&format!("{} --varlink=$VARLINK_ADDRESS", program))
-                        .unwrap(),
-                ).is_ok()
-            );
-        }
-    }
+fn test_exec() -> Result<()> {
+    ::run_client(Connection::with_activate(&format!(
+        "{} --varlink=$VARLINK_ADDRESS",
+        get_exec()?
+    ))?)
 }
 
 #[test]

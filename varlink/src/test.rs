@@ -3,7 +3,7 @@ use std::{thread, time};
 use *;
 
 #[test]
-fn test_listen() {
+fn test_listen() -> Result<()> {
     fn run_app<S: ?Sized + AsRef<str>>(address: &S, timeout: u64) -> Result<()> {
         let service = VarlinkService::new(
             "org.varlink",
@@ -125,13 +125,15 @@ error InvalidParameter (parameter: string)
     // give server time to start
     thread::sleep(time::Duration::from_secs(1));
 
-    assert!(run_client_app(address).is_ok());
+    run_client_app(address)?;
 
     assert!(child.join().is_ok());
+
+    Ok(())
 }
 
 #[test]
-fn test_handle() {
+fn test_handle() -> Result<()> {
     let service = VarlinkService::new(
         "org.varlink",
         "test service",
@@ -155,15 +157,12 @@ fn test_handle() {
 
         match {
             let mut br = buf.as_slice();
-            service.handle(&mut br, &mut w, None)
+            service.handle(&mut br, &mut w, None)?
         } {
-            Err(e) => {
-                panic!("Unexpected handle error {:#?}", e);
-            }
-            Ok((_, Some(iface))) => {
+            (_, Some(iface)) => {
                 panic!("Unexpected handle return value {}", iface);
             }
-            Ok((v, None)) => {
+            (v, None) => {
                 if v.len() == 0 {
                     break;
                 }
@@ -185,19 +184,17 @@ fn test_handle() {
 
     let reply = from_slice::<Reply>(&w).unwrap();
 
-    match from_value::<ServiceInfo>(reply.parameters.unwrap()) {
-        Ok(si) => {
-            assert_eq!(
-                si,
-                ServiceInfo {
-                    vendor: "org.varlink".into(),
-                    product: "test service".into(),
-                    version: "0.1".into(),
-                    url: "http://varlink.org".into(),
-                    interfaces: vec!["org.varlink.service".into()],
-                }
-            );
+    let si = from_value::<ServiceInfo>(reply.parameters.unwrap())?;
+
+    assert_eq!(
+        si,
+        ServiceInfo {
+            vendor: "org.varlink".into(),
+            product: "test service".into(),
+            version: "0.1".into(),
+            url: "http://varlink.org".into(),
+            interfaces: vec!["org.varlink.service".into()],
         }
-        Err(e) => panic!(e.to_string()),
-    };
+    );
+    Ok(())
 }

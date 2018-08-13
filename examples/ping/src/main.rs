@@ -336,14 +336,7 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
                                         }
                                     }
                                     Err(err) => match err.kind() {
-                                        | varlink::ErrorKind::ConnectionClosed
-                                        | varlink::ErrorKind::Io(io::ErrorKind::BrokenPipe)
-                                        | varlink::ErrorKind::Io(
-                                            io::ErrorKind::ConnectionReset,
-                                        )
-                                        | varlink::ErrorKind::Io(
-                                            io::ErrorKind::ConnectionAborted,
-                                        ) => {
+                                        varlink::ErrorKind::ConnectionClosed => {
                                             eprintln!("Upgraded end");
                                             break;
                                         }

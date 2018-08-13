@@ -80,7 +80,14 @@ impl From<Context<ErrorKind>> for Error {
 impl From<::std::io::Error> for Error {
     fn from(e: ::std::io::Error) -> Error {
         let kind = e.kind();
-        e.context(ErrorKind::Io(kind)).into()
+        match kind {
+            ::std::io::ErrorKind::BrokenPipe
+            | ::std::io::ErrorKind::ConnectionReset
+            | ::std::io::ErrorKind::ConnectionAborted => {
+                e.context(ErrorKind::ConnectionClosed).into()
+            }
+            _ => e.context(ErrorKind::Io(kind)).into(),
+        }
     }
 }
 

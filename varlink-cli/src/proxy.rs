@@ -8,9 +8,9 @@ use varlink::{
 use varlink_stdinterfaces::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 
 pub fn handle<R, W>(mut client_reader: R, mut client_writer: W) -> Result<bool>
-    where
-        R: BufRead + Send + Sync + 'static,
-        W: Write + Send + Sync + 'static,
+where
+    R: BufRead + Send + Sync + 'static,
+    W: Write + Send + Sync + 'static,
 {
     let conn = Connection::new("unix:/run/org.varlink.resolver")?;
     let mut resolver = VarlinkClient::new(conn);
@@ -129,10 +129,8 @@ pub fn handle<R, W>(mut client_reader: R, mut client_writer: W) -> Result<bool>
             // Should copy back and forth, until someone disconnects.
             let (mut service_reader, mut service_writer) = service_stream.split()?;
             {
-                let copy1 =
-                    thread::spawn(move || copy(&mut client_reader, &mut service_writer));
-                let copy2 =
-                    thread::spawn(move || copy(&mut service_reader, &mut client_writer));
+                let copy1 = thread::spawn(move || copy(&mut client_reader, &mut service_writer));
+                let copy2 = thread::spawn(move || copy(&mut service_reader, &mut client_writer));
                 let r = copy1.join();
                 r.unwrap_or(Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
                 let r = copy2.join();
@@ -149,9 +147,9 @@ pub fn handle_connect<R, W>(
     mut client_reader: R,
     mut client_writer: W,
 ) -> Result<bool>
-    where
-        R: BufRead + Send + Sync + 'static,
-        W: Write + Send + Sync + 'static,
+where
+    R: BufRead + Send + Sync + 'static,
+    W: Write + Send + Sync + 'static,
 {
     let mut upgraded = false;
     let mut last_iface = String::new();

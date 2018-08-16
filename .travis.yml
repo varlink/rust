@@ -15,7 +15,7 @@ cache:
 before_cache:
   - rm -rf target
 before_script: |
-  if [[ $(uname -o) == *Linux* ]]; then
+  if [[ $(uname) == *Linux* ]]; then
     export PATH=$HOME/.cargo/bin:$PATH
     cargo install cargo-update || echo "cargo-update already installed"
     export RUSTFLAGS="--cfg procmacro2_semver_exempt"
@@ -27,7 +27,7 @@ script:
 - cargo build --all
 - cargo test --all
 after_success: |
-  if [[ $(uname -o) == *Linux* ]] && [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
+  if [[ $(uname) == *Linux* ]] && [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
     cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
   fi
 env:

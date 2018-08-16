@@ -182,6 +182,8 @@ impl FdTracker {
     }
 }
 
+// listen_multiplex is just an example, if you don't want to use varlink::listen()
+// and how to build your own main-loop and use the low-level varlink::handle() instead
 pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + Sync + 'static>(
     handler: H,
     address: &S,

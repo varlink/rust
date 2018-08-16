@@ -56,6 +56,7 @@ fn get_exec() -> Result<String> {
 }
 
 #[test]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 fn test_exec() -> Result<()> {
     ::run_client(Connection::with_activate(&format!(
         "{} --varlink=$VARLINK_ADDRESS",

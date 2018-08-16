@@ -14,18 +14,20 @@ cache:
   cargo: true
 before_cache:
   - rm -rf target
-before_script:
-  - export PATH=$HOME/.cargo/bin:$PATH
-  - cargo install cargo-update || echo "cargo-update already installed"
-  - export RUSTFLAGS="--cfg procmacro2_semver_exempt"
-  - cargo install cargo-tarpaulin || echo "cargo-tarpaulin already installed"
-  - cargo install-update -a || echo "update failed"
-  - unset RUSTFLAGS
+before_script: |
+  if [[ $(uname -o) == *Linux* ]]; then
+    export PATH=$HOME/.cargo/bin:$PATH
+    cargo install cargo-update || echo "cargo-update already installed"
+    export RUSTFLAGS="--cfg procmacro2_semver_exempt"
+    cargo install cargo-tarpaulin || echo "cargo-tarpaulin already installed"
+    cargo install-update -a || echo "update failed"
+    unset RUSTFLAGS
+  fi
 script:
 - cargo build --all
 - cargo test --all
 after_success: |
-  if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
+  if [[ $(uname -o) == *Linux* ]] && [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
     cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
   fi
 env:

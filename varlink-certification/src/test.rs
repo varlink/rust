@@ -47,6 +47,7 @@ fn test_tcp() -> Result<()> {
     run_self_test("tcp:0.0.0.0:23456".into())
 }
 
+#[cfg(any(target_os = "linux", target_os = "android"))]
 fn get_exec() -> Result<String> {
     let runner = CargoBuild::new()
         .current_release()

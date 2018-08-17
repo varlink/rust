@@ -25,7 +25,20 @@ pub enum VarlinkStream {
 pub fn varlink_exec<S: ?Sized + AsRef<str>>(
     address: &S,
 ) -> Result<(Child, String, Option<TempDir>)> {
-    let executable = String::from("exec ") + address.as_ref();
+    #[cfg(not(target_os = "macos"))]
+    mod sysenv {
+        pub const LOADER_PATH: &'static str = "LD_LIBRARY_PATH";
+    }
+    #[cfg(target_os = "macos")]
+    mod sysenv {
+        pub const LOADER_PATH: &'static str = "DYLD_LIBRARY_PATH";
+    }
+
+    let executable = match env::var(sysenv::LOADER_PATH) {
+        Ok(path) => format!("{}='{}' exec {}", sysenv::LOADER_PATH, path, address.as_ref()),
+        _ => String::from("exec ") + address.as_ref(),
+    };
+
     use unix_socket::UnixListener;
 
     let dir = tempdir()?;

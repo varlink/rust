@@ -803,6 +803,7 @@ impl<'a> Call<'a> {
     }
 }
 
+/// A client connection builder to a varlink service.
 #[derive(Default)]
 pub struct Connection {
     pub reader: Option<BufReader<Box<Read + Send + Sync>>>,
@@ -815,6 +816,9 @@ pub struct Connection {
 }
 
 impl Connection {
+    /// Create a connection with a varlink URI
+    ///
+    /// see [with_address](#method.with_address)
     pub fn new<S: ?Sized + AsRef<str>>(address: &S) -> Result<Arc<RwLock<Self>>> {
         Self::with_address(address)
     }
@@ -906,6 +910,10 @@ impl Connection {
         })))
     }
 
+    /// Return the `address` used by the connection.
+    ///
+    /// Only useful, if you want to clone a connection built
+    /// [with_activate](#method.with_activate) or [with_address](#method.with_address)
     pub fn address(&self) -> String {
         self.address.clone()
     }

@@ -78,7 +78,7 @@ pub fn varlink_exec<S: ?Sized + AsRef<str>>(
 
 pub fn varlink_bridge<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Child, VarlinkStream)> {
     let executable = address.as_ref();
-    //use unix_socket::UnixStream;
+    // use unix_socket::UnixStream;
     let (stream0, stream1) = UnixStream::pair()?;
     let fd = stream1.into_raw_fd();
     let childin = unsafe { ::std::fs::File::from_raw_fd(fd) };

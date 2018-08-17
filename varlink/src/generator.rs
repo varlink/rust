@@ -190,7 +190,7 @@ fn to_snake_case(mut str: &str) -> String {
 
 fn is_rust_keyword(v: &str) -> bool {
     match v {
-        | "abstract" | "as" | "async" | "auto" | "become" | "box" | "break" | "catch" | "const"
+        "abstract" | "as" | "async" | "auto" | "become" | "box" | "break" | "catch" | "const"
         | "continue" | "crate" | "default" | "do" | "dyn" | "else" | "enum" | "extern"
         | "false" | "final" | "fn" | "for" | "if" | "impl" | "in" | "let" | "loop" | "macro"
         | "match" | "mod" | "move" | "mut" | "override" | "priv" | "pub" | "ref" | "return"
@@ -445,8 +445,8 @@ use varlink::{{self, CallTrait}};
         for t in iface.errors.values() {
             errors.push(
                 TokenStream::from_str(&format!(
-                    "#[fail(display = \"{iname}.{ename}: {{:#?}}\", _0)]\
-                     {ename}(Option<{ename}_Args>)",
+                    "#[fail(display = \"{iname}.{ename}: {{:#?}}\", \
+                     _0)]{ename}(Option<{ename}_Args>)",
                     ename = t.name,
                     iname = iface.name,
                 )).unwrap(),
@@ -841,8 +841,8 @@ pub fn generate(reader: &mut Read, writer: &mut Write, tosource: bool) -> Result
     )
 }
 
-/// `generate_with_options` reads a varlink interface definition from `reader` and writes
-/// the rust code to `writer`.
+/// `generate_with_options` reads a varlink interface definition from `reader`
+/// and writes the rust code to `writer`.
 pub fn generate_with_options(
     reader: &mut Read,
     writer: &mut Write,
@@ -867,15 +867,15 @@ pub fn generate_with_options(
 ///
 /// Errors are emitted to stderr and terminate the process.
 ///
-///# Examples
+/// # Examples
 ///
-///```rust,no_run
-///extern crate varlink;
+/// ```rust,no_run
+/// extern crate varlink;
 ///
-///fn main() {
-///    varlink::generator::cargo_build("src/org.example.ping.varlink");
-///}
-///```
+/// fn main() {
+///     varlink::generator::cargo_build("src/org.example.ping.varlink");
+/// }
+/// ```
 ///
 pub fn cargo_build<T: AsRef<Path> + ?Sized>(input_path: &T) {
     cargo_build_options(
@@ -893,19 +893,21 @@ pub fn cargo_build<T: AsRef<Path> + ?Sized>(input_path: &T) {
 ///
 /// Errors are emitted to stderr and terminate the process.
 ///
-///# Examples
+/// # Examples
 ///
-///```rust,no_run
-///extern crate varlink;
+/// ```rust,no_run
+/// extern crate varlink;
 ///
-///fn main() {
-///    varlink::generator::cargo_build_options("src/org.example.ping.varlink",
-///       &varlink::generator::GeneratorOptions {
-///           int_type: Some("i128"),
-///            ..Default::default()
-///        });
-///}
-///```
+/// fn main() {
+///     varlink::generator::cargo_build_options(
+///         "src/org.example.ping.varlink",
+///         &varlink::generator::GeneratorOptions {
+///             int_type: Some("i128"),
+///             ..Default::default()
+///         },
+///     );
+/// }
+/// ```
 ///
 pub fn cargo_build_options<T: AsRef<Path> + ?Sized>(input_path: &T, options: &GeneratorOptions) {
     let input_path = input_path.as_ref();
@@ -947,28 +949,29 @@ pub fn cargo_build_options<T: AsRef<Path> + ?Sized>(input_path: &T, options: &Ge
 
 /// cargo build helper function
 ///
-/// `cargo_build_tosource` is used in a `build.rs` program to build the rust code
-/// from a varlink interface definition. This function saves the rust code
-/// in the same directory as the varlink file. The name is the name of the varlink file
-/// and "." replaced with "_" and of course ending with ".rs".
+/// `cargo_build_tosource` is used in a `build.rs` program to build the rust
+/// code from a varlink interface definition. This function saves the rust code
+/// in the same directory as the varlink file. The name is the name of the
+/// varlink file and "." replaced with "_" and of course ending with ".rs".
 ///
-/// Use this, if you are using an IDE with code completion, as most cannot cope with
-/// `include!(concat!(env!("OUT_DIR"), "<varlink_file>"));`
+/// Use this, if you are using an IDE with code completion, as most cannot cope
+/// with `include!(concat!(env!("OUT_DIR"), "<varlink_file>"));`
 ///
-/// Set `rustfmt` to `true`, if you want the generator to run rustfmt on the generated
-/// code. This might be good practice to avoid large changes after a global `cargo fmt` run.
+/// Set `rustfmt` to `true`, if you want the generator to run rustfmt on the
+/// generated code. This might be good practice to avoid large changes after a
+/// global `cargo fmt` run.
 ///
 /// Errors are emitted to stderr and terminate the process.
 ///
-///# Examples
+/// # Examples
 ///
-///```rust,no_run
-///extern crate varlink;
+/// ```rust,no_run
+/// extern crate varlink;
 ///
-///fn main() {
-///    varlink::generator::cargo_build_tosource("src/org.example.ping.varlink", true);
-///}
-///```
+/// fn main() {
+///     varlink::generator::cargo_build_tosource("src/org.example.ping.varlink", true);
+/// }
+/// ```
 ///
 pub fn cargo_build_tosource<T: AsRef<Path> + ?Sized>(input_path: &T, rustfmt: bool) {
     cargo_build_tosource_options(
@@ -982,33 +985,36 @@ pub fn cargo_build_tosource<T: AsRef<Path> + ?Sized>(input_path: &T, rustfmt: bo
 
 /// cargo build helper function
 ///
-/// `cargo_build_tosource_options` is used in a `build.rs` program to build the rust code
-/// from a varlink interface definition. This function saves the rust code
-/// in the same directory as the varlink file. The name is the name of the varlink file
-/// and "." replaced with "_" and of course ending with ".rs".
+/// `cargo_build_tosource_options` is used in a `build.rs` program to build the
+/// rust code from a varlink interface definition. This function saves the rust
+/// code in the same directory as the varlink file. The name is the name of the
+/// varlink file and "." replaced with "_" and of course ending with ".rs".
 ///
-/// Use this, if you are using an IDE with code completion, as most cannot cope with
-/// `include!(concat!(env!("OUT_DIR"), "<varlink_file>"));`
+/// Use this, if you are using an IDE with code completion, as most cannot cope
+/// with `include!(concat!(env!("OUT_DIR"), "<varlink_file>"));`
 ///
-/// Set `rustfmt` to `true`, if you want the generator to run rustfmt on the generated
-/// code. This might be good practice to avoid large changes after a global `cargo fmt` run.
+/// Set `rustfmt` to `true`, if you want the generator to run rustfmt on the
+/// generated code. This might be good practice to avoid large changes after a
+/// global `cargo fmt` run.
 ///
 /// Errors are emitted to stderr and terminate the process.
 ///
-///# Examples
+/// # Examples
 ///
-///```rust,no_run
-///extern crate varlink;
+/// ```rust,no_run
+/// extern crate varlink;
 ///
-///fn main() {
-///    varlink::generator::cargo_build_tosource_options("src/org.example.ping.varlink", true,
-///        &varlink::generator::GeneratorOptions {
-///           int_type: Some("i128"),
-///            ..Default::default()
-///        }
-///    );
-///}
-///```
+/// fn main() {
+///     varlink::generator::cargo_build_tosource_options(
+///         "src/org.example.ping.varlink",
+///         true,
+///         &varlink::generator::GeneratorOptions {
+///             int_type: Some("i128"),
+///             ..Default::default()
+///         },
+///     );
+/// }
+/// ```
 ///
 pub fn cargo_build_tosource_options<T: AsRef<Path> + ?Sized>(
     input_path: &T,

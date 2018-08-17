@@ -2,7 +2,7 @@ extern crate varlink;
 
 use std::fs::File;
 use std::io::prelude::*;
-//use std::process::Command;
+// use std::process::Command;
 
 fn compare_files(a: std::path::PathBuf, b: std::path::PathBuf) -> bool {
     let fa = File::open(a).unwrap();
@@ -19,14 +19,13 @@ fn test_generate() {
     let mut path = std::path::PathBuf::from(std::env::temp_dir());
     path.push("org.example.complex.rs");
 
-    /*
-    assert!(
-        Command::new("rustfmt")
-            .arg(path.to_str().unwrap())
-            .output()
-            .is_ok()
-    );
-    */
+    // assert!(
+    // Command::new("rustfmt")
+    // .arg(path.to_str().unwrap())
+    // .output()
+    // .is_ok()
+    // );
+    //
     if !compare_files(
         std::path::PathBuf::from("tests/org.example.complex.rs_out"),
         path.clone(),

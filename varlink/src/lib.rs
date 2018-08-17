@@ -1,4 +1,6 @@
-//!Server support for the [varlink protocol](http://varlink.org)
+//![Server](#server) and [client](#client) support for the [varlink protocol](http://varlink.org)
+//!
+//! # Server
 //!
 //!To create a varlink server in rust, place your varlink interface definition file in src/.
 //!E.g. `src/org.example.ping.varlink`:
@@ -21,6 +23,8 @@
 //!                                             /* rustfmt */ true);
 //!}
 //!```
+//!
+//! For more code generation functions see the [`generator functions`].
 //!
 //!Add to your ```Cargo.toml```:
 //!
@@ -104,7 +108,7 @@
 //!# fn main() {}
 //!```
 //!
-//!A typical server creates a `VarlinkService` and starts a server via `varlink::listen()`
+//!A typical server creates a `VarlinkService` and starts a server via [`varlink::listen`]
 //!
 //!```rust
 //!# #![allow(non_camel_case_types)]
@@ -176,7 +180,41 @@
 //!- TCP `tcp:127.0.0.1:12345` hostname/IP address and port
 //!- UNIX socket `unix:/run/org.example.ftl` optional access `;mode=0666` parameter
 //!- UNIX abstract namespace socket `unix:@org.example.ftl` (on Linux only)
-
+//!
+//! # Client
+//!
+//! Setup your project, just like in the [server](#server) case with a varlink file
+//! and a ```build.rs``` file.
+//!
+//!In your `main.rs` you can then use:
+//!
+//!```rust,ignore
+//! mod org_example_ping;
+//! use org_example_ping;
+//! let connection = Connection::with_address("unix:/tmp/org.example.ping").unwrap();
+//! let mut ping_service = org_example_ping::VarlinkClient::new(connection);
+//! let reply = ping_service.ping(String::from("Test")).call()?;
+//! assert_eq!(String::from("Test"), reply.pong);
+//! ```
+//!
+//! A connection can be established via the [`connection builder`] functions.
+//! The ```org_example_ping::VarlinkClient``` implements ```org_example_ping::VarlinkClientInterface```,
+//! which has all the varlink methods (names converted from camel case to lowercase snake case).
+//! The ```PingString()``` method would be named ```ping_string()```.
+//!
+//! To iterate over a ```more``` call
+//!```rust,ignore
+//! for reply in my_more_service.test_more(/* params */).more()? { /*...*/ }
+//! ```
+//!
+//! The reply struct is placed in a structure named after the method with ```_Reply``` appended.
+//! So, the reply to the ```Ping()``` method in our example is in a struct called ```Ping_Reply```.
+//!
+//!
+//! [`connection builder`]: struct.Connection.html#methods
+//! [`varlink::listen`]: fn.listen.html
+//! [`generator functions`]: generator/index.html#functions
+//!
 #![recursion_limit = "512"]
 extern crate bytes;
 extern crate failure;
@@ -509,12 +547,10 @@ where
 ///
 /// See also the [CallTrait](trait.CallTrait.html) to use with the first Call parameter
 ///
-/// #Examples
-///
 /// If your varlink method is called `TestMethod`, the rust method to be implemented is called
 /// `test_method`. The first parameter is of type `Call_TestMethod`, which has the method `reply()`.
 ///
-///# Examples
+/// # Examples
 ///
 ///```rust
 ///!# #![allow(non_camel_case_types)]
@@ -783,6 +819,23 @@ impl Connection {
         Self::with_address(address)
     }
 
+    /// Create a connection with a varlink URI
+    ///
+    /// following the varlink
+    /// [address specification](https: //github.com/varlink/documentation/wiki#address).
+    ///
+    /// Currently supported address URIs are:
+    ///
+    /// - TCP `tcp:127.0.0.1:12345` hostname/IP address and port
+    /// - UNIX socket `unix:/run/org.example.ftl`
+    /// - UNIX abstract namespace socket `unix:@org.example.ftl` (on Linux only)
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// let connection = Connection::with_address("unix:/tmp/org.example.myservice");
+    /// let connection = Connection::with_address("tcp:127.0.0.1:12345");
+    /// ```
     pub fn with_address<S: ?Sized + AsRef<str>>(address: &S) -> Result<Arc<RwLock<Self>>> {
         let (mut stream, address) = client::VarlinkStream::connect(address)?;
         let (r, w) = stream.split()?;
@@ -797,6 +850,18 @@ impl Connection {
         })))
     }
 
+    /// Create a connection to a service, which is executed in the background.
+    ///
+    /// Create a connection to a service, which is started with `command` and passed a socket pair
+    /// via socket activation. The address of the unix socket is set in the environment variable
+    /// `VARLINK_ADDRESS`. Additionally the socket activation variables `LISTEN_FDS=1`,
+    /// `LISTEN_FDNAMES=varlink` and `LISTEN_PID` are set.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// let connection = Connection::with_activate("myservice --varlink=$VARLINK_ADDRESS");
+    /// ```
     pub fn with_activate<S: ?Sized + AsRef<str>>(command: &S) -> Result<Arc<RwLock<Self>>> {
         let (child, unix_address, temp_dir) = varlink_exec(command)?;
         let (mut stream, address) = client::VarlinkStream::connect(&unix_address)?;
@@ -812,6 +877,21 @@ impl Connection {
         })))
     }
 
+    /// Create a connection to a service via stdin/stdout of a specified command.
+    ///
+    /// Create a "bridge" to e.g. another host via `ssh` or other connection commands.
+    /// On the remote side `varlink bridge` is typically started.
+    /// The connection will go through stdin/stdout of the command and the remote bridge command
+    /// will multiplex to the wanted varlink services.
+    ///
+    /// Of course with `ssh` there are better options, like unix socket
+    /// forwarding `-L local_socket:remote_socket`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// let connection = Connection::with_bridge("ssh my.example.org -- varlink bridge");
+    /// ```
     pub fn with_bridge<S: ?Sized + AsRef<str>>(command: &S) -> Result<Arc<RwLock<Self>>> {
         let (child, mut stream) = varlink_bridge(command)?;
         let (r, w) = stream.split()?;

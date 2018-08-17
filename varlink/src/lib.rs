@@ -196,7 +196,8 @@ extern crate tempfile;
 extern crate unix_socket;
 extern crate varlink_parser;
 
-pub use client::{varlink_bridge, varlink_exec, VarlinkStream};
+pub use client::VarlinkStream;
+use client::{varlink_bridge, varlink_exec};
 pub use error::{Error, ErrorKind, Result};
 use failure::ResultExt;
 use serde::de::{self, DeserializeOwned};

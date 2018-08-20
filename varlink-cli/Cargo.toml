@@ -29,4 +29,4 @@ varlink = { version = "4", path = "../varlink" }
 escargot = "0.3"
 varlink_parser = { version = "1", path = "../varlink_parser" }
 varlink = { version = "4", path = "../varlink" }
-varlink_stdinterfaces = { version = "0", path = "../varlink_stdinterfaces" }
+varlink_stdinterfaces = { version = "4", path = "../varlink_stdinterfaces" }

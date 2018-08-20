@@ -1,6 +1,6 @@
 [package]
 name = "varlink_stdinterfaces"
-version = "0.2.1"
+version = "4.0.0"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 license = "MIT/Apache-2.0"
 documentation = "https://github.com/varlink/rust/blob/master/varlink/README.md"

@@ -510,6 +510,8 @@ pub struct Reply {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub continues: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub upgraded: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<Cow<'static, str>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parameters: Option<Value>,
@@ -520,6 +522,7 @@ impl Reply {
         Reply {
             continues: None,
             error: None,
+            upgraded: None,
             parameters,
         }
     }
@@ -527,6 +530,7 @@ impl Reply {
     pub fn error<S: Into<Cow<'static, str>>>(name: S, parameters: Option<Value>) -> Self {
         Reply {
             continues: None,
+            upgraded: None,
             error: Some(name.into()),
             parameters,
         }

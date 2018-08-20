@@ -5,7 +5,7 @@ authors = ["Harald Hoyer <harald@redhat.com>"]
 build = "build.rs"
 
 [dependencies]
-varlink = { version = "3", path = "../varlink" }
+varlink = { version = "4", path = "../varlink" }
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
@@ -14,8 +14,8 @@ failure_derive = "0.1.2"
 failure = "0.1.2"
 
 [build-dependencies]
-varlink = { version = "3", path = "../varlink" }
+varlink = { version = "4", path = "../varlink" }
 
 [dev-dependencies]
-varlink = { version = "3", path = "../varlink" }
+varlink = { version = "4", path = "../varlink" }
 escargot = "0.3"

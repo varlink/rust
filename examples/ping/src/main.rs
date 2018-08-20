@@ -139,19 +139,24 @@ impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
     // An upgraded connection has its own application specific protocol.
     // Normally, there is no way back to the varlink protocol with this connection.
     fn call_upgraded(&self, call: &mut Call, bufreader: &mut BufRead) -> varlink::Result<Vec<u8>> {
-        let mut buf = String::new();
-        let len = bufreader.read_line(&mut buf)?;
-        if len == 0 {
-            eprintln!("Server: upgraded got: none");
-            // incomplete data, in real life, store all bytes for the next call
-            // return Ok(buf.as_bytes().to_vec());
-            return Err(varlink::ErrorKind::ConnectionClosed.into());
+        loop {
+            let mut buf = String::new();
+            let len = bufreader.read_line(&mut buf)?;
+            if len == 0 {
+                eprintln!("Server: upgraded got: none");
+                // incomplete data, in real life, store all bytes for the next call
+                // return Ok(buf.as_bytes().to_vec());
+                return Err(varlink::ErrorKind::ConnectionClosed.into());
+            }
+            eprintln!("Server: upgraded got: {}", buf);
+
+            call.writer.write_all(b"server reply: ")?;
+            call.writer.write_all(buf.as_bytes())?;
+            if buf.eq("End\n") {
+                break;
+            }
         }
-        eprintln!("Server: upgraded got: {}", buf);
-
-        call.writer.write_all(b"server reply: ")?;
-        call.writer.write_all(buf.as_bytes())?;
-
+        eprintln!("Server: upgraded ending");
         Ok(Vec::new())
     }
 }
@@ -323,18 +328,26 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
                             let mut upgraded_iface = upgraded_iface.take();
                             loop {
                                 match handler.handle(&mut bufreader, &mut writer, upgraded_iface) {
-                                    Ok((_unread, iface)) => {
+                                    Ok((unread, iface)) => {
                                         upgraded_iface = iface;
                                         match bufreader.fill_buf() {
                                             Err(_) => {
                                                 eprintln!("Upgraded end");
                                                 break;
                                             }
-                                            Ok(buf) if buf.is_empty() => {
+                                            Ok(buf) if buf.is_empty() && unread.is_empty() => {
                                                 eprintln!("Upgraded end");
                                                 break;
                                             }
-                                            _ => {}
+                                            _ => {
+                                                if !unread.is_empty() {
+                                                    eprintln!(
+                                                        "Unhandled bytes: {}",
+                                                        String::from_utf8_lossy(&unread)
+                                                    );
+                                                    break;
+                                                }
+                                            }
                                         }
                                     }
                                     Err(err) => match err.kind() {
@@ -372,6 +385,7 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
         }
 
         if r == 0 && fds.len() == 1 {
+            eprintln!("listen_multiplex: Waiting for threads to end.");
             for t in threads {
                 let _r = t.join();
             }

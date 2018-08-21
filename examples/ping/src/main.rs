@@ -344,7 +344,7 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
                                                 break;
                                             }
                                             Ok(buf) => {
-                                                if buf.is_empty() && unread.is_empty() => {
+                                                if buf.is_empty() && unread.is_empty() {
                                                     eprintln!("Upgraded end");
                                                     break;
                                                 }

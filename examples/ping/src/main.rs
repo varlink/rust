@@ -343,17 +343,25 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
                                                 eprintln!("Upgraded end");
                                                 break;
                                             }
-                                            Ok(buf) if buf.is_empty() && unread.is_empty() => {
-                                                eprintln!("Upgraded end");
-                                                break;
-                                            }
-                                            _ => {
+                                            Ok(buf) => {
+                                                if buf.is_empty() && unread.is_empty() => {
+                                                    eprintln!("Upgraded end");
+                                                    break;
+                                                }
+
                                                 if !unread.is_empty() {
                                                     eprintln!(
-                                                        "Unhandled bytes: {}",
+                                                        "Not handled bytes: {}",
                                                         String::from_utf8_lossy(&unread)
                                                     );
                                                     break;
+                                                }
+
+                                                if !buf.is_empty() {
+                                                    eprintln!(
+                                                        "fill_buf(): {}",
+                                                        String::from_utf8_lossy(&buf)
+                                                    );
                                                 }
                                             }
                                         }

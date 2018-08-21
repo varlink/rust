@@ -16,10 +16,10 @@
 //!Then create a `build.rs` file in your project directory:
 //!
 //!```rust,ignore
-//!extern crate varlink;
+//!extern crate varlink_generator;
 //!
 //!fn main() {
-//!    varlink::generator::cargo_build_tosource("src/org.example.ping.varlink",
+//!    varlink_generator::cargo_build_tosource("src/org.example.ping.varlink",
 //!                                             /* rustfmt */ true);
 //!}
 //!```
@@ -31,6 +31,8 @@
 //!```toml
 //![package]
 //!build = "build.rs"
+//![build-dependencies]
+//varlink_generator = "5.0"
 //!```
 //!
 //!In your `main.rs` you can then use:
@@ -213,26 +215,21 @@
 //!
 //! [`connection builder`]: struct.Connection.html#methods
 //! [`varlink::listen`]: fn.listen.html
-//! [`generator functions`]: generator/index.html#functions
+//! [`generator functions`]: https://docs.rs/varlink_generator
 //!
-#![recursion_limit = "512"]
 extern crate bytes;
 extern crate failure;
 #[macro_use]
 extern crate failure_derive;
 extern crate itertools;
 extern crate libc;
-#[macro_use]
-extern crate quote;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 #[macro_use]
 extern crate serde_json;
-extern crate proc_macro2;
 extern crate tempfile;
 extern crate unix_socket;
-extern crate varlink_parser;
 
 pub use client::VarlinkStream;
 use client::{varlink_bridge, varlink_exec};
@@ -256,7 +253,6 @@ use tempfile::TempDir;
 mod client;
 
 mod error;
-pub mod generator;
 mod server;
 #[cfg(test)]
 mod test;

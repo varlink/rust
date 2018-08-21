@@ -1,32 +1,31 @@
 [package]
-name = "varlink"
+name = "varlink_generator"
 version = "5.0.0"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 license = "MIT/Apache-2.0"
 documentation = "https://github.com/varlink/rust/blob/master/varlink/README.md"
 homepage = "https://github.com/varlink/rust/blob/master/varlink"
 repository = "https://github.com/varlink/rust"
-description = "Client and server support for the varlink protocol."
+description = "Rust code generator for the varlink protocol."
 readme = "README.md"
 
 keywords = ["varlink", "ipc", "rpc", "protocol"]
 categories = ["os", "development-tools", "network-programming"]
 
 [lib]
-name = "varlink"
+name = "varlink_generator"
 path = "src/lib.rs"
 
+[[bin]]
+name = "varlink-rust-generator"
+path = "src/bin/varlink-rust-generator.rs"
+
 [dependencies]
-libc = "0"
-unix_socket = "0.5"
-itertools = "0"
-serde = "1"
-serde_derive = "1"
-serde_json = "1"
-bytes = "0"
-tempfile = "3"
 failure_derive = "0.1.2"
 failure = "0.1.2"
+varlink_parser = { version = "1.1", path = "../varlink_parser" }
+quote = "0.6"
+proc-macro2 = "0.4"
 
 [badges]
 travis-ci = { repository = "varlink/rust" }

@@ -1,4 +1,13 @@
 //! Generate rust code from varlink interface definition files
+#![recursion_limit = "512"]
+
+#[macro_use]
+extern crate quote;
+extern crate failure;
+extern crate proc_macro2;
+extern crate varlink_parser;
+#[macro_use]
+extern crate failure_derive;
 
 use failure::{Backtrace, Context, Fail};
 use proc_macro2::{Ident, Span, TokenStream};
@@ -10,9 +19,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{exit, Command};
 use std::str::FromStr;
-use varlink_parser::{
-    self, Typedef, VEnum, VError, VStruct, VStructOrEnum, VType, VTypeExt, Varlink,
-};
+use varlink_parser::{Typedef, VEnum, VError, VStruct, VStructOrEnum, VType, VTypeExt, Varlink};
 
 #[derive(Debug)]
 pub struct Error {
@@ -870,10 +877,10 @@ pub fn generate_with_options(
 /// # Examples
 ///
 /// ```rust,no_run
-/// extern crate varlink;
+/// extern crate varlink_generator;
 ///
 /// fn main() {
-///     varlink::generator::cargo_build("src/org.example.ping.varlink");
+///     varlink_generator::cargo_build("src/org.example.ping.varlink");
 /// }
 /// ```
 ///
@@ -896,12 +903,12 @@ pub fn cargo_build<T: AsRef<Path> + ?Sized>(input_path: &T) {
 /// # Examples
 ///
 /// ```rust,no_run
-/// extern crate varlink;
+/// extern crate varlink_generator;
 ///
 /// fn main() {
-///     varlink::generator::cargo_build_options(
+///     varlink_generator::cargo_build_options(
 ///         "src/org.example.ping.varlink",
-///         &varlink::generator::GeneratorOptions {
+///         &varlink_generator::GeneratorOptions {
 ///             int_type: Some("i128"),
 ///             ..Default::default()
 ///         },
@@ -966,10 +973,10 @@ pub fn cargo_build_options<T: AsRef<Path> + ?Sized>(input_path: &T, options: &Ge
 /// # Examples
 ///
 /// ```rust,no_run
-/// extern crate varlink;
+/// extern crate varlink_generator;
 ///
 /// fn main() {
-///     varlink::generator::cargo_build_tosource("src/org.example.ping.varlink", true);
+///     varlink_generator::cargo_build_tosource("src/org.example.ping.varlink", true);
 /// }
 /// ```
 ///
@@ -1002,13 +1009,13 @@ pub fn cargo_build_tosource<T: AsRef<Path> + ?Sized>(input_path: &T, rustfmt: bo
 /// # Examples
 ///
 /// ```rust,no_run
-/// extern crate varlink;
+/// extern crate varlink_generator;
 ///
 /// fn main() {
-///     varlink::generator::cargo_build_tosource_options(
+///     varlink_generator::cargo_build_tosource_options(
 ///         "src/org.example.ping.varlink",
 ///         true,
-///         &varlink::generator::GeneratorOptions {
+///         &varlink_generator::GeneratorOptions {
 ///             int_type: Some("i128"),
 ///             ..Default::default()
 ///         },

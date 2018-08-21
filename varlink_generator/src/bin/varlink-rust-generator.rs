@@ -8,14 +8,14 @@
 //!
 //! Output is sent to stdout.
 
-extern crate varlink;
+extern crate varlink_generator;
 
 use std::env;
 use std::fs::File;
 use std::io;
 use std::io::{Read, Write};
 use std::path::Path;
-use varlink::generator::{generate, Result};
+use varlink_generator::{generate, Result};
 
 fn main() -> Result<()> {
     let args: Vec<_> = env::args().collect();

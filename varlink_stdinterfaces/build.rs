@@ -1,5 +1,5 @@
-extern crate varlink;
+extern crate varlink_generator;
 
 fn main() {
-    varlink::generator::cargo_build("src/org.varlink.resolver.varlink");
+    varlink_generator::cargo_build("src/org.varlink.resolver.varlink");
 }

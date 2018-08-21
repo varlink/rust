@@ -14,4 +14,4 @@ failure_derive = "0.1.2"
 failure = "0.1.2"
 
 [build-dependencies]
-varlink = { path = "../../varlink" }
+varlink_generator = { path = "../../varlink_generator" }

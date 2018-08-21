@@ -15,4 +15,4 @@ failure = "0.1.2"
 libc = "0"
 
 [build-dependencies]
-varlink = { path = "../../varlink" }
+varlink_generator = { path = "../../varlink_generator" }

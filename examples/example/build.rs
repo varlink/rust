@@ -1,7 +1,7 @@
-extern crate varlink;
+extern crate varlink_generator;
 
 fn main() {
-    varlink::generator::cargo_build_tosource("src/io.systemd.network.varlink", true);
+    varlink_generator::cargo_build_tosource("src/io.systemd.network.varlink", true);
 
     /*
     varlink::generator::cargo_build_tosource_options(

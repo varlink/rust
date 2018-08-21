@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "varlink_parser",
+    "varlink_generator",
     "varlink",
     "varlink_stdinterfaces",
     "varlink-cli",

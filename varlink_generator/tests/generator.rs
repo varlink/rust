@@ -1,4 +1,4 @@
-extern crate varlink;
+extern crate varlink_generator;
 
 use std::fs::File;
 use std::io::prelude::*;
@@ -15,7 +15,7 @@ fn compare_files(a: std::path::PathBuf, b: std::path::PathBuf) -> bool {
 #[test]
 fn test_generate() {
     std::env::set_var("OUT_DIR", std::env::temp_dir());
-    varlink::generator::cargo_build("tests/org.example.complex.varlink");
+    varlink_generator::cargo_build("tests/org.example.complex.varlink");
     let mut path = std::path::PathBuf::from(std::env::temp_dir());
     path.push("org.example.complex.rs");
 

@@ -1,6 +1,6 @@
 [package]
 name = "varlink_stdinterfaces"
-version = "4.0.0"
+version = "5.0.0"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 license = "MIT/Apache-2.0"
 documentation = "https://github.com/varlink/rust/blob/master/varlink/README.md"
@@ -10,7 +10,7 @@ description = "varlink common interfaces"
 build = "build.rs"
 
 [dependencies]
-varlink = { version = "4", path = "../varlink" }
+varlink = { version = "5.0", path = "../varlink" }
 varlink_parser = { version = "1", path = "../varlink_parser" }
 serde = "1"
 serde_derive = "1"
@@ -19,8 +19,5 @@ failure = "0.1.2"
 failure_derive = "0.1.2"
 
 [build-dependencies]
-varlink = { version = "4", path = "../varlink" }
+varlink_generator = { version = "5.0", path = "../varlink_generator" }
 
-[dev-dependencies]
-varlink_parser = { version = "1", path = "../varlink_parser" }
-varlink = { version = "4", path = "../varlink" }

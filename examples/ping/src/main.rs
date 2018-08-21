@@ -204,6 +204,8 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
     let mut fds = Vec::new();
     let mut threads = Vec::new();
     let listener = Listener::new(address)?;
+    let upgraded_in_use = Arc::new(RwLock::new(0));
+
     listener.set_nonblocking(true)?;
 
     fds.push(libc::pollfd {
@@ -320,12 +322,18 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
                         let handler = handler.clone();
                         let mut stream = tracker.stream.take().unwrap();
                         let mut buffer = tracker.buffer.take().unwrap();
+                        let mut upgraded_in_use = upgraded_in_use.clone();
                         move || {
                             let _r = stream.set_nonblocking(false);
                             let (reader, mut writer) = stream.split().unwrap();
                             let br = BufReader::new(reader);
                             let mut bufreader = Box::new(buffer.chain(br));
                             let mut upgraded_iface = upgraded_iface.take();
+
+                            {
+                                let mut ctr = upgraded_in_use.write().unwrap();
+                                *ctr += 1;
+                            }
                             loop {
                                 match handler.handle(&mut bufreader, &mut writer, upgraded_iface) {
                                     Ok((unread, iface)) => {
@@ -365,6 +373,10 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
                                     },
                                 }
                             }
+                            {
+                                let mut ctr = upgraded_in_use.write().unwrap();
+                                *ctr -= 1;
+                            }
                         }
                     });
                     threads.push(j);
@@ -381,10 +393,13 @@ pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + 
         let r = unsafe { libc::poll(fds.as_mut_ptr(), (fds.len() as u32).into(), timeout) };
 
         if r < 0 {
+            for t in threads {
+                let _r = t.join();
+            }
             return Err(Error::last_os_error().into());
         }
 
-        if r == 0 && fds.len() == 1 {
+        if r == 0 && fds.len() == 1 && *upgraded_in_use.read().unwrap() == 0 {
             eprintln!("listen_multiplex: Waiting for threads to end.");
             for t in threads {
                 let _r = t.join();

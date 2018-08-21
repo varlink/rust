@@ -25,12 +25,10 @@ before_script: |
   fi
 script:
 - cargo build --all
-- |
-  export DYLD_LIBRARY_PATH=$(rustc --print sysroot)/lib:$DYLD_LIBRARY_PATH
-  echo $DYLD_LIBRARY_PATH
-  cargo test --all
+- cargo test --all
 after_success: |
   if [[ $(uname) == *Linux* ]] && [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
+    export RUSTFLAGS="--cfg procmacro2_semver_exempt"
     export LD_LIBRARY_PATH=$(rustc --print sysroot)/lib:$LD_LIBRARY_PATH
     cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
   fi

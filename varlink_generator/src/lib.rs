@@ -885,8 +885,42 @@ pub fn generate_with_options(
 /// ```
 ///
 pub fn cargo_build<T: AsRef<Path> + ?Sized>(input_path: &T) {
-    cargo_build_options(
-        input_path,
+    cargo_build_options_many(
+        &[input_path],
+        &GeneratorOptions {
+            ..Default::default()
+        },
+    )
+}
+
+
+
+/// cargo build helper function
+///
+/// `cargo_build_many` is used in a `build.rs` program to build the rust code
+/// from a varlink interface definition.
+///
+/// Errors are emitted to stderr and terminate the process.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// extern crate varlink_generator;
+///
+/// fn main() {
+///     varlink_generator::cargo_build_many(&[
+///         "src/org.example.ping.varlink",
+///         "src/org.example.more.varlink",
+///     ]);
+/// }
+/// ```
+///
+pub fn cargo_build_many<T: AsRef<Path> + ?Sized>(input_paths: &[T]) where
+    T: std::marker::Sized,
+    T: AsRef<Path>,
+{
+    cargo_build_options_many(
+        input_paths,
         &GeneratorOptions {
             ..Default::default()
         },
@@ -895,7 +929,7 @@ pub fn cargo_build<T: AsRef<Path> + ?Sized>(input_path: &T) {
 
 /// cargo build helper function
 ///
-/// `cargo_build` is used in a `build.rs` program to build the rust code
+/// `cargo_build_options` is used in a `build.rs` program to build the rust code
 /// from a varlink interface definition.
 ///
 /// Errors are emitted to stderr and terminate the process.
@@ -917,41 +951,81 @@ pub fn cargo_build<T: AsRef<Path> + ?Sized>(input_path: &T) {
 /// ```
 ///
 pub fn cargo_build_options<T: AsRef<Path> + ?Sized>(input_path: &T, options: &GeneratorOptions) {
-    let input_path = input_path.as_ref();
+    cargo_build_options_many(&[input_path], options)
+}
 
-    let out_dir: PathBuf = env::var_os("OUT_DIR").unwrap().into();
-    let rust_path = out_dir
-        .join(input_path.file_name().unwrap())
-        .with_extension("rs");
+/// cargo build helper function
+///
+/// `cargo_build_options_many` is used in a `build.rs` program to build the rust code
+/// from a varlink interface definition.
+///
+/// Errors are emitted to stderr and terminate the process.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// extern crate varlink_generator;
+///
+/// fn main() {
+///     varlink_generator::cargo_build_options_many(
+///         &[
+///             "src/org.example.ping.varlink",
+///             "src/org.example.more.varlink",
+///         ],
+///         &varlink_generator::GeneratorOptions {
+///             int_type: Some("i128"),
+///             ..Default::default()
+///         },
+///     );
+/// }
+/// ```
+///
+pub fn cargo_build_options_many<T>(input_paths: &[T], options: &GeneratorOptions)
+where
+    T: std::marker::Sized,
+    T: AsRef<Path>,
+{
+    for input_path in input_paths {
+        let input_path = input_path.as_ref();
 
-    let writer: &mut Write = &mut (File::create(&rust_path).unwrap_or_else(|e| {
-        eprintln!(
-            "Could not open varlink output file `{}`: {}",
-            rust_path.display(),
-            e
-        );
-        exit(1);
-    }));
+        let out_dir: PathBuf = env::var_os("OUT_DIR").unwrap().into();
+        let rust_path = out_dir
+            .join(input_path.file_name().unwrap())
+            .with_extension("rs");
 
-    let reader: &mut Read = &mut (File::open(input_path).unwrap_or_else(|e| {
-        eprintln!(
-            "Could not read varlink input file `{}`: {}",
-            input_path.display(),
-            e
-        );
-        exit(1);
-    }));
+        let writer: &mut Write = &mut (File::create(&rust_path).unwrap_or_else(|e| {
+            eprintln!(
+                "Could not open varlink output file `{}`: {}",
+                rust_path.display(),
+                e
+            );
+            exit(1);
+        }));
 
-    if let Err(e) = generate_with_options(reader, writer, options, false) {
-        eprintln!(
-            "Could not generate rust code from varlink file `{}`: {}",
-            input_path.display(),
-            e
-        );
-        exit(1);
+        let reader: &mut Read = &mut (File::open(input_path).unwrap_or_else(|e| {
+            eprintln!(
+                "Could not read varlink input file `{}`: {}",
+                input_path.display(),
+                e
+            );
+            exit(1);
+        }));
+
+        if let Err(e) = generate_with_options(reader, writer, options, false) {
+            eprintln!(
+                "Could not generate rust code from varlink file `{}`: {}",
+                input_path.display(),
+                e
+            );
+            for cause in Fail::iter_causes(&e).skip(1) {
+                eprintln!("  caused by: {}", cause);
+            }
+
+            exit(1);
+        }
+
+        println!("cargo:rerun-if-changed={}", input_path.display());
     }
-
-    println!("cargo:rerun-if-changed={}", input_path.display());
 }
 
 /// cargo build helper function

@@ -1,6 +1,6 @@
 [package]
 name = "varlink_stdinterfaces"
-version = "5.0.0"
+version = "5.0.1"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 license = "MIT/Apache-2.0"
 documentation = "https://github.com/varlink/rust/blob/master/varlink/README.md"
@@ -11,7 +11,6 @@ build = "build.rs"
 
 [dependencies]
 varlink = { version = "5.0", path = "../varlink" }
-varlink_parser = { version = "1", path = "../varlink_parser" }
 serde = "1"
 serde_derive = "1"
 serde_json = "1"

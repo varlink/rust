@@ -25,14 +25,13 @@ _ -> &'input str
     / #expected("<newline> <whitespace> or <comment>")
 
 field_name -> &'input str
-    = $( [a-z] ( [_]? [a-z0-9] )* )
+    = $( [A-Za-z] ( [_]? [A-Za-z0-9] )* )
 
 name -> &'input str
-	= $( [A-Z][A-Za-z0-9_]* )
+	= $( [A-Z][A-Za-z0-9]* )
 
 interface_name -> &'input str /* no hyphen at begin and end */
 	= #quiet<$( [a-z]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+ )>
-	  / #quiet<$( "xn--" [a-z0-9]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+ )>
 	  / #expected("<reverse domain name>")
 
 array -> ()

@@ -1,6 +1,6 @@
 [package]
 name = "varlink-cli"
-version = "2.1.4"
+version = "2.1.5"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 license = "MIT/Apache-2.0"
 documentation = "https://github.com/varlink/rust/blob/master/varlink/README.md"
@@ -15,7 +15,7 @@ path = "src/main.rs"
 [dependencies]
 varlink = { version = "5.0", path = "../varlink" }
 varlink_stdinterfaces = { version = "5.0", path = "../varlink_stdinterfaces" }
-varlink_parser = { version = "1", path = "../varlink_parser" }
+varlink_parser = { version = "2", path = "../varlink_parser" }
 serde = "1"
 serde_json = "1"
 clap = "2"

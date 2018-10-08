@@ -133,9 +133,6 @@ fn test_domainnames() {
     assert!(Varlink::from_string("interface org.varlink.service\nmethod F()->()").is_ok());
     assert!(Varlink::from_string("interface com.example.0example\nmethod F()->()").is_ok());
     assert!(Varlink::from_string("interface com.example.example-dash\nmethod F()->()").is_ok());
-    assert!(
-        Varlink::from_string("interface xn--lgbbat1ad8j.example.algeria\nmethod F()->()").is_ok()
-    );
     assert!(Varlink::from_string("interface com.-example.leadinghyphen\nmethod F()->()").is_err());
     assert!(
         Varlink::from_string("interface com.example-.danglinghyphen-\nmethod F()->()").is_err()

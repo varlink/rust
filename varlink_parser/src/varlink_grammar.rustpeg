@@ -31,7 +31,7 @@ name -> &'input str
 	= $( [A-Z][A-Za-z0-9]* )
 
 interface_name -> &'input str /* no hyphen at begin and end */
-	= #quiet<$( [a-z]+ ( '.' [a-z0-9]+ ([-] [a-z0-9]+)* )+ )>
+	= #quiet<$( [a-z] ( [-]* [a-z0-9] )* ( '.' [a-z0-9] ([-]* [a-z0-9])* )+ )>
 	  / #expected("<reverse domain name>")
 
 array -> ()

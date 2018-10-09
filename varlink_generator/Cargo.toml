@@ -1,6 +1,6 @@
 [package]
 name = "varlink_generator"
-version = "5.0.1"
+version = "5.1.0"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 license = "MIT/Apache-2.0"
 documentation = "https://github.com/varlink/rust/blob/master/varlink/README.md"
@@ -23,7 +23,7 @@ path = "src/bin/varlink-rust-generator.rs"
 [dependencies]
 failure_derive = "0.1.2"
 failure = "0.1.2"
-varlink_parser = { version = "2", path = "../varlink_parser" }
+varlink_parser = { version = "2.1", path = "../varlink_parser" }
 quote = "0.6"
 proc-macro2 = "0.4"
 

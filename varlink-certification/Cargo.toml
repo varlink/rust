@@ -14,7 +14,7 @@ failure_derive = "0.1.2"
 failure = "0.1.2"
 
 [build-dependencies]
-varlink_generator = { version = "5.0", path = "../varlink_generator" }
+varlink_generator = { version = "5.1", path = "../varlink_generator" }
 
 [dev-dependencies]
 escargot = "0.3"

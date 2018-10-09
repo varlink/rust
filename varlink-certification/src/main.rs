@@ -129,8 +129,7 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
                 float: ret.struct_.float,
                 string: ret.struct_.string,
             },
-        )
-        .call()?;
+        ).call()?;
     eprintln!("{:#?}", ret);
 
     let ret = iface.test08(client_id.clone(), ret.map).call()?;
@@ -228,7 +227,8 @@ macro_rules! check_call_normal {
                 method: ref m,
                 parameters: Some(ref p),
                 ..
-            }) if m == $test =>
+            })
+                if m == $test =>
             {
                 let v: ::std::result::Result<$got, serde_json::Error> =
                     serde_json::from_value(p.clone());
@@ -273,7 +273,8 @@ macro_rules! check_call_more {
                 method: ref m,
                 parameters: Some(ref p),
                 ..
-            }) if m == $test =>
+            })
+                if m == $test =>
             {
                 let v: ::std::result::Result<$got, serde_json::Error> =
                     serde_json::from_value(p.clone());
@@ -318,7 +319,8 @@ macro_rules! check_call_oneway {
                 method: ref m,
                 parameters: Some(ref p),
                 ..
-            }) if m == $test =>
+            })
+                if m == $test =>
             {
                 let v: ::std::result::Result<$got, serde_json::Error> =
                     serde_json::from_value(p.clone());
@@ -366,9 +368,10 @@ impl VarlinkInterface for CertInterface {
                     method: ref m,
                     parameters: ref p,
                     ..
-                }) if m == "org.varlink.certification.Start"
-                    && (*p == None
-                        || *p == Some(serde_json::Value::Object(serde_json::Map::new()))) =>
+                })
+                    if m == "org.varlink.certification.Start"
+                        && (*p == None
+                            || *p == Some(serde_json::Value::Object(serde_json::Map::new()))) =>
                 {
                     true
                 }

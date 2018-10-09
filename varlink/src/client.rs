@@ -71,8 +71,7 @@ pub fn varlink_exec<S: ?Sized + AsRef<str>>(
                 }
                 Ok(())
             }
-        })
-        .spawn()?;
+        }).spawn()?;
     Ok((child, format!("unix:{}", file_path.display()), Some(dir)))
 }
 

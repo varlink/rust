@@ -57,7 +57,10 @@ pub enum ErrorKind {
     VarlinkReply_Error(varlink::Reply),
     #[fail(display = "io.systemd.network.UnknownError: {:#?}", _0)]
     UnknownError(Option<UnknownError_Args>),
-    #[fail(display = "io.systemd.network.UnknownNetworkIfIndex: {:#?}", _0)]
+    #[fail(
+        display = "io.systemd.network.UnknownNetworkIfIndex: {:#?}",
+        _0
+    )]
     UnknownNetworkIfIndex(Option<UnknownNetworkIfIndex_Args>),
 }
 impl Fail for Error {
@@ -125,7 +128,8 @@ impl From<varlink::Reply> for Error {
         match e {
             varlink::Reply {
                 error: Some(ref t), ..
-            } if t == "io.systemd.network.UnknownError" =>
+            }
+                if t == "io.systemd.network.UnknownError" =>
             {
                 match e {
                     varlink::Reply {
@@ -140,7 +144,8 @@ impl From<varlink::Reply> for Error {
             }
             varlink::Reply {
                 error: Some(ref t), ..
-            } if t == "io.systemd.network.UnknownNetworkIfIndex" =>
+            }
+                if t == "io.systemd.network.UnknownNetworkIfIndex" =>
             {
                 match e {
                     varlink::Reply {

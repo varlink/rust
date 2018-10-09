@@ -95,9 +95,15 @@ pub enum ErrorKind {
     Varlink_Error(varlink::ErrorKind),
     #[fail(display = "Unknown error reply: '{:#?}'", _0)]
     VarlinkReply_Error(varlink::Reply),
-    #[fail(display = "org.varlink.certification.CertificationError: {:#?}", _0)]
+    #[fail(
+        display = "org.varlink.certification.CertificationError: {:#?}",
+        _0
+    )]
     CertificationError(Option<CertificationError_Args>),
-    #[fail(display = "org.varlink.certification.ClientIdError: {:#?}", _0)]
+    #[fail(
+        display = "org.varlink.certification.ClientIdError: {:#?}",
+        _0
+    )]
     ClientIdError(Option<ClientIdError_Args>),
 }
 impl Fail for Error {
@@ -165,7 +171,8 @@ impl From<varlink::Reply> for Error {
         match e {
             varlink::Reply {
                 error: Some(ref t), ..
-            } if t == "org.varlink.certification.CertificationError" =>
+            }
+                if t == "org.varlink.certification.CertificationError" =>
             {
                 match e {
                     varlink::Reply {
@@ -180,7 +187,8 @@ impl From<varlink::Reply> for Error {
             }
             varlink::Reply {
                 error: Some(ref t), ..
-            } if t == "org.varlink.certification.ClientIdError" =>
+            }
+                if t == "org.varlink.certification.ClientIdError" =>
             {
                 match e {
                     varlink::Reply {

@@ -199,7 +199,9 @@ fn varlink_call(
     };
 
     let args = match args {
-        Some(args) => serde_json::from_str(args).context(ErrorKind::SerdeJsonDe(args.to_string()))?,
+        Some(args) => {
+            serde_json::from_str(args).context(ErrorKind::SerdeJsonDe(args.to_string()))?
+        }
         None => serde_json::Value::Null,
     };
 

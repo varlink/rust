@@ -111,7 +111,8 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> io_systemd_networ
                     ifindex: 1,
                     ifname: ref p,
                 },
-        }) if p == "lo" => {}
+        })
+            if p == "lo" => {}
         res => panic!("Unknown result {:?}", res),
     }
 
@@ -122,14 +123,16 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> io_systemd_networ
                     ifindex: 2,
                     ifname: ref p,
                 },
-        }) if p == "eth" => {}
+        })
+            if p == "eth" => {}
         res => panic!("Unknown result {:?}", res),
     }
 
     match iface.info(3).call().err().unwrap().kind() {
         io_systemd_network::ErrorKind::Varlink_Error(varlink::ErrorKind::InvalidParameter(
             ref p,
-        )) if p == "ifindex" => {}
+        ))
+            if p == "ifindex" => {}
         res => panic!("Unknown result {:?}", res),
     }
 

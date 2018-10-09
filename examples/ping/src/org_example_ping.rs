@@ -101,7 +101,8 @@ impl From<varlink::Reply> for Error {
         match e {
             varlink::Reply {
                 error: Some(ref t), ..
-            } if t == "org.example.ping.PingError" =>
+            }
+                if t == "org.example.ping.PingError" =>
             {
                 match e {
                     varlink::Reply {

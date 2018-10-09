@@ -107,7 +107,8 @@ impl From<varlink::Reply> for Error {
         match e {
             varlink::Reply {
                 error: Some(ref t), ..
-            } if t == "org.example.more.TestMoreError" =>
+            }
+                if t == "org.example.more.TestMoreError" =>
             {
                 match e {
                     varlink::Reply {

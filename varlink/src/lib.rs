@@ -282,7 +282,8 @@ impl From<Reply> for Error {
         match e {
             Reply {
                 error: Some(ref t), ..
-            } if t == "org.varlink.service.InterfaceNotFound" =>
+            }
+                if t == "org.varlink.service.InterfaceNotFound" =>
             {
                 match e {
                     Reply {
@@ -299,7 +300,8 @@ impl From<Reply> for Error {
             }
             Reply {
                 error: Some(ref t), ..
-            } if t == "org.varlink.service.InvalidParameter" =>
+            }
+                if t == "org.varlink.service.InvalidParameter" =>
             {
                 match e {
                     Reply {
@@ -316,7 +318,8 @@ impl From<Reply> for Error {
             }
             Reply {
                 error: Some(ref t), ..
-            } if t == "org.varlink.service.MethodNotFound" =>
+            }
+                if t == "org.varlink.service.MethodNotFound" =>
             {
                 match e {
                     Reply {
@@ -331,7 +334,8 @@ impl From<Reply> for Error {
             }
             Reply {
                 error: Some(ref t), ..
-            } if t == "org.varlink.service.MethodNotImplemented" =>
+            }
+                if t == "org.varlink.service.MethodNotImplemented" =>
             {
                 match e {
                     Reply {
@@ -1065,8 +1069,7 @@ where
         let reply: Reply = serde_json::from_slice(&buf)
             .context(ErrorKind::SerdeJsonDe(
                 String::from_utf8_lossy(&buf).to_string(),
-            ))
-            .map_err(Error::from)?;
+            )).map_err(Error::from)?;
         match reply.continues {
             Some(true) => self.continues = true,
             _ => {

@@ -60,8 +60,7 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
                             r#"{"method" : "org.example.ping.Upgrade", "upgrade" : true}"#,
                             "\0"
                         ).as_bytes(),
-                    )
-                    .is_ok()
+                    ).is_ok()
             );
             assert!(writer.flush().is_ok());
 

@@ -74,7 +74,10 @@ pub enum ErrorKind {
     InvalidParameter(Option<InvalidParameter_Args>),
     #[fail(display = "org.varlink.service.MethodNotFound: {:#?}", _0)]
     MethodNotFound(Option<MethodNotFound_Args>),
-    #[fail(display = "org.varlink.service.MethodNotImplemented: {:#?}", _0)]
+    #[fail(
+        display = "org.varlink.service.MethodNotImplemented: {:#?}",
+        _0
+    )]
     MethodNotImplemented(Option<MethodNotImplemented_Args>),
 }
 
@@ -154,7 +157,8 @@ impl From<varlink::Reply> for Error {
         match e {
             varlink::Reply {
                 error: Some(ref t), ..
-            } if t == "org.varlink.service.InterfaceNotFound" =>
+            }
+                if t == "org.varlink.service.InterfaceNotFound" =>
             {
                 match e {
                     varlink::Reply {
@@ -169,7 +173,8 @@ impl From<varlink::Reply> for Error {
             }
             varlink::Reply {
                 error: Some(ref t), ..
-            } if t == "org.varlink.service.InvalidParameter" =>
+            }
+                if t == "org.varlink.service.InvalidParameter" =>
             {
                 match e {
                     varlink::Reply {
@@ -184,7 +189,8 @@ impl From<varlink::Reply> for Error {
             }
             varlink::Reply {
                 error: Some(ref t), ..
-            } if t == "org.varlink.service.MethodNotFound" =>
+            }
+                if t == "org.varlink.service.MethodNotFound" =>
             {
                 match e {
                     varlink::Reply {
@@ -199,7 +205,8 @@ impl From<varlink::Reply> for Error {
             }
             varlink::Reply {
                 error: Some(ref t), ..
-            } if t == "org.varlink.service.MethodNotImplemented" =>
+            }
+                if t == "org.varlink.service.MethodNotImplemented" =>
             {
                 match e {
                     varlink::Reply {

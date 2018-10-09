@@ -250,8 +250,7 @@ impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VStruct<'long> {
                             format!("{}_{}", name, e.name).as_ref(),
                             tokenstream,
                             options,
-                        )
-                        .as_ref(),
+                        ).as_ref(),
                 ).unwrap(),
             );
         }
@@ -332,8 +331,7 @@ impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VError<'long> {
                             format!("{}_Args_{}", self.name, e.name).as_ref(),
                             tokenstream,
                             options,
-                        )
-                        .as_ref(),
+                        ).as_ref(),
                 ).unwrap(),
             );
         }
@@ -405,8 +403,7 @@ use varlink::{{self, CallTrait}};
                                     format!("{}_Args_{}", t.name, e.name).as_ref(),
                                     &mut error_structs_and_enums,
                                     options,
-                                )
-                                .as_ref(),
+                                ).as_ref(),
                         ).unwrap(),
                     );
                 }
@@ -621,8 +618,7 @@ use varlink::{{self, CallTrait}};
                                 format!("{}_Args_{}", t.name, e.name).as_ref(),
                                 &mut ts,
                                 options,
-                            )
-                            .as_ref(),
+                            ).as_ref(),
                     ).unwrap(),
                 );
             }
@@ -646,8 +642,7 @@ use varlink::{{self, CallTrait}};
                                 format!("{}_Reply_{}", t.name, e.name).as_ref(),
                                 &mut ts,
                                 options,
-                            )
-                            .as_ref(),
+                            ).as_ref(),
                     ).unwrap(),
                 );
             }
@@ -893,8 +888,6 @@ pub fn cargo_build<T: AsRef<Path> + ?Sized>(input_path: &T) {
     )
 }
 
-
-
 /// cargo build helper function
 ///
 /// `cargo_build_many` is used in a `build.rs` program to build the rust code
@@ -915,7 +908,8 @@ pub fn cargo_build<T: AsRef<Path> + ?Sized>(input_path: &T) {
 /// }
 /// ```
 ///
-pub fn cargo_build_many<T: AsRef<Path> + ?Sized>(input_paths: &[T]) where
+pub fn cargo_build_many<T: AsRef<Path> + ?Sized>(input_paths: &[T])
+where
     T: std::marker::Sized,
     T: AsRef<Path>,
 {

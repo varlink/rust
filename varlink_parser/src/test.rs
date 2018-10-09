@@ -241,7 +241,7 @@ method F() -> ()
 method F() -> ()
 ",
     ).err()
-        .unwrap();
+    .unwrap();
     assert_eq!(
         e.to_string(),
         "Interface definition error: '\

@@ -8,35 +8,35 @@ use std::io::BufRead;
 use std::sync::{Arc, RwLock};
 use varlink::{self, CallTrait};
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Netdev {
-    pub ifindex: i64,
-    pub ifname: String,
+pub struct r#Netdev {
+    pub r#ifindex: i64,
+    pub r#ifname: String,
 }
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct NetdevInfo {
-    pub ifindex: i64,
-    pub ifname: String,
+pub struct r#NetdevInfo {
+    pub r#ifindex: i64,
+    pub r#ifname: String,
 }
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct UnknownError_Args {
-    pub text: String,
+    pub r#text: String,
 }
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct UnknownNetworkIfIndex_Args {
-    pub ifindex: i64,
+    pub r#ifindex: i64,
 }
 pub trait VarlinkCallError: varlink::CallTrait {
-    fn reply_unknown_error(&mut self, text: String) -> varlink::Result<()> {
+    fn reply_unknown_error(&mut self, r#text: String) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::error(
             "io.systemd.network.UnknownError",
-            Some(serde_json::to_value(UnknownError_Args { text })?),
+            Some(serde_json::to_value(UnknownError_Args { r#text })?),
         ))
     }
-    fn reply_unknown_network_if_index(&mut self, ifindex: i64) -> varlink::Result<()> {
+    fn reply_unknown_network_if_index(&mut self, r#ifindex: i64) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::error(
             "io.systemd.network.UnknownNetworkIfIndex",
             Some(serde_json::to_value(UnknownNetworkIfIndex_Args {
-                ifindex,
+                r#ifindex,
             })?),
         ))
     }
@@ -154,34 +154,34 @@ impl From<varlink::Reply> for Error {
 }
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Info_Reply {
-    pub info: NetdevInfo,
+    pub r#info: NetdevInfo,
 }
 impl varlink::VarlinkReply for Info_Reply {}
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Info_Args {
-    pub ifindex: i64,
+    pub r#ifindex: i64,
 }
 pub trait Call_Info: VarlinkCallError {
-    fn reply(&mut self, info: NetdevInfo) -> varlink::Result<()> {
-        self.reply_struct(Info_Reply { info }.into())
+    fn reply(&mut self, r#info: NetdevInfo) -> varlink::Result<()> {
+        self.reply_struct(Info_Reply { r#info }.into())
     }
 }
 impl<'a> Call_Info for varlink::Call<'a> {}
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct List_Reply {
-    pub netdevs: Vec<Netdev>,
+    pub r#netdevs: Vec<Netdev>,
 }
 impl varlink::VarlinkReply for List_Reply {}
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct List_Args {}
 pub trait Call_List: VarlinkCallError {
-    fn reply(&mut self, netdevs: Vec<Netdev>) -> varlink::Result<()> {
-        self.reply_struct(List_Reply { netdevs }.into())
+    fn reply(&mut self, r#netdevs: Vec<Netdev>) -> varlink::Result<()> {
+        self.reply_struct(List_Reply { r#netdevs }.into())
     }
 }
 impl<'a> Call_List for varlink::Call<'a> {}
 pub trait VarlinkInterface {
-    fn info(&self, call: &mut Call_Info, ifindex: i64) -> varlink::Result<()>;
+    fn info(&self, call: &mut Call_Info, r#ifindex: i64) -> varlink::Result<()>;
     fn list(&self, call: &mut Call_List) -> varlink::Result<()>;
     fn call_upgraded(
         &self,
@@ -192,7 +192,7 @@ pub trait VarlinkInterface {
     }
 }
 pub trait VarlinkClientInterface {
-    fn info(&mut self, ifindex: i64) -> varlink::MethodCall<Info_Args, Info_Reply, Error>;
+    fn info(&mut self, r#ifindex: i64) -> varlink::MethodCall<Info_Args, Info_Reply, Error>;
     fn list(&mut self) -> varlink::MethodCall<List_Args, List_Reply, Error>;
 }
 #[allow(dead_code)]
@@ -206,11 +206,11 @@ impl VarlinkClient {
     }
 }
 impl VarlinkClientInterface for VarlinkClient {
-    fn info(&mut self, ifindex: i64) -> varlink::MethodCall<Info_Args, Info_Reply, Error> {
+    fn info(&mut self, r#ifindex: i64) -> varlink::MethodCall<Info_Args, Info_Reply, Error> {
         varlink::MethodCall::<Info_Args, Info_Reply, Error>::new(
             self.connection.clone(),
             "io.systemd.network.Info",
-            Info_Args { ifindex },
+            Info_Args { r#ifindex },
         )
     }
     fn list(&mut self) -> varlink::MethodCall<List_Args, List_Reply, Error> {
@@ -256,7 +256,7 @@ impl varlink::Interface for VarlinkInterfaceProxy {
                             return Err(varlink::ErrorKind::SerdeJsonDe(es).into());
                         }
                     };
-                    self.inner.info(call as &mut Call_Info, args.ifindex)
+                    self.inner.info(call as &mut Call_Info, args.r#ifindex)
                 } else {
                     call.reply_invalid_parameter("parameters".into())
                 }

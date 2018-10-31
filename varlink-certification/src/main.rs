@@ -115,10 +115,10 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
         .test07(
             client_id.clone(),
             Test07_Args_struct {
-                bool: ret.struct_.bool,
-                int: ret.struct_.int,
-                float: ret.struct_.float,
-                string: ret.struct_.string,
+                bool: ret.r#struct.bool,
+                int: ret.r#struct.int,
+                float: ret.r#struct.float,
+                string: ret.r#struct.string,
             },
         )
         .call()?;
@@ -171,8 +171,8 @@ fn new_mytype() -> io::Result<MyType> {
             r#"{"method": "org.varlink.certification.Test09",
                        "parameters": {"map": {"foo": "Foo", "bar": "Bar"}}}"#,
         )?,
-        enum_: MyType_enum::two,
-        struct_: MyType_struct {
+        r#enum: MyType_enum::two,
+        r#struct: MyType_struct {
             first: 1,
             second: "2".into(),
         },
@@ -518,7 +518,7 @@ impl VarlinkInterface for CertInterface {
             Test07_Args,
             Test07_Args {
                 client_id,
-                struct_: Test07_Args_struct {
+                r#struct: Test07_Args_struct {
                     bool: false,
                     int: 2,
                     float: std::f64::consts::PI,

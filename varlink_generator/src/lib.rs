@@ -195,38 +195,6 @@ fn to_snake_case(mut str: &str) -> String {
     words.join("_")
 }
 
-fn is_rust_keyword(v: &str) -> bool {
-    match v {
-        "abstract" | "as" | "async" | "auto" | "become" | "box" | "break" | "catch" | "const"
-        | "continue" | "crate" | "default" | "do" | "dyn" | "else" | "enum" | "extern"
-        | "false" | "final" | "fn" | "for" | "if" | "impl" | "in" | "let" | "loop" | "macro"
-        | "match" | "mod" | "move" | "mut" | "override" | "priv" | "pub" | "ref" | "return"
-        | "Self" | "self" | "static" | "struct" | "super" | "trait" | "true" | "type"
-        | "typeof" | "union" | "unsafe" | "unsized" | "use" | "virtual" | "where" | "while"
-        | "yield" => true,
-        _ => false,
-    }
-}
-
-fn replace_if_rust_keyword(v: &str) -> String {
-    if is_rust_keyword(v) {
-        String::from(v) + "_"
-    } else {
-        String::from(v)
-    }
-}
-
-fn replace_if_rust_keyword_annotate2(v: &str) -> (String, TokenStream) {
-    if is_rust_keyword(v) {
-        (
-            String::from(v) + "_",
-            TokenStream::from_str(format!(" #[serde(rename = \"{}\")]", v).as_ref()).unwrap(),
-        )
-    } else {
-        (String::from(v), TokenStream::new())
-    }
-}
-
 impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VStruct<'long> {
     fn to_tokenstream(
         &'long self,
@@ -234,15 +202,13 @@ impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VStruct<'long> {
         tokenstream: &mut TokenStream,
         options: &'long GeneratorOptions,
     ) {
-        let tname = Ident::new(replace_if_rust_keyword(name).as_ref(), Span::call_site());
+        let tname: Ident = syn::parse_str(&(String::from("r#") + name)).unwrap();
 
         let mut enames = vec![];
         let mut etypes = vec![];
-        let mut anot = vec![];
         for e in &self.elts {
-            let (ename, tt) = replace_if_rust_keyword_annotate2(e.name);
-            anot.push(tt);
-            enames.push(Ident::new(&ename, Span::call_site()));
+            let ename_ident: Ident = syn::parse_str(&(String::from("r#") + e.name)).unwrap();
+            enames.push(ename_ident);
             etypes.push(
                 TokenStream::from_str(
                     e.vtype
@@ -257,10 +223,10 @@ impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VStruct<'long> {
             );
         }
         tokenstream.extend(quote!(
-        #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-        pub struct #tname {
-            #(#anot pub #enames: #etypes,)*
-        }
+            #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+            pub struct #tname {
+                #(pub #enames: #etypes,)*
+            }
         ));
     }
 }
@@ -272,21 +238,19 @@ impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VEnum<'long> {
         tokenstream: &mut TokenStream,
         _options: &'long GeneratorOptions,
     ) {
-        let tname = Ident::new(replace_if_rust_keyword(name).as_ref(), Span::call_site());
+        let tname: Ident = syn::parse_str(&(String::from("r#") + name)).unwrap();
 
         let mut enames = vec![];
-        let mut anot = vec![];
 
         for elt in &self.elts {
-            let (ename, tt) = replace_if_rust_keyword_annotate2(elt);
-            anot.push(tt);
-            enames.push(Ident::new(&ename, Span::call_site()));
+            let ename_ident: Ident = syn::parse_str(&(String::from("r#") + elt)).unwrap();
+            enames.push(ename_ident);
         }
         tokenstream.extend(quote!(
-        #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-        pub enum #tname {
-            #(#anot #enames, )*
-        }
+            #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+            pub enum #tname {
+                #(#enames, )*
+            }
         ));
     }
 }
@@ -316,16 +280,15 @@ impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VError<'long> {
         let mut args_enames = vec![];
         let mut args_etypes = vec![];
         let mut args_anot = vec![];
+
         for e in &self.parm.elts {
-            let mut a = if let VTypeExt::Option(_) = e.vtype {
+            args_anot.push(if let VTypeExt::Option(_) = e.vtype {
                 quote!(#[serde(skip_serializing_if = "Option::is_none")])
             } else {
                 quote!()
-            };
-            let (ename, tt) = replace_if_rust_keyword_annotate2(e.name);
-            a.extend(tt);
-            args_anot.push(a);
-            args_enames.push(Ident::new(&ename, Span::call_site()));
+            });
+            let ename_ident: Ident = syn::parse_str(&(String::from("r#") + e.name)).unwrap();
+            args_enames.push(ename_ident);
             args_etypes.push(
                 TokenStream::from_str(
                     e.vtype
@@ -340,11 +303,10 @@ impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VError<'long> {
             );
         }
         tokenstream.extend(quote!(
-        #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-        pub struct #args_name {
-                        #(#args_anot pub #args_enames: #args_etypes,)*
-        }
-
+            #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+            pub struct #args_name {
+                            #(#args_anot pub #args_enames: #args_etypes,)*
+            }
         ));
     }
 }
@@ -623,16 +585,13 @@ fn generate_anon_struct(
     anot: &mut Vec<TokenStream>,
 ) {
     for e in &vstruct.elts {
-        let mut a = if let VTypeExt::Option(_) = e.vtype {
+        anot.push(if let VTypeExt::Option(_) = e.vtype {
             quote!(#[serde(skip_serializing_if = "Option::is_none")])
         } else {
             quote!()
-        };
-        let (ename, tt) = replace_if_rust_keyword_annotate2(e.name);
-        a.extend(tt);
-        anot.push(a);
-
-        field_names.push(Ident::new(&ename, Span::call_site()));
+        });
+        let ename_ident: Ident = syn::parse_str(&(String::from("r#") + e.name)).unwrap();
+        field_names.push(ename_ident);
         field_types.push(
             TokenStream::from_str(
                 e.vtype
@@ -662,8 +621,9 @@ fn generate_error_code(
             let args_name = Ident::new(&format!("{}_Args", t.name), Span::call_site());
             if !t.parm.elts.is_empty() {
                 for e in &t.parm.elts {
-                    let ident = Ident::new(&replace_if_rust_keyword(e.name), Span::call_site());
-                    inparms_name.push(ident);
+                    let ename_ident: Ident =
+                        syn::parse_str(&(String::from("r#") + e.name)).unwrap();
+                    inparms_name.push(ename_ident);
                     inparms_type.push(
                         TokenStream::from_str(
                             e.vtype

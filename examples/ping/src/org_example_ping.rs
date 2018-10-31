@@ -9,13 +9,13 @@ use std::sync::{Arc, RwLock};
 use varlink::{self, CallTrait};
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct PingError_Args {
-    pub parameter: i64,
+    pub r#parameter: i64,
 }
 pub trait VarlinkCallError: varlink::CallTrait {
-    fn reply_ping_error(&mut self, parameter: i64) -> varlink::Result<()> {
+    fn reply_ping_error(&mut self, r#parameter: i64) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::error(
             "org.example.ping.PingError",
-            Some(serde_json::to_value(PingError_Args { parameter })?),
+            Some(serde_json::to_value(PingError_Args { r#parameter })?),
         ))
     }
 }
@@ -118,16 +118,16 @@ impl From<varlink::Reply> for Error {
 }
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Ping_Reply {
-    pub pong: String,
+    pub r#pong: String,
 }
 impl varlink::VarlinkReply for Ping_Reply {}
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Ping_Args {
-    pub ping: String,
+    pub r#ping: String,
 }
 pub trait Call_Ping: VarlinkCallError {
-    fn reply(&mut self, pong: String) -> varlink::Result<()> {
-        self.reply_struct(Ping_Reply { pong }.into())
+    fn reply(&mut self, r#pong: String) -> varlink::Result<()> {
+        self.reply_struct(Ping_Reply { r#pong }.into())
     }
 }
 impl<'a> Call_Ping for varlink::Call<'a> {}
@@ -143,7 +143,7 @@ pub trait Call_Upgrade: VarlinkCallError {
 }
 impl<'a> Call_Upgrade for varlink::Call<'a> {}
 pub trait VarlinkInterface {
-    fn ping(&self, call: &mut Call_Ping, ping: String) -> varlink::Result<()>;
+    fn ping(&self, call: &mut Call_Ping, r#ping: String) -> varlink::Result<()>;
     fn upgrade(&self, call: &mut Call_Upgrade) -> varlink::Result<()>;
     fn call_upgraded(
         &self,
@@ -154,7 +154,7 @@ pub trait VarlinkInterface {
     }
 }
 pub trait VarlinkClientInterface {
-    fn ping(&mut self, ping: String) -> varlink::MethodCall<Ping_Args, Ping_Reply, Error>;
+    fn ping(&mut self, r#ping: String) -> varlink::MethodCall<Ping_Args, Ping_Reply, Error>;
     fn upgrade(&mut self) -> varlink::MethodCall<Upgrade_Args, Upgrade_Reply, Error>;
 }
 #[allow(dead_code)]
@@ -168,11 +168,11 @@ impl VarlinkClient {
     }
 }
 impl VarlinkClientInterface for VarlinkClient {
-    fn ping(&mut self, ping: String) -> varlink::MethodCall<Ping_Args, Ping_Reply, Error> {
+    fn ping(&mut self, r#ping: String) -> varlink::MethodCall<Ping_Args, Ping_Reply, Error> {
         varlink::MethodCall::<Ping_Args, Ping_Reply, Error>::new(
             self.connection.clone(),
             "org.example.ping.Ping",
-            Ping_Args { ping },
+            Ping_Args { r#ping },
         )
     }
     fn upgrade(&mut self) -> varlink::MethodCall<Upgrade_Args, Upgrade_Reply, Error> {
@@ -218,7 +218,7 @@ impl varlink::Interface for VarlinkInterfaceProxy {
                             return Err(varlink::ErrorKind::SerdeJsonDe(es).into());
                         }
                     };
-                    self.inner.ping(call as &mut Call_Ping, args.ping)
+                    self.inner.ping(call as &mut Call_Ping, args.r#ping)
                 } else {
                     call.reply_invalid_parameter("parameters".into())
                 }

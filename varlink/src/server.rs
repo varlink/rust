@@ -345,13 +345,15 @@ impl<F: FnOnce()> FnBox for F {
 type Job = Box<FnBox + Send + 'static>;
 
 impl ThreadPool {
-    /// Create a new ThreadPool.
-    ///
-    /// The initial_worker is the number of threads in the pool.
-    ///
-    /// # Panics
-    ///
-    /// The `new` function will panic if the initial_worker is zero.
+    /**
+     Create a new ThreadPool.
+
+     The initial_worker is the number of threads in the pool.
+
+     # Panics
+
+     The `new` function will panic if the initial_worker is zero.
+    **/
     pub fn new(initial_worker: usize, max_workers: usize) -> ThreadPool {
         assert!(initial_worker > 0);
 
@@ -444,37 +446,39 @@ impl Worker {
     }
 }
 
-/// `listen` creates a server, with `num_worker` threads listening on `varlink_uri`.
-///
-/// If an `idle_timeout` != 0 is specified, this function returns after the specified
-/// amount of seconds, if no new connection is made in that time frame. It still waits for
-/// all pending connections to finish.
-///
-///# Examples
-///
-///```
-/// extern crate failure;
-/// extern crate varlink;
-/// use failure::Fail;
-///
-/// let service = varlink::VarlinkService::new(
-///     "org.varlink",
-///     "test service",
-///     "0.1",
-///     "http://varlink.org",
-///     vec![/* Your varlink interfaces go here */],
-/// );
-///
-/// if let Err(e) = varlink::listen(service, "unix:/tmp/test_listen_timeout", 1, 10, 1) {
-///     if e.kind() != varlink::ErrorKind::Timeout {
-///         panic!("Error listen: {:?}", e.cause());
-///     }
-/// }
-///```
-///# Note
-/// You don't have to use this simple server. With the `VarlinkService::handle()` method you
-/// can implement your own server model using whatever framework you prefer.
-pub fn listen<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + Sync + 'static>(
+/**
+ `listen` creates a server, with `num_worker` threads listening on `varlink_uri`.
+
+ If an `idle_timeout` != 0 is specified, this function returns after the specified
+ amount of seconds, if no new connection is made in that time frame. It still waits for
+ all pending connections to finish.
+
+# Examples
+
+```
+ extern crate failure;
+ extern crate varlink;
+ use failure::Fail;
+
+ let service = varlink::VarlinkService::new(
+     "org.varlink",
+     "test service",
+     "0.1",
+     "http://varlink.org",
+     vec![/* Your varlink interfaces go here */],
+ );
+
+ if let Err(e) = varlink::listen(service, "unix:/tmp/test_listen_timeout", 1, 10, 1) {
+     if e.kind() != varlink::ErrorKind::Timeout {
+         panic!("Error listen: {:?}", e.cause());
+     }
+ }
+```
+# Note
+ You don't have to use this simple server. With the `VarlinkService::handle()` method you
+ can implement your own server model using whatever framework you prefer.
+**/
+pub fn listen<S: ?Sized + AsRef<str>, H: crate::ConnectionHandler + Send + Sync + 'static>(
     handler: H,
     address: &S,
     initial_worker_threads: usize,

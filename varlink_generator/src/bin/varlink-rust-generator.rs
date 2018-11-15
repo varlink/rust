@@ -1,13 +1,14 @@
-//! varlink-rust-generator is a CLI, that generates rust code from a varlink
-//! interface definition file
-//!
-//! # Usage
-//! $ varlink-rust-generator `[<varlink_file>]`
-//!
-//! If <varlink_file> is omitted, input is expected to come from stdin.
-//!
-//! Output is sent to stdout.
+/*!
+ varlink-rust-generator is a CLI, that generates rust code from a varlink
+ interface definition file
 
+ # Usage
+ $ varlink-rust-generator `[<varlink_file>]`
+
+ If <varlink_file> is omitted, input is expected to come from stdin.
+
+ Output is sent to stdout.
+!*/
 extern crate varlink_generator;
 
 use std::env;

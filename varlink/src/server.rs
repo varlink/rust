@@ -260,11 +260,11 @@ impl Listener {
         }
         match self {
             &Listener::TCP(Some(ref l), _) => {
-                let (mut s, _addr) = l.accept()?;
+                let (s, _addr) = l.accept()?;
                 Ok(Stream::TCP(s))
             }
             Listener::UNIX(Some(ref l), _) => {
-                let (mut s, _addr) = l.accept()?;
+                let (s, _addr) = l.accept()?;
                 Ok(Stream::UNIX(s))
             }
             _ => Err(ErrorKind::ConnectionClosed.into()),

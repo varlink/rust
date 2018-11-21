@@ -1,5 +1,9 @@
 //! Generate rust code from varlink interface definition files
 #![recursion_limit = "512"]
+#![doc(
+    html_logo_url = "https://varlink.org/images/varlink.png",
+    html_favicon_url = "https://varlink.org/images/varlink-small.png",
+)]
 
 #[macro_use]
 extern crate quote;

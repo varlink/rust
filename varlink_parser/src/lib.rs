@@ -39,6 +39,12 @@
     assert_eq!(v.interface.name, "org.varlink.service");
  ```
 !*/
+
+#![doc(
+    html_logo_url = "https://varlink.org/images/varlink.png",
+    html_favicon_url = "https://varlink.org/images/varlink-small.png",
+)]
+
 extern crate bytes;
 extern crate failure;
 #[macro_use]

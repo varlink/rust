@@ -10,7 +10,6 @@ extern crate quote;
 extern crate failure;
 extern crate proc_macro2;
 extern crate varlink_parser;
-#[macro_use]
 extern crate failure_derive;
 
 use failure::{Backtrace, Context, Fail};

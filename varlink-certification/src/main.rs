@@ -1,7 +1,6 @@
 #[cfg(test)]
 extern crate escargot;
 extern crate failure;
-#[macro_use]
 extern crate failure_derive;
 extern crate getopts;
 #[macro_use]

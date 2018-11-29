@@ -1,5 +1,4 @@
 extern crate failure;
-#[macro_use]
 extern crate failure_derive;
 extern crate varlink_parser;
 
@@ -11,7 +10,7 @@ use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 use std::process::exit;
-use varlink_parser::Varlink;
+use varlink_parser::{Varlink, FormatColored};
 
 #[derive(Debug)]
 pub struct Error {
@@ -86,6 +85,6 @@ fn main() -> Result<()> {
     };
 
     let v = Varlink::from_string(&buffer)?;
-    println!("{}", v.interface);
+    println!("{}", v.interface.get_multiline_colored(0, 80));
     exit(0);
 }

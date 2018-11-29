@@ -55,31 +55,36 @@ error InvalidParameter (parameter: string)
     assert_eq!(
         v.interface.to_string(),
         "\
-         # The Varlink Service Interface is provided by every varlink service. It\n\
-         # describes the service and the interfaces it implements.\n\
-         interface org.varlink.service\n\
-         \n\
-         # Get a list of all the interfaces a service provides and information\n\
-         # about the implementation.\n\
-         method GetInfo() -> (vendor: string, product: string, version: string, url: string, \
-         interfaces: []string)\n\
-         \n\
-         # Get the description of an interface that is implemented by this service.\n\
-         method GetInterfaceDescription(interface: string) -> (description: string)\n\
-         \n\
-         # The requested interface was not found.\n\
-         error InterfaceNotFound (interface: string)\n\
-         \n\
-         # One of the passed parameters is invalid.\n\
-         error InvalidParameter (parameter: string)\n\
-         \n\
-         # The requested method was not found\n\
-         error MethodNotFound (method: string)\n\
-         \n\
-         # The interface defines the requested method, but the service does not\n\
-         # implement it.\n\
-         error MethodNotImplemented (method: string)\n\
-         "
+# The Varlink Service Interface is provided by every varlink service. It
+# describes the service and the interfaces it implements.
+interface org.varlink.service
+
+# Get a list of all the interfaces a service provides and information
+# about the implementation.
+method GetInfo() -> (
+  vendor: string,
+  product: string,
+  version: string,
+  url: string,
+  interfaces: []string
+)
+
+# Get the description of an interface that is implemented by this service.
+method GetInterfaceDescription(interface: string) -> (description: string)
+
+# The requested interface was not found.
+error InterfaceNotFound (interface: string)
+
+# The requested method was not found
+error MethodNotFound (method: string)
+
+# The interface defines the requested method, but the service does not
+# implement it.
+error MethodNotImplemented (method: string)
+
+# One of the passed parameters is invalid.
+error InvalidParameter (parameter: string)
+"
     );
 }
 
@@ -105,15 +110,91 @@ error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)
 ",
     ).unwrap();
     assert_eq!(v.interface.name, "org.example.complex");
-    //println!("{}", v.interface.to_string());
+    println!("{}", v.interface.to_string());
     assert_eq!(
-        v.interface.to_string(), "\
-        interface org.example.complex\n\n\
-        type TypeEnum (a, b, c)\n\n\
-        type TypeFoo (bool: bool, int: int, float: float, string: string, enum: (foo, bar, baz), type: \
-        TypeEnum, anon: (foo: bool, bar: int, baz: (a: int, b: int)))\n\n\
-        method Foo(a: (b: bool, c: int), foo: TypeFoo) -> (a: (b: bool, c: int), foo: TypeFoo)\n\n\
-        error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)\n"
+        v.interface.to_string(),
+        "\
+interface org.example.complex
+
+type TypeEnum (a, b, c)
+
+type TypeFoo (
+  bool: bool,
+  int: int,
+  float: float,
+  string: string,
+  enum: (foo, bar, baz),
+  type: TypeEnum,
+  anon: (foo: bool, bar: int, baz: (a: int, b: int))
+)
+
+method Foo(a: (b: bool, c: int), foo: TypeFoo) -> (
+  a: (b: bool, c: int),
+  foo: TypeFoo
+)
+
+error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)
+"
+    );
+}
+
+#[test]
+fn test_formatted() {
+    let v = Varlink::from_string(
+        "\
+# 345678901234567890123456789012345678901234567890123456789012345678901234567890
+interface org.example.format
+
+type TypeFoo (enum: (foo, bar, sdfsdfsdfsdf, sdfsdfsefaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa),
+enum2: (foo, bar, sdfsdfsdfsdf, sdfsdfsefaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa),
+anon: (baz: (a: (foo: bool, bar: int, baz: (a: int, b: int), baz1: (a: int, bee: int)),
+b: (foo: bool, bar: int, baz: (a: int, b: int), baz1: (a: int, beee: int)))))
+
+method Foo(a: (b: bool, c: int), foo: bool) -> (a: (b: bool, c: int), foo: bool)
+
+error ErrorFoo (a: (foo: bool, bar: int, baz: (a: int, b: int), b: (beee: int)))
+
+error ErrorFoo1 (a: (foo: bool, bar: int, baz: (a: int, b: int), b: (beee: int)))
+",
+    ).unwrap();
+    assert_eq!(v.interface.name, "org.example.format");
+    println!("{}", v.interface.get_oneline());
+    println!("{}", v.interface.to_string());
+    assert_eq!(
+        v.interface.to_string(),
+        "\
+# 345678901234567890123456789012345678901234567890123456789012345678901234567890
+interface org.example.format
+
+type TypeFoo (
+  enum: (foo, bar, sdfsdfsdfsdf, sdfsdfsefaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa),
+  enum2: (
+    foo,
+    bar,
+    sdfsdfsdfsdf,
+    sdfsdfsefaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  ),
+  anon: (
+    baz: (
+      a: (foo: bool, bar: int, baz: (a: int, b: int), baz1: (a: int, bee: int)),
+      b: (
+        foo: bool,
+        bar: int,
+        baz: (a: int, b: int),
+        baz1: (a: int, beee: int)
+      )
+    )
+  )
+)
+
+method Foo(a: (b: bool, c: int), foo: bool) -> (a: (b: bool, c: int), foo: bool)
+
+error ErrorFoo (a: (foo: bool, bar: int, baz: (a: int, b: int), b: (beee: int)))
+
+error ErrorFoo1 (
+  a: (foo: bool, bar: int, baz: (a: int, b: int), b: (beee: int))
+)
+"
     );
 }
 

@@ -228,12 +228,8 @@ impl<'a> Format for VTypeExt<'a> {
             VTypeExt::Plain(VType::String) => "string".into(),
             VTypeExt::Plain(VType::Object) => "object".into(),
             VTypeExt::Plain(VType::Typename(v)) => v.into(),
-            VTypeExt::Plain(VType::Struct(ref v)) => {
-                v.get_multiline(indent, max)
-            }
-            VTypeExt::Plain(VType::Enum(ref v)) => {
-                v.get_multiline(indent, max)
-            }
+            VTypeExt::Plain(VType::Struct(ref v)) => v.get_multiline(indent, max),
+            VTypeExt::Plain(VType::Enum(ref v)) => v.get_multiline(indent, max),
             VTypeExt::Array(ref v) => format!("[]{}", v.get_multiline(indent, max)),
             VTypeExt::Dict(ref v) => format!("[{}]{}", "string", v.get_multiline(indent, max)),
             VTypeExt::Option(ref v) => format!("?{}", v.get_multiline(indent, max)),
@@ -273,12 +269,8 @@ impl<'a> FormatColored for VTypeExt<'a> {
             VTypeExt::Plain(VType::Typename(ref v)) => {
                 Colour::Cyan.paint(v.to_string()).to_string()
             }
-            VTypeExt::Plain(VType::Struct(ref v)) => {
-                v.get_multiline_colored(indent, max)
-            }
-            VTypeExt::Plain(VType::Enum(ref v)) => {
-                v.get_multiline_colored(indent, max)
-            }
+            VTypeExt::Plain(VType::Struct(ref v)) => v.get_multiline_colored(indent, max),
+            VTypeExt::Plain(VType::Enum(ref v)) => v.get_multiline_colored(indent, max),
             VTypeExt::Array(ref v) => format!("[]{}", v.get_multiline_colored(indent, max)),
             VTypeExt::Dict(ref v) => format!(
                 "[{}]{}",
@@ -671,7 +663,9 @@ impl<'a> Format for Interface<'a> {
             let m_line = format!("method {}", m.name);
             let m_input = m.input.get_oneline();
             let m_output = m.output.get_oneline();
-            if m_line.len() + m_input.len() + m_output.len() + 4 <= max {
+            if (m_line.len() + m_input.len() + m_output.len() + 4 <= max)
+                || (m_input.len() + m_output.len() == 4)
+            {
                 f += &format!(
                     "{:indent$}{} {}{} {} {}\n",
                     "",
@@ -682,7 +676,7 @@ impl<'a> Format for Interface<'a> {
                     m.output.get_oneline(),
                     indent = indent
                 );
-            } else if m_line.len() + m_input.len() + 6 <= max {
+            } else if (m_line.len() + m_input.len() + 6 <= max) || (m_input.len() == 2) {
                 f += &format!(
                     "{:indent$}{} {}{} {} {}\n",
                     "",
@@ -904,7 +898,9 @@ impl<'a> FormatColored for Interface<'a> {
             let m_line = format!("method {}", m.name);
             let m_input = m.input.get_oneline();
             let m_output = m.output.get_oneline();
-            if m_line.len() + m_input.len() + m_output.len() + 4 <= max {
+            if (m_line.len() + m_input.len() + m_output.len() + 4 <= max)
+                || (m_input.len() + m_output.len() == 4)
+            {
                 f += &format!(
                     "{:indent$}{} {}{} {} {}\n",
                     "",
@@ -915,7 +911,7 @@ impl<'a> FormatColored for Interface<'a> {
                     m.output.get_oneline_colored(),
                     indent = indent
                 );
-            } else if m_line.len() + m_input.len() + 6 <= max {
+            } else if (m_line.len() + m_input.len() + 6 <= max) || (m_input.len() == 2) {
                 f += &format!(
                     "{:indent$}{} {}{} {} {}\n",
                     "",

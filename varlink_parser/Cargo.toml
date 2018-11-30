@@ -1,6 +1,6 @@
 [package]
 name = "varlink_parser"
-version = "2.2.0"
+version = "2.2.1"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 license = "MIT/Apache-2.0"
 documentation = "https://docs.rs/varlink_parser/"

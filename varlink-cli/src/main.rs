@@ -83,23 +83,22 @@ fn varlink_info(
             }
         },
     };
+
     let mut call = OrgVarlinkServiceClient::new(connection);
     let info = call.get_info()?;
-    let bold = Style::new().bold();
 
-    if should_colorize {
-        println!("{} {}", bold.paint("Vendor:"), info.vendor);
-        println!("{} {}", bold.paint("Product:"), info.product);
-        println!("{} {}", bold.paint("Version:"), info.version);
-        println!("{} {}", bold.paint("URL:"), info.url);
-        println!("{}", bold.paint("Interfaces:"));
+    let bold: fn(w: &str) -> String = if should_colorize {
+        |w| Style::new().bold().paint(w).to_string()
     } else {
-        println!("Vendor: {}", info.vendor);
-        println!("Product: {}", info.product);
-        println!("Version: {}", info.version);
-        println!("URL: {}", info.url);
-        println!("Interfaces:");
-    }
+        |w| w.to_string()
+    };
+
+    println!("{} {}", bold("Vendor:"), info.vendor);
+    println!("{} {}", bold("Product:"), info.product);
+    println!("{} {}", bold("Version:"), info.version);
+    println!("{} {}", bold("URL:"), info.url);
+    println!("{}", bold("Interfaces:"));
+
     for i in info.interfaces {
         println!("  {}", i)
     }

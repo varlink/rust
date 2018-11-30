@@ -204,23 +204,17 @@ pub trait FormatColored {
     fn get_multiline_colored(&self, indent: usize, max: usize) -> String;
 }
 
-macro_rules! formatVTypeExt {
-    ($s:ident, $t:expr) => {{
-        format!("{}", $t)
-    }};
-}
-
 impl<'a> Format for VTypeExt<'a> {
     fn get_oneline(&self) -> String {
         match *self {
-            VTypeExt::Plain(VType::Bool) => formatVTypeExt!(self, "bool"),
-            VTypeExt::Plain(VType::Int) => formatVTypeExt!(self, "int"),
-            VTypeExt::Plain(VType::Float) => formatVTypeExt!(self, "float"),
-            VTypeExt::Plain(VType::String) => formatVTypeExt!(self, "string"),
-            VTypeExt::Plain(VType::Object) => formatVTypeExt!(self, "object"),
-            VTypeExt::Plain(VType::Typename(ref v)) => formatVTypeExt!(self, v),
-            VTypeExt::Plain(VType::Struct(ref v)) => formatVTypeExt!(self, v.get_oneline()),
-            VTypeExt::Plain(VType::Enum(ref v)) => formatVTypeExt!(self, v.get_oneline()),
+            VTypeExt::Plain(VType::Bool) => "bool".into(),
+            VTypeExt::Plain(VType::Int) => "int".into(),
+            VTypeExt::Plain(VType::Float) => "float".into(),
+            VTypeExt::Plain(VType::String) => "string".into(),
+            VTypeExt::Plain(VType::Object) => "object".into(),
+            VTypeExt::Plain(VType::Typename(v)) => v.into(),
+            VTypeExt::Plain(VType::Struct(ref v)) => v.get_oneline(),
+            VTypeExt::Plain(VType::Enum(ref v)) => v.get_oneline(),
             VTypeExt::Array(ref v) => format!("[]{}", v.get_oneline()),
             VTypeExt::Dict(ref v) => format!("[{}]{}", "string", v.get_oneline()),
             VTypeExt::Option(ref v) => format!("?{}", v.get_oneline()),
@@ -228,17 +222,17 @@ impl<'a> Format for VTypeExt<'a> {
     }
     fn get_multiline(&self, indent: usize, max: usize) -> String {
         match *self {
-            VTypeExt::Plain(VType::Bool) => formatVTypeExt!(self, "bool"),
-            VTypeExt::Plain(VType::Int) => formatVTypeExt!(self, "int"),
-            VTypeExt::Plain(VType::Float) => formatVTypeExt!(self, "float"),
-            VTypeExt::Plain(VType::String) => formatVTypeExt!(self, "string"),
-            VTypeExt::Plain(VType::Object) => formatVTypeExt!(self, "object"),
-            VTypeExt::Plain(VType::Typename(ref v)) => formatVTypeExt!(self, v),
+            VTypeExt::Plain(VType::Bool) => "bool".into(),
+            VTypeExt::Plain(VType::Int) => "int".into(),
+            VTypeExt::Plain(VType::Float) => "float".into(),
+            VTypeExt::Plain(VType::String) => "string".into(),
+            VTypeExt::Plain(VType::Object) => "object".into(),
+            VTypeExt::Plain(VType::Typename(v)) => v.into(),
             VTypeExt::Plain(VType::Struct(ref v)) => {
-                formatVTypeExt!(self, v.get_multiline(indent, max))
+                v.get_multiline(indent, max)
             }
             VTypeExt::Plain(VType::Enum(ref v)) => {
-                formatVTypeExt!(self, v.get_multiline(indent, max))
+                v.get_multiline(indent, max)
             }
             VTypeExt::Array(ref v) => format!("[]{}", v.get_multiline(indent, max)),
             VTypeExt::Dict(ref v) => format!("[{}]{}", "string", v.get_multiline(indent, max)),
@@ -250,16 +244,16 @@ impl<'a> Format for VTypeExt<'a> {
 impl<'a> FormatColored for VTypeExt<'a> {
     fn get_oneline_colored(&self) -> String {
         match *self {
-            VTypeExt::Plain(VType::Bool) => formatVTypeExt!(self, Colour::Cyan.paint("bool")),
-            VTypeExt::Plain(VType::Int) => formatVTypeExt!(self, Colour::Cyan.paint("int")),
-            VTypeExt::Plain(VType::Float) => formatVTypeExt!(self, Colour::Cyan.paint("float")),
-            VTypeExt::Plain(VType::String) => formatVTypeExt!(self, Colour::Cyan.paint("string")),
-            VTypeExt::Plain(VType::Object) => formatVTypeExt!(self, Colour::Cyan.paint("object")),
+            VTypeExt::Plain(VType::Bool) => Colour::Cyan.paint("bool").to_string(),
+            VTypeExt::Plain(VType::Int) => Colour::Cyan.paint("int").to_string(),
+            VTypeExt::Plain(VType::Float) => Colour::Cyan.paint("float").to_string(),
+            VTypeExt::Plain(VType::String) => Colour::Cyan.paint("string").to_string(),
+            VTypeExt::Plain(VType::Object) => Colour::Cyan.paint("object").to_string(),
             VTypeExt::Plain(VType::Typename(ref v)) => {
-                formatVTypeExt!(self, Colour::Cyan.paint(v.to_string()))
+                Colour::Cyan.paint(v.to_string()).to_string()
             }
-            VTypeExt::Plain(VType::Struct(ref v)) => formatVTypeExt!(self, v.get_oneline_colored()),
-            VTypeExt::Plain(VType::Enum(ref v)) => formatVTypeExt!(self, v.get_oneline_colored()),
+            VTypeExt::Plain(VType::Struct(ref v)) => v.get_oneline_colored(),
+            VTypeExt::Plain(VType::Enum(ref v)) => v.get_oneline_colored(),
             VTypeExt::Array(ref v) => format!("[]{}", v.get_oneline_colored()),
             VTypeExt::Dict(ref v) => format!(
                 "[{}]{}",
@@ -271,19 +265,19 @@ impl<'a> FormatColored for VTypeExt<'a> {
     }
     fn get_multiline_colored(&self, indent: usize, max: usize) -> String {
         match *self {
-            VTypeExt::Plain(VType::Bool) => formatVTypeExt!(self, Colour::Cyan.paint("bool")),
-            VTypeExt::Plain(VType::Int) => formatVTypeExt!(self, Colour::Cyan.paint("int")),
-            VTypeExt::Plain(VType::Float) => formatVTypeExt!(self, Colour::Cyan.paint("float")),
-            VTypeExt::Plain(VType::String) => formatVTypeExt!(self, Colour::Cyan.paint("string")),
-            VTypeExt::Plain(VType::Object) => formatVTypeExt!(self, Colour::Cyan.paint("object")),
+            VTypeExt::Plain(VType::Bool) => Colour::Cyan.paint("bool").to_string(),
+            VTypeExt::Plain(VType::Int) => Colour::Cyan.paint("int").to_string(),
+            VTypeExt::Plain(VType::Float) => Colour::Cyan.paint("float").to_string(),
+            VTypeExt::Plain(VType::String) => Colour::Cyan.paint("string").to_string(),
+            VTypeExt::Plain(VType::Object) => Colour::Cyan.paint("object").to_string(),
             VTypeExt::Plain(VType::Typename(ref v)) => {
-                formatVTypeExt!(self, Colour::Cyan.paint(v.to_string()))
+                Colour::Cyan.paint(v.to_string()).to_string()
             }
             VTypeExt::Plain(VType::Struct(ref v)) => {
-                formatVTypeExt!(self, v.get_multiline_colored(indent, max))
+                v.get_multiline_colored(indent, max)
             }
             VTypeExt::Plain(VType::Enum(ref v)) => {
-                formatVTypeExt!(self, v.get_multiline_colored(indent, max))
+                v.get_multiline_colored(indent, max)
             }
             VTypeExt::Array(ref v) => format!("[]{}", v.get_multiline_colored(indent, max)),
             VTypeExt::Dict(ref v) => format!(

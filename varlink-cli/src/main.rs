@@ -256,6 +256,8 @@ fn varlink_call(
     let cf = ColoredFormatter::with_styler(
         PrettyFormatter::new(),
         Styler {
+            array_brackets: Style::new(),
+            object_brackets: Style::new(),
             key: Colour::Cyan.normal(),
             string_value: Colour::Purple.normal(),
             integer_value: Colour::Purple.normal(),

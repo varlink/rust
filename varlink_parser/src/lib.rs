@@ -754,7 +754,7 @@ impl<'a> FormatColored for Interface<'a> {
         let mut f = String::new();
 
         if !self.doc.is_empty() {
-            f += &Colour::Blue.bold().paint(self.doc);
+            f += &Colour::Blue.paint(self.doc);
             f += "\n";
         }
         f += &format!("{} {}\n", Colour::Purple.paint("interface"), self.name);
@@ -762,7 +762,7 @@ impl<'a> FormatColored for Interface<'a> {
         for t in self.typedef_keys.iter().map(|k| &self.typedefs[k]) {
             f += "\n";
             if !t.doc.is_empty() {
-                f += &Colour::Blue.bold().paint(t.doc);
+                f += &Colour::Blue.paint(t.doc);
                 f += "\n";
             }
 
@@ -777,7 +777,7 @@ impl<'a> FormatColored for Interface<'a> {
         for m in self.method_keys.iter().map(|k| &self.methods[k]) {
             f += "\n";
             if !m.doc.is_empty() {
-                f += &Colour::Blue.bold().paint(m.doc);
+                f += &Colour::Blue.paint(m.doc);
                 f += "\n";
             }
 
@@ -793,7 +793,7 @@ impl<'a> FormatColored for Interface<'a> {
         for t in self.error_keys.iter().map(|k| &self.errors[k]) {
             f += "\n";
             if !t.doc.is_empty() {
-                f += &Colour::Blue.bold().paint(t.doc);
+                f += &Colour::Blue.paint(t.doc);
                 f += "\n";
             }
 
@@ -818,7 +818,7 @@ impl<'a> FormatColored for Interface<'a> {
                     format!(
                         "{:indent$}{}",
                         "",
-                        Colour::Blue.bold().paint(s),
+                        Colour::Blue.paint(s),
                         indent = indent
                     )
                 }).collect::<Vec<String>>()
@@ -844,7 +844,7 @@ impl<'a> FormatColored for Interface<'a> {
                         format!(
                             "{:indent$}{}",
                             "",
-                            Colour::Blue.bold().paint(s),
+                            Colour::Blue.paint(s),
                             indent = indent
                         )
                     }).collect::<Vec<String>>()
@@ -886,7 +886,7 @@ impl<'a> FormatColored for Interface<'a> {
                         format!(
                             "{:indent$}{}",
                             "",
-                            Colour::Blue.bold().paint(s),
+                            Colour::Blue.paint(s),
                             indent = indent
                         )
                     }).collect::<Vec<String>>()
@@ -957,7 +957,7 @@ impl<'a> FormatColored for Interface<'a> {
                         format!(
                             "{:indent$}{}",
                             "",
-                            Colour::Blue.bold().paint(s),
+                            Colour::Blue.paint(s),
                             indent = indent
                         )
                     }).collect::<Vec<String>>()

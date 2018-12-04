@@ -25,6 +25,7 @@ before_script: |
   fi
   cargo install --force cargo-audit
 script:
+- cargo update
 - cargo audit
 - cargo build --all
 - cargo test --all

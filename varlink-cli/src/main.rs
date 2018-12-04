@@ -111,7 +111,7 @@ fn varlink_help(
     resolver: &str,
     activate: Option<&str>,
     bridge: Option<&str>,
-    line_len: Option<&str>,
+    columns: Option<&str>,
     should_colorize: bool,
 ) -> Result<()> {
     let address: &str;
@@ -157,14 +157,14 @@ fn varlink_help(
                     .interface
                     .get_multiline_colored(
                         0,
-                        line_len.unwrap_or("80").parse::<usize>().unwrap_or(80),
+                        columns.unwrap_or("80").parse::<usize>().unwrap_or(80),
                     )
             ),
             false => println!(
                 "{}",
                 Varlink::from_string(&desc)?
                     .interface
-                    .get_multiline(0, line_len.unwrap_or("80").parse::<usize>().unwrap_or(80))
+                    .get_multiline(0, columns.unwrap_or("80").parse::<usize>().unwrap_or(80),)
             ),
         },
         _ => {
@@ -384,7 +384,7 @@ fn main() -> Result<()> {
                 .arg(
                     Arg::with_name("COLUMNS")
                         .short("c")
-                        .long("col")
+                        .long("cols")
                         .help("maximum width of the output")
                         .required(false)
                         .takes_value(true),
@@ -411,7 +411,7 @@ fn main() -> Result<()> {
                 ).arg(
                     Arg::with_name("COLUMNS")
                         .short("c")
-                        .long("col")
+                        .long("cols")
                         .help("maximum width of the output")
                         .required(false)
                         .takes_value(true),
@@ -474,7 +474,6 @@ fn main() -> Result<()> {
         ("help", Some(sub_matches)) => {
             let interface = sub_matches.value_of("INTERFACE").unwrap();
             let cols = sub_matches.value_of("COLUMNS");
-
             varlink_help(interface, resolver, activate, bridge, cols, color_bool)?
         }
         ("call", Some(sub_matches)) => {

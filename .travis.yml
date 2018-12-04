@@ -23,7 +23,9 @@ before_script: |
     cargo install-update -a || echo "update failed"
     unset RUSTFLAGS
   fi
+  cargo install --force cargo-audit
 script:
+- cargo audit
 - cargo build --all
 - cargo test --all
 after_success: |

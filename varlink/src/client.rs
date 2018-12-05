@@ -2,19 +2,22 @@
 
 #![allow(dead_code)]
 
+#[cfg(unix)]
 use libc::{close, dup2, getpid};
 use std::env;
 use std::io::{Read, Write};
 use std::net::{Shutdown, TcpStream};
-use std::os::unix::io::{FromRawFd, IntoRawFd};
-use std::os::unix::net::UnixStream;
-use std::os::unix::process::CommandExt;
 use std::process::{Child, Command};
 use tempfile::tempdir;
 use tempfile::TempDir;
-// FIXME: abstract unix domains sockets still not in std
-// FIXME: https://github.com/rust-lang/rust/issues/14194
-use unix_socket::UnixStream as AbstractStream;
+
+#[cfg(windows)]
+use mio_uds_windows::UnixStream;
+#[cfg(unix)]
+use std::os::unix::io::IntoRawFd;
+#[cfg(unix)]
+use std::os::unix::net::UnixStream;
+
 use {ErrorKind, Result};
 
 pub enum VarlinkStream {
@@ -22,28 +25,20 @@ pub enum VarlinkStream {
     UNIX(UnixStream),
 }
 
+#[cfg(windows)]
 pub fn varlink_exec<S: ?Sized + AsRef<str>>(
     address: &S,
 ) -> Result<(Child, String, Option<TempDir>)> {
-    #[cfg(not(target_os = "macos"))]
-    mod sysenv {
-        pub const LOADER_PATH: &'static str = "LD_LIBRARY_PATH";
-    }
-    #[cfg(target_os = "macos")]
-    mod sysenv {
-        pub const LOADER_PATH: &'static str = "DYLD_LIBRARY_PATH";
-    }
+    return Err(ErrorKind::MethodNotImplemented("varlink_exec".into()).into());
+}
 
-    let executable = match env::var(sysenv::LOADER_PATH) {
-        Ok(path) => format!(
-            "{}=\"${}:{}\" exec {}",
-            sysenv::LOADER_PATH,
-            sysenv::LOADER_PATH,
-            path,
-            address.as_ref()
-        ),
-        _ => String::from("exec ") + address.as_ref(),
-    };
+#[cfg(unix)]
+pub fn varlink_exec<S: ?Sized + AsRef<str>>(
+    address: &S,
+) -> Result<(Child, String, Option<TempDir>)> {
+    use std::os::unix::process::CommandExt;
+
+    let executable = String::from("exec ") + address.as_ref();
 
     use unix_socket::UnixListener;
 
@@ -75,7 +70,15 @@ pub fn varlink_exec<S: ?Sized + AsRef<str>>(
     Ok((child, format!("unix:{}", file_path.display()), Some(dir)))
 }
 
+#[cfg(windows)]
 pub fn varlink_bridge<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Child, VarlinkStream)> {
+    return Err(ErrorKind::MethodNotImplemented("varlink_bridge".into()).into());
+}
+
+#[cfg(unix)]
+pub fn varlink_bridge<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Child, VarlinkStream)> {
+    use std::os::unix::io::FromRawFd;
+
     let executable = address.as_ref();
     // use unix_socket::UnixStream;
     let (stream0, stream1) = UnixStream::pair()?;
@@ -92,6 +95,25 @@ pub fn varlink_bridge<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Child, Var
     Ok((child, VarlinkStream::UNIX(stream0)))
 }
 
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn get_abstract_unixstream(addr: &str) -> Result<UnixStream> {
+    // FIXME: abstract unix domains sockets still not in std
+    // FIXME: https://github.com/rust-lang/rust/issues/14194
+    use std::os::unix::io::FromRawFd;
+    use unix_socket::UnixStream as AbstractStream;
+
+    unsafe {
+        Ok(UnixStream::from_raw_fd(
+            AbstractStream::connect(addr)?.into_raw_fd(),
+        ))
+    }
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+fn get_abstract_unixstream(addr: &str) -> Result<UnixStream> {
+    Err(ErrorKind::InvalidAddress.into())
+}
+
 impl<'a> VarlinkStream {
     pub fn connect<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Self, String)> {
         let address = address.as_ref();
@@ -106,13 +128,8 @@ impl<'a> VarlinkStream {
             let mut addr = String::from(new_address[5..].split(';').next().unwrap());
             if addr.starts_with('@') {
                 addr = addr.replacen('@', "\0", 1);
-                let l = AbstractStream::connect(addr)?;
-                unsafe {
-                    return Ok((
-                        VarlinkStream::UNIX(UnixStream::from_raw_fd(l.into_raw_fd())),
-                        new_address,
-                    ));
-                }
+                return get_abstract_unixstream(&addr)
+                    .and_then(|v| Ok((VarlinkStream::UNIX(v), new_address)));
             }
             Ok((VarlinkStream::UNIX(UnixStream::connect(addr)?), new_address))
         } else {
@@ -142,7 +159,10 @@ impl<'a> VarlinkStream {
     pub fn set_nonblocking(&self, b: bool) -> Result<()> {
         match *self {
             VarlinkStream::TCP(ref l) => l.set_nonblocking(b)?,
-            VarlinkStream::UNIX(ref l) => l.set_nonblocking(b)?,
+            VarlinkStream::UNIX(ref l) => {
+                #[cfg(unix)]
+                l.set_nonblocking(b)?;
+            }
         }
         Ok(())
     }

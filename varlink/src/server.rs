@@ -6,17 +6,21 @@ use {ErrorKind, Result};
 //#![feature(getpid)]
 //use std::process;
 // FIXME
+#[cfg(unix)]
 use libc;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
-use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
-use std::os::unix::net::{UnixListener, UnixStream};
+use std::process;
 use std::sync::{mpsc, Arc, Mutex, RwLock};
 use std::{env, fs, mem, thread};
-// FIXME: abstract unix domains sockets still not in std
-// FIXME: https://github.com/rust-lang/rust/issues/14194
-use std::process;
-use unix_socket::UnixListener as AbstractUnixListener;
+
+#[cfg(windows)]
+use mio_uds_windows::{UnixListener, UnixStream};
+#[cfg(unix)]
+use std::os::unix::net::{UnixListener, UnixStream};
+
+#[cfg(unix)]
+use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 #[derive(Debug)]
 pub enum Listener {
@@ -60,12 +64,14 @@ impl<'a> Stream {
                 Ok(())
             }
             Stream::UNIX(ref mut s) => {
+                #[cfg(unix)]
                 s.set_nonblocking(b)?;
                 Ok(())
             }
         }
     }
 
+    #[cfg(unix)]
     pub fn as_raw_fd(&mut self) -> RawFd {
         match *self {
             Stream::TCP(ref mut s) => s.as_raw_fd(),
@@ -134,6 +140,12 @@ impl ::std::io::Read for Stream {
     }
 }
 
+#[cfg(windows)]
+fn activation_listener() -> Result<Option<i32>> {
+    Ok(None)
+}
+
+#[cfg(unix)]
 fn activation_listener() -> Result<Option<i32>> {
     let nfds: u32;
 
@@ -172,20 +184,46 @@ fn activation_listener() -> Result<Option<i32>> {
     Ok(None)
 }
 
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn get_abstract_unixlistener(addr: &str) -> Result<UnixListener> {
+    // FIXME: abstract unix domains sockets still not in std
+    // FIXME: https://github.com/rust-lang/rust/issues/14194
+    use std::os::unix::io::FromRawFd;
+    use unix_socket::UnixListener as AbstractUnixListener;
+
+    unsafe {
+        Ok(UnixListener::from_raw_fd(
+            AbstractUnixListener::bind(addr)?.into_raw_fd(),
+        ))
+    }
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+fn get_abstract_unixlistener(addr: &str) -> Result<UnixListener> {
+    Err(ErrorKind::InvalidAddress.into())
+}
+
 impl Listener {
     pub fn new<S: ?Sized + AsRef<str>>(address: &S) -> Result<Self> {
         let address = address.as_ref();
         if let Some(l) = activation_listener()? {
-            if address.starts_with("tcp:") {
-                unsafe {
-                    return Ok(Listener::TCP(Some(TcpListener::from_raw_fd(l)), true));
-                }
-            } else if address.starts_with("unix:") {
-                unsafe {
-                    return Ok(Listener::UNIX(Some(UnixListener::from_raw_fd(l)), true));
-                }
-            } else {
+            #[cfg(windows)]
+            {
                 return Err(ErrorKind::InvalidAddress.into());
+            }
+            #[cfg(unix)]
+            {
+                if address.starts_with("tcp:") {
+                    unsafe {
+                        return Ok(Listener::TCP(Some(TcpListener::from_raw_fd(l)), true));
+                    }
+                } else if address.starts_with("unix:") {
+                    unsafe {
+                        return Ok(Listener::UNIX(Some(UnixListener::from_raw_fd(l)), true));
+                    }
+                } else {
+                    return Err(ErrorKind::InvalidAddress.into());
+                }
             }
         }
 
@@ -198,28 +236,36 @@ impl Listener {
             let mut addr = String::from(address[5..].split(';').next().unwrap());
             if addr.starts_with('@') {
                 addr = addr.replacen('@', "\0", 1);
-                let l = AbstractUnixListener::bind(addr)?;
-                unsafe {
-                    return Ok(Listener::UNIX(
-                        Some(UnixListener::from_raw_fd(l.into_raw_fd())),
-                        false,
-                    ));
-                }
+                return get_abstract_unixlistener(&addr)
+                    .and_then(|v| Ok(Listener::UNIX(Some(v), false)));
             }
             // ignore error on non-existant file
             let _ = fs::remove_file(&*addr);
-            let l = UnixListener::bind(addr)?;
-            unsafe {
-                Ok(Listener::UNIX(
-                    Some(UnixListener::from_raw_fd(l.into_raw_fd())),
-                    false,
-                ))
-            }
+            Ok(Listener::UNIX(Some(UnixListener::bind(addr)?), false))
         } else {
             Err(ErrorKind::InvalidAddress.into())
         }
     }
 
+    #[cfg(windows)]
+    pub fn accept(&self, timeout: u64) -> Result<Stream> {
+        match self {
+            &Listener::TCP(Some(ref l), _) => {
+                let (s, _addr) = l.accept()?;
+                Ok(Stream::TCP(s))
+            }
+            Listener::UNIX(Some(ref l), _) => {
+                #[cfg(unix)]
+                let (s, _addr) = l.accept()?;
+                #[cfg(windows)]
+                let (s, _addr) = l.accept()?.unwrap();
+                Ok(Stream::UNIX(s))
+            }
+            _ => Err(ErrorKind::ConnectionClosed.into()),
+        }
+    }
+
+    #[cfg(unix)]
     pub fn accept(&self, timeout: u64) -> Result<Stream> {
         if timeout > 0 {
             let fd = match self {
@@ -270,15 +316,20 @@ impl Listener {
             _ => Err(ErrorKind::ConnectionClosed.into()),
         }
     }
+
     pub fn set_nonblocking(&self, b: bool) -> Result<()> {
         match *self {
             Listener::TCP(Some(ref l), _) => l.set_nonblocking(b)?,
-            Listener::UNIX(Some(ref l), _) => l.set_nonblocking(b)?,
+            Listener::UNIX(Some(ref l), _) => {
+                #[cfg(unix)]
+                l.set_nonblocking(b)?;
+            }
             _ => Err(ErrorKind::ConnectionClosed)?,
         }
         Ok(())
     }
 
+    #[cfg(unix)]
     pub fn as_raw_fd(&self) -> RawFd {
         match *self {
             Listener::TCP(Some(ref l), _) => l.as_raw_fd(),
@@ -300,6 +351,7 @@ impl Drop for Listener {
             }
             Listener::UNIX(ref mut listener, true) => {
                 if let Some(l) = listener.take() {
+                    #[cfg(unix)]
                     unsafe {
                         let s = UnixStream::from_raw_fd(l.into_raw_fd());
                         let _ = s.set_read_timeout(None);
@@ -308,6 +360,7 @@ impl Drop for Listener {
             }
             Listener::TCP(ref mut listener, true) => {
                 if let Some(l) = listener.take() {
+                    #[cfg(unix)]
                     unsafe {
                         let s = TcpStream::from_raw_fd(l.into_raw_fd());
                         let _ = s.set_read_timeout(None);
@@ -487,7 +540,10 @@ pub fn listen<S: ?Sized + AsRef<str>, H: crate::ConnectionHandler + Send + Sync 
 ) -> Result<()> {
     let handler = Arc::new(handler);
     let listener = Listener::new(address)?;
+
+    #[cfg(unix)]
     listener.set_nonblocking(false)?;
+
     let mut pool = ThreadPool::new(initial_worker_threads, max_worker_threads);
 
     loop {

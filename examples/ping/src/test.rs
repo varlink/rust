@@ -150,3 +150,8 @@ fn test_unix_multiplex() -> Result<()> {
 fn test_unix() -> Result<()> {
     run_self_test("unix:/tmp/org.example.ping".into(), false)
 }
+
+#[test]
+fn test_tcp() -> Result<()> {
+    run_self_test("tcp:127.0.0.1:12345".into(), false)
+}

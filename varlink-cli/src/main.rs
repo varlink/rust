@@ -14,11 +14,11 @@ use clap::{App, Arg, SubCommand};
 use colored_json::{ColorMode, ColoredFormatter, Colour, Output, PrettyFormatter, Style, Styler};
 use error::{ErrorKind, Result};
 use failure::ResultExt;
+#[cfg(unix)]
 use proxy::{handle, handle_connect};
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
-use std::os::unix::io::{AsRawFd, FromRawFd};
 use std::path::Path;
 use std::str;
 use varlink::{
@@ -32,6 +32,8 @@ use varlink_stdinterfaces::org_varlink_resolver::{VarlinkClient, VarlinkClientIn
 mod test;
 
 mod error;
+
+#[cfg(unix)]
 mod proxy;
 
 fn varlink_format(filename: &str, line_len: Option<&str>, should_colorize: bool) -> Result<()> {
@@ -164,7 +166,7 @@ fn varlink_help(
                 "{}",
                 Varlink::from_string(&desc)?
                     .interface
-                    .get_multiline(0, columns.unwrap_or("80").parse::<usize>().unwrap_or(80),)
+                    .get_multiline(0, columns.unwrap_or("80").parse::<usize>().unwrap_or(80))
             ),
         },
         _ => {
@@ -281,7 +283,10 @@ fn varlink_call(
     Ok(())
 }
 
+#[cfg(unix)]
 fn varlink_bridge(address: Option<&str>) -> Result<()> {
+    use std::os::unix::io::{AsRawFd, FromRawFd};
+
     let stdin = ::std::io::stdin();
     let stdout = ::std::io::stdout();
 
@@ -300,6 +305,10 @@ fn varlink_bridge(address: Option<&str>) -> Result<()> {
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() -> Result<()> {
+    // TODO: windows
+    // #[cfg(windows)]
+    // let _enabled = colored_json::enable_ansi_support();
+
     let mut app = App::new("varlink")
         .version(VERSION)
         /*
@@ -327,14 +336,6 @@ fn main() -> Result<()> {
                 .takes_value(true)
                 .required(false)
                 .default_value("unix:/run/org.varlink.resolver"),
-        ).arg(
-            Arg::with_name("bridge")
-                .short("b")
-                .long("bridge")
-                .value_name("COMMAND")
-                .help("Command to execute and connect to")
-                .takes_value(true)
-                .required(false),
         ).arg(
             Arg::with_name("activate")
                 .short("A")
@@ -433,6 +434,20 @@ fn main() -> Result<()> {
                         .help("The shell to generate the script for"),
                 ),
         );
+
+    #[cfg(unix)]
+    {
+        app = app.arg(
+            Arg::with_name("bridge")
+                .short("b")
+                .long("bridge")
+                .value_name("COMMAND")
+                .help("Command to execute and connect to")
+                .takes_value(true)
+                .required(false),
+        );
+    }
+
     let matches = app.clone().get_matches();
     let resolver = matches.value_of("resolver").unwrap();
     let bridge = matches.value_of("bridge");
@@ -467,6 +482,7 @@ fn main() -> Result<()> {
 
             varlink_info(address, resolver, activate, bridge, color_bool)?
         }
+        #[cfg(unix)]
         ("bridge", Some(sub_matches)) => {
             let address = sub_matches.value_of("connect");
             varlink_bridge(address)?

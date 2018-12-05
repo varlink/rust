@@ -33,3 +33,8 @@ fn run_self_test(address: String) -> Result<()> {
 fn test_unix() -> Result<()> {
     run_self_test("unix:/tmp/org.example.more".into())
 }
+
+#[test]
+fn test_tcp() -> Result<()> {
+    run_self_test("tcp:127.0.0.1:12345".into())
+}

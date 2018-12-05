@@ -9,13 +9,11 @@ extern crate varlink;
 
 use failure::Fail;
 use org_example_ping::*;
-use std::collections::HashMap;
 use std::env;
-use std::io::{self, BufRead, BufReader, Error, Read, Write};
+use std::io::{BufRead, Read, Write};
 use std::process::exit;
 use std::sync::{Arc, RwLock};
-use std::thread;
-use varlink::{Call, Connection, ConnectionHandler, Listener, ServerStream, VarlinkService};
+use varlink::{Call, Connection, VarlinkService};
 
 // Dynamically build the varlink rust code.
 mod org_example_ping;
@@ -160,259 +158,276 @@ impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
     }
 }
 
-struct FdTracker {
-    stream: Option<ServerStream>,
-    buffer: Option<Vec<u8>>,
-}
+#[cfg(unix)]
+mod multiplex {
+    use failure::Fail;
+    use std::collections::HashMap;
+    use std::io::{self, BufRead, BufReader, Error, Read, Write};
+    use std::sync::{Arc, RwLock};
+    use std::thread;
+    use varlink::{ConnectionHandler, Listener, ServerStream};
 
-impl FdTracker {
-    fn shutdown(&mut self) -> varlink::Result<()> {
-        self.stream.as_mut().unwrap().shutdown()
+    struct FdTracker {
+        stream: Option<ServerStream>,
+        buffer: Option<Vec<u8>>,
     }
-    fn chain_buffer(&mut self, buf: &mut Vec<u8>) {
-        self.buffer.as_mut().unwrap().append(buf);
-    }
-    fn fill_buffer(&mut self, buf: &Vec<u8>) {
-        self.buffer.as_mut().unwrap().clone_from(buf);
-    }
-    fn buf_as_slice(&mut self) -> &[u8] {
-        self.buffer.as_mut().unwrap().as_slice()
-    }
-    fn write(&mut self, out: &[u8]) -> io::Result<usize> {
-        self.stream.as_mut().unwrap().write(out)
-    }
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.stream.as_mut().unwrap().read(buf)
-    }
-}
 
-// listen_multiplex is just an example, if you don't want to use varlink::listen()
-// and how to build your own main-loop and use the low-level varlink::handle() instead
-pub fn listen_multiplex<S: ?Sized + AsRef<str>, H: ::ConnectionHandler + Send + Sync + 'static>(
-    handler: H,
-    address: &S,
-    idle_timeout: u64,
-) -> varlink::Result<()> {
-    let timeout: i32 = match idle_timeout {
-        0 => -1,
-        n => (n * 1000) as i32,
-    };
-
-    let handler = Arc::new(handler);
-    let mut fdmap: HashMap<i32, FdTracker> = HashMap::new();
-    let mut fds = Vec::new();
-    let mut threads = Vec::new();
-    let listener = Listener::new(address)?;
-    let upgraded_in_use = Arc::new(RwLock::new(0));
-
-    listener.set_nonblocking(true)?;
-
-    fds.push(libc::pollfd {
-        fd: listener.as_raw_fd(),
-        revents: 0,
-        events: libc::POLLIN,
-    });
-
-    loop {
-        // Read activity on listening socket
-        if fds[0].revents != 0 {
-            let mut client = listener.accept(0)?;
-
-            client.set_nonblocking(true)?;
-
-            let fd = client.as_raw_fd();
-            fds.push(libc::pollfd {
-                fd,
-                revents: 0,
-                events: libc::POLLIN,
-            });
-
-            fdmap.insert(
-                fd,
-                FdTracker {
-                    stream: Some(client),
-                    buffer: Some(Vec::new()),
-                },
-            );
+    impl FdTracker {
+        fn shutdown(&mut self) -> varlink::Result<()> {
+            self.stream.as_mut().unwrap().shutdown()
         }
+        fn chain_buffer(&mut self, buf: &mut Vec<u8>) {
+            self.buffer.as_mut().unwrap().append(buf);
+        }
+        fn fill_buffer(&mut self, buf: &Vec<u8>) {
+            self.buffer.as_mut().unwrap().clone_from(buf);
+        }
+        fn buf_as_slice(&mut self) -> &[u8] {
+            self.buffer.as_mut().unwrap().as_slice()
+        }
+        fn write(&mut self, out: &[u8]) -> io::Result<usize> {
+            self.stream.as_mut().unwrap().write(out)
+        }
+        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+            self.stream.as_mut().unwrap().read(buf)
+        }
+    }
 
-        // Store which indices to remove
-        let mut indices_to_remove = vec![];
+    // listen_multiplex is just an example, if you don't want to use varlink::listen()
+    // and how to build your own main-loop and use the low-level varlink::handle() instead
+    pub fn listen_multiplex<
+        S: ?Sized + AsRef<str>,
+        H: ConnectionHandler + Send + Sync + 'static,
+    >(
+        handler: H,
+        address: &S,
+        idle_timeout: u64,
+    ) -> varlink::Result<()> {
+        let timeout: i32 = match idle_timeout {
+            0 => -1,
+            n => (n * 1000) as i32,
+        };
 
-        // Check client connections ...
-        for (i, fds_item) in fds.iter().enumerate().skip(1) {
-            if fds_item.revents != 0 {
-                let mut upgraded_iface: Option<String> = None;
-                let mut tracker = fdmap.get_mut(&fds_item.fd).unwrap();
-                loop {
-                    let mut readbuf: [u8; 8192] = [0; 8192];
+        let handler = Arc::new(handler);
+        let mut fdmap: HashMap<i32, FdTracker> = HashMap::new();
+        let mut fds = Vec::new();
+        let mut threads = Vec::new();
+        let listener = Listener::new(address)?;
+        let upgraded_in_use = Arc::new(RwLock::new(0));
 
-                    match tracker.read(&mut readbuf) {
-                        Ok(0) => {
-                            let _ = tracker.shutdown();
-                            indices_to_remove.push(i);
-                            break;
-                        }
-                        Ok(len) => {
-                            let mut out: Vec<u8> = Vec::new();
-                            tracker.chain_buffer(&mut readbuf[0..len].to_vec());
-                            eprintln!(
-                                "Handling: {}",
-                                String::from_utf8_lossy(&tracker.buf_as_slice())
-                            );
+        listener.set_nonblocking(true)?;
 
-                            match handler.handle(&mut tracker.buf_as_slice(), &mut out, None) {
-                                // TODO: buffer output and write only on POLLOUT
-                                Ok((unprocessed_bytes, last_iface)) => {
-                                    upgraded_iface = last_iface;
-                                    if !unprocessed_bytes.is_empty() {
-                                        eprintln!(
-                                            "Unprocessed bytes: {}",
-                                            String::from_utf8_lossy(&unprocessed_bytes)
-                                        );
-                                    }
-                                    tracker.fill_buffer(&unprocessed_bytes);
+        fds.push(libc::pollfd {
+            fd: listener.as_raw_fd(),
+            revents: 0,
+            events: libc::POLLIN,
+        });
 
-                                    if let Err(err) = tracker.write(out.as_ref()) {
-                                        eprintln!("write error: {}", err);
-                                        for cause in Fail::iter_causes(&err) {
-                                            eprintln!("  caused by: {}", cause);
-                                        }
-                                        let _ = tracker.shutdown();
-                                        indices_to_remove.push(i);
-                                        break;
-                                    }
-                                }
-                                Err(e) => match e.kind() {
-                                    err => {
-                                        eprintln!("handler error: {}", err);
-                                        for cause in Fail::iter_causes(&err).skip(1) {
-                                            eprintln!("  caused by: {}", cause);
-                                        }
-                                        let _ = tracker.shutdown();
-                                        indices_to_remove.push(i);
-                                        break;
-                                    }
-                                },
-                            }
-                        }
-                        Err(e) => match e.kind() {
-                            io::ErrorKind::WouldBlock => {
-                                break;
-                            }
-                            _ => {
+        loop {
+            // Read activity on listening socket
+            if fds[0].revents != 0 {
+                let mut client = listener.accept(0)?;
+
+                client.set_nonblocking(true)?;
+
+                let fd = client.as_raw_fd();
+                fds.push(libc::pollfd {
+                    fd,
+                    revents: 0,
+                    events: libc::POLLIN,
+                });
+
+                fdmap.insert(
+                    fd,
+                    FdTracker {
+                        stream: Some(client),
+                        buffer: Some(Vec::new()),
+                    },
+                );
+            }
+
+            // Store which indices to remove
+            let mut indices_to_remove = vec![];
+
+            // Check client connections ...
+            for (i, fds_item) in fds.iter().enumerate().skip(1) {
+                if fds_item.revents != 0 {
+                    let mut upgraded_iface: Option<String> = None;
+                    let mut tracker = fdmap.get_mut(&fds_item.fd).unwrap();
+                    loop {
+                        let mut readbuf: [u8; 8192] = [0; 8192];
+
+                        match tracker.read(&mut readbuf) {
+                            Ok(0) => {
                                 let _ = tracker.shutdown();
                                 indices_to_remove.push(i);
-                                eprintln!("IO error: {}", e);
                                 break;
                             }
-                        },
-                    }
-                }
-                if upgraded_iface.is_some() {
-                    eprintln!("Upgraded MODE");
-                    // upgraded mode... thread away the server
-                    // feed it directly with the client stream
-                    // If you have a better idea, open an Issue or PR on github
-                    indices_to_remove.push(i);
+                            Ok(len) => {
+                                let mut out: Vec<u8> = Vec::new();
+                                tracker.chain_buffer(&mut readbuf[0..len].to_vec());
+                                eprintln!(
+                                    "Handling: {}",
+                                    String::from_utf8_lossy(&tracker.buf_as_slice())
+                                );
 
-                    let j = thread::spawn({
-                        eprintln!("upgraded thread");
-                        let handler = handler.clone();
-                        let mut stream = tracker.stream.take().unwrap();
-                        let mut buffer = tracker.buffer.take().unwrap();
-                        let mut upgraded_in_use = upgraded_in_use.clone();
-                        move || {
-                            let _r = stream.set_nonblocking(false);
-                            let (reader, mut writer) = stream.split().unwrap();
-                            let br = BufReader::new(reader);
-                            let mut bufreader = Box::new(buffer.chain(br));
-                            let mut upgraded_iface = upgraded_iface.take();
-
-                            {
-                                let mut ctr = upgraded_in_use.write().unwrap();
-                                *ctr += 1;
-                            }
-                            loop {
-                                match handler.handle(&mut bufreader, &mut writer, upgraded_iface) {
-                                    Ok((unread, iface)) => {
-                                        upgraded_iface = iface;
-                                        match bufreader.fill_buf() {
-                                            Err(_) => {
-                                                eprintln!("Upgraded end");
-                                                break;
-                                            }
-                                            Ok(buf) => {
-                                                if buf.is_empty() && unread.is_empty() {
-                                                    eprintln!("Upgraded end");
-                                                    break;
-                                                }
-
-                                                if !unread.is_empty() {
-                                                    eprintln!(
-                                                        "Not handled bytes: {}",
-                                                        String::from_utf8_lossy(&unread)
-                                                    );
-                                                    break;
-                                                }
-
-                                                if !buf.is_empty() {
-                                                    eprintln!(
-                                                        "fill_buf(): {}",
-                                                        String::from_utf8_lossy(&buf)
-                                                    );
-                                                }
-                                            }
+                                match handler.handle(&mut tracker.buf_as_slice(), &mut out, None) {
+                                    // TODO: buffer output and write only on POLLOUT
+                                    Ok((unprocessed_bytes, last_iface)) => {
+                                        upgraded_iface = last_iface;
+                                        if !unprocessed_bytes.is_empty() {
+                                            eprintln!(
+                                                "Unprocessed bytes: {}",
+                                                String::from_utf8_lossy(&unprocessed_bytes)
+                                            );
                                         }
-                                    }
-                                    Err(err) => match err.kind() {
-                                        varlink::ErrorKind::ConnectionClosed => {
-                                            eprintln!("Upgraded end");
+                                        tracker.fill_buffer(&unprocessed_bytes);
+
+                                        if let Err(err) = tracker.write(out.as_ref()) {
+                                            eprintln!("write error: {}", err);
+                                            for cause in Fail::iter_causes(&err) {
+                                                eprintln!("  caused by: {}", cause);
+                                            }
+                                            let _ = tracker.shutdown();
+                                            indices_to_remove.push(i);
                                             break;
                                         }
-                                        _ => {
-                                            eprintln!("Upgraded end: {}", err);
+                                    }
+                                    Err(e) => match e.kind() {
+                                        err => {
+                                            eprintln!("handler error: {}", err);
                                             for cause in Fail::iter_causes(&err).skip(1) {
                                                 eprintln!("  caused by: {}", cause);
                                             }
+                                            let _ = tracker.shutdown();
+                                            indices_to_remove.push(i);
                                             break;
                                         }
                                     },
                                 }
                             }
-                            {
-                                let mut ctr = upgraded_in_use.write().unwrap();
-                                *ctr -= 1;
-                            }
+                            Err(e) => match e.kind() {
+                                io::ErrorKind::WouldBlock => {
+                                    break;
+                                }
+                                _ => {
+                                    let _ = tracker.shutdown();
+                                    indices_to_remove.push(i);
+                                    eprintln!("IO error: {}", e);
+                                    break;
+                                }
+                            },
                         }
-                    });
-                    threads.push(j);
+                    }
+                    if upgraded_iface.is_some() {
+                        eprintln!("Upgraded MODE");
+                        // upgraded mode... thread away the server
+                        // feed it directly with the client stream
+                        // If you have a better idea, open an Issue or PR on github
+                        indices_to_remove.push(i);
+
+                        let j = thread::spawn({
+                            eprintln!("upgraded thread");
+                            let handler = handler.clone();
+                            let mut stream = tracker.stream.take().unwrap();
+                            let mut buffer = tracker.buffer.take().unwrap();
+                            let mut upgraded_in_use = upgraded_in_use.clone();
+                            move || {
+                                let _r = stream.set_nonblocking(false);
+                                let (reader, mut writer) = stream.split().unwrap();
+                                let br = BufReader::new(reader);
+                                let mut bufreader = Box::new(buffer.chain(br));
+                                let mut upgraded_iface = upgraded_iface.take();
+
+                                {
+                                    let mut ctr = upgraded_in_use.write().unwrap();
+                                    *ctr += 1;
+                                }
+                                loop {
+                                    match handler.handle(
+                                        &mut bufreader,
+                                        &mut writer,
+                                        upgraded_iface,
+                                    ) {
+                                        Ok((unread, iface)) => {
+                                            upgraded_iface = iface;
+                                            match bufreader.fill_buf() {
+                                                Err(_) => {
+                                                    eprintln!("Upgraded end");
+                                                    break;
+                                                }
+                                                Ok(buf) => {
+                                                    if buf.is_empty() && unread.is_empty() {
+                                                        eprintln!("Upgraded end");
+                                                        break;
+                                                    }
+
+                                                    if !unread.is_empty() {
+                                                        eprintln!(
+                                                            "Not handled bytes: {}",
+                                                            String::from_utf8_lossy(&unread)
+                                                        );
+                                                        break;
+                                                    }
+
+                                                    if !buf.is_empty() {
+                                                        eprintln!(
+                                                            "fill_buf(): {}",
+                                                            String::from_utf8_lossy(&buf)
+                                                        );
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        Err(err) => match err.kind() {
+                                            varlink::ErrorKind::ConnectionClosed => {
+                                                eprintln!("Upgraded end");
+                                                break;
+                                            }
+                                            _ => {
+                                                eprintln!("Upgraded end: {}", err);
+                                                for cause in Fail::iter_causes(&err).skip(1) {
+                                                    eprintln!("  caused by: {}", cause);
+                                                }
+                                                break;
+                                            }
+                                        },
+                                    }
+                                }
+                                {
+                                    let mut ctr = upgraded_in_use.write().unwrap();
+                                    *ctr -= 1;
+                                }
+                            }
+                        });
+                        threads.push(j);
+                    }
                 }
             }
-        }
 
-        // We can't modify the vector while we are traversing it, so update now.
-        for i in indices_to_remove {
-            fdmap.remove(&fds[i].fd);
-            fds.remove(i);
-        }
-
-        let r = unsafe { libc::poll(fds.as_mut_ptr(), (fds.len() as u32).into(), timeout) };
-
-        if r < 0 {
-            for t in threads {
-                let _r = t.join();
-            }
-            return Err(Error::last_os_error().into());
-        }
-
-        if r == 0 && fds.len() == 1 && *upgraded_in_use.read().unwrap() == 0 {
-            eprintln!("listen_multiplex: Waiting for threads to end.");
-            for t in threads {
-                let _r = t.join();
+            // We can't modify the vector while we are traversing it, so update now.
+            for i in indices_to_remove {
+                fdmap.remove(&fds[i].fd);
+                fds.remove(i);
             }
 
-            return Err(varlink::Error::from(varlink::ErrorKind::Timeout));
+            let r = unsafe { libc::poll(fds.as_mut_ptr(), (fds.len() as u32).into(), timeout) };
+
+            if r < 0 {
+                for t in threads {
+                    let _r = t.join();
+                }
+                return Err(Error::last_os_error().into());
+            }
+
+            if r == 0 && fds.len() == 1 && *upgraded_in_use.read().unwrap() == 0 {
+                eprintln!("listen_multiplex: Waiting for threads to end.");
+                for t in threads {
+                    let _r = t.join();
+                }
+
+                return Err(varlink::Error::from(varlink::ErrorKind::Timeout));
+            }
         }
     }
 }
@@ -428,11 +443,17 @@ fn run_server(address: &str, timeout: u64, multiplex: bool) -> varlink::Result<(
         vec![Box::new(myinterface)],
     );
 
-    if multiplex {
-        // Demonstrate a single process, single-threaded service
-        listen_multiplex(service, &address, timeout)?;
-    } else {
-        varlink::listen(service, &address, 1, 10, timeout)?;
+    #[cfg(windows)]
+    varlink::listen(service, &address, 1, 10, timeout)?;
+
+    #[cfg(unix)]
+    {
+        if multiplex {
+            // Demonstrate a single process, single-threaded service
+            multiplex::listen_multiplex(service, &address, timeout)?;
+        } else {
+            varlink::listen(service, &address, 1, 10, timeout)?;
+        }
     }
     Ok(())
 }

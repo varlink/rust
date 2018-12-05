@@ -15,7 +15,7 @@ use std::sync::{mpsc, Arc, Mutex, RwLock};
 use std::{env, fs, mem, thread};
 
 #[cfg(windows)]
-use mio_uds_windows::{UnixListener, UnixStream};
+use mio_uds_windows::net::{UnixListener, UnixListenerExt, UnixStream, UnixStreamExt};
 #[cfg(unix)]
 use std::os::unix::net::{UnixListener, UnixStream};
 
@@ -64,7 +64,6 @@ impl<'a> Stream {
                 Ok(())
             }
             Stream::UNIX(ref mut s) => {
-                #[cfg(unix)]
                 s.set_nonblocking(b)?;
                 Ok(())
             }
@@ -255,10 +254,7 @@ impl Listener {
                 Ok(Stream::TCP(s))
             }
             Listener::UNIX(Some(ref l), _) => {
-                #[cfg(unix)]
                 let (s, _addr) = l.accept()?;
-                #[cfg(windows)]
-                let (s, _addr) = l.accept()?.unwrap();
                 Ok(Stream::UNIX(s))
             }
             _ => Err(ErrorKind::ConnectionClosed.into()),
@@ -320,10 +316,7 @@ impl Listener {
     pub fn set_nonblocking(&self, b: bool) -> Result<()> {
         match *self {
             Listener::TCP(Some(ref l), _) => l.set_nonblocking(b)?,
-            Listener::UNIX(Some(ref l), _) => {
-                #[cfg(unix)]
-                l.set_nonblocking(b)?;
-            }
+            Listener::UNIX(Some(ref l), _) => l.set_nonblocking(b)?,
             _ => Err(ErrorKind::ConnectionClosed)?,
         }
         Ok(())
@@ -541,7 +534,6 @@ pub fn listen<S: ?Sized + AsRef<str>, H: crate::ConnectionHandler + Send + Sync 
     let handler = Arc::new(handler);
     let listener = Listener::new(address)?;
 
-    #[cfg(unix)]
     listener.set_nonblocking(false)?;
 
     let mut pool = ThreadPool::new(initial_worker_threads, max_worker_threads);

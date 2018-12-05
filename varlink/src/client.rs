@@ -12,7 +12,7 @@ use tempfile::tempdir;
 use tempfile::TempDir;
 
 #[cfg(windows)]
-use mio_uds_windows::UnixStream;
+use mio_uds_windows::net::{UnixListener, UnixListenerExt, UnixStream, UnixStreamExt};
 #[cfg(unix)]
 use std::os::unix::io::IntoRawFd;
 #[cfg(unix)]
@@ -159,10 +159,7 @@ impl<'a> VarlinkStream {
     pub fn set_nonblocking(&self, b: bool) -> Result<()> {
         match *self {
             VarlinkStream::TCP(ref l) => l.set_nonblocking(b)?,
-            VarlinkStream::UNIX(ref l) => {
-                #[cfg(unix)]
-                l.set_nonblocking(b)?;
-            }
+            VarlinkStream::UNIX(ref l) => l.set_nonblocking(b)?,
         }
         Ok(())
     }

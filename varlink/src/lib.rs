@@ -236,11 +236,11 @@ extern crate serde;
 extern crate serde_derive;
 #[macro_use]
 extern crate serde_json;
-extern crate tempfile;
-#[cfg(any(target_os = "linux", target_os = "android"))]
-extern crate unix_socket;
 #[cfg(windows)]
 extern crate mio_uds_windows;
+extern crate tempfile;
+#[cfg(unix)]
+extern crate unix_socket;
 
 pub use client::VarlinkStream;
 use client::{varlink_bridge, varlink_exec};

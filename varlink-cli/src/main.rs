@@ -305,9 +305,8 @@ fn varlink_bridge(address: Option<&str>) -> Result<()> {
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() -> Result<()> {
-    // TODO: windows
-    // #[cfg(windows)]
-    // let _enabled = colored_json::enable_ansi_support();
+    #[cfg(windows)]
+    let _enabled = colored_json::enable_ansi_support();
 
     let mut app = App::new("varlink")
         .version(VERSION)

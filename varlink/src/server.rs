@@ -11,10 +11,10 @@ use std::process;
 use std::sync::{mpsc, Arc, Mutex, RwLock};
 use std::{env, fs, thread};
 
-#[cfg(windows)]
-use uds_windows::{UnixListener, UnixStream};
 #[cfg(unix)]
 use std::os::unix::net::{UnixListener, UnixStream};
+#[cfg(windows)]
+use uds_windows::{UnixListener, UnixStream};
 
 #[cfg(unix)]
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
@@ -274,7 +274,6 @@ impl Listener {
     #[cfg(windows)]
     pub fn accept(&self, timeout: u64) -> Result<Stream> {
         use winapi::um::winsock2::WSAEINTR as EINTR;
-        use winapi::um::winsock2::WSAEINTR as EAGAIN;
         use winapi::um::winsock2::{fd_set, select, timeval};
 
         if timeout > 0 {
@@ -298,7 +297,7 @@ impl Listener {
                     };
 
                     let ret = select(0, &mut readfs, &mut writefds, &mut errorfds, &mut timeout);
-                    if ret != EINTR && ret != EAGAIN {
+                    if ret != EINTR {
                         break;
                     }
                 }
@@ -324,7 +323,7 @@ impl Listener {
 
     #[cfg(unix)]
     pub fn accept(&self, timeout: u64) -> Result<Stream> {
-        use libc::{fd_set, select, time_t, timeval, EAGAIN, EINTR, FD_ISSET, FD_ZERO, FD_SET};
+        use libc::{fd_set, select, time_t, timeval, EAGAIN, EINTR, FD_ISSET, FD_SET, FD_ZERO};
 
         if timeout > 0 {
             let fd = match self {

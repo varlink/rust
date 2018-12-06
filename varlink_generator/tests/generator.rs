@@ -12,6 +12,7 @@ fn compare_files(a: std::path::PathBuf, b: std::path::PathBuf) -> bool {
         .all(|(a, b)| a.unwrap() == b.unwrap())
 }
 
+#[cfg(unix)]
 #[test]
 fn test_generate() {
     std::env::set_var("OUT_DIR", std::env::temp_dir());

@@ -4,42 +4,33 @@ os:
 - windows
 
 language: rust
-sudo: required
+
 rust:
 - stable
-addons:
-  apt:
-    packages:
-    - libssl-dev
+- beta
+- nightly
+
 cache:
   timeout: 1000
   cargo: true
+
 before_cache:
 - rm -rf target
+
 before_script: |
-  if [[ $(uname) == *Linux* ]]; then
-    export PATH=$HOME/.cargo/bin:$PATH
-    cargo install cargo-update || echo "cargo-update already installed"
-    export RUSTFLAGS="--cfg procmacro2_semver_exempt"
-    cargo install cargo-tarpaulin || echo "cargo-tarpaulin already installed"
-    cargo install-update -a || echo "update failed"
-    unset RUSTFLAGS
-  fi
   cargo install --force cargo-audit
+
 script:
 - cargo update
 - cargo audit
 - cargo build --all
 - cargo test --all
-after_success: |
-  if [[ $(uname) == *Linux* ]] && [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
-    export RUSTFLAGS="--cfg procmacro2_semver_exempt"
-    export LD_LIBRARY_PATH=$(rustc --print sysroot)/lib:$LD_LIBRARY_PATH
-    cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
-  fi
-env:
-  global:
-    secure: DdzrmEtTAvbmIf1+us7mI+BQkJb9QIJf0aSHEcPjoU88pIaEVc/hB2oS1gBO1zHf6qfA6siEl6j5Zbue31Ybdm3O+kKEl0jfSCaYaxlOBaoMP3Nxz/wFoJYcVyYAUefutCqrv9GJau8zzikD38ghxd1FsNGAK0vZN69PqLk8r7oUsKZ9Eet0TBF55dJseJaFfaufnUoBUAPV2IGTeN2PRLm9j54OfMcCYm8UNqoFQMzsMaTWUifzUceabTP/YbzDw95GVIUrD1a+e6AwFnAy73PDA7M0TvbCz8IdfnwWYZf/6z9lfrewJGYk9Hmt1saocphY9O7SEG/7jYQJD4OSsm2+Fj5tg9AqK3yMVoA17NOgzZA/0glXxQFB69fxIS7tlaZiGwUWJSDm6Jf7UHsAKd/Szr6ZKPCXthxe2GsENA0146Tls9ahoA9Nkw897xwavL8oezIwLjlqKVSJ6qWP5MHnxoXsPaLPd+/utOTOvSqLnmXbAHvcHbz63mRSkU2OuV4gGXi60iZijV3XDz7M1vkabSjR3lmGk/mx33IQ4c9McjzYUixHAhMH2sn9Ki6hs428xAr3UUwFCChlAva08R3B1DKaQ0UJ1tNmhDleVEt2ByyaJye5pJp8iXgRity4pY+qGgJ8RBFJ8ltJJ6gjgOEt/T7x5s+C1CClyJJwpfk=
+
+matrix:
+  allow_failures:
+  - rust: nightly
+  fast_finish: true
+
 notifications:
   webhooks:
     urls:

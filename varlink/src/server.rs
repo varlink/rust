@@ -272,23 +272,17 @@ impl Listener {
         }
     }
 
-    #[cfg(windows)]
-    pub fn accept(&self, _timeout: u64) -> Result<Stream> {
-        match self {
-            &Listener::TCP(Some(ref l), _) => {
-                let (s, _addr) = l.accept()?;
-                Ok(Stream::TCP(s))
-            }
-            Listener::UNIX(Some(ref l), _) => {
-                let (s, _addr) = l.accept()?;
-                Ok(Stream::UNIX(s))
-            }
-            _ => Err(ErrorKind::ConnectionClosed.into()),
-        }
-    }
-
-    #[cfg(unix)]
     pub fn accept(&self, timeout: u64) -> Result<Stream> {
+        #[cfg(unix)]
+        use libc::{select, EINTR, EAGAIN, FD_ISSET, FD_ZERO, timeval, fd_set, time_t};
+        #[cfg(windows)]
+        use winapi::um::winsock2::{select, fd_set};
+        #[cfg(windows)]
+        use winapi::um::winsock2::WSAEINTR as EINTR;
+        #[cfg(windows)]
+        use winapi::um::winsock2::WSAEAGAIN as EAGAIN;
+        #[cfg(windows)]
+        use winapi::um::winsock2::__WSAFDIsSet as FD_ISSET;
         use std::mem;
 
         if timeout > 0 {
@@ -301,29 +295,29 @@ impl Listener {
             unsafe {
                 let mut readfs: libc::fd_set = mem::uninitialized();
                 loop {
-                    libc::FD_ZERO(&mut readfs);
-                    let mut writefds: libc::fd_set = mem::uninitialized();
-                    libc::FD_ZERO(&mut writefds);
-                    let mut errorfds: libc::fd_set = mem::uninitialized();
-                    libc::FD_ZERO(&mut errorfds);
-                    let mut timeout = libc::timeval {
-                        tv_sec: timeout as libc::time_t,
+                    FD_ZERO(&mut readfs);
+                    let mut writefds: fd_set = mem::uninitialized();
+                    FD_ZERO(&mut writefds);
+                    let mut errorfds: fd_set = mem::uninitialized();
+                    FD_ZERO(&mut errorfds);
+                    let mut timeout = timeval {
+                        tv_sec: timeout as time_t,
                         tv_usec: 0,
                     };
 
-                    libc::FD_SET(fd, &mut readfs);
-                    let ret = libc::select(
+                    FD_SET(fd, &mut readfs);
+                    let ret = select(
                         fd + 1,
                         &mut readfs,
                         &mut writefds,
                         &mut errorfds,
                         &mut timeout,
                     );
-                    if ret != libc::EINTR && ret != libc::EAGAIN {
+                    if ret != EINTR && ret != EAGAIN {
                         break;
                     }
                 }
-                if !libc::FD_ISSET(fd, &mut readfs) {
+                if !FD_ISSET(fd, &mut readfs) {
                     return Err(ErrorKind::Timeout.into());
                 }
             }

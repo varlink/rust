@@ -273,7 +273,6 @@ impl Listener {
 
     #[cfg(windows)]
     pub fn accept(&self, timeout: u64) -> Result<Stream> {
-        use std::mem;
         use winapi::um::winsock2::WSAEINTR as EINTR;
         use winapi::um::winsock2::WSAEINTR as EAGAIN;
         use winapi::um::winsock2::{fd_set, select, timeval};

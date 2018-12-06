@@ -27,7 +27,7 @@ failure_derive = "0.1.2"
 failure = "0.1.2"
 
 [target.'cfg(windows)'.dependencies]
-mio-uds-windows = { version="0.1.0", git="https://github.com/Azure/mio-uds-windows.git" }
+uds_windows = { version="0.1.0" }
 winapi = { version = "0.3", features = ["winuser"] }
 
 [target.'cfg(unix)'.dependencies]

@@ -4,15 +4,13 @@
 
 #[cfg(unix)]
 use libc::{close, dup2, getpid};
-use std::env;
 use std::io::{Read, Write};
 use std::net::{Shutdown, TcpStream};
-use std::process::{Child, Command};
-use tempfile::tempdir;
+use std::process::Child;
 use tempfile::TempDir;
 
 #[cfg(windows)]
-use mio_uds_windows::net::{UnixListener, UnixListenerExt, UnixStream, UnixStreamExt};
+use mio_uds_windows::net::UnixStream;
 #[cfg(unix)]
 use std::os::unix::io::IntoRawFd;
 #[cfg(unix)]
@@ -27,7 +25,7 @@ pub enum VarlinkStream {
 
 #[cfg(windows)]
 pub fn varlink_exec<S: ?Sized + AsRef<str>>(
-    address: &S,
+    _address: &S,
 ) -> Result<(Child, String, Option<TempDir>)> {
     return Err(ErrorKind::MethodNotImplemented("varlink_exec".into()).into());
 }
@@ -36,7 +34,10 @@ pub fn varlink_exec<S: ?Sized + AsRef<str>>(
 pub fn varlink_exec<S: ?Sized + AsRef<str>>(
     address: &S,
 ) -> Result<(Child, String, Option<TempDir>)> {
+    use std::env;
     use std::os::unix::process::CommandExt;
+    use std::process::Command;
+    use tempfile::tempdir;
 
     let executable = String::from("exec ") + address.as_ref();
 
@@ -71,13 +72,14 @@ pub fn varlink_exec<S: ?Sized + AsRef<str>>(
 }
 
 #[cfg(windows)]
-pub fn varlink_bridge<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Child, VarlinkStream)> {
+pub fn varlink_bridge<S: ?Sized + AsRef<str>>(_address: &S) -> Result<(Child, VarlinkStream)> {
     return Err(ErrorKind::MethodNotImplemented("varlink_bridge".into()).into());
 }
 
 #[cfg(unix)]
 pub fn varlink_bridge<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Child, VarlinkStream)> {
     use std::os::unix::io::FromRawFd;
+    use std::process::Command;
 
     let executable = address.as_ref();
     // use unix_socket::UnixStream;
@@ -110,7 +112,7 @@ fn get_abstract_unixstream(addr: &str) -> Result<UnixStream> {
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
-fn get_abstract_unixstream(addr: &str) -> Result<UnixStream> {
+fn get_abstract_unixstream(_addr: &str) -> Result<UnixStream> {
     Err(ErrorKind::InvalidAddress.into())
 }
 

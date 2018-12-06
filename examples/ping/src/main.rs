@@ -444,8 +444,10 @@ fn run_server(address: &str, timeout: u64, multiplex: bool) -> varlink::Result<(
     );
 
     #[cfg(windows)]
-    varlink::listen(service, &address, 1, 10, timeout)?;
-
+    {
+        let _ = multiplex;
+        varlink::listen(service, &address, 1, 10, timeout)?;
+    }
     #[cfg(unix)]
     {
         if multiplex {

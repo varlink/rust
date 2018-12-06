@@ -12,15 +12,17 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::process;
 use std::sync::{mpsc, Arc, Mutex, RwLock};
-use std::{env, fs, mem, thread};
+use std::{env, fs, thread};
 
 #[cfg(windows)]
-use mio_uds_windows::net::{UnixListener, UnixListenerExt, UnixStream, UnixStreamExt};
+use mio_uds_windows::net::{UnixListener, UnixStream};
 #[cfg(unix)]
 use std::os::unix::net::{UnixListener, UnixStream};
 
 #[cfg(unix)]
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+#[cfg(windows)]
+use std::os::windows::io::{AsRawSocket, FromRawSocket, IntoRawSocket, RawSocket};
 
 #[derive(Debug)]
 pub enum Listener {
@@ -75,6 +77,14 @@ impl<'a> Stream {
         match *self {
             Stream::TCP(ref mut s) => s.as_raw_fd(),
             Stream::UNIX(ref mut s) => s.as_raw_fd(),
+        }
+    }
+
+    #[cfg(windows)]
+    pub fn as_raw_socket(&mut self) -> RawSocket {
+        match self {
+            Stream::TCP(ref mut s) => s.as_raw_socket(),
+            Stream::UNIX(ref mut s) => s.as_raw_socket(),
         }
     }
 }
@@ -139,17 +149,11 @@ impl ::std::io::Read for Stream {
     }
 }
 
-#[cfg(windows)]
-fn activation_listener() -> Result<Option<i32>> {
-    Ok(None)
-}
-
-#[cfg(unix)]
-fn activation_listener() -> Result<Option<i32>> {
-    let nfds: u32;
+fn activation_listener() -> Result<Option<usize>> {
+    let nfds: usize;
 
     match env::var("LISTEN_FDS") {
-        Ok(ref n) => match n.parse::<u32>() {
+        Ok(ref n) => match n.parse::<usize>() {
             Ok(n) if n >= 1 => nfds = n,
             _ => return Ok(None),
         },
@@ -157,7 +161,7 @@ fn activation_listener() -> Result<Option<i32>> {
     }
 
     match env::var("LISTEN_PID") {
-        Ok(ref pid) if pid.parse::<u32>() == Ok(process::id()) => {}
+        Ok(ref pid) if pid.parse::<usize>() == Ok(process::id() as usize) => {}
         _ => return Ok(None),
     }
 
@@ -176,7 +180,7 @@ fn activation_listener() -> Result<Option<i32>> {
 
     for (i, v) in fdnames.split(':').enumerate() {
         if v == "varlink" {
-            return Ok(Some(3 + i as i32));
+            return Ok(Some(3 + i as usize));
         }
     }
 
@@ -198,7 +202,7 @@ fn get_abstract_unixlistener(addr: &str) -> Result<UnixListener> {
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
-fn get_abstract_unixlistener(addr: &str) -> Result<UnixListener> {
+fn get_abstract_unixlistener(_addr: &str) -> Result<UnixListener> {
     Err(ErrorKind::InvalidAddress.into())
 }
 
@@ -208,17 +212,39 @@ impl Listener {
         if let Some(l) = activation_listener()? {
             #[cfg(windows)]
             {
-                return Err(ErrorKind::InvalidAddress.into());
+                if address.starts_with("tcp:") {
+                    unsafe {
+                        return Ok(Listener::TCP(
+                            Some(TcpListener::from_raw_socket(l as u64)),
+                            true,
+                        ));
+                    }
+                } else if address.starts_with("unix:") {
+                    unsafe {
+                        return Ok(Listener::UNIX(
+                            Some(UnixListener::from_raw_socket(l as u64)),
+                            true,
+                        ));
+                    }
+                } else {
+                    return Err(ErrorKind::InvalidAddress.into());
+                }
             }
             #[cfg(unix)]
             {
                 if address.starts_with("tcp:") {
                     unsafe {
-                        return Ok(Listener::TCP(Some(TcpListener::from_raw_fd(l)), true));
+                        return Ok(Listener::TCP(
+                            Some(TcpListener::from_raw_fd(l as i32)),
+                            true,
+                        ));
                     }
                 } else if address.starts_with("unix:") {
                     unsafe {
-                        return Ok(Listener::UNIX(Some(UnixListener::from_raw_fd(l)), true));
+                        return Ok(Listener::UNIX(
+                            Some(UnixListener::from_raw_fd(l as i32)),
+                            true,
+                        ));
                     }
                 } else {
                     return Err(ErrorKind::InvalidAddress.into());
@@ -247,7 +273,7 @@ impl Listener {
     }
 
     #[cfg(windows)]
-    pub fn accept(&self, timeout: u64) -> Result<Stream> {
+    pub fn accept(&self, _timeout: u64) -> Result<Stream> {
         match self {
             &Listener::TCP(Some(ref l), _) => {
                 let (s, _addr) = l.accept()?;
@@ -263,6 +289,8 @@ impl Listener {
 
     #[cfg(unix)]
     pub fn accept(&self, timeout: u64) -> Result<Stream> {
+        use std::mem;
+
         if timeout > 0 {
             let fd = match self {
                 Listener::TCP(Some(l), _) => l.as_raw_fd(),
@@ -330,6 +358,15 @@ impl Listener {
             _ => panic!("pattern `TCP(None, _)` not covered"),
         }
     }
+
+    #[cfg(windows)]
+    pub fn into_raw_socket(&self) -> RawSocket {
+        match *self {
+            Listener::TCP(Some(ref l), _) => l.as_raw_socket(),
+            Listener::UNIX(Some(ref l), _) => l.as_raw_socket(),
+            _ => panic!("pattern `TCP(None, _)` not covered"),
+        }
+    }
 }
 
 impl Drop for Listener {
@@ -349,6 +386,8 @@ impl Drop for Listener {
                         let s = UnixStream::from_raw_fd(l.into_raw_fd());
                         let _ = s.set_read_timeout(None);
                     }
+                    #[cfg(windows)]
+                    let _ = l;
                 }
             }
             Listener::TCP(ref mut listener, true) => {
@@ -356,6 +395,11 @@ impl Drop for Listener {
                     #[cfg(unix)]
                     unsafe {
                         let s = TcpStream::from_raw_fd(l.into_raw_fd());
+                        let _ = s.set_read_timeout(None);
+                    }
+                    #[cfg(windows)]
+                    unsafe {
+                        let s = TcpStream::from_raw_socket(l.into_raw_socket());
                         let _ = s.set_read_timeout(None);
                     }
                 }

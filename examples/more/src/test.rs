@@ -31,7 +31,7 @@ fn run_self_test(address: String) -> Result<()> {
 
 #[test]
 fn test_unix() -> Result<()> {
-    run_self_test("unix:/tmp/org.example.more".into())
+    run_self_test("unix:org.example.more".into())
 }
 
 #[test]

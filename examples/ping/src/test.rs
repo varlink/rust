@@ -148,9 +148,10 @@ fn test_unix_multiplex() -> Result<()> {
 }
 */
 
+
 #[test]
 fn test_unix() -> Result<()> {
-    run_self_test("unix:/tmp/org.example.ping".into(), false)
+    run_self_test("unix:org.example.ping".into(), false)
 }
 
 #[test]

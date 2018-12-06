@@ -114,7 +114,7 @@ error InvalidParameter (parameter: string)
         Ok(())
     }
 
-    let address = "unix:/tmp/test_listen_timeout";
+    let address = "unix:test_listen_timeout";
 
     let child = thread::spawn(move || {
         if let Err(e) = run_app(address, 3) {

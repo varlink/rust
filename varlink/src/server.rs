@@ -558,7 +558,7 @@ impl Worker {
      vec![/* Your varlink interfaces go here */],
  );
 
- if let Err(e) = varlink::listen(service, "unix:/tmp/test_listen_timeout", 1, 10, 1) {
+ if let Err(e) = varlink::listen(service, "unix:test_listen_timeout", 1, 10, 1) {
      if e.kind() != varlink::ErrorKind::Timeout {
          panic!("Error listen: {:?}", e.cause());
      }

@@ -5,9 +5,6 @@ use failure::Fail;
 use {ErrorKind, Result};
 //#![feature(getpid)]
 //use std::process;
-// FIXME
-#[cfg(unix)]
-use libc;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::process;
@@ -23,6 +20,8 @@ use std::os::unix::net::{UnixListener, UnixStream};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 #[cfg(windows)]
 use std::os::windows::io::{AsRawSocket, FromRawSocket, IntoRawSocket, RawSocket};
+
+use std::mem;
 
 #[derive(Debug)]
 pub enum Listener {
@@ -272,18 +271,61 @@ impl Listener {
         }
     }
 
+    #[cfg(windows)]
     pub fn accept(&self, timeout: u64) -> Result<Stream> {
-        #[cfg(unix)]
-        use libc::{select, EINTR, EAGAIN, FD_ISSET, FD_ZERO, timeval, fd_set, time_t};
-        #[cfg(windows)]
-        use winapi::um::winsock2::{select, fd_set};
-        #[cfg(windows)]
-        use winapi::um::winsock2::WSAEINTR as EINTR;
-        #[cfg(windows)]
-        use winapi::um::winsock2::WSAEAGAIN as EAGAIN;
-        #[cfg(windows)]
-        use winapi::um::winsock2::__WSAFDIsSet as FD_ISSET;
         use std::mem;
+        use winapi::um::winsock2::WSAEINTR as EINTR;
+        use winapi::um::winsock2::WSAEINTR as EAGAIN;
+        use winapi::um::winsock2::{fd_set, select, timeval};
+
+        if timeout > 0 {
+            let socket: usize = match self {
+                Listener::TCP(Some(l), _) => l.as_raw_socket(),
+                Listener::UNIX(Some(l), _) => l.as_raw_socket(),
+                _ => return Err(ErrorKind::ConnectionClosed.into()),
+            } as usize;
+
+            unsafe {
+                let mut readfs: fd_set = mem::zeroed();
+                loop {
+                    readfs.fd_count = 1;
+                    readfs.fd_array[0] = socket;
+
+                    let mut writefds: fd_set = mem::zeroed();
+                    let mut errorfds: fd_set = mem::zeroed();
+                    let mut timeout = timeval {
+                        tv_sec: timeout as i32,
+                        tv_usec: 0,
+                    };
+
+                    let ret = select(0, &mut readfs, &mut writefds, &mut errorfds, &mut timeout);
+                    if ret != EINTR && ret != EAGAIN {
+                        break;
+                    }
+                }
+
+                if readfs.fd_count == 0 || readfs.fd_array[0] != socket {
+                    return Err(ErrorKind::Timeout.into());
+                }
+            }
+        }
+
+        match self {
+            &Listener::TCP(Some(ref l), _) => {
+                let (s, _addr) = l.accept()?;
+                Ok(Stream::TCP(s))
+            }
+            Listener::UNIX(Some(ref l), _) => {
+                let (s, _addr) = l.accept()?;
+                Ok(Stream::UNIX(s))
+            }
+            _ => Err(ErrorKind::ConnectionClosed.into()),
+        }
+    }
+
+    #[cfg(unix)]
+    pub fn accept(&self, timeout: u64) -> Result<Stream> {
+        use libc::{fd_set, select, time_t, timeval, EAGAIN, EINTR, FD_ISSET, FD_ZERO, FD_SET};
 
         if timeout > 0 {
             let fd = match self {

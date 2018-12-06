@@ -237,6 +237,8 @@ extern crate serde_derive;
 #[macro_use]
 extern crate serde_json;
 #[cfg(windows)]
+extern crate winapi;
+#[cfg(windows)]
 extern crate mio_uds_windows;
 extern crate tempfile;
 #[cfg(unix)]

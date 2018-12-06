@@ -1,5 +1,3 @@
-use escargot::CargoBuild;
-use failure::ResultExt;
 use std::io;
 use std::{thread, time};
 use varlink::Connection;
@@ -33,7 +31,7 @@ fn run_self_test(address: String) -> Result<()> {
 
 #[test]
 fn test_unix() -> ::Result<()> {
-    run_self_test("unix:/tmp/org.varlink.certification".into())
+    run_self_test("unix:org.varlink.certification".into())
 }
 
 #[test]
@@ -44,19 +42,22 @@ fn test_unix_abstract() -> Result<()> {
 
 #[test]
 fn test_tcp() -> Result<()> {
-    run_self_test("tcp:0.0.0.0:23456".into())
+    run_self_test("tcp:127.0.0.1:23456".into())
 }
 
-fn get_exec() -> Result<String> {
-    let runner = CargoBuild::new()
-        .current_release()
-        .run()
-        .context(::ErrorKind::Io_Error(::std::io::ErrorKind::NotFound))?;
-    Ok(runner.path().to_owned().to_string_lossy().to_string())
-}
-
+#[cfg(unix)]
 #[test]
 fn test_exec() -> Result<()> {
+    use escargot::CargoBuild;
+    use failure::ResultExt;
+    fn get_exec() -> Result<String> {
+        let runner = CargoBuild::new()
+            .current_release()
+            .run()
+            .context(::ErrorKind::Io_Error(::std::io::ErrorKind::NotFound))?;
+        Ok(runner.path().to_owned().to_string_lossy().to_string())
+    }
+
     ::run_client(Connection::with_activate(&format!(
         "{} --varlink=$VARLINK_ADDRESS",
         get_exec()?

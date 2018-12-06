@@ -28,7 +28,7 @@ failure = "0.1.2"
 
 [target.'cfg(windows)'.dependencies]
 uds_windows = { version="0.1.0" }
-winapi = { version = "0.3", features = ["winuser"] }
+winapi = { version = "0.3", features = ["winuser", "winsock2"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = { version = "0", default-features = false }

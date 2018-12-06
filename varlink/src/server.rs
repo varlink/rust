@@ -12,7 +12,7 @@ use std::sync::{mpsc, Arc, Mutex, RwLock};
 use std::{env, fs, thread};
 
 #[cfg(windows)]
-use mio_uds_windows::net::{UnixListener, UnixStream};
+use uds_windows::{UnixListener, UnixStream};
 #[cfg(unix)]
 use std::os::unix::net::{UnixListener, UnixStream};
 

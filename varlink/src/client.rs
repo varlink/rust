@@ -10,7 +10,7 @@ use std::process::Child;
 use tempfile::TempDir;
 
 #[cfg(windows)]
-use mio_uds_windows::net::UnixStream;
+use uds_windows::UnixStream;
 #[cfg(unix)]
 use std::os::unix::io::IntoRawFd;
 #[cfg(unix)]

@@ -406,7 +406,7 @@ mod multiplex {
                 fds.remove(i);
             }
 
-            let r = unsafe { libc::poll(fds.as_mut_ptr(), fds.len() as u32, timeout) };
+            let r = unsafe { libc::poll(fds.as_mut_ptr(), fds.len() as u64, timeout) };
 
             if r < 0 {
                 for t in threads {

@@ -326,7 +326,8 @@ fn main() -> Result<()> {
                 .possible_values(&["on", "off", "auto"])
                 .default_value("auto")
                 .help("colorize output"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("resolver")
                 .short("R")
                 .long("resolver")
@@ -335,7 +336,8 @@ fn main() -> Result<()> {
                 .takes_value(true)
                 .required(false)
                 .default_value("unix:/run/org.varlink.resolver"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("activate")
                 .short("A")
                 .long("activate")
@@ -344,16 +346,19 @@ fn main() -> Result<()> {
                 .long_help(
                     "Service to socket-activate and connect to. The temporary UNIX socket \
                      address is exported as $VARLINK_ADDRESS.",
-                ).takes_value(true)
+                )
+                .takes_value(true)
                 .required(false),
-        ).subcommand(
+        )
+        .subcommand(
             SubCommand::with_name("bridge")
                 .version(VERSION)
                 .about("Bridge varlink messages from stdio to services on this machine")
                 .long_about(
                     "Bridge varlink messages on stdin and stdout to varlink services on this \
                      machine.",
-                ).arg(
+                )
+                .arg(
                     Arg::with_name("connect")
                         .short("C")
                         .long("connect")
@@ -362,7 +367,8 @@ fn main() -> Result<()> {
                         .required(false)
                         .takes_value(true),
                 ),
-        ).subcommand(
+        )
+        .subcommand(
             SubCommand::with_name("call")
                 .version(VERSION)
                 .about("Call a method")
@@ -372,12 +378,15 @@ fn main() -> Result<()> {
                         .short("m")
                         .long("more")
                         .help("wait for multiple method returns if supported"),
-                ).arg(
+                )
+                .arg(
                     Arg::with_name("METHOD")
                         .value_name("[ADDRESS/]INTERFACE.METHOD")
                         .required(true),
-                ).arg(Arg::with_name("ARGUMENTS").required(false)),
-        ).subcommand(
+                )
+                .arg(Arg::with_name("ARGUMENTS").required(false)),
+        )
+        .subcommand(
             SubCommand::with_name("format")
                 .version(VERSION)
                 .about("Format a varlink service file")
@@ -388,18 +397,21 @@ fn main() -> Result<()> {
                         .help("maximum width of the output")
                         .required(false)
                         .takes_value(true),
-                ).arg(
+                )
+                .arg(
                     Arg::with_name("FILE")
                         .required(true)
                         .help("The varlink interface definition file to format"),
                 ),
-        ).subcommand(
+        )
+        .subcommand(
             SubCommand::with_name("info")
                 .version(VERSION)
                 .about("Print information about a service")
                 .long_about("Prints information about the service running at ADDRESS.")
                 .arg(Arg::with_name("ADDRESS").required(false)),
-        ).subcommand(
+        )
+        .subcommand(
             SubCommand::with_name("help")
                 .version(VERSION)
                 .about("Print interface description or service information")
@@ -408,7 +420,8 @@ fn main() -> Result<()> {
                     Arg::with_name("INTERFACE")
                         .value_name("[ADDRESS/]INTERFACE")
                         .required(true),
-                ).arg(
+                )
+                .arg(
                     Arg::with_name("COLUMNS")
                         .short("c")
                         .long("cols")
@@ -416,13 +429,15 @@ fn main() -> Result<()> {
                         .required(false)
                         .takes_value(true),
                 ),
-        ).subcommand(
+        )
+        .subcommand(
             SubCommand::with_name("resolve")
                 .version(VERSION)
                 .about("Resolve an interface name to a varlink address")
                 .long_about("Resolve INTERFACE to the varlink address that implements it.")
                 .arg(Arg::with_name("INTERFACE").required(true)),
-        ).subcommand(
+        )
+        .subcommand(
             SubCommand::with_name("completions")
                 .version(VERSION)
                 .about("Generates completion scripts for your shell")

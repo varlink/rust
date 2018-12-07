@@ -20,11 +20,7 @@ pub enum ErrorKind {
     Argument,
     #[fail(display = "Connection Error for '{}'", _0)]
     Connection(String),
-    #[fail(
-        display = "Call failed with error: {}\n{}",
-        error,
-        parameters
-    )]
+    #[fail(display = "Call failed with error: {}\n{}", error, parameters)]
     VarlinkError { error: String, parameters: String },
     #[fail(display = "Varlink Error: {}", _0)]
     Varlink(::varlink::ErrorKind),
@@ -113,8 +109,10 @@ impl From<::varlink::Error> for Error {
                     error: reply.error.unwrap_or_default().into(),
                     parameters: ::serde_json::to_string_pretty(
                         &reply.parameters.unwrap_or_default(),
-                    ).unwrap_or_default(),
-                }).into(),
+                    )
+                    .unwrap_or_default(),
+                })
+                .into(),
             kind => e.context(ErrorKind::Varlink(kind)).into(),
         }
     }

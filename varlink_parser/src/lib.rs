@@ -42,7 +42,7 @@
 
 #![doc(
     html_logo_url = "https://varlink.org/images/varlink.png",
-    html_favicon_url = "https://varlink.org/images/varlink-small.png",
+    html_favicon_url = "https://varlink.org/images/varlink-small.png"
 )]
 
 extern crate ansi_term;
@@ -814,14 +814,8 @@ impl<'a> FormatColored for Interface<'a> {
             f += &self
                 .doc
                 .split("\n")
-                .map(|s| {
-                    format!(
-                        "{:indent$}{}",
-                        "",
-                        Colour::Blue.paint(s),
-                        indent = indent
-                    )
-                }).collect::<Vec<String>>()
+                .map(|s| format!("{:indent$}{}", "", Colour::Blue.paint(s), indent = indent))
+                .collect::<Vec<String>>()
                 .join("\n");
             f += "\n";
         }
@@ -840,14 +834,8 @@ impl<'a> FormatColored for Interface<'a> {
                     .doc
                     .to_string()
                     .split("\n")
-                    .map(|s| {
-                        format!(
-                            "{:indent$}{}",
-                            "",
-                            Colour::Blue.paint(s),
-                            indent = indent
-                        )
-                    }).collect::<Vec<String>>()
+                    .map(|s| format!("{:indent$}{}", "", Colour::Blue.paint(s), indent = indent))
+                    .collect::<Vec<String>>()
                     .join("\n");
                 f += "\n";
             }
@@ -882,14 +870,8 @@ impl<'a> FormatColored for Interface<'a> {
                     .doc
                     .to_string()
                     .split("\n")
-                    .map(|s| {
-                        format!(
-                            "{:indent$}{}",
-                            "",
-                            Colour::Blue.paint(s),
-                            indent = indent
-                        )
-                    }).collect::<Vec<String>>()
+                    .map(|s| format!("{:indent$}{}", "", Colour::Blue.paint(s), indent = indent))
+                    .collect::<Vec<String>>()
                     .join("\n");
 
                 f += "\n";
@@ -953,14 +935,8 @@ impl<'a> FormatColored for Interface<'a> {
                     .doc
                     .to_string()
                     .split("\n")
-                    .map(|s| {
-                        format!(
-                            "{:indent$}{}",
-                            "",
-                            Colour::Blue.paint(s),
-                            indent = indent
-                        )
-                    }).collect::<Vec<String>>()
+                    .map(|s| format!("{:indent$}{}", "", Colour::Blue.paint(s), indent = indent))
+                    .collect::<Vec<String>>()
                     .join("\n");
 
                 f += "\n";

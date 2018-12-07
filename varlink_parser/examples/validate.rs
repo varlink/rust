@@ -10,7 +10,7 @@ use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 use std::process::exit;
-use varlink_parser::{Varlink, FormatColored};
+use varlink_parser::{FormatColored, Varlink};
 
 #[derive(Debug)]
 pub struct Error {

@@ -74,10 +74,7 @@ pub enum ErrorKind {
     InvalidParameter(Option<InvalidParameter_Args>),
     #[fail(display = "org.varlink.service.MethodNotFound: {:#?}", _0)]
     MethodNotFound(Option<MethodNotFound_Args>),
-    #[fail(
-        display = "org.varlink.service.MethodNotImplemented: {:#?}",
-        _0
-    )]
+    #[fail(display = "org.varlink.service.MethodNotImplemented: {:#?}", _0)]
     MethodNotImplemented(Option<MethodNotImplemented_Args>),
 }
 
@@ -157,68 +154,52 @@ impl From<varlink::Reply> for Error {
         match e {
             varlink::Reply {
                 error: Some(ref t), ..
-            }
-                if t == "org.varlink.service.InterfaceNotFound" =>
-            {
-                match e {
-                    varlink::Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value(p) {
-                        Ok(v) => ErrorKind::InterfaceNotFound(v).into(),
-                        Err(_) => ErrorKind::InterfaceNotFound(None).into(),
-                    },
-                    _ => ErrorKind::InterfaceNotFound(None).into(),
-                }
-            }
+            } if t == "org.varlink.service.InterfaceNotFound" => match e {
+                varlink::Reply {
+                    parameters: Some(p),
+                    ..
+                } => match serde_json::from_value(p) {
+                    Ok(v) => ErrorKind::InterfaceNotFound(v).into(),
+                    Err(_) => ErrorKind::InterfaceNotFound(None).into(),
+                },
+                _ => ErrorKind::InterfaceNotFound(None).into(),
+            },
             varlink::Reply {
                 error: Some(ref t), ..
-            }
-                if t == "org.varlink.service.InvalidParameter" =>
-            {
-                match e {
-                    varlink::Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value(p) {
-                        Ok(v) => ErrorKind::InvalidParameter(v).into(),
-                        Err(_) => ErrorKind::InvalidParameter(None).into(),
-                    },
-                    _ => ErrorKind::InvalidParameter(None).into(),
-                }
-            }
+            } if t == "org.varlink.service.InvalidParameter" => match e {
+                varlink::Reply {
+                    parameters: Some(p),
+                    ..
+                } => match serde_json::from_value(p) {
+                    Ok(v) => ErrorKind::InvalidParameter(v).into(),
+                    Err(_) => ErrorKind::InvalidParameter(None).into(),
+                },
+                _ => ErrorKind::InvalidParameter(None).into(),
+            },
             varlink::Reply {
                 error: Some(ref t), ..
-            }
-                if t == "org.varlink.service.MethodNotFound" =>
-            {
-                match e {
-                    varlink::Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value(p) {
-                        Ok(v) => ErrorKind::MethodNotFound(v).into(),
-                        Err(_) => ErrorKind::MethodNotFound(None).into(),
-                    },
-                    _ => ErrorKind::MethodNotFound(None).into(),
-                }
-            }
+            } if t == "org.varlink.service.MethodNotFound" => match e {
+                varlink::Reply {
+                    parameters: Some(p),
+                    ..
+                } => match serde_json::from_value(p) {
+                    Ok(v) => ErrorKind::MethodNotFound(v).into(),
+                    Err(_) => ErrorKind::MethodNotFound(None).into(),
+                },
+                _ => ErrorKind::MethodNotFound(None).into(),
+            },
             varlink::Reply {
                 error: Some(ref t), ..
-            }
-                if t == "org.varlink.service.MethodNotImplemented" =>
-            {
-                match e {
-                    varlink::Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value(p) {
-                        Ok(v) => ErrorKind::MethodNotImplemented(v).into(),
-                        Err(_) => ErrorKind::MethodNotImplemented(None).into(),
-                    },
-                    _ => ErrorKind::MethodNotImplemented(None).into(),
-                }
-            }
+            } if t == "org.varlink.service.MethodNotImplemented" => match e {
+                varlink::Reply {
+                    parameters: Some(p),
+                    ..
+                } => match serde_json::from_value(p) {
+                    Ok(v) => ErrorKind::MethodNotImplemented(v).into(),
+                    Err(_) => ErrorKind::MethodNotImplemented(None).into(),
+                },
+                _ => ErrorKind::MethodNotImplemented(None).into(),
+            },
             _ => ErrorKind::VarlinkReply_Error(e).into(),
         }
     }
@@ -239,7 +220,8 @@ pub trait Call_GetInfo: varlink::CallTrait {
                 version,
                 url,
                 interfaces,
-            }.into(),
+            }
+            .into(),
         )
     }
 }

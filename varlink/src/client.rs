@@ -9,12 +9,12 @@ use std::net::{Shutdown, TcpStream};
 use std::process::Child;
 use tempfile::TempDir;
 
-#[cfg(windows)]
-use uds_windows::UnixStream;
 #[cfg(unix)]
 use std::os::unix::io::IntoRawFd;
 #[cfg(unix)]
 use std::os::unix::net::UnixStream;
+#[cfg(windows)]
+use uds_windows::UnixStream;
 
 use {ErrorKind, Result};
 
@@ -67,7 +67,8 @@ pub fn varlink_exec<S: ?Sized + AsRef<str>>(
                 }
                 Ok(())
             }
-        }).spawn()?;
+        })
+        .spawn()?;
     Ok((child, format!("unix:{}", file_path.display()), Some(dir)))
 }
 

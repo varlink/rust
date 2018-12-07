@@ -95,15 +95,9 @@ pub enum ErrorKind {
     Varlink_Error(varlink::ErrorKind),
     #[fail(display = "Unknown error reply: '{:#?}'", _0)]
     VarlinkReply_Error(varlink::Reply),
-    #[fail(
-        display = "org.varlink.certification.CertificationError: {:#?}",
-        _0
-    )]
+    #[fail(display = "org.varlink.certification.CertificationError: {:#?}", _0)]
     CertificationError(Option<CertificationError_Args>),
-    #[fail(
-        display = "org.varlink.certification.ClientIdError: {:#?}",
-        _0
-    )]
+    #[fail(display = "org.varlink.certification.ClientIdError: {:#?}", _0)]
     ClientIdError(Option<ClientIdError_Args>),
 }
 impl Fail for Error {
@@ -171,36 +165,28 @@ impl From<varlink::Reply> for Error {
         match e {
             varlink::Reply {
                 error: Some(ref t), ..
-            }
-                if t == "org.varlink.certification.CertificationError" =>
-            {
-                match e {
-                    varlink::Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value(p) {
-                        Ok(v) => ErrorKind::CertificationError(v).into(),
-                        Err(_) => ErrorKind::CertificationError(None).into(),
-                    },
-                    _ => ErrorKind::CertificationError(None).into(),
-                }
-            }
+            } if t == "org.varlink.certification.CertificationError" => match e {
+                varlink::Reply {
+                    parameters: Some(p),
+                    ..
+                } => match serde_json::from_value(p) {
+                    Ok(v) => ErrorKind::CertificationError(v).into(),
+                    Err(_) => ErrorKind::CertificationError(None).into(),
+                },
+                _ => ErrorKind::CertificationError(None).into(),
+            },
             varlink::Reply {
                 error: Some(ref t), ..
-            }
-                if t == "org.varlink.certification.ClientIdError" =>
-            {
-                match e {
-                    varlink::Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value(p) {
-                        Ok(v) => ErrorKind::ClientIdError(v).into(),
-                        Err(_) => ErrorKind::ClientIdError(None).into(),
-                    },
-                    _ => ErrorKind::ClientIdError(None).into(),
-                }
-            }
+            } if t == "org.varlink.certification.ClientIdError" => match e {
+                varlink::Reply {
+                    parameters: Some(p),
+                    ..
+                } => match serde_json::from_value(p) {
+                    Ok(v) => ErrorKind::ClientIdError(v).into(),
+                    Err(_) => ErrorKind::ClientIdError(None).into(),
+                },
+                _ => ErrorKind::ClientIdError(None).into(),
+            },
             _ => ErrorKind::VarlinkReply_Error(e).into(),
         }
     }
@@ -317,7 +303,8 @@ pub trait Call_Test05: VarlinkCallError {
                 int,
                 float,
                 string,
-            }.into(),
+            }
+            .into(),
         )
     }
 }

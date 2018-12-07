@@ -34,7 +34,8 @@ error MethodNotImplemented (method: string)
 # One of the passed parameters is invalid.
 error InvalidParameter (parameter: string)
 ",
-    ).unwrap();
+    )
+    .unwrap();
     assert_eq!(v.interface.name, "org.varlink.service");
     assert_eq!(
         v.interface.doc,
@@ -108,7 +109,8 @@ method Foo(a: (b: bool, c: int), foo: TypeFoo) -> (a: (b: bool, c: int), foo: Ty
 
 error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)
 ",
-    ).unwrap();
+    )
+    .unwrap();
     assert_eq!(v.interface.name, "org.example.complex");
     println!("{}", v.interface.to_string());
     assert_eq!(
@@ -156,7 +158,8 @@ error ErrorFoo (a: (foo: bool, bar: int, baz: (a: int, b: int), b: (beee: int)))
 
 error ErrorFoo1 (a: (foo: bool, bar: int, baz: (a: int, b: int), b: (beee: int)))
 ",
-    ).unwrap();
+    )
+    .unwrap();
     assert_eq!(v.interface.name, "org.example.format");
     println!("{}", v.interface.get_oneline());
     println!("{}", v.interface.to_string());
@@ -262,10 +265,10 @@ fn test_type_one_arg() {
 
 #[test]
 fn test_type_enum() {
-    assert!(
-        Varlink::from_string("interface foo.bar\n type I (b: (foo, bar, baz))\nmethod F()->()")
-            .is_ok()
-    );
+    assert!(Varlink::from_string(
+        "interface foo.bar\n type I (b: (foo, bar, baz))\nmethod F()->()"
+    )
+    .is_ok());
 }
 
 #[test]
@@ -345,7 +348,8 @@ type T()
 method F() -> ()
 method F() -> ()
 ",
-    ).err()
+    )
+    .err()
     .unwrap();
     assert_eq!(
         e.to_string(),

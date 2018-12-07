@@ -29,7 +29,8 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
             let br = concat!(
                 r#"{"method" : "org.example.ping.Ping", "parameters": { "ping": "ping" }}"#,
                 "\0"
-            ).as_bytes();
+            )
+            .as_bytes();
 
             let a = &br[0..10];
             let b = &br[10..20];
@@ -53,15 +54,15 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
             let mut inbuf = Vec::new();
             let reply = "{}\0".as_bytes();
 
-            assert!(
-                writer
-                    .write_all(
-                        concat!(
-                            r#"{"method" : "org.example.ping.Upgrade", "upgrade" : true}"#,
-                            "\0"
-                        ).as_bytes(),
-                    ).is_ok()
-            );
+            assert!(writer
+                .write_all(
+                    concat!(
+                        r#"{"method" : "org.example.ping.Upgrade", "upgrade" : true}"#,
+                        "\0"
+                    )
+                    .as_bytes(),
+                )
+                .is_ok());
             assert!(writer.flush().is_ok());
 
             assert!(reader.read_until(0, &mut inbuf).is_ok());
@@ -72,7 +73,8 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
             let br = concat!(
                 r#"{"method" : "org.example.ping.Ping", "parameters": { "ping": "ping" }}"#,
                 "\n"
-            ).as_bytes();
+            )
+            .as_bytes();
 
             let a = &br[0..10];
             let b = &br[10..20];
@@ -89,7 +91,8 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
                 r#"server reply: {"method" : "org.example.ping.Ping", "#,
                 r#""parameters": { "ping": "ping" }}"#,
                 "\n"
-            ).as_bytes();
+            )
+            .as_bytes();
 
             assert!(reader.read_until(0x0a, &mut inbuf).is_ok());
             eprintln!("Got reply: {}", String::from_utf8_lossy(&inbuf));
@@ -99,7 +102,8 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
             let br = concat!(
                 r#"{"method" : "org.example.ping.Ping", "parameters": { "ping": "ping" }}"#,
                 "\nEnd\n"
-            ).as_bytes();
+            )
+            .as_bytes();
 
             let a = &br[0..10];
             let b = &br[10..20];
@@ -116,7 +120,8 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
                 r#"server reply: {"method" : "org.example.ping.Ping", "#,
                 r#""parameters": { "ping": "ping" }}"#,
                 "\n"
-            ).as_bytes();
+            )
+            .as_bytes();
 
             assert!(reader.read_until(0x0a, &mut inbuf).is_ok());
             eprintln!("Got reply: {}", String::from_utf8_lossy(&inbuf));
@@ -147,7 +152,6 @@ fn test_unix_multiplex() -> Result<()> {
     run_self_test("unix:/tmp/org.example.ping_multiplex".into(), true)
 }
 */
-
 
 #[test]
 fn test_unix() -> Result<()> {

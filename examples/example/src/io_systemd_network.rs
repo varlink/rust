@@ -57,10 +57,7 @@ pub enum ErrorKind {
     VarlinkReply_Error(varlink::Reply),
     #[fail(display = "io.systemd.network.UnknownError: {:#?}", _0)]
     UnknownError(Option<UnknownError_Args>),
-    #[fail(
-        display = "io.systemd.network.UnknownNetworkIfIndex: {:#?}",
-        _0
-    )]
+    #[fail(display = "io.systemd.network.UnknownNetworkIfIndex: {:#?}", _0)]
     UnknownNetworkIfIndex(Option<UnknownNetworkIfIndex_Args>),
 }
 impl Fail for Error {
@@ -128,36 +125,28 @@ impl From<varlink::Reply> for Error {
         match e {
             varlink::Reply {
                 error: Some(ref t), ..
-            }
-                if t == "io.systemd.network.UnknownError" =>
-            {
-                match e {
-                    varlink::Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value(p) {
-                        Ok(v) => ErrorKind::UnknownError(v).into(),
-                        Err(_) => ErrorKind::UnknownError(None).into(),
-                    },
-                    _ => ErrorKind::UnknownError(None).into(),
-                }
-            }
+            } if t == "io.systemd.network.UnknownError" => match e {
+                varlink::Reply {
+                    parameters: Some(p),
+                    ..
+                } => match serde_json::from_value(p) {
+                    Ok(v) => ErrorKind::UnknownError(v).into(),
+                    Err(_) => ErrorKind::UnknownError(None).into(),
+                },
+                _ => ErrorKind::UnknownError(None).into(),
+            },
             varlink::Reply {
                 error: Some(ref t), ..
-            }
-                if t == "io.systemd.network.UnknownNetworkIfIndex" =>
-            {
-                match e {
-                    varlink::Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value(p) {
-                        Ok(v) => ErrorKind::UnknownNetworkIfIndex(v).into(),
-                        Err(_) => ErrorKind::UnknownNetworkIfIndex(None).into(),
-                    },
-                    _ => ErrorKind::UnknownNetworkIfIndex(None).into(),
-                }
-            }
+            } if t == "io.systemd.network.UnknownNetworkIfIndex" => match e {
+                varlink::Reply {
+                    parameters: Some(p),
+                    ..
+                } => match serde_json::from_value(p) {
+                    Ok(v) => ErrorKind::UnknownNetworkIfIndex(v).into(),
+                    Err(_) => ErrorKind::UnknownNetworkIfIndex(None).into(),
+                },
+                _ => ErrorKind::UnknownNetworkIfIndex(None).into(),
+            },
             _ => ErrorKind::VarlinkReply_Error(e).into(),
         }
     }

@@ -101,20 +101,16 @@ impl From<varlink::Reply> for Error {
         match e {
             varlink::Reply {
                 error: Some(ref t), ..
-            }
-                if t == "org.example.ping.PingError" =>
-            {
-                match e {
-                    varlink::Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value(p) {
-                        Ok(v) => ErrorKind::PingError(v).into(),
-                        Err(_) => ErrorKind::PingError(None).into(),
-                    },
-                    _ => ErrorKind::PingError(None).into(),
-                }
-            }
+            } if t == "org.example.ping.PingError" => match e {
+                varlink::Reply {
+                    parameters: Some(p),
+                    ..
+                } => match serde_json::from_value(p) {
+                    Ok(v) => ErrorKind::PingError(v).into(),
+                    Err(_) => ErrorKind::PingError(None).into(),
+                },
+                _ => ErrorKind::PingError(None).into(),
+            },
             _ => ErrorKind::VarlinkReply_Error(e).into(),
         }
     }

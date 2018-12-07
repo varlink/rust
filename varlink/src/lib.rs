@@ -1,228 +1,227 @@
 /*!
- [Server](#server) and [client](#client) support for the [varlink protocol](http://varlink.org)
+[Server](#server) and [client](#client) support for the [varlink protocol](http://varlink.org)
 
-  # Server
+ # Server
 
- To create a varlink server in rust, place your varlink interface definition file in src/.
- E.g. `src/org.example.ping.varlink`:
+To create a varlink server in rust, place your varlink interface definition file in src/.
+E.g. `src/org.example.ping.varlink`:
 
- ```varlink
- # Example service
- interface org.example.ping
+```varlink
+# Example service
+interface org.example.ping
 
- # Returns the same string
- method Ping(ping: string) -> (pong: string)
- ```
+# Returns the same string
+method Ping(ping: string) -> (pong: string)
+```
 
- Then create a `build.rs` file in your project directory:
+Then create a `build.rs` file in your project directory:
 
- ```rust,ignore
- extern crate varlink_generator;
+```rust,ignore
+extern crate varlink_generator;
 
- fn main() {
-     varlink_generator::cargo_build_tosource("src/org.example.ping.varlink",
-                                              /* rustfmt */ true);
- }
- ```
+fn main() {
+    varlink_generator::cargo_build_tosource("src/org.example.ping.varlink",
+                                             /* rustfmt */ true);
+}
+```
 
-  For more code generation functions see the [`generator functions`].
+ For more code generation functions see the [`generator functions`].
 
- Add to your ```Cargo.toml```:
+Add to your ```Cargo.toml```:
 
- ```toml
- [package]
- build = "build.rs"
- [build-dependencies]
- varlink_generator = "5.0"
- ```
+```toml
+[package]
+build = "build.rs"
+[build-dependencies]
+varlink_generator = "5.0"
+```
 
- In your `main.rs` you can then use:
+In your `main.rs` you can then use:
 
- ```rust,ignore
- mod org_example_ping;
- ```
- and then implement the interface:
+```rust,ignore
+mod org_example_ping;
+```
+and then implement the interface:
 
- ```rust
- # #![allow(non_camel_case_types)]
- # #![allow(non_snake_case)]
- # use std::io;
- # use varlink::{CallTrait, Result};
- # struct Ping_Reply {pong: String}
- # impl varlink::VarlinkReply for Ping_Reply {}
- # struct _PingArgs {ping: String}
- # pub trait VarlinkCallError: varlink::CallTrait {}
- # impl<'a> VarlinkCallError for varlink::Call<'a> {}
- # pub trait Call_Ping: VarlinkCallError {
- #     fn reply(&mut self, pong: String) -> Result<()> { Ok(()) }
- # }
- # impl<'a> Call_Ping for varlink::Call<'a> {}
- # pub trait VarlinkInterface {
- #     fn ping(&self, call: &mut Call_Ping, ping: String) -> Result<()>;
- #     fn call_upgraded(&self, _call: &mut varlink::Call, bufreader: &mut io::BufRead) ->
- # Result<Vec<u8>> {Ok(Vec::new())}
- # }
- # pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
- # pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
- #     _InterfaceProxy { inner }
- # }
- # impl varlink::Interface for _InterfaceProxy {
- #     fn get_description(&self) -> &'static str { "interface org.example.ping\n\
- #                                                  method Ping(ping: string) -> (pong: string)" }
- #     fn get_name(&self) -> &'static str { "org.example.ping" }
- #     fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut io::BufRead) ->
- # Result<Vec<u8>> { Ok(Vec::new()) }
- #     fn call(&self, call: &mut varlink::Call) -> Result<()> { Ok(()) }
- # }
- # fn main() {}
- struct MyOrgExamplePing;
+```rust
+# #![allow(non_camel_case_types)]
+# #![allow(non_snake_case)]
+# use std::io;
+# use varlink::{CallTrait, Result};
+# struct Ping_Reply {pong: String}
+# impl varlink::VarlinkReply for Ping_Reply {}
+# struct _PingArgs {ping: String}
+# pub trait VarlinkCallError: varlink::CallTrait {}
+# impl<'a> VarlinkCallError for varlink::Call<'a> {}
+# pub trait Call_Ping: VarlinkCallError {
+#     fn reply(&mut self, pong: String) -> Result<()> { Ok(()) }
+# }
+# impl<'a> Call_Ping for varlink::Call<'a> {}
+# pub trait VarlinkInterface {
+#     fn ping(&self, call: &mut Call_Ping, ping: String) -> Result<()>;
+#     fn call_upgraded(&self, _call: &mut varlink::Call, bufreader: &mut io::BufRead) ->
+# Result<Vec<u8>> {Ok(Vec::new())}
+# }
+# pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
+# pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
+#     _InterfaceProxy { inner }
+# }
+# impl varlink::Interface for _InterfaceProxy {
+#     fn get_description(&self) -> &'static str { "interface org.example.ping\n\
+#                                                  method Ping(ping: string) -> (pong: string)" }
+#     fn get_name(&self) -> &'static str { "org.example.ping" }
+#     fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut io::BufRead) ->
+# Result<Vec<u8>> { Ok(Vec::new()) }
+#     fn call(&self, call: &mut varlink::Call) -> Result<()> { Ok(()) }
+# }
+# fn main() {}
+struct MyOrgExamplePing;
 
- impl VarlinkInterface for MyOrgExamplePing {
-     fn ping(&self, call: &mut Call_Ping, ping: String) -> Result<()> {
-         return call.reply(ping);
-     }
- }
- ```
- to implement the interface methods.
+impl VarlinkInterface for MyOrgExamplePing {
+    fn ping(&self, call: &mut Call_Ping, ping: String) -> Result<()> {
+        return call.reply(ping);
+    }
+}
+```
+to implement the interface methods.
 
- If your varlink method is called `TestMethod`, the rust method to be implemented is called
- `test_method`. The first parameter is of type `Call_TestMethod`, which has the method `reply()`.
+If your varlink method is called `TestMethod`, the rust method to be implemented is called
+`test_method`. The first parameter is of type `Call_TestMethod`, which has the method `reply()`.
 
- ```rust
- # #![allow(non_camel_case_types)]
- # #![allow(non_snake_case)]
- # use std::io;
- # use varlink::{CallTrait, Result};
- # pub trait VarlinkCallError: varlink::CallTrait {}
- # impl<'a> VarlinkCallError for varlink::Call<'a> {}
- # pub trait Call_TestMethod: VarlinkCallError {
- #     fn reply(&mut self) -> Result<()> {
- #         self.reply_struct(varlink::Reply::parameters(None))
- #     }
- # }
- # impl<'a> Call_TestMethod for varlink::Call<'a> {}
- # struct TestService;
- # impl TestService {
- fn test_method(&self, call: &mut Call_TestMethod, /* more arguments */) -> Result<()> {
-     /* ... */
-     return call.reply( /* more arguments */ );
- }
- # }
- # fn main() {}
- ```
+```rust
+# #![allow(non_camel_case_types)]
+# #![allow(non_snake_case)]
+# use std::io;
+# use varlink::{CallTrait, Result};
+# pub trait VarlinkCallError: varlink::CallTrait {}
+# impl<'a> VarlinkCallError for varlink::Call<'a> {}
+# pub trait Call_TestMethod: VarlinkCallError {
+#     fn reply(&mut self) -> Result<()> {
+#         self.reply_struct(varlink::Reply::parameters(None))
+#     }
+# }
+# impl<'a> Call_TestMethod for varlink::Call<'a> {}
+# struct TestService;
+# impl TestService {
+fn test_method(&self, call: &mut Call_TestMethod, /* more arguments */) -> Result<()> {
+    /* ... */
+return call.reply( /* more arguments */ );
+}
+# }
+# fn main() {}
+```
 
- A typical server creates a `VarlinkService` and starts a server via [`varlink::listen`]
+A typical server creates a `VarlinkService` and starts a server via [`varlink::listen`]
 
- ```rust
- # #![allow(non_camel_case_types)]
- # #![allow(non_snake_case)]
- # use std::io;
- # mod org_example_ping {
- # use std::io;
- # use varlink::{self, Result};
- # struct Ping_Reply {pong: String}
- # impl varlink::VarlinkReply for Ping_Reply {}
- # struct _PingArgs {ping: String}
- # pub trait VarlinkCallError: varlink::CallTrait {}
- # impl<'a> VarlinkCallError for varlink::Call<'a> {}
- # pub trait Call_Ping: VarlinkCallError {
- #     fn reply(&mut self, pong: String) -> Result<()> { Ok(()) }
- # }
- # impl<'a> Call_Ping for varlink::Call<'a> {}
- # pub trait VarlinkInterface {
- #     fn ping(&self, call: &mut Call_Ping, ping: String) -> Result<()>;
- #     fn call_upgraded(&self, _call: &mut varlink::Call, bufreader: &mut io::BufRead) ->
- # Result<Vec<u8>> {Ok(Vec::new())}
- # }
- # pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
- # pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
- #     _InterfaceProxy { inner }
- # }
- # impl varlink::Interface for _InterfaceProxy {
- #     fn get_description(&self) -> &'static str { "interface org.example.ping\n\
- #                                                  method Ping(ping: string) -> (pong: string)" }
- #     fn get_name(&self) -> &'static str { "org.example.ping" }
- #     fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut io::BufRead) ->
- # Result<Vec<u8>> { Ok(Vec::new()) }
- #     fn call(&self, call: &mut varlink::Call) -> Result<()> { Ok(()) }
- # }}
- # use crate::org_example_ping::*;
- #
- # struct MyOrgExamplePing;
- #
- # impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
- #     fn ping(&self, call: &mut Call_Ping, ping: String) -> varlink::Result<()> {
- #         return call.reply(ping);
- #     }
- # }
- # fn main_func() {
- let args: Vec<_> = std::env::args().collect();
- let myorgexampleping = MyOrgExamplePing;
- let myorgexampleping_interface = org_example_ping::new(Box::new(myorgexampleping));
+```rust
+# #![allow(non_camel_case_types)]
+# #![allow(non_snake_case)]
+# use std::io;
+# mod org_example_ping {
+# use std::io;
+# use varlink::{self, Result};
+# struct Ping_Reply {pong: String}
+# impl varlink::VarlinkReply for Ping_Reply {}
+# struct _PingArgs {ping: String}
+# pub trait VarlinkCallError: varlink::CallTrait {}
+# impl<'a> VarlinkCallError for varlink::Call<'a> {}
+# pub trait Call_Ping: VarlinkCallError {
+#     fn reply(&mut self, pong: String) -> Result<()> { Ok(()) }
+# }
+# impl<'a> Call_Ping for varlink::Call<'a> {}
+# pub trait VarlinkInterface {
+#     fn ping(&self, call: &mut Call_Ping, ping: String) -> Result<()>;
+#     fn call_upgraded(&self, _call: &mut varlink::Call, bufreader: &mut io::BufRead) ->
+# Result<Vec<u8>> {Ok(Vec::new())}
+# }
+# pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
+# pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
+#     _InterfaceProxy { inner }
+# }
+# impl varlink::Interface for _InterfaceProxy {
+#     fn get_description(&self) -> &'static str { "interface org.example.ping\n\
+#                                                  method Ping(ping: string) -> (pong: string)" }
+#     fn get_name(&self) -> &'static str { "org.example.ping" }
+#     fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut io::BufRead) ->
+# Result<Vec<u8>> { Ok(Vec::new()) }
+#     fn call(&self, call: &mut varlink::Call) -> Result<()> { Ok(()) }
+# }}
+# use crate::org_example_ping::*;
+#
+# struct MyOrgExamplePing;
+#
+# impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
+#     fn ping(&self, call: &mut Call_Ping, ping: String) -> varlink::Result<()> {
+#         return call.reply(ping);
+#     }
+# }
+# fn main_func() {
+let args: Vec<_> = std::env::args().collect();
+let myorgexampleping = MyOrgExamplePing;
+let myorgexampleping_interface = org_example_ping::new(Box::new(myorgexampleping));
 
- let service = varlink::VarlinkService::new(
-     "org.varlink",
-     "test service",
-     "0.1",
-     "http://varlink.org",
-     vec![
-         Box::new(myorgexampleping_interface),
-     ], // more interfaces ...
- );
+let service = varlink::VarlinkService::new(
+"org.varlink",
+"test service",
+"0.1",
+"http://varlink.org",
+vec![
+Box::new(myorgexampleping_interface),
+], // more interfaces ...
+);
 
- varlink::listen(service, &args[1], 1, 10, 0);
- # }
- # fn main() {}
- ```
+varlink::listen(service, &args[1], 1, 10, 0);
+# }
+# fn main() {}
+```
 
- where args[1] would follow the varlink
- [address specification](https://github.com/varlink/documentation/wiki#address).
+where args[1] would follow the varlink
+[address specification](https://github.com/varlink/documentation/wiki#address).
 
- Currently supported address URIs are:
+Currently supported address URIs are:
 
- - TCP `tcp:127.0.0.1:12345` hostname/IP address and port
- - UNIX socket `unix:/run/org.example.ftl` optional access `;mode=0666` parameter
- - UNIX abstract namespace socket `unix:@org.example.ftl` (on Linux only)
+- TCP `tcp:127.0.0.1:12345` hostname/IP address and port
+- UNIX socket `unix:/run/org.example.ftl` optional access `;mode=0666` parameter
+- UNIX abstract namespace socket `unix:@org.example.ftl` (on Linux only)
 
-  # Client
+# Client
 
-  Setup your project, just like in the [server](#server) case with a varlink file
-  and a ```build.rs``` file.
+Setup your project, just like in the [server](#server) case with a varlink file
+and a ```build.rs``` file.
 
- In your `main.rs` you can then use:
+In your `main.rs` you can then use:
 
- ```rust,ignore
-  mod org_example_ping;
-  use org_example_ping;
-  let connection = Connection::with_address("unix:/tmp/org.example.ping").unwrap();
-  let mut ping_service = org_example_ping::VarlinkClient::new(connection);
-  let reply = ping_service.ping(String::from("Test")).call()?;
-  assert_eq!(String::from("Test"), reply.pong);
-  ```
+```rust,ignore
+mod org_example_ping;
+use org_example_ping;
+let connection = Connection::with_address("unix:/tmp/org.example.ping").unwrap();
+let mut ping_service = org_example_ping::VarlinkClient::new(connection);
+let reply = ping_service.ping(String::from("Test")).call()?;
+assert_eq!(String::from("Test"), reply.pong);
+```
 
-  A connection can be established via the [`connection builder`] functions.
-  The ```org_example_ping::VarlinkClient``` implements ```org_example_ping::VarlinkClientInterface```,
-  which has all the varlink methods (names converted from camel case to lowercase snake case).
-  The ```PingString()``` method would be named ```ping_string()```.
+A connection can be established via the [`connection builder`] functions.
+The ```org_example_ping::VarlinkClient``` implements ```org_example_ping::VarlinkClientInterface```,
+which has all the varlink methods (names converted from camel case to lowercase snake case).
+The ```PingString()``` method would be named ```ping_string()```.
 
-  To iterate over a ```more``` call
- ```rust,ignore
-  for reply in my_more_service.test_more(/* params */).more()? { /*...*/ }
-  ```
+To iterate over a ```more``` call
+```rust,ignore
+for reply in my_more_service.test_more(/* params */).more()? { /*...*/ }
+```
 
-  The reply struct is placed in a structure named after the method with ```_Reply``` appended.
-  So, the reply to the ```Ping()``` method in our example is in a struct called ```Ping_Reply```.
+The reply struct is placed in a structure named after the method with ```_Reply``` appended.
+So, the reply to the ```Ping()``` method in our example is in a struct called ```Ping_Reply```.
 
-
-  [`connection builder`]: struct.Connection.html#methods
-  [`varlink::listen`]: fn.listen.html
-  [`generator functions`]: https://docs.rs/varlink_generator
+[`connection builder`]: struct.Connection.html#methods
+[`varlink::listen`]: fn.listen.html
+[`generator functions`]: https://docs.rs/varlink_generator
 
 !*/
 
 #![doc(
     html_logo_url = "https://varlink.org/images/varlink.png",
-    html_favicon_url = "https://varlink.org/images/varlink-small.png",
+    html_favicon_url = "https://varlink.org/images/varlink-small.png"
 )]
 
 extern crate bytes;
@@ -236,13 +235,13 @@ extern crate serde;
 extern crate serde_derive;
 #[macro_use]
 extern crate serde_json;
-#[cfg(windows)]
-extern crate winapi;
+extern crate tempfile;
 #[cfg(windows)]
 extern crate uds_windows;
-extern crate tempfile;
 #[cfg(unix)]
 extern crate unix_socket;
+#[cfg(windows)]
+extern crate winapi;
 
 pub use client::VarlinkStream;
 use client::{varlink_bridge, varlink_exec};
@@ -295,74 +294,52 @@ impl From<Reply> for Error {
         match e {
             Reply {
                 error: Some(ref t), ..
-            }
-                if t == "org.varlink.service.InterfaceNotFound" =>
-            {
-                match e {
-                    Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value::<ErrorInterfaceNotFound>(p) {
-                        Ok(v) => {
-                            ErrorKind::InterfaceNotFound(v.interface.unwrap_or_default()).into()
-                        }
-                        Err(_) => ErrorKind::InterfaceNotFound(String::new()).into(),
-                    },
-                    _ => ErrorKind::InterfaceNotFound(String::new()).into(),
-                }
-            }
+            } if t == "org.varlink.service.InterfaceNotFound" => match e {
+                Reply {
+                    parameters: Some(p),
+                    ..
+                } => match serde_json::from_value::<ErrorInterfaceNotFound>(p) {
+                    Ok(v) => ErrorKind::InterfaceNotFound(v.interface.unwrap_or_default()).into(),
+                    Err(_) => ErrorKind::InterfaceNotFound(String::new()).into(),
+                },
+                _ => ErrorKind::InterfaceNotFound(String::new()).into(),
+            },
             Reply {
                 error: Some(ref t), ..
-            }
-                if t == "org.varlink.service.InvalidParameter" =>
-            {
-                match e {
-                    Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value::<ErrorInvalidParameter>(p) {
-                        Ok(v) => {
-                            ErrorKind::InvalidParameter(v.parameter.unwrap_or_default()).into()
-                        }
-                        Err(_) => ErrorKind::InvalidParameter(String::new()).into(),
-                    },
-                    _ => ErrorKind::InvalidParameter(String::new()).into(),
-                }
-            }
+            } if t == "org.varlink.service.InvalidParameter" => match e {
+                Reply {
+                    parameters: Some(p),
+                    ..
+                } => match serde_json::from_value::<ErrorInvalidParameter>(p) {
+                    Ok(v) => ErrorKind::InvalidParameter(v.parameter.unwrap_or_default()).into(),
+                    Err(_) => ErrorKind::InvalidParameter(String::new()).into(),
+                },
+                _ => ErrorKind::InvalidParameter(String::new()).into(),
+            },
             Reply {
                 error: Some(ref t), ..
-            }
-                if t == "org.varlink.service.MethodNotFound" =>
-            {
-                match e {
-                    Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value::<ErrorMethodNotFound>(p) {
-                        Ok(v) => ErrorKind::MethodNotFound(v.method.unwrap_or_default()).into(),
-                        Err(_) => ErrorKind::MethodNotFound(String::new()).into(),
-                    },
-                    _ => ErrorKind::MethodNotFound(String::new()).into(),
-                }
-            }
+            } if t == "org.varlink.service.MethodNotFound" => match e {
+                Reply {
+                    parameters: Some(p),
+                    ..
+                } => match serde_json::from_value::<ErrorMethodNotFound>(p) {
+                    Ok(v) => ErrorKind::MethodNotFound(v.method.unwrap_or_default()).into(),
+                    Err(_) => ErrorKind::MethodNotFound(String::new()).into(),
+                },
+                _ => ErrorKind::MethodNotFound(String::new()).into(),
+            },
             Reply {
                 error: Some(ref t), ..
-            }
-                if t == "org.varlink.service.MethodNotImplemented" =>
-            {
-                match e {
-                    Reply {
-                        parameters: Some(p),
-                        ..
-                    } => match serde_json::from_value::<ErrorMethodNotImplemented>(p) {
-                        Ok(v) => {
-                            ErrorKind::MethodNotImplemented(v.method.unwrap_or_default()).into()
-                        }
-                        Err(_) => ErrorKind::MethodNotImplemented(String::new()).into(),
-                    },
-                    _ => ErrorKind::MethodNotImplemented(String::new()).into(),
-                }
-            }
+            } if t == "org.varlink.service.MethodNotImplemented" => match e {
+                Reply {
+                    parameters: Some(p),
+                    ..
+                } => match serde_json::from_value::<ErrorMethodNotImplemented>(p) {
+                    Ok(v) => ErrorKind::MethodNotImplemented(v.method.unwrap_or_default()).into(),
+                    Err(_) => ErrorKind::MethodNotImplemented(String::new()).into(),
+                },
+                _ => ErrorKind::MethodNotImplemented(String::new()).into(),
+            },
             _ => ErrorKind::VarlinkErrorReply(e).into(),
         }
     }
@@ -1097,7 +1074,8 @@ where
         let reply: Reply = serde_json::from_slice(&buf)
             .context(ErrorKind::SerdeJsonDe(
                 String::from_utf8_lossy(&buf).to_string(),
-            )).map_err(Error::from)?;
+            ))
+            .map_err(Error::from)?;
         match reply.continues {
             Some(true) => self.continues = true,
             _ => {
@@ -1198,7 +1176,8 @@ impl OrgVarlinkServiceInterface for OrgVarlinkServiceClient {
             self.connection.clone(),
             "org.varlink.service.GetInfo",
             GetInfoArgs {},
-        ).call()
+        )
+        .call()
     }
     fn get_interface_description<S: Into<Cow<'static, str>>>(
         &mut self,
@@ -1210,7 +1189,8 @@ impl OrgVarlinkServiceInterface for OrgVarlinkServiceClient {
             GetInterfaceDescriptionArgs {
                 interface: interface.into(),
             },
-        ).call()
+        )
+        .call()
     }
 }
 

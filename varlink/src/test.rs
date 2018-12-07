@@ -49,7 +49,8 @@ fn test_listen() -> Result<()> {
             conn.clone(),
             "org.varlink.service.GetInfos",
             GetInfoArgs {},
-        ).call();
+        )
+        .call();
 
         match e.err().unwrap().kind() {
             ErrorKind::MethodNotFound(i) => {
@@ -64,7 +65,8 @@ fn test_listen() -> Result<()> {
             conn.clone(),
             "org.varlink.unknowninterface.Foo",
             GetInfoArgs {},
-        ).call();
+        )
+        .call();
 
         match e.err().unwrap().kind() {
             ErrorKind::InterfaceNotFound(i) => {
@@ -179,7 +181,8 @@ fn test_handle() -> Result<()> {
         concat!(
             r#"{"parameters":{"interfaces":["org.varlink.service"],"product":"test service","#,
             r#""url":"http://varlink.org","vendor":"org.varlink","version":"0.1"}}"#
-        ).as_bytes()
+        )
+        .as_bytes()
     );
 
     let reply = from_slice::<Reply>(&w).unwrap();

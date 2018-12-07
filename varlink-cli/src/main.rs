@@ -1,6 +1,5 @@
 extern crate clap;
 extern crate failure;
-#[macro_use]
 extern crate failure_derive;
 extern crate colored_json;
 #[cfg(test)]

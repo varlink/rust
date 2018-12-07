@@ -7,7 +7,6 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate varlink;
 
-use failure::Fail;
 use org_example_ping::*;
 use std::env;
 use std::io::{BufRead, Read, Write};

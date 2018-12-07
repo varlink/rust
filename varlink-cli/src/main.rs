@@ -1,14 +1,3 @@
-extern crate clap;
-extern crate failure;
-extern crate failure_derive;
-extern crate colored_json;
-#[cfg(test)]
-extern crate escargot;
-extern crate serde_json;
-extern crate varlink;
-extern crate varlink_parser;
-extern crate varlink_stdinterfaces;
-
 use clap::{App, Arg, SubCommand};
 use colored_json::{ColorMode, ColoredFormatter, Colour, Output, PrettyFormatter, Style, Styler};
 use crate::error::{ErrorKind, Result};

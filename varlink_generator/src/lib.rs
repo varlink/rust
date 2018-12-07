@@ -5,13 +5,7 @@
     html_favicon_url = "https://varlink.org/images/varlink-small.png"
 )]
 
-#[macro_use]
-extern crate quote;
-extern crate failure;
-extern crate failure_derive;
-extern crate proc_macro2;
-extern crate varlink_parser;
-
+use quote::quote;
 use failure::{Backtrace, Context, Fail};
 use proc_macro2::{Ident, Span, TokenStream};
 use std::borrow::Cow;
@@ -370,6 +364,7 @@ fn varlink_to_rust(
     }
 
     ts.extend(quote!(
+        use serde_derive::{{Deserialize, Serialize}};
         use failure::{{Backtrace, Context, Fail}};
         use serde_json;
         use std::io::BufRead;

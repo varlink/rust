@@ -1,10 +1,13 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use failure::{Backtrace, Context, Fail};
-use serde_json;
 use std::io::BufRead;
 use std::sync::{Arc, RwLock};
+
+use failure::{Backtrace, Context, Fail};
+use serde_derive::{Deserialize, Serialize};
+use serde_json;
+
 use varlink::{self, CallTrait};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -204,6 +207,7 @@ impl From<varlink::Reply> for Error {
         }
     }
 }
+
 pub trait Call_GetInfo: varlink::CallTrait {
     fn reply(
         &mut self,

@@ -224,34 +224,6 @@ So, the reply to the ```Ping()``` method in our example is in a struct called ``
     html_favicon_url = "https://varlink.org/images/varlink-small.png"
 )]
 
-extern crate bytes;
-extern crate failure;
-extern crate failure_derive;
-extern crate itertools;
-#[cfg(unix)]
-extern crate libc;
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-#[macro_use]
-extern crate serde_json;
-extern crate tempfile;
-#[cfg(windows)]
-extern crate uds_windows;
-#[cfg(unix)]
-extern crate unix_socket;
-#[cfg(windows)]
-extern crate winapi;
-
-pub use crate::client::VarlinkStream;
-use crate::client::{varlink_bridge, varlink_exec};
-pub use crate::error::{Error, ErrorKind, Result};
-use failure::ResultExt;
-use serde::de::{self, DeserializeOwned};
-use serde::ser::{Serialize, SerializeMap, Serializer};
-use serde_json::Value;
-pub use crate::server::Stream as ServerStream;
-pub use crate::server::{listen, Listener};
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::convert::From;
@@ -260,7 +232,19 @@ use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::process::Child;
 use std::sync::{Arc, RwLock};
+
+use failure::ResultExt;
+use serde::de::{self, DeserializeOwned};
+use serde::ser::{Serialize, SerializeMap, Serializer};
+use serde_derive::{Deserialize, Serialize};
+use serde_json::{Value, json};
 use tempfile::TempDir;
+
+pub use crate::client::VarlinkStream;
+use crate::client::{varlink_bridge, varlink_exec};
+pub use crate::error::{Error, ErrorKind, Result};
+pub use crate::server::Stream as ServerStream;
+pub use crate::server::{listen, Listener};
 
 mod client;
 
@@ -1422,53 +1406,53 @@ impl ConnectionHandler for VarlinkService {
         &self,
         bufreader: &mut BufRead,
         writer: &mut Write,
-        upgraded_iface: Option<String>,
+        upgraded_last_interface: Option<String>,
     ) -> Result<(Vec<u8>, Option<String>)> {
-        let mut upgraded_iface = upgraded_iface.clone();
+        let mut upgraded_iface = upgraded_last_interface.clone();
         loop {
             if let Some(iface) = upgraded_iface {
                 let mut call = Call::new_upgraded(writer);
                 let unread = self.call_upgraded(&iface, &mut call, bufreader)?;
                 return Ok((unread, Some(iface)));
-            } else {
-                let mut buf = Vec::new();
-                let len = bufreader.read_until(b'\0', &mut buf)?;
+            }
 
-                if len == 0 {
-                    // EOF
-                    return Ok((buf, None));
+            let mut buf = Vec::new();
+            let len = bufreader.read_until(b'\0', &mut buf)?;
+
+            if len == 0 {
+                // EOF
+                return Ok((buf, None));
+            }
+
+            if buf.get(len - 1).unwrap_or(&b'x') != &b'\0' {
+                // Incomplete message
+                return Ok((buf, None));
+            }
+
+            // pop the last zero byte
+            buf.pop();
+            let req: Request = serde_json::from_slice(&buf).context(ErrorKind::SerdeJsonDe(
+                String::from_utf8_lossy(&buf).to_string(),
+            ))?;
+
+            let n: usize = match req.method.rfind('.') {
+                None => {
+                    let method: String = String::from(req.method.as_ref());
+                    let mut call = Call::new(writer, &req);
+                    call.reply_interface_not_found(Some(method))?;
+                    return Ok((Vec::new(), None));
                 }
+                Some(x) => x,
+            };
 
-                if buf.get(len - 1).unwrap_or(&b'x') != &b'\0' {
-                    // Incomplete message
-                    return Ok((buf, None));
-                }
+            let iface = String::from(&req.method[..n]);
 
-                // pop the last zero byte
-                buf.pop();
-                let req: Request = serde_json::from_slice(&buf).context(ErrorKind::SerdeJsonDe(
-                    String::from_utf8_lossy(&buf).to_string(),
-                ))?;
+            let mut call = Call::new(writer, &req);
+            self.call(&iface, &mut call)?;
 
-                let n: usize = match req.method.rfind('.') {
-                    None => {
-                        let method: String = String::from(req.method.as_ref());
-                        let mut call = Call::new(writer, &req);
-                        call.reply_interface_not_found(Some(method))?;
-                        return Ok((Vec::new(), None));
-                    }
-                    Some(x) => x,
-                };
-
-                let iface = String::from(&req.method[..n]);
-
-                let mut call = Call::new(writer, &req);
-                self.call(&iface, &mut call)?;
-
-                if call.upgraded {
-                    upgraded_iface = Some(iface);
-                    break;
-                }
+            if call.upgraded {
+                upgraded_iface = Some(iface);
+                break;
             }
         }
         #[cfg(any(feature = "bufreader_buffer", feature = "nightly"))]

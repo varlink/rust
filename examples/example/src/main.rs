@@ -1,19 +1,12 @@
-extern crate failure;
-extern crate failure_derive;
-extern crate getopts;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
-extern crate varlink;
-
 use std::env;
 use std::process::exit;
 use std::sync::{Arc, RwLock};
+
 use varlink::{Connection, OrgVarlinkServiceInterface, VarlinkService};
 
-mod io_systemd_network;
-
 use crate::io_systemd_network::VarlinkClientInterface;
+
+mod io_systemd_network;
 
 #[cfg(test)]
 mod test;

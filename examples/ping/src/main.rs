@@ -1,18 +1,11 @@
-extern crate failure;
-extern crate failure_derive;
-extern crate getopts;
-extern crate libc;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
-extern crate varlink;
-
-use crate::org_example_ping::*;
 use std::env;
 use std::io::{BufRead, Read, Write};
 use std::process::exit;
 use std::sync::{Arc, RwLock};
+
 use varlink::{Call, Connection, VarlinkService};
+
+use crate::org_example_ping::*;
 
 // Dynamically build the varlink rust code.
 mod org_example_ping;
@@ -159,11 +152,13 @@ impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
 
 #[cfg(unix)]
 mod multiplex {
-    use failure::Fail;
     use std::collections::HashMap;
     use std::io::{self, BufRead, BufReader, Error, Read, Write};
     use std::sync::{Arc, RwLock};
     use std::thread;
+
+    use failure::Fail;
+
     use varlink::{ConnectionHandler, Listener, ServerStream};
 
     struct FdTracker {

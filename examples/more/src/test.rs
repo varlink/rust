@@ -1,7 +1,7 @@
+use crate::Result;
 use std::io;
 use std::{thread, time};
 use varlink::Connection;
-use crate::Result;
 
 fn run_self_test(address: String) -> Result<()> {
     let client_address = address.clone();

@@ -1,17 +1,11 @@
-extern crate failure;
-extern crate failure_derive;
-extern crate getopts;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
-extern crate varlink;
-
-use crate::org_example_more::*;
 use std::env;
 use std::process::exit;
 use std::sync::{Arc, RwLock};
 use std::{thread, time};
+
 use varlink::{Connection, VarlinkService};
+
+use crate::org_example_more::*;
 
 // Dynamically build the varlink rust code.
 mod org_example_more;

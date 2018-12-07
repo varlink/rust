@@ -45,12 +45,6 @@
     html_favicon_url = "https://varlink.org/images/varlink-small.png"
 )]
 
-extern crate ansi_term;
-extern crate bytes;
-extern crate failure;
-extern crate failure_derive;
-extern crate itertools;
-
 use self::varlink_grammar::VInterface;
 use ansi_term::Colour;
 use failure::{Backtrace, Context, Fail, ResultExt};

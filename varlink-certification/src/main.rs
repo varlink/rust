@@ -1,14 +1,3 @@
-#[cfg(test)]
-extern crate escargot;
-extern crate failure;
-extern crate failure_derive;
-extern crate getopts;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
-extern crate varlink;
-
-use crate::org_varlink_certification::*;
 use std::collections::{hash_map::DefaultHasher, VecDeque};
 use std::env;
 use std::hash::{Hash, Hasher};
@@ -16,7 +5,10 @@ use std::io;
 use std::process::exit;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
+
 use varlink::{Connection, StringHashMap, StringHashSet, VarlinkService};
+
+use crate::org_varlink_certification::*;
 
 mod org_varlink_certification;
 #[cfg(test)]

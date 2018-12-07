@@ -1,5 +1,5 @@
-use failure::Fail;
 use crate::io_systemd_network::Result;
+use failure::Fail;
 use std::io;
 use std::{thread, time};
 use varlink::Connection;

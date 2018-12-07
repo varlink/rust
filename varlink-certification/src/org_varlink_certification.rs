@@ -2,6 +2,7 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 use failure::{Backtrace, Context, Fail};
+use serde_derive::{Deserialize, Serialize};
 use serde_json;
 use std::io::BufRead;
 use std::sync::{Arc, RwLock};

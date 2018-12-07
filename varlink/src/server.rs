@@ -1,8 +1,8 @@
 //! Handle network connections for a varlink service
 #![allow(dead_code)]
 
-use failure::Fail;
 use crate::{ErrorKind, Result};
+use failure::Fail;
 //#![feature(getpid)]
 //use std::process;
 use std::io::{BufRead, BufReader, Read, Write};

@@ -406,7 +406,7 @@ mod multiplex {
                 fds.remove(i);
             }
 
-            let r = unsafe { libc::poll(fds.as_mut_ptr(), fds.len() as u64, timeout) };
+            let r = unsafe { libc::poll(fds.as_mut_ptr(), fds.len() as libc::nfds_t, timeout) };
 
             if r < 0 {
                 for t in threads {
@@ -439,18 +439,18 @@ fn run_server(address: &str, timeout: u64, multiplex: bool) -> varlink::Result<(
     );
 
     #[cfg(windows)]
-        {
-            let _ = multiplex;
+    {
+        let _ = multiplex;
+        varlink::listen(service, &address, 1, 10, timeout)?;
+    }
+    #[cfg(unix)]
+    {
+        if multiplex {
+            // Demonstrate a single process, single-threaded service
+            multiplex::listen_multiplex(service, &address, timeout)?;
+        } else {
             varlink::listen(service, &address, 1, 10, timeout)?;
         }
-    #[cfg(unix)]
-        {
-            if multiplex {
-                // Demonstrate a single process, single-threaded service
-                multiplex::listen_multiplex(service, &address, timeout)?;
-            } else {
-                varlink::listen(service, &address, 1, 10, timeout)?;
-            }
-        }
+    }
     Ok(())
 }

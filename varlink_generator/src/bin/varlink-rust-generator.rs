@@ -14,22 +14,51 @@ extern crate varlink_generator;
 use std::env;
 use std::fs::File;
 use std::io;
+use std::io::{Error, ErrorKind};
 use std::io::{Read, Write};
 use std::path::Path;
+
 use varlink_generator::{generate, Result};
+
+fn print_usage(program: &str, opts: &getopts::Options) {
+    let brief = format!("Usage: {} [VARLINK FILE]", program);
+    print!("{}", opts.usage(&brief));
+}
 
 fn main() -> Result<()> {
     let args: Vec<_> = env::args().collect();
-    let mut reader: Box<Read> = match args.len() {
-        0 | 1 => Box::new(io::stdin()),
+    let program = args[0].clone();
+
+    let mut opts = getopts::Options::new();
+    opts.optflag("h", "help", "print this help menu");
+    opts.optflag("", "nosource", "don't print doc header and allow");
+
+    let matches = match opts.parse(&args[1..]) {
+        Ok(m) => m,
+        Err(f) => {
+            eprintln!("{}", f.to_string());
+            print_usage(&program, &opts);
+            return Err(Error::from(ErrorKind::InvalidData).into());
+        }
+    };
+
+    if matches.opt_present("h") {
+        print_usage(&program, &opts);
+        return Ok(());
+    }
+
+    let tosource = !matches.opt_present("nosource");
+
+    let mut reader: Box<Read> = match matches.free.len() {
+        0 => Box::new(io::stdin()),
         _ => {
-            if args[1] == "-" {
+            if matches.free[0] == "-" {
                 Box::new(io::stdin())
             } else {
-                Box::new(File::open(Path::new(&args[1]))?)
+                Box::new(File::open(Path::new(&matches.free[0]))?)
             }
         }
     };
     let writer: &mut Write = &mut io::stdout();
-    generate(&mut reader, writer, true)
+    generate(&mut reader, writer, tosource)
 }

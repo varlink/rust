@@ -28,6 +28,7 @@ failure = "0.1.2"
 varlink_parser = { version = "2.1", path = "../varlink_parser" }
 quote = "0.6"
 proc-macro2 = "0.4"
+getopts = "0"
 
 [badges]
 travis-ci = { repository = "varlink/rust" }

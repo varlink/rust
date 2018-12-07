@@ -8,7 +8,7 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate varlink;
 
-use org_varlink_certification::*;
+use crate::org_varlink_certification::*;
 use std::collections::{hash_map::DefaultHasher, VecDeque};
 use std::env;
 use std::hash::{Hash, Hasher};

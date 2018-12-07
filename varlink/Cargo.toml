@@ -2,6 +2,8 @@
 name = "varlink"
 version = "5.0.1"
 authors = ["Harald Hoyer <harald@redhat.com>"]
+edition = "2018"
+
 license = "MIT/Apache-2.0"
 documentation = "https://github.com/varlink/rust/blob/master/varlink/README.md"
 homepage = "https://github.com/varlink/rust/blob/master/varlink"

@@ -7,7 +7,7 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate varlink;
 
-use org_example_ping::*;
+use crate::org_example_ping::*;
 use std::env;
 use std::io::{BufRead, Read, Write};
 use std::process::exit;
@@ -252,7 +252,7 @@ mod multiplex {
             for (i, fds_item) in fds.iter().enumerate().skip(1) {
                 if fds_item.revents != 0 {
                     let mut upgraded_iface: Option<String> = None;
-                    let mut tracker = fdmap.get_mut(&fds_item.fd).unwrap();
+                    let tracker = fdmap.get_mut(&fds_item.fd).unwrap();
                     loop {
                         let mut readbuf: [u8; 8192] = [0; 8192];
 
@@ -329,8 +329,8 @@ mod multiplex {
                             eprintln!("upgraded thread");
                             let handler = handler.clone();
                             let mut stream = tracker.stream.take().unwrap();
-                            let mut buffer = tracker.buffer.take().unwrap();
-                            let mut upgraded_in_use = upgraded_in_use.clone();
+                            let buffer = tracker.buffer.take().unwrap();
+                            let upgraded_in_use = upgraded_in_use.clone();
                             move || {
                                 let _r = stream.set_nonblocking(false);
                                 let (reader, mut writer) = stream.split().unwrap();

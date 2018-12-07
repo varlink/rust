@@ -3,6 +3,7 @@ name = "varlink-certification"
 version = "2.0.1"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 build = "build.rs"
+edition = "2018"
 
 [dependencies]
 varlink = { version = "5.0", path = "../varlink" }

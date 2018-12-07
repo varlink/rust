@@ -1,12 +1,12 @@
 use failure::Fail;
-use io_systemd_network::Result;
+use crate::io_systemd_network::Result;
 use std::io;
 use std::{thread, time};
 use varlink::Connection;
 
 fn run_self_test(address: &'static str) -> Result<()> {
     let child = thread::spawn(move || {
-        if let Err(e) = ::run_server(address, 4) {
+        if let Err(e) = crate::run_server(address, 4) {
             if e.kind() != ::varlink::ErrorKind::Timeout {
                 panic!("error: {:#?}", e.cause());
             }
@@ -16,7 +16,7 @@ fn run_self_test(address: &'static str) -> Result<()> {
     // give server time to start
     thread::sleep(time::Duration::from_secs(1));
 
-    let ret = ::run_client(Connection::with_address(&address)?);
+    let ret = crate::run_client(Connection::with_address(&address)?);
     if let Err(e) = ret {
         panic!("error: {}", e);
     }

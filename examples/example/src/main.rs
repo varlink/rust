@@ -13,7 +13,7 @@ use varlink::{Connection, OrgVarlinkServiceInterface, VarlinkService};
 
 mod io_systemd_network;
 
-use io_systemd_network::VarlinkClientInterface;
+use crate::io_systemd_network::VarlinkClientInterface;
 
 #[cfg(test)]
 mod test;

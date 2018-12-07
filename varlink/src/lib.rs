@@ -243,15 +243,15 @@ extern crate unix_socket;
 #[cfg(windows)]
 extern crate winapi;
 
-pub use client::VarlinkStream;
-use client::{varlink_bridge, varlink_exec};
-pub use error::{Error, ErrorKind, Result};
+pub use crate::client::VarlinkStream;
+use crate::client::{varlink_bridge, varlink_exec};
+pub use crate::error::{Error, ErrorKind, Result};
 use failure::ResultExt;
 use serde::de::{self, DeserializeOwned};
 use serde::ser::{Serialize, SerializeMap, Serializer};
 use serde_json::Value;
-pub use server::Stream as ServerStream;
-pub use server::{listen, Listener};
+pub use crate::server::Stream as ServerStream;
+pub use crate::server::{listen, Listener};
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::convert::From;
@@ -546,8 +546,8 @@ where
  # Examples
 
 ```rust
- # #[allow(non_camel_case_types)]
- # #[allow(non_snake_case)]
+ # #![allow(non_camel_case_types)]
+ # #![allow(non_snake_case)]
  # use std::io;
  # pub trait VarlinkCallError: varlink::CallTrait {}
  # impl<'a> VarlinkCallError for varlink::Call<'a> {}
@@ -583,8 +583,8 @@ pub struct Call<'a> {
   For an invalid parameter:
 
   ```rust
- # #[allow(non_camel_case_types)]
- # #[allow(non_snake_case)]
+ # #![allow(non_camel_case_types)]
+ # #![allow(non_snake_case)]
  # use std::io;
  # pub trait VarlinkCallError: varlink::CallTrait {}
  # impl<'a> VarlinkCallError for varlink::Call<'a> {}
@@ -613,8 +613,8 @@ pub struct Call<'a> {
   For not yet implemented methods:
 
   ```rust
- # #[allow(non_camel_case_types)]
- # #[allow(non_snake_case)]
+ # #![allow(non_camel_case_types)]
+ # #![allow(non_snake_case)]
  # use std::io;
  # pub trait VarlinkCallError: varlink::CallTrait {}
  # impl<'a> VarlinkCallError for varlink::Call<'a> {}
@@ -644,8 +644,8 @@ pub trait CallTrait {
     # Examples
 
     ```rust
-    # #[allow(non_camel_case_types)]
-    # #[allow(non_snake_case)]
+    # #![allow(non_camel_case_types)]
+    # #![allow(non_snake_case)]
     # use std::io;
     # pub trait VarlinkCallError: varlink::CallTrait {}
     # impl<'a> VarlinkCallError for varlink::Call<'a> {}

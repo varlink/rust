@@ -2,6 +2,8 @@
 name = "varlink_parser"
 version = "2.2.2"
 authors = ["Harald Hoyer <harald@redhat.com>"]
+edition = "2018"
+
 license = "MIT/Apache-2.0"
 documentation = "https://docs.rs/varlink_parser/"
 homepage = "https://github.com/varlink/rust"

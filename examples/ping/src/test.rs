@@ -1,13 +1,13 @@
 use std::io::{self, BufRead};
 use std::{thread, time};
 use varlink::Connection;
-use Result;
+use crate::Result;
 
 fn run_self_test(address: String, multiplex: bool) -> Result<()> {
     let server_address = address.clone();
 
     let child = thread::spawn(move || {
-        if let Err(e) = ::run_server(&server_address, 4, multiplex) {
+        if let Err(e) = crate::run_server(&server_address, 4, multiplex) {
             match e.kind() {
                 ::varlink::ErrorKind::Timeout => {}
                 _ => panic!("error: {}", e),
@@ -36,7 +36,7 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
             let b = &br[10..20];
             let c = &br[20..];
 
-            for mut i in vec![a, b, c] {
+            for i in vec![a, b, c] {
                 assert!(writer.write_all(i).is_ok());
                 assert!(writer.flush().is_ok());
                 thread::sleep(time::Duration::from_millis(500));
@@ -80,7 +80,7 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
             let b = &br[10..20];
             let c = &br[20..];
 
-            for mut i in vec![a, b, c] {
+            for i in vec![a, b, c] {
                 assert!(writer.write_all(i).is_ok());
                 assert!(writer.flush().is_ok());
                 thread::sleep(time::Duration::from_millis(500));
@@ -109,7 +109,7 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
             let b = &br[10..20];
             let c = &br[20..];
 
-            for mut i in vec![a, b, c] {
+            for i in vec![a, b, c] {
                 assert!(writer.write_all(i).is_ok());
                 assert!(writer.flush().is_ok());
                 thread::sleep(time::Duration::from_millis(500));
@@ -132,7 +132,7 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
     {
         let con = Connection::with_address(&address)?;
 
-        let ret = ::run_client(&con);
+        let ret = crate::run_client(&con);
         if let Err(e) = ret {
             panic!("error: {:#?}", e);
         }

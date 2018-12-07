@@ -16,7 +16,7 @@ use std::os::unix::net::UnixStream;
 #[cfg(windows)]
 use uds_windows::UnixStream;
 
-use {ErrorKind, Result};
+use crate::{ErrorKind, Result};
 
 pub enum VarlinkStream {
     TCP(TcpStream),

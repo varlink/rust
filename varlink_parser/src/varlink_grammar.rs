@@ -35,28 +35,28 @@ pub struct ParseError {
 pub type ParseResult<T> = Result<T, ParseError>;
 impl ::std::fmt::Display for ParseError {
     fn fmt(&self, fmt: &mut ::std::fmt::Formatter) -> ::std::result::Result<(), ::std::fmt::Error> {
-        try!(write!(
+        r#try!(write!(
             fmt,
             "error at {}:{}: expected ",
             self.line, self.column
         ));
         if self.expected.len() == 0 {
-            try!(write!(fmt, "EOF"));
+            r#try!(write!(fmt, "EOF"));
         } else if self.expected.len() == 1 {
-            try!(write!(
+            r#try!(write!(
                 fmt,
                 "`{}`",
                 escape_default(self.expected.iter().next().unwrap())
             ));
         } else {
             let mut iter = self.expected.iter();
-            try!(write!(
+            r#try!(write!(
                 fmt,
                 "one of `{}`",
                 escape_default(iter.next().unwrap())
             ));
             for elem in iter {
-                try!(write!(fmt, ", `{}`", escape_default(elem)));
+                r#try!(write!(fmt, ", `{}`", escape_default(elem)));
             }
         }
         Ok(())

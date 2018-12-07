@@ -22,7 +22,7 @@ pub enum ErrorKind {
     #[fail(display = "Method not implemented: '{}'", _0)]
     MethodNotImplemented(String),
     #[fail(display = "Unknown error reply: '{:#?}'", _0)]
-    VarlinkErrorReply(::Reply),
+    VarlinkErrorReply(crate::Reply),
     #[fail(display = "Call::reply() called with continues, but without more in the request")]
     CallContinuesMismatch,
     #[fail(display = "Varlink: method called already")]

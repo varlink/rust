@@ -2,7 +2,7 @@
 #![allow(dead_code)]
 
 use failure::Fail;
-use {ErrorKind, Result};
+use crate::{ErrorKind, Result};
 //#![feature(getpid)]
 //use std::process;
 use std::io::{BufRead, BufReader, Read, Write};

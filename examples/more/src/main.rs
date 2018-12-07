@@ -6,7 +6,7 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate varlink;
 
-use org_example_more::*;
+use crate::org_example_more::*;
 use std::env;
 use std::process::exit;
 use std::sync::{Arc, RwLock};

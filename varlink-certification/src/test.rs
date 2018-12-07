@@ -1,13 +1,13 @@
 use std::io;
 use std::{thread, time};
 use varlink::Connection;
-use Result;
+use crate::Result;
 
 fn run_self_test(address: String) -> Result<()> {
     let client_address = address.clone();
 
     let child = thread::spawn(move || {
-        if let Err(e) = ::run_server(&address, 4) {
+        if let Err(e) = crate::run_server(&address, 4) {
             match e.kind() {
                 ::varlink::ErrorKind::Timeout => {}
                 _ => panic!("error: {}", e),
@@ -18,7 +18,7 @@ fn run_self_test(address: String) -> Result<()> {
     // give server time to start
     thread::sleep(time::Duration::from_secs(1));
 
-    let ret = ::run_client(Connection::with_address(&client_address)?);
+    let ret = crate::run_client(Connection::with_address(&client_address)?);
     if let Err(e) = ret {
         panic!("error: {:?}", e);
     }
@@ -30,7 +30,7 @@ fn run_self_test(address: String) -> Result<()> {
 }
 
 #[test]
-fn test_unix() -> ::Result<()> {
+fn test_unix() -> crate::Result<()> {
     run_self_test("unix:org.varlink.certification".into())
 }
 
@@ -54,11 +54,11 @@ fn test_exec() -> Result<()> {
         let runner = CargoBuild::new()
             .current_release()
             .run()
-            .context(::ErrorKind::Io_Error(::std::io::ErrorKind::NotFound))?;
+            .context(crate::ErrorKind::Io_Error(::std::io::ErrorKind::NotFound))?;
         Ok(runner.path().to_owned().to_string_lossy().to_string())
     }
 
-    ::run_client(Connection::with_activate(&format!(
+    crate::run_client(Connection::with_activate(&format!(
         "{} --varlink=$VARLINK_ADDRESS",
         get_exec()?
     ))?)
@@ -66,5 +66,5 @@ fn test_exec() -> Result<()> {
 
 #[test]
 fn test_wrong_address_1() {
-    assert!(::run_server("tcpd:0.0.0.0:12345".into(), 1).is_err());
+    assert!(crate::run_server("tcpd:0.0.0.0:12345".into(), 1).is_err());
 }

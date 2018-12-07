@@ -11,10 +11,10 @@ extern crate varlink_stdinterfaces;
 
 use clap::{App, Arg, SubCommand};
 use colored_json::{ColorMode, ColoredFormatter, Colour, Output, PrettyFormatter, Style, Styler};
-use error::{ErrorKind, Result};
+use crate::error::{ErrorKind, Result};
 use failure::ResultExt;
 #[cfg(unix)]
-use proxy::{handle, handle_connect};
+use crate::proxy::{handle, handle_connect};
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;

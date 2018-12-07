@@ -5,9 +5,6 @@
     html_favicon_url = "https://varlink.org/images/varlink-small.png"
 )]
 
-use quote::quote;
-use failure::{Backtrace, Context, Fail};
-use proc_macro2::{Ident, Span, TokenStream};
 use std::borrow::Cow;
 use std::env;
 use std::fmt::{self, Display};
@@ -16,6 +13,11 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{exit, Command};
 use std::str::FromStr;
+
+use failure::{Backtrace, Context, Fail};
+use proc_macro2::{Ident, Span, TokenStream};
+use quote::quote;
+
 use varlink_parser::{Typedef, VEnum, VError, VStruct, VStructOrEnum, VType, VTypeExt, Varlink};
 
 #[derive(Debug)]
@@ -384,204 +386,7 @@ fn varlink_to_rust(
         t.to_tokenstream("", &mut ts, options);
     }
 
-    // Errors traits
-    {
-        let mut error_structs_and_enums = TokenStream::new();
-        let mut funcs = TokenStream::new();
-        for t in iface.errors.values() {
-            let mut inparms_name = Vec::new();
-            let mut inparms_type = Vec::new();
-
-            let inparms;
-            let parms;
-            let args_name = Ident::new(&format!("{}_Args", t.name), Span::call_site());
-            if !t.parm.elts.is_empty() {
-                for e in &t.parm.elts {
-                    let ident = Ident::new(&replace_if_rust_keyword(e.name), Span::call_site());
-                    inparms_name.push(ident);
-                    inparms_type.push(
-                        TokenStream::from_str(
-                            e.vtype
-                                .to_rust_string(
-                                    format!("{}_Args_{}", t.name, e.name).as_ref(),
-                                    &mut error_structs_and_enums,
-                                    options,
-                                )
-                                .as_ref(),
-                        )
-                        .unwrap(),
-                    );
-                }
-                let innames = inparms_name.iter();
-                let innames2 = inparms_name.iter();
-                inparms = quote!(#(#innames : #inparms_type),*);
-                parms = quote!(Some(serde_json::to_value(#args_name {#(#innames2),*})?));
-            } else {
-                parms = quote!(None);
-                inparms = quote!();
-            }
-            let errorname = format!("{iname}.{ename}", iname = iface.name, ename = t.name);
-            let func_name = Ident::new(
-                &format!("reply_{}", to_snake_case(t.name)),
-                Span::call_site(),
-            );
-
-            funcs.extend(quote!(
-                fn #func_name(&mut self, #inparms) -> varlink::Result<()> {
-                    self.reply_struct(varlink::Reply::error(#errorname, #parms))
-                }
-            ));
-        }
-        ts.extend(quote!(
-            #error_structs_and_enums
-            pub trait VarlinkCallError: varlink::CallTrait {
-                #funcs
-            }
-        ));
-    }
-
-    ts.extend(quote!(
-        impl<'a> VarlinkCallError for varlink::Call<'a> {}
-
-        #[derive(Debug)]
-        pub struct Error {
-            inner: Context<ErrorKind>,
-        }
-    ));
-
-    {
-        let mut errors = Vec::new();
-        for t in iface.errors.values() {
-            errors.push(
-                TokenStream::from_str(&format!(
-                    "#[fail(display = \"{iname}.{ename}: {{:#?}}\", \
-                     _0)]{ename}(Option<{ename}_Args>)",
-                    ename = t.name,
-                    iname = iface.name,
-                ))
-                .unwrap(),
-            );
-        }
-
-        ts.extend(quote!(
-            #[derive(Clone, PartialEq, Debug, Fail)]
-            pub enum ErrorKind {
-                #[fail(display = "IO error")]
-                Io_Error(::std::io::ErrorKind),
-                #[fail(display = "(De)Serialization Error")]
-                SerdeJson_Error(serde_json::error::Category),
-                #[fail(display = "Varlink Error")]
-                Varlink_Error(varlink::ErrorKind),
-                #[fail(display = "Unknown error reply: '{:#?}'", _0)]
-                VarlinkReply_Error(varlink::Reply),
-                #(#errors),*
-            }
-        ));
-    }
-
-    ts.extend(quote!(
-    impl Fail for Error {
-        fn cause(&self) -> Option<&Fail> {
-            self.inner.cause()
-        }
-
-        fn backtrace(&self) -> Option<&Backtrace> {
-            self.inner.backtrace()
-        }
-    }
-
-    impl ::std::fmt::Display for Error {
-        fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-            ::std::fmt::Display::fmt(&self.inner, f)
-        }
-    }
-
-    impl Error {
-        #[allow(dead_code)]
-        pub fn kind(&self) -> ErrorKind {
-            self.inner.get_context().clone()
-        }
-    }
-
-    impl From<ErrorKind> for Error {
-        fn from(kind: ErrorKind) -> Error {
-            Error {
-                inner: Context::new(kind),
-            }
-        }
-    }
-
-    impl From<Context<ErrorKind>> for Error {
-        fn from(inner: Context<ErrorKind>) -> Error {
-            Error { inner }
-        }
-    }
-
-    impl From<::std::io::Error> for Error {
-        fn from(e: ::std::io::Error) -> Error {
-            let kind = e.kind();
-            e.context(ErrorKind::Io_Error(kind)).into()
-        }
-    }
-
-    impl From<serde_json::Error> for Error {
-        fn from(e: serde_json::Error) -> Error {
-            let cat = e.classify();
-            e.context(ErrorKind::SerdeJson_Error(cat)).into()
-        }
-    }
-
-    #[allow(dead_code)]
-    pub type Result<T> = ::std::result::Result<T, Error>;
-
-    impl From<varlink::Error> for Error {
-        fn from(e: varlink::Error) -> Self {
-            let kind = e.kind();
-            match kind {
-                varlink::ErrorKind::Io(kind) => e.context(ErrorKind::Io_Error(kind)).into(),
-                varlink::ErrorKind::SerdeJsonSer(cat) => e.context(ErrorKind::SerdeJson_Error(cat)).into(),
-                kind => e.context(ErrorKind::Varlink_Error(kind)).into(),
-            }
-        }
-    }
-        ));
-
-    {
-        let mut arms = TokenStream::new();
-        for t in iface.errors.values() {
-            let error_name = format!("{iname}.{ename}", iname = iface.name, ename = t.name);
-            let ename = TokenStream::from_str(&format!("ErrorKind::{}", t.name)).unwrap();
-            arms.extend(quote!(
-                varlink::Reply { error: Some(ref t), .. } if t == #error_name => {
-                    match e {
-                       varlink::Reply {
-                           parameters: Some(p),
-                           ..
-                       } => match serde_json::from_value(p) {
-                           Ok(v) => #ename(v).into(),
-                           Err(_) => #ename(None).into(),
-                       },
-                       _ => #ename(None).into(),
-                    }
-                }
-            ));
-        }
-
-        ts.extend(quote!(
-            impl From<varlink::Reply> for Error {
-                fn from(e: varlink::Reply) -> Self {
-                    if varlink::Error::is_error(&e) {
-                        return varlink::Error::from(e).into();
-                    }
-
-                    match e {
-                    #arms
-                    _ => ErrorKind::VarlinkReply_Error(e).into(),
-                    }
-                }
-            }
-        ));
-    }
+    generate_error_code(options, &iface, &mut ts);
 
     let mut server_method_decls = TokenStream::new();
     let mut client_method_decls = TokenStream::new();
@@ -594,69 +399,37 @@ fn varlink_to_rust(
         let mut in_field_types = Vec::new();
         let mut in_field_names = Vec::new();
         let in_struct_name = Ident::new(&format!("{}_Args", t.name), Span::call_site());
-        let mut in_anot = Vec::new();
+        let mut in_anot: Vec<TokenStream> = Vec::new();
 
         let mut out_field_types = Vec::new();
         let mut out_field_names = Vec::new();
         let out_struct_name = Ident::new(&format!("{}_Reply", t.name), Span::call_site());
-        let mut out_anot = Vec::new();
+        let mut out_anot: Vec<TokenStream> = Vec::new();
 
         let call_name = Ident::new(&format!("Call_{}", t.name), Span::call_site());
         let method_name = Ident::new(&to_snake_case(t.name), Span::call_site());
         let varlink_method_name = format!("{}.{}", iface.name, t.name);
 
-        {
-            for e in &t.input.elts {
-                let mut a = if let VTypeExt::Option(_) = e.vtype {
-                    quote!(#[serde(skip_serializing_if = "Option::is_none")])
-                } else {
-                    quote!()
-                };
-                let (ename, tt) = replace_if_rust_keyword_annotate2(e.name);
-                a.extend(tt);
-                in_anot.push(a);
+        generate_anon_struct(
+            &format!("{}_{}", t.name, "Args"),
+            &t.input,
+            options,
+            &mut ts,
+            &mut in_field_types,
+            &mut in_field_names,
+            &mut in_anot,
+        );
 
-                in_field_names.push(Ident::new(&ename, Span::call_site()));
-                in_field_types.push(
-                    TokenStream::from_str(
-                        e.vtype
-                            .to_rust_string(
-                                format!("{}_Args_{}", t.name, e.name).as_ref(),
-                                &mut ts,
-                                options,
-                            )
-                            .as_ref(),
-                    )
-                    .unwrap(),
-                );
-            }
-        }
-        {
-            for e in &t.output.elts {
-                let mut a = if let VTypeExt::Option(_) = e.vtype {
-                    quote!(#[serde(skip_serializing_if = "Option::is_none")])
-                } else {
-                    quote!()
-                };
-                let (ename, tt) = replace_if_rust_keyword_annotate2(e.name);
-                a.extend(tt);
-                out_anot.push(a);
+        generate_anon_struct(
+            &format!("{}_{}", t.name, "Reply"),
+            &t.output,
+            options,
+            &mut ts,
+            &mut out_field_types,
+            &mut out_field_names,
+            &mut out_anot,
+        );
 
-                out_field_names.push(Ident::new(&ename, Span::call_site()));
-                out_field_types.push(
-                    TokenStream::from_str(
-                        e.vtype
-                            .to_rust_string(
-                                format!("{}_Reply_{}", t.name, e.name).as_ref(),
-                                &mut ts,
-                                options,
-                            )
-                            .as_ref(),
-                    )
-                    .unwrap(),
-                );
-            }
-        }
         {
             let out_field_names = out_field_names.iter();
             let out_field_types = out_field_types.iter();
@@ -838,6 +611,238 @@ fn varlink_to_rust(
     ));
 
     Ok(ts)
+}
+
+fn generate_anon_struct(
+    name: &str,
+    vstruct: &VStruct,
+    options: &GeneratorOptions,
+    mut ts: &mut TokenStream,
+    field_types: &mut Vec<TokenStream>,
+    field_names: &mut Vec<Ident>,
+    anot: &mut Vec<TokenStream>,
+) {
+    for e in &vstruct.elts {
+        let mut a = if let VTypeExt::Option(_) = e.vtype {
+            quote!(#[serde(skip_serializing_if = "Option::is_none")])
+        } else {
+            quote!()
+        };
+        let (ename, tt) = replace_if_rust_keyword_annotate2(e.name);
+        a.extend(tt);
+        anot.push(a);
+
+        field_names.push(Ident::new(&ename, Span::call_site()));
+        field_types.push(
+            TokenStream::from_str(
+                e.vtype
+                    .to_rust_string(format!("{}_{}", name, e.name).as_ref(), &mut ts, options)
+                    .as_ref(),
+            )
+            .unwrap(),
+        );
+    }
+}
+
+fn generate_error_code(
+    options: &GeneratorOptions,
+    iface: &varlink_parser::Interface,
+    ts: &mut TokenStream,
+) {
+    // Errors traits
+    {
+        let mut error_structs_and_enums = TokenStream::new();
+        let mut funcs = TokenStream::new();
+        for t in iface.errors.values() {
+            let mut inparms_name = Vec::new();
+            let mut inparms_type = Vec::new();
+
+            let inparms;
+            let parms;
+            let args_name = Ident::new(&format!("{}_Args", t.name), Span::call_site());
+            if !t.parm.elts.is_empty() {
+                for e in &t.parm.elts {
+                    let ident = Ident::new(&replace_if_rust_keyword(e.name), Span::call_site());
+                    inparms_name.push(ident);
+                    inparms_type.push(
+                        TokenStream::from_str(
+                            e.vtype
+                                .to_rust_string(
+                                    format!("{}_Args_{}", t.name, e.name).as_ref(),
+                                    &mut error_structs_and_enums,
+                                    options,
+                                )
+                                .as_ref(),
+                        )
+                        .unwrap(),
+                    );
+                }
+                let innames = inparms_name.iter();
+                let innames2 = inparms_name.iter();
+                inparms = quote!(#(#innames : #inparms_type),*);
+                parms = quote!(Some(serde_json::to_value(#args_name {#(#innames2),*})?));
+            } else {
+                parms = quote!(None);
+                inparms = quote!();
+            }
+            let errorname = format!("{iname}.{ename}", iname = iface.name, ename = t.name);
+            let func_name = Ident::new(
+                &format!("reply_{}", to_snake_case(t.name)),
+                Span::call_site(),
+            );
+
+            funcs.extend(quote!(
+                fn #func_name(&mut self, #inparms) -> varlink::Result<()> {
+                    self.reply_struct(varlink::Reply::error(#errorname, #parms))
+                }
+            ));
+        }
+        ts.extend(quote!(
+            #error_structs_and_enums
+            pub trait VarlinkCallError: varlink::CallTrait {
+                #funcs
+            }
+        ));
+    }
+    ts.extend(quote!(
+        impl<'a> VarlinkCallError for varlink::Call<'a> {}
+
+        #[derive(Debug)]
+        pub struct Error {
+            inner: Context<ErrorKind>,
+        }
+    ));
+    {
+        let mut errors = Vec::new();
+        for t in iface.errors.values() {
+            errors.push(
+                TokenStream::from_str(&format!(
+                    "#[fail(display = \"{iname}.{ename}: {{:#?}}\", \
+                     _0)]{ename}(Option<{ename}_Args>)",
+                    ename = t.name,
+                    iname = iface.name,
+                ))
+                .unwrap(),
+            );
+        }
+
+        ts.extend(quote!(
+            #[derive(Clone, PartialEq, Debug, Fail)]
+            pub enum ErrorKind {
+                #[fail(display = "IO error")]
+                Io_Error(::std::io::ErrorKind),
+                #[fail(display = "(De)Serialization Error")]
+                SerdeJson_Error(serde_json::error::Category),
+                #[fail(display = "Varlink Error")]
+                Varlink_Error(varlink::ErrorKind),
+                #[fail(display = "Unknown error reply: '{:#?}'", _0)]
+                VarlinkReply_Error(varlink::Reply),
+                #(#errors),*
+            }
+        ));
+    }
+    ts.extend(quote!(
+    impl Fail for Error {
+        fn cause(&self) -> Option<&Fail> {
+            self.inner.cause()
+        }
+
+        fn backtrace(&self) -> Option<&Backtrace> {
+            self.inner.backtrace()
+        }
+    }
+
+    impl ::std::fmt::Display for Error {
+        fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+            ::std::fmt::Display::fmt(&self.inner, f)
+        }
+    }
+
+    impl Error {
+        #[allow(dead_code)]
+        pub fn kind(&self) -> ErrorKind {
+            self.inner.get_context().clone()
+        }
+    }
+
+    impl From<ErrorKind> for Error {
+        fn from(kind: ErrorKind) -> Error {
+            Error {
+                inner: Context::new(kind),
+            }
+        }
+    }
+
+    impl From<Context<ErrorKind>> for Error {
+        fn from(inner: Context<ErrorKind>) -> Error {
+            Error { inner }
+        }
+    }
+
+    impl From<::std::io::Error> for Error {
+        fn from(e: ::std::io::Error) -> Error {
+            let kind = e.kind();
+            e.context(ErrorKind::Io_Error(kind)).into()
+        }
+    }
+
+    impl From<serde_json::Error> for Error {
+        fn from(e: serde_json::Error) -> Error {
+            let cat = e.classify();
+            e.context(ErrorKind::SerdeJson_Error(cat)).into()
+        }
+    }
+
+    #[allow(dead_code)]
+    pub type Result<T> = ::std::result::Result<T, Error>;
+
+    impl From<varlink::Error> for Error {
+        fn from(e: varlink::Error) -> Self {
+            let kind = e.kind();
+            match kind {
+                varlink::ErrorKind::Io(kind) => e.context(ErrorKind::Io_Error(kind)).into(),
+                varlink::ErrorKind::SerdeJsonSer(cat) => e.context(ErrorKind::SerdeJson_Error(cat)).into(),
+                kind => e.context(ErrorKind::Varlink_Error(kind)).into(),
+            }
+        }
+    }
+        ));
+    {
+        let mut arms = TokenStream::new();
+        for t in iface.errors.values() {
+            let error_name = format!("{iname}.{ename}", iname = iface.name, ename = t.name);
+            let ename = TokenStream::from_str(&format!("ErrorKind::{}", t.name)).unwrap();
+            arms.extend(quote!(
+                varlink::Reply { error: Some(ref t), .. } if t == #error_name => {
+                    match e {
+                       varlink::Reply {
+                           parameters: Some(p),
+                           ..
+                       } => match serde_json::from_value(p) {
+                           Ok(v) => #ename(v).into(),
+                           Err(_) => #ename(None).into(),
+                       },
+                       _ => #ename(None).into(),
+                    }
+                }
+            ));
+        }
+
+        ts.extend(quote!(
+            impl From<varlink::Reply> for Error {
+                fn from(e: varlink::Reply) -> Self {
+                    if varlink::Error::is_error(&e) {
+                        return varlink::Error::from(e).into();
+                    }
+
+                    match e {
+                    #arms
+                    _ => ErrorKind::VarlinkReply_Error(e).into(),
+                    }
+                }
+            }
+        ));
+    }
 }
 
 /**

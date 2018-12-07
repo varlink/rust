@@ -206,6 +206,7 @@ fn get_abstract_unixlistener(_addr: &str) -> Result<UnixListener> {
 }
 
 impl Listener {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new<S: ?Sized + AsRef<str>>(address: &S) -> Result<Self> {
         let address = address.as_ref();
         if let Some(l) = activation_listener()? {

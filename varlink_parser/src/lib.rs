@@ -398,7 +398,7 @@ impl<'a> Format for VStruct<'a> {
                 );
             }
             for elt in iter {
-                f += &format!(",\n");
+                f += ",\n";
                 let line = elt.get_oneline();
                 if line.len() + indent + 2 < max {
                     f += &format!("{:indent$}{}", "", line, indent = indent + 2);
@@ -597,7 +597,7 @@ impl<'a> Format for Interface<'a> {
         if !self.doc.is_empty() {
             f += &self
                 .doc
-                .split("\n")
+                .split('\n')
                 .map(|s| format!("{:indent$}{}", "", s, indent = indent))
                 .collect::<Vec<String>>()
                 .join("\n");
@@ -647,7 +647,7 @@ impl<'a> Format for Interface<'a> {
             if !m.doc.is_empty() {
                 f += &m
                     .doc
-                    .split("\n")
+                    .split('\n')
                     .map(|s| format!("{:indent$}{}", "", s, indent = indent))
                     .collect::<Vec<String>>()
                     .join("\n");
@@ -710,7 +710,7 @@ impl<'a> Format for Interface<'a> {
             if !t.doc.is_empty() {
                 f += &t
                     .doc
-                    .split("\n")
+                    .split('\n')
                     .map(|s| format!("{:indent$}{}", "", s, indent = indent))
                     .collect::<Vec<String>>()
                     .join("\n");
@@ -807,7 +807,7 @@ impl<'a> FormatColored for Interface<'a> {
         if !self.doc.is_empty() {
             f += &self
                 .doc
-                .split("\n")
+                .split('\n')
                 .map(|s| format!("{:indent$}{}", "", Colour::Blue.paint(s), indent = indent))
                 .collect::<Vec<String>>()
                 .join("\n");
@@ -827,7 +827,7 @@ impl<'a> FormatColored for Interface<'a> {
                 f += &t
                     .doc
                     .to_string()
-                    .split("\n")
+                    .split('\n')
                     .map(|s| format!("{:indent$}{}", "", Colour::Blue.paint(s), indent = indent))
                     .collect::<Vec<String>>()
                     .join("\n");
@@ -863,7 +863,7 @@ impl<'a> FormatColored for Interface<'a> {
                 f += &m
                     .doc
                     .to_string()
-                    .split("\n")
+                    .split('\n')
                     .map(|s| format!("{:indent$}{}", "", Colour::Blue.paint(s), indent = indent))
                     .collect::<Vec<String>>()
                     .join("\n");
@@ -928,7 +928,7 @@ impl<'a> FormatColored for Interface<'a> {
                 f += &t
                     .doc
                     .to_string()
-                    .split("\n")
+                    .split('\n')
                     .map(|s| format!("{:indent$}{}", "", Colour::Blue.paint(s), indent = indent))
                     .collect::<Vec<String>>()
                     .join("\n");

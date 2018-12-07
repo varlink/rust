@@ -803,6 +803,7 @@ impl Connection {
 
      see [with_address](#method.with_address)
     **/
+    #[allow(clippy::new_ret_no_self)]
     pub fn new<S: ?Sized + AsRef<str>>(address: &S) -> Result<Arc<RwLock<Self>>> {
         Self::with_address(address)
     }

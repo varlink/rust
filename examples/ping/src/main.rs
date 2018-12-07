@@ -173,6 +173,7 @@ mod multiplex {
         fn chain_buffer(&mut self, buf: &mut Vec<u8>) {
             self.buffer.as_mut().unwrap().append(buf);
         }
+        #[allow(clippy::ptr_arg)]
         fn fill_buffer(&mut self, buf: &Vec<u8>) {
             self.buffer.as_mut().unwrap().clone_from(buf);
         }
@@ -405,7 +406,7 @@ mod multiplex {
                 fds.remove(i);
             }
 
-            let r = unsafe { libc::poll(fds.as_mut_ptr(), (fds.len() as u32).into(), timeout) };
+            let r = unsafe { libc::poll(fds.as_mut_ptr(), fds.len() as u32, timeout) };
 
             if r < 0 {
                 for t in threads {
@@ -438,18 +439,18 @@ fn run_server(address: &str, timeout: u64, multiplex: bool) -> varlink::Result<(
     );
 
     #[cfg(windows)]
-    {
-        let _ = multiplex;
-        varlink::listen(service, &address, 1, 10, timeout)?;
-    }
-    #[cfg(unix)]
-    {
-        if multiplex {
-            // Demonstrate a single process, single-threaded service
-            multiplex::listen_multiplex(service, &address, timeout)?;
-        } else {
+        {
+            let _ = multiplex;
             varlink::listen(service, &address, 1, 10, timeout)?;
         }
-    }
+    #[cfg(unix)]
+        {
+            if multiplex {
+                // Demonstrate a single process, single-threaded service
+                multiplex::listen_multiplex(service, &address, timeout)?;
+            } else {
+                varlink::listen(service, &address, 1, 10, timeout)?;
+            }
+        }
     Ok(())
 }

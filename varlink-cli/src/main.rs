@@ -1,20 +1,23 @@
-use clap::{App, Arg, SubCommand};
-use colored_json::{ColorMode, ColoredFormatter, Colour, Output, PrettyFormatter, Style, Styler};
-use crate::error::{ErrorKind, Result};
-use failure::ResultExt;
-#[cfg(unix)]
-use crate::proxy::{handle, handle_connect};
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 use std::str;
+
+use clap::{App, Arg, SubCommand};
+use colored_json::{ColorMode, ColoredFormatter, Colour, Output, PrettyFormatter, Style, Styler};
+use failure::ResultExt;
+
 use varlink::{
     Connection, GetInterfaceDescriptionReply, MethodCall, OrgVarlinkServiceClient,
     OrgVarlinkServiceInterface,
 };
 use varlink_parser::{Format, FormatColored, Varlink};
 use varlink_stdinterfaces::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
+
+use crate::error::{ErrorKind, Result};
+#[cfg(unix)]
+use crate::proxy::{handle, handle_connect};
 
 #[cfg(test)]
 mod test;
@@ -29,17 +32,18 @@ fn varlink_format(filename: &str, line_len: Option<&str>, should_colorize: bool)
     File::open(Path::new(filename))?.read_to_string(&mut buffer)?;
 
     let v = Varlink::from_string(&buffer)?;
-    match should_colorize {
-        true => println!(
+    if should_colorize {
+        println!(
             "{}",
             v.interface
                 .get_multiline_colored(0, line_len.unwrap_or("80").parse::<usize>().unwrap_or(80))
-        ),
-        false => println!(
+        );
+    } else {
+        println!(
             "{}",
             v.interface
                 .get_multiline(0, line_len.unwrap_or("80").parse::<usize>().unwrap_or(80))
-        ),
+        );
     };
     Ok(())
 }
@@ -140,23 +144,26 @@ fn varlink_help(
     match call.get_interface_description(interface.to_string())? {
         GetInterfaceDescriptionReply {
             description: Some(desc),
-        } => match should_colorize {
-            true => println!(
-                "{}",
-                Varlink::from_string(&desc)?
-                    .interface
-                    .get_multiline_colored(
-                        0,
-                        columns.unwrap_or("80").parse::<usize>().unwrap_or(80),
-                    )
-            ),
-            false => println!(
-                "{}",
-                Varlink::from_string(&desc)?
-                    .interface
-                    .get_multiline(0, columns.unwrap_or("80").parse::<usize>().unwrap_or(80))
-            ),
-        },
+        } => {
+            if should_colorize {
+                println!(
+                    "{}",
+                    Varlink::from_string(&desc)?
+                        .interface
+                        .get_multiline_colored(
+                            0,
+                            columns.unwrap_or("80").parse::<usize>().unwrap_or(80),
+                        )
+                );
+            } else {
+                println!(
+                    "{}",
+                    Varlink::from_string(&desc)?
+                        .interface
+                        .get_multiline(0, columns.unwrap_or("80").parse::<usize>().unwrap_or(80))
+                );
+            }
+        }
         _ => {
             return Err(ErrorKind::NoDescription(format!("No description for {}", url)).into());
         }
@@ -238,9 +245,10 @@ fn varlink_call(
         args,
     );
 
-    let color_mode = match should_colorize {
-        true => ColorMode::On,
-        false => ColorMode::Off,
+    let color_mode = if should_colorize {
+        ColorMode::On
+    } else {
+        ColorMode::Off
     };
 
     let cf = ColoredFormatter::with_styler(
@@ -255,7 +263,6 @@ fn varlink_call(
             bool_value: Colour::Purple.normal(),
             nil_value: Colour::Purple.normal(),
             string_include_quotation: false,
-            ..Default::default()
         },
     );
 
@@ -474,7 +481,7 @@ fn main() -> Result<()> {
         }
         ("info", Some(sub_matches)) => {
             let address = sub_matches.value_of("ADDRESS");
-            if address.is_none() & &activate.is_none() & &bridge.is_none() {
+            if address.is_none() && activate.is_none() && bridge.is_none() {
                 app.print_help().context(ErrorKind::Argument)?;
                 println!();
                 return Err(

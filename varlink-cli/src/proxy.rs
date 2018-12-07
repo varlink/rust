@@ -132,9 +132,9 @@ where
                 let copy1 = thread::spawn(move || copy(&mut client_reader, &mut service_writer));
                 let copy2 = thread::spawn(move || copy(&mut service_reader, &mut client_writer));
                 let r = copy1.join();
-                r.unwrap_or(Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
+                r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
                 let r = copy2.join();
-                r.unwrap_or(Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
+                r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
             }
             return Ok(true);
         }
@@ -235,9 +235,9 @@ where
                 let copy1 = thread::spawn(move || copy(&mut client_reader, &mut service_writer));
                 let copy2 = thread::spawn(move || copy(&mut service_reader, &mut client_writer));
                 let r = copy1.join();
-                r.unwrap_or(Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
+                r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
                 let r = copy2.join();
-                r.unwrap_or(Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
+                r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
             }
             return Ok(true);
         }

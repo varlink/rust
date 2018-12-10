@@ -237,7 +237,7 @@ use failure::ResultExt;
 use serde::de::{self, DeserializeOwned};
 use serde::ser::{Serialize, SerializeMap, Serializer};
 use serde_derive::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tempfile::TempDir;
 
 pub use crate::client::VarlinkStream;

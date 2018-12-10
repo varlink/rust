@@ -11,11 +11,11 @@ serde = "1"
 serde_derive = "1"
 serde_json = "1"
 getopts = "0"
-failure_derive = "0.1.2"
-failure = "0.1.2"
+failure_derive = "0.1"
+failure = "0.1"
 
 [build-dependencies]
-varlink_generator = { version = "5.1", path = "../varlink_generator" }
+varlink_generator = { version = "6", path = "../varlink_generator" }
 
 [dev-dependencies]
 escargot = "0.3"

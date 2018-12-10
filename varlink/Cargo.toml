@@ -14,6 +14,10 @@ readme = "README.md"
 keywords = ["varlink", "ipc", "rpc", "protocol"]
 categories = ["os", "development-tools", "network-programming"]
 
+[badges]
+travis-ci = { repository = "varlink/rust" }
+coveralls = { repository = "varlink/rust", branch = "master", service = "github" }
+
 [lib]
 name = "varlink"
 path = "src/lib.rs"
@@ -25,8 +29,8 @@ serde_derive = "1"
 serde_json = "1"
 bytes = "0"
 tempfile = "3"
-failure_derive = "0.1.2"
-failure = "0.1.2"
+failure_derive = "0.1"
+failure = "0.1"
 
 [target.'cfg(windows)'.dependencies]
 uds_windows = { version="0.1.0" }
@@ -35,7 +39,3 @@ winapi = { version = "0.3", features = ["winuser", "winsock2"] }
 [target.'cfg(unix)'.dependencies]
 libc = { version = "0", default-features = false }
 unix_socket = "0.5"
-
-[badges]
-travis-ci = { repository = "varlink/rust" }
-coveralls = { repository = "varlink/rust", branch = "master", service = "github" }

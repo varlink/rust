@@ -4,3 +4,4 @@ Cargo.lock
 /.DS_store
 .idea
 .project
+/varlink-certification/src/org_varlink_certification.rs

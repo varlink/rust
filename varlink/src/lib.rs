@@ -33,7 +33,7 @@ Add to your ```Cargo.toml```:
 [package]
 build = "build.rs"
 [build-dependencies]
-varlink_generator = "5.0"
+varlink_generator = "6"
 ```
 
 In your `main.rs` you can then use:

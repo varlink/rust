@@ -1,20 +1,20 @@
 extern crate varlink_generator;
 
-use std::fs::File;
-use std::io::prelude::*;
-// use std::process::Command;
-
-fn compare_files(a: std::path::PathBuf, b: std::path::PathBuf) -> bool {
-    let fa = File::open(a).unwrap();
-    let fb = File::open(b).unwrap();
-    fa.bytes()
-        .zip(fb.bytes())
-        .all(|(a, b)| a.unwrap() == b.unwrap())
-}
-
 #[cfg(unix)]
 #[test]
 fn test_generate() {
+    use std::fs::File;
+    use std::io::prelude::*;
+    // use std::process::Command;
+
+    fn compare_files(a: std::path::PathBuf, b: std::path::PathBuf) -> bool {
+        let fa = File::open(a).unwrap();
+        let fb = File::open(b).unwrap();
+        fa.bytes()
+            .zip(fb.bytes())
+            .all(|(a, b)| a.unwrap() == b.unwrap())
+    }
+
     std::env::set_var("OUT_DIR", std::env::temp_dir());
     varlink_generator::cargo_build("tests/org.example.complex.varlink");
     let mut path = std::path::PathBuf::from(std::env::temp_dir());

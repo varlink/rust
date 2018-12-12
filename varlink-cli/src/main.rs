@@ -333,6 +333,15 @@ fn main() -> Result<()> {
                 .default_value("unix:/run/org.varlink.resolver"),
         )
         .arg(
+            Arg::with_name("bridge")
+                .short("b")
+                .long("bridge")
+                .value_name("COMMAND")
+                .help("Command to execute and connect to")
+                .takes_value(true)
+                .required(false),
+        )
+        .arg(
             Arg::with_name("activate")
                 .short("A")
                 .long("activate")
@@ -443,19 +452,6 @@ fn main() -> Result<()> {
                         .help("The shell to generate the script for"),
                 ),
         );
-
-    #[cfg(unix)]
-    {
-        app = app.arg(
-            Arg::with_name("bridge")
-                .short("b")
-                .long("bridge")
-                .value_name("COMMAND")
-                .help("Command to execute and connect to")
-                .takes_value(true)
-                .required(false),
-        );
-    }
 
     let matches = app.clone().get_matches();
     let resolver = matches.value_of("resolver").unwrap();

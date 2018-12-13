@@ -16,7 +16,6 @@ use varlink_parser::{Format, FormatColored, Varlink};
 use varlink_stdinterfaces::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 
 use crate::error::{ErrorKind, Result};
-#[cfg(unix)]
 use crate::proxy::{handle, handle_connect};
 
 #[cfg(test)]
@@ -24,7 +23,6 @@ mod test;
 
 mod error;
 
-#[cfg(unix)]
 mod proxy;
 
 fn varlink_format(filename: &str, line_len: Option<&str>, should_colorize: bool) -> Result<()> {
@@ -297,6 +295,26 @@ fn varlink_bridge(address: Option<&str>) -> Result<()> {
     Ok(())
 }
 
+#[cfg(windows)]
+fn varlink_bridge(address: Option<&str>) -> Result<()> {
+    use std::os::windows::io::{AsRawHandle, FromRawHandle};
+
+    let stdin = ::std::io::stdin();
+    let stdout = ::std::io::stdout();
+
+    let inbuf = unsafe {
+        ::std::io::BufReader::new(::std::fs::File::from_raw_handle(stdin.as_raw_handle()))
+    };
+    let outw = unsafe { ::std::fs::File::from_raw_handle(stdout.as_raw_handle()) };
+
+    if let Some(address) = address {
+        handle_connect(address, inbuf, outw)?;
+    } else {
+        handle(inbuf, outw)?;
+    }
+    Ok(())
+}
+
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() -> Result<()> {
@@ -487,7 +505,6 @@ fn main() -> Result<()> {
 
             varlink_info(address, resolver, activate, bridge, color_bool)?
         }
-        #[cfg(unix)]
         ("bridge", Some(sub_matches)) => {
             let address = sub_matches.value_of("connect");
             varlink_bridge(address)?

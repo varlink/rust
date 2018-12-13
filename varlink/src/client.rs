@@ -74,21 +74,28 @@ pub fn varlink_exec<S: ?Sized + AsRef<str>>(
 
 #[cfg(windows)]
 pub fn varlink_bridge<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Child, VarlinkStream)> {
-    use std::os::windows::io::IntoRawSocket;
-    use std::os::windows::io::{FromRawHandle, RawHandle};
-    use std::process::Command;
+    use std::process::{Command, Stdio};
+    use std::thread;
+    use std::io::copy;
 
     let (stream0, stream1) = UnixStream::pair()?;
     let executable = address.as_ref();
-    let fd = stream1.into_raw_socket();
-    let childin: ::std::fs::File = unsafe { ::std::fs::File::from_raw_handle(fd as RawHandle) };
-    let childout: ::std::fs::File = unsafe { ::std::fs::File::from_raw_handle(fd as RawHandle) };
-    let child = Command::new("cmd")
+
+    let mut child = Command::new("cmd")
         .arg("/C")
         .arg(executable)
-        .stdin(childin)
-        .stdout(childout)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
         .spawn()?;
+
+    let mut client_writer = child.stdin.take().unwrap();
+    let mut client_reader = child.stdout.take().unwrap();
+    let mut service_writer =  stream1.try_clone()?;
+    let mut service_reader = stream1;
+
+    thread::spawn(move || copy(&mut client_reader, &mut service_writer));
+    thread::spawn(move || copy(&mut service_reader, &mut client_writer));
+
     Ok((child, VarlinkStream::UNIX(stream0)))
 }
 

@@ -6,6 +6,10 @@ use std::process::exit;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
+use chainerror::*;
+
+pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
+
 use varlink::{Connection, StringHashMap, StringHashSet, VarlinkService};
 
 use crate::org_varlink_certification::*;
@@ -60,14 +64,16 @@ fn main() -> Result<()> {
     if client_mode {
         let connection = match matches.opt_str("varlink") {
             None => match matches.opt_str("bridge") {
-                Some(bridge) => Connection::with_bridge(&bridge)?,
+                Some(bridge) => Connection::with_bridge(&bridge)
+                    .map_err(mstrerr!("Connection::with_bridge({})", bridge))?,
                 None => Connection::with_activate(&format!(
                     "{} \
                      --varlink=$VARLINK_ADDRESS",
                     program
                 ))?,
             },
-            Some(address) => Connection::with_address(&address)?,
+            Some(address) => Connection::with_address(&address)
+                .map_err(mstrerr!("Connection::with_address({})", address))?,
         };
         run_client(connection)?
     } else if let Some(address) = matches.opt_str("varlink") {
@@ -195,8 +201,12 @@ macro_rules! check_call_expr {
     ($c:ident, $pat:expr, $wants:expr) => {{
         let check = $pat;
         if !check {
-            let got: serde_json::Value = serde_json::to_value($c.get_request().unwrap())?;
-            return $c.reply_certification_error(serde_json::to_value($wants)?, got);
+            let got: serde_json::Value =
+                serde_json::to_value($c.get_request().unwrap()).map_err(minto_cherr!())?;
+            return $c.reply_certification_error(
+                serde_json::to_value($wants).map_err(minto_cherr!())?,
+                got,
+            );
         }
     }};
 }
@@ -231,8 +241,9 @@ macro_rules! check_call_normal {
             _ => false,
         };
         if !check {
-            let got: serde_json::Value = serde_json::to_value($c.get_request().unwrap())?;
-            let wants = serde_json::to_value(wants)?;
+            let got: serde_json::Value =
+                serde_json::to_value($c.get_request().unwrap()).map_err(minto_cherr!())?;
+            let wants = serde_json::to_value(wants).map_err(minto_cherr!())?;
             return $c.reply_certification_error(
                 serde_json::to_value(varlink::Request {
                     more: None,
@@ -240,7 +251,8 @@ macro_rules! check_call_normal {
                     upgrade: None,
                     method: $test.into(),
                     parameters: Some(wants),
-                })?,
+                })
+                .map_err(minto_cherr!())?,
                 got,
             );
         }
@@ -275,8 +287,9 @@ macro_rules! check_call_more {
             _ => false,
         };
         if !check {
-            let got: serde_json::Value = serde_json::to_value($c.get_request().unwrap())?;
-            let wants = serde_json::to_value(wants)?;
+            let got: serde_json::Value =
+                serde_json::to_value($c.get_request().unwrap()).map_err(minto_cherr!())?;
+            let wants = serde_json::to_value(wants).map_err(minto_cherr!())?;
             return $c.reply_certification_error(
                 serde_json::to_value(varlink::Request {
                     more: None,
@@ -284,7 +297,8 @@ macro_rules! check_call_more {
                     upgrade: None,
                     method: $test.into(),
                     parameters: Some(wants),
-                })?,
+                })
+                .map_err(minto_cherr!())?,
                 got,
             );
         }
@@ -319,8 +333,9 @@ macro_rules! check_call_oneway {
             _ => false,
         };
         if !check {
-            let got: serde_json::Value = serde_json::to_value($c.get_request().unwrap())?;
-            let wants = serde_json::to_value(wants)?;
+            let got: serde_json::Value =
+                serde_json::to_value($c.get_request().unwrap()).map_err(minto_cherr!())?;
+            let wants = serde_json::to_value(wants).map_err(minto_cherr!())?;
             return $c.reply_certification_error(
                 serde_json::to_value(varlink::Request {
                     more: None,
@@ -328,7 +343,8 @@ macro_rules! check_call_oneway {
                     upgrade: None,
                     method: $test.into(),
                     parameters: Some(wants),
-                })?,
+                })
+                .map_err(minto_cherr!())?,
                 got,
             );
         }
@@ -581,7 +597,7 @@ impl VarlinkInterface for CertInterface {
             Test09_Args { client_id, set }
         );
 
-        call.reply(new_mytype()?)
+        call.reply(new_mytype().map_err(minto_cherr!())?)
     }
 
     fn test10(
@@ -599,7 +615,7 @@ impl VarlinkInterface for CertInterface {
             Test10_Args,
             Test10_Args {
                 client_id,
-                mytype: new_mytype()?,
+                mytype: new_mytype().map_err(minto_cherr!())?,
             }
         );
 

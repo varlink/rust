@@ -233,7 +233,7 @@ use std::ops::{Deref, DerefMut};
 use std::process::Child;
 use std::sync::{Arc, RwLock};
 
-use failure::ResultExt;
+use chainerror::*;
 use serde::de::{self, DeserializeOwned};
 use serde::ser::{Serialize, SerializeMap, Serializer};
 use serde_derive::{Deserialize, Serialize};
@@ -273,7 +273,7 @@ pub struct ErrorMethodNotFound {
     pub method: Option<String>,
 }
 
-impl From<Reply> for Error {
+impl From<Reply> for ErrorKind {
     fn from(e: Reply) -> Self {
         match e {
             Reply {
@@ -283,10 +283,10 @@ impl From<Reply> for Error {
                     parameters: Some(p),
                     ..
                 } => match serde_json::from_value::<ErrorInterfaceNotFound>(p) {
-                    Ok(v) => ErrorKind::InterfaceNotFound(v.interface.unwrap_or_default()).into(),
-                    Err(_) => ErrorKind::InterfaceNotFound(String::new()).into(),
+                    Ok(v) => ErrorKind::InterfaceNotFound(v.interface.unwrap_or_default()),
+                    Err(_) => ErrorKind::InterfaceNotFound(String::new()),
                 },
-                _ => ErrorKind::InterfaceNotFound(String::new()).into(),
+                _ => ErrorKind::InterfaceNotFound(String::new()),
             },
             Reply {
                 error: Some(ref t), ..
@@ -295,10 +295,10 @@ impl From<Reply> for Error {
                     parameters: Some(p),
                     ..
                 } => match serde_json::from_value::<ErrorInvalidParameter>(p) {
-                    Ok(v) => ErrorKind::InvalidParameter(v.parameter.unwrap_or_default()).into(),
-                    Err(_) => ErrorKind::InvalidParameter(String::new()).into(),
+                    Ok(v) => ErrorKind::InvalidParameter(v.parameter.unwrap_or_default()),
+                    Err(_) => ErrorKind::InvalidParameter(String::new()),
                 },
-                _ => ErrorKind::InvalidParameter(String::new()).into(),
+                _ => ErrorKind::InvalidParameter(String::new()),
             },
             Reply {
                 error: Some(ref t), ..
@@ -307,10 +307,10 @@ impl From<Reply> for Error {
                     parameters: Some(p),
                     ..
                 } => match serde_json::from_value::<ErrorMethodNotFound>(p) {
-                    Ok(v) => ErrorKind::MethodNotFound(v.method.unwrap_or_default()).into(),
-                    Err(_) => ErrorKind::MethodNotFound(String::new()).into(),
+                    Ok(v) => ErrorKind::MethodNotFound(v.method.unwrap_or_default()),
+                    Err(_) => ErrorKind::MethodNotFound(String::new()),
                 },
-                _ => ErrorKind::MethodNotFound(String::new()).into(),
+                _ => ErrorKind::MethodNotFound(String::new()),
             },
             Reply {
                 error: Some(ref t), ..
@@ -319,17 +319,17 @@ impl From<Reply> for Error {
                     parameters: Some(p),
                     ..
                 } => match serde_json::from_value::<ErrorMethodNotImplemented>(p) {
-                    Ok(v) => ErrorKind::MethodNotImplemented(v.method.unwrap_or_default()).into(),
-                    Err(_) => ErrorKind::MethodNotImplemented(String::new()).into(),
+                    Ok(v) => ErrorKind::MethodNotImplemented(v.method.unwrap_or_default()),
+                    Err(_) => ErrorKind::MethodNotImplemented(String::new()),
                 },
-                _ => ErrorKind::MethodNotImplemented(String::new()).into(),
+                _ => ErrorKind::MethodNotImplemented(String::new()),
             },
-            _ => ErrorKind::VarlinkErrorReply(e).into(),
+            _ => ErrorKind::VarlinkErrorReply(e),
         }
     }
 }
 
-impl Error {
+impl ErrorKind {
     pub fn is_error(r: &Reply) -> bool {
         match r.error {
             Some(ref t) => match t.as_ref() {
@@ -669,9 +669,12 @@ pub trait CallTrait {
     fn reply_method_not_found(&mut self, method_name: String) -> Result<()> {
         self.reply_struct(Reply::error(
             "org.varlink.service.MethodNotFound",
-            Some(serde_json::to_value(ErrorMethodNotFound {
-                method: Some(method_name),
-            })?),
+            Some(
+                serde_json::to_value(ErrorMethodNotFound {
+                    method: Some(method_name),
+                })
+                .map_err(minto_cherr!())?,
+            ),
         ))
     }
 
@@ -679,9 +682,12 @@ pub trait CallTrait {
     fn reply_method_not_implemented(&mut self, method_name: String) -> Result<()> {
         self.reply_struct(Reply::error(
             "org.varlink.service.MethodNotImplemented",
-            Some(serde_json::to_value(ErrorMethodNotImplemented {
-                method: Some(method_name),
-            })?),
+            Some(
+                serde_json::to_value(ErrorMethodNotImplemented {
+                    method: Some(method_name),
+                })
+                .map_err(minto_cherr!())?,
+            ),
         ))
     }
 
@@ -689,26 +695,31 @@ pub trait CallTrait {
     fn reply_invalid_parameter(&mut self, parameter_name: String) -> Result<()> {
         self.reply_struct(Reply::error(
             "org.varlink.service.InvalidParameter",
-            Some(serde_json::to_value(ErrorInvalidParameter {
-                parameter: Some(parameter_name),
-            })?),
+            Some(
+                serde_json::to_value(ErrorInvalidParameter {
+                    parameter: Some(parameter_name),
+                })
+                .map_err(minto_cherr!())?,
+            ),
         ))
     }
 }
 
 impl<'a> CallTrait for Call<'a> {
     fn reply_struct(&mut self, mut reply: Reply) -> Result<()> {
-        if self.continues && !self.wants_more() {
-            return Err(ErrorKind::CallContinuesMismatch.into());
+        if self.continues && (!self.wants_more()) {
+            return Err(into_cherr!(ErrorKind::CallContinuesMismatch));
         }
         if self.continues {
             reply.continues = Some(true);
         }
         //serde_json::to_writer(&mut *self.writer, &reply)?;
-        let b = serde_json::to_string(&reply)? + "\0";
+        let b = serde_json::to_string(&reply).map_err(minto_cherr!())? + "\0";
 
-        self.writer.write_all(b.as_bytes())?;
-        self.writer.flush()?;
+        self.writer
+            .write_all(b.as_bytes())
+            .map_err(minto_cherr!())?;
+        self.writer.flush().map_err(minto_cherr!())?;
         Ok(())
     }
 
@@ -766,9 +777,10 @@ impl<'a> Call<'a> {
         self.reply_struct(Reply::error(
             "org.varlink.service.InterfaceNotFound",
             match arg {
-                Some(a) => Some(serde_json::to_value(ErrorInterfaceNotFound {
-                    interface: Some(a),
-                })?),
+                Some(a) => Some(
+                    serde_json::to_value(ErrorInterfaceNotFound { interface: Some(a) })
+                        .map_err(minto_cherr!())?,
+                ),
                 None => None,
             },
         ))
@@ -777,10 +789,12 @@ impl<'a> Call<'a> {
     fn reply_parameters(&mut self, parameters: Value) -> Result<()> {
         let reply = Reply::parameters(Some(parameters));
         //serde_json::to_writer(&mut *self.writer, &reply)?;
-        let b = serde_json::to_string(&reply)? + "\0";
+        let b = serde_json::to_string(&reply).map_err(minto_cherr!())? + "\0";
 
-        self.writer.write_all(b.as_bytes())?;
-        self.writer.flush()?;
+        self.writer
+            .write_all(b.as_bytes())
+            .map_err(minto_cherr!())?;
+        self.writer.flush().map_err(minto_cherr!())?;
         Ok(())
     }
 }
@@ -931,10 +945,10 @@ pub struct MethodCall<MRequest, MReply, MError>
 where
     MRequest: Serialize,
     MReply: DeserializeOwned,
-    MError: std::convert::From<Error>
-        + std::convert::From<std::io::Error>
-        + std::convert::From<serde_json::Error>
-        + std::convert::From<Reply>,
+    MError: chainerror::ChainErrorFrom<ErrorKind>
+        + chainerror::ChainErrorFrom<Reply>
+        + chainerror::ChainErrorFrom<serde_json::error::Error>
+        + chainerror::ChainErrorFrom<::std::io::Error>,
 {
     connection: Arc<RwLock<Connection>>,
     request: Option<MRequest>,
@@ -950,10 +964,10 @@ impl<MRequestParameters, MReply, MError> MethodCall<MRequestParameters, MReply, 
 where
     MRequestParameters: Serialize,
     MReply: DeserializeOwned,
-    MError: std::convert::From<Error>
-        + std::convert::From<std::io::Error>
-        + std::convert::From<serde_json::Error>
-        + std::convert::From<Reply>,
+    MError: chainerror::ChainErrorFrom<ErrorKind>
+        + chainerror::ChainErrorFrom<Reply>
+        + chainerror::ChainErrorFrom<serde_json::error::Error>
+        + chainerror::ChainErrorFrom<::std::io::Error>,
 {
     pub fn new<S: Into<Cow<'static, str>>>(
         connection: Arc<RwLock<Connection>>,
@@ -972,25 +986,21 @@ where
         }
     }
 
-    fn send(
-        &mut self,
-        oneway: bool,
-        more: bool,
-        upgrade: bool,
-    ) -> ::std::result::Result<(), MError> {
+    fn send(&mut self, oneway: bool, more: bool, upgrade: bool) -> ChainResult<(), MError> {
         {
             let mut conn = self.connection.write().unwrap();
             let mut req = match (self.method.take(), self.request.take()) {
-                (Some(method), Some(request)) => {
-                    Request::create(method, Some(serde_json::to_value(request)?))
-                }
+                (Some(method), Some(request)) => Request::create(
+                    method,
+                    Some(serde_json::to_value(request).map_err(minto_cherr!())?),
+                ),
                 _ => {
-                    return Err(Error::from(ErrorKind::MethodCalledAlready).into());
+                    return Err(into_cherr!(ErrorKind::MethodCalledAlready));
                 }
             };
 
             if conn.reader.is_none() || conn.writer.is_none() {
-                return Err(Error::from(ErrorKind::ConnectionBusy).into());
+                return Err(into_cherr!(ErrorKind::ConnectionBusy));
             }
 
             if oneway {
@@ -1009,10 +1019,10 @@ where
 
             let mut w = conn.writer.take().unwrap();
 
-            let b = serde_json::to_string(&req)? + "\0";
+            let b = serde_json::to_string(&req).map_err(minto_cherr!())? + "\0";
 
-            w.write_all(b.as_bytes())?;
-            w.flush()?;
+            w.write_all(b.as_bytes()).map_err(minto_cherr!())?;
+            w.flush().map_err(minto_cherr!())?;
             if oneway {
                 conn.writer = Some(w);
             } else {
@@ -1022,45 +1032,43 @@ where
         Ok(())
     }
 
-    pub fn call(&mut self) -> ::std::result::Result<MReply, MError> {
+    pub fn call(&mut self) -> ChainResult<MReply, MError> {
         self.send(false, false, false)?;
         self.recv()
     }
 
-    pub fn upgrade(&mut self) -> ::std::result::Result<MReply, MError> {
+    pub fn upgrade(&mut self) -> ChainResult<MReply, MError> {
         self.send(false, false, true)?;
         self.recv()
     }
 
-    pub fn oneway(&mut self) -> ::std::result::Result<(), MError> {
+    pub fn oneway(&mut self) -> ChainResult<(), MError> {
         self.send(true, false, false)
     }
 
-    pub fn more(&mut self) -> ::std::result::Result<&mut Self, MError> {
+    pub fn more(&mut self) -> ChainResult<&mut Self, MError> {
         self.continues = true;
         self.send(false, true, false)?;
         Ok(self)
     }
 
-    pub fn recv(&mut self) -> ::std::result::Result<MReply, MError> {
+    pub fn recv(&mut self) -> ChainResult<MReply, MError> {
         if self.reader.is_none() || self.writer.is_none() {
-            return Err(Error::from(ErrorKind::IteratorOldReply).into());
+            return Err(into_cherr!(ErrorKind::IteratorOldReply));
         }
 
         let mut buf = Vec::new();
 
         let mut reader = self.reader.take().unwrap();
-        reader.read_until(0, &mut buf)?;
+        reader
+            .read_until(0, &mut buf)
+            .map_err(minto_cherr!())?;
         self.reader = Some(reader);
         if buf.is_empty() {
-            return Err(Error::from(ErrorKind::ConnectionClosed))?;
+            return Err(into_cherr!(ErrorKind::ConnectionClosed));
         }
         buf.pop();
-        let reply: Reply = serde_json::from_slice(&buf)
-            .context(ErrorKind::SerdeJsonDe(
-                String::from_utf8_lossy(&buf).to_string(),
-            ))
-            .map_err(Error::from)?;
+        let reply: Reply = serde_json::from_slice(&buf).map_err(minto_cherr!())?;
         match reply.continues {
             Some(true) => self.continues = true,
             _ => {
@@ -1071,7 +1079,7 @@ where
             }
         }
         if reply.error != None {
-            return Err(MError::from(reply));
+            return Err(into_cherr!(reply));
         }
 
         match reply {
@@ -1079,14 +1087,15 @@ where
                 parameters: Some(p),
                 ..
             } => {
-                let mreply: MReply = serde_json::from_value(p)?;
+                let mreply: MReply = serde_json::from_value(p).map_err(minto_cherr!())?;
                 Ok(mreply)
             }
             Reply {
                 parameters: None, ..
             } => {
                 let mreply: MReply =
-                    serde_json::from_value(serde_json::Value::Object(serde_json::Map::new()))?;
+                    serde_json::from_value(serde_json::Value::Object(serde_json::Map::new()))
+                        .map_err(minto_cherr!())?;
                 Ok(mreply)
             }
         }
@@ -1097,13 +1106,13 @@ impl<MRequest, MReply, MError> Iterator for MethodCall<MRequest, MReply, MError>
 where
     MRequest: Serialize,
     MReply: DeserializeOwned,
-    MError: std::convert::From<Error>
-        + std::convert::From<std::io::Error>
-        + std::convert::From<serde_json::Error>
-        + std::convert::From<Reply>,
+    MError: chainerror::ChainErrorFrom<ErrorKind>
+        + chainerror::ChainErrorFrom<Reply>
+        + chainerror::ChainErrorFrom<serde_json::error::Error>
+        + chainerror::ChainErrorFrom<::std::io::Error>,
 {
-    type Item = ::std::result::Result<MReply, MError>;
-    fn next(&mut self) -> Option<::std::result::Result<MReply, MError>> {
+    type Item = ChainResult<MReply, MError>;
+    fn next(&mut self) -> Option<ChainResult<MReply, MError>> {
         if !self.continues {
             return None;
         }
@@ -1157,7 +1166,7 @@ pub trait OrgVarlinkServiceInterface {
 
 impl OrgVarlinkServiceInterface for OrgVarlinkServiceClient {
     fn get_info(&mut self) -> Result<ServiceInfo> {
-        MethodCall::<GetInfoArgs, ServiceInfo, Error>::new(
+        MethodCall::<GetInfoArgs, ServiceInfo, ErrorKind>::new(
             self.connection.clone(),
             "org.varlink.service.GetInfo",
             GetInfoArgs {},
@@ -1168,7 +1177,7 @@ impl OrgVarlinkServiceInterface for OrgVarlinkServiceClient {
         &mut self,
         interface: S,
     ) -> Result<GetInterfaceDescriptionReply> {
-        MethodCall::<GetInterfaceDescriptionArgs, GetInterfaceDescriptionReply, Error>::new(
+        MethodCall::<GetInterfaceDescriptionArgs, GetInterfaceDescriptionReply, ErrorKind>::new(
             self.connection.clone(),
             "org.varlink.service.GetInterfaceDescription",
             GetInterfaceDescriptionArgs {
@@ -1231,13 +1240,14 @@ error InvalidParameter (parameter: string)
     fn call(&self, call: &mut Call) -> Result<()> {
         let req = call.request.unwrap();
         match req.method.as_ref() {
-            "org.varlink.service.GetInfo" => {
-                call.reply_parameters(serde_json::to_value(&self.info)?)
-            }
+            "org.varlink.service.GetInfo" => call.reply_parameters(
+                serde_json::to_value(&self.info).map_err(minto_cherr!())?,
+            ),
             "org.varlink.service.GetInterfaceDescription" => match req.parameters.as_ref() {
                 None => call.reply_invalid_parameter("parameters".into()),
                 Some(val) => {
-                    let args: GetInterfaceDescriptionArgs = serde_json::from_value(val.clone())?;
+                    let args: GetInterfaceDescriptionArgs =
+                        serde_json::from_value(val.clone()).map_err(minto_cherr!())?;
                     match args.interface.as_ref() {
                         "org.varlink.service" => {
                             call.reply_parameters(json!({"description": self.get_description()}))
@@ -1418,7 +1428,9 @@ impl ConnectionHandler for VarlinkService {
             }
 
             let mut buf = Vec::new();
-            let len = bufreader.read_until(b'\0', &mut buf)?;
+            let len = bufreader
+                .read_until(b'\0', &mut buf)
+                .map_err(minto_cherr!())?;
 
             if len == 0 {
                 // EOF
@@ -1432,9 +1444,13 @@ impl ConnectionHandler for VarlinkService {
 
             // pop the last zero byte
             buf.pop();
-            let req: Request = serde_json::from_slice(&buf).context(ErrorKind::SerdeJsonDe(
-                String::from_utf8_lossy(&buf).to_string(),
-            ))?;
+
+            let req: Request = serde_json::from_slice(&buf).map_err(|e| {
+                cherr!(
+                    e,
+                    ErrorKind::SerdeJsonDe(String::from_utf8_lossy(&buf).to_string())
+                )
+            })?;
 
             let n: usize = match req.method.rfind('.') {
                 None => {

@@ -14,11 +14,11 @@ extern crate varlink_generator;
 use std::env;
 use std::fs::File;
 use std::io;
-use std::io::{Error, ErrorKind};
 use std::io::{Read, Write};
 use std::path::Path;
 
-use varlink_generator::{generate, Result};
+use chainerror::*;
+use varlink_generator::{generate, Error, Result};
 
 fn print_usage(program: &str, opts: &getopts::Options) {
     let brief = format!("Usage: {} [VARLINK FILE]", program);
@@ -38,7 +38,7 @@ fn main() -> Result<()> {
         Err(f) => {
             eprintln!("{}", f.to_string());
             print_usage(&program, &opts);
-            return Err(Error::from(ErrorKind::InvalidData).into());
+            return Err(strerr!(Error, "Invalid Arguments"));
         }
     };
 
@@ -55,7 +55,13 @@ fn main() -> Result<()> {
             if matches.free[0] == "-" {
                 Box::new(io::stdin())
             } else {
-                Box::new(File::open(Path::new(&matches.free[0]))?)
+                Box::new(
+                    File::open(Path::new(&matches.free[0])).map_err(mstrerr!(
+                        Error,
+                        "Failed to open '{}'",
+                        &matches.free[0]
+                    ))?,
+                )
             }
         }
     };

@@ -1,7 +1,8 @@
-use crate::Result;
-use std::io;
+use chainerror::*;
 use std::{thread, time};
 use varlink::Connection;
+
+pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
 
 fn run_self_test(address: String) -> Result<()> {
     let client_address = address.clone();
@@ -22,8 +23,8 @@ fn run_self_test(address: String) -> Result<()> {
     if let Err(e) = ret {
         panic!("error: {:?}", e);
     }
-    if let Err(e) = child.join() {
-        Err(io::Error::new(io::ErrorKind::ConnectionRefused, format!("{:#?}", e)).into())
+    if let Err(_) = child.join() {
+        Err(strerr!("Error joining thread").into())
     } else {
         Ok(())
     }
@@ -49,12 +50,11 @@ fn test_tcp() -> Result<()> {
 #[test]
 fn test_exec() -> Result<()> {
     use escargot::CargoBuild;
-    use failure::ResultExt;
     fn get_exec() -> Result<String> {
         let runner = CargoBuild::new()
             .current_release()
             .run()
-            .context(crate::ErrorKind::Io_Error(::std::io::ErrorKind::NotFound))?;
+            .map_err(mstrerr!("Error running CargoBuild"))?;
         Ok(runner.path().to_owned().to_string_lossy().to_string())
     }
 

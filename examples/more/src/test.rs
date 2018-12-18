@@ -1,5 +1,5 @@
 use crate::Result;
-use std::io;
+use chainerror::*;
 use std::{thread, time};
 use varlink::Connection;
 
@@ -22,8 +22,8 @@ fn run_self_test(address: String) -> Result<()> {
     if let Err(e) = ret {
         panic!("error: {}", e);
     }
-    if let Err(e) = child.join() {
-        Err(io::Error::new(io::ErrorKind::ConnectionRefused, format!("{:#?}", e)).into())
+    if let Err(_) = child.join() {
+        Err(strerr!("Error joining thread").into())
     } else {
         Ok(())
     }

@@ -1,8 +1,9 @@
 //! Handle network connections for a varlink service
 #![allow(dead_code)]
 
-use crate::{ErrorKind, Result};
-use failure::Fail;
+use crate::error::*;
+use chainerror::*;
+
 //#![feature(getpid)]
 //use std::process;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -39,14 +40,20 @@ impl<'a> Stream {
     #[allow(dead_code)]
     pub fn split(&mut self) -> Result<(Box<Read + Send + Sync>, Box<Write + Send + Sync>)> {
         match *self {
-            Stream::TCP(ref mut s) => Ok((Box::new(s.try_clone()?), Box::new(s.try_clone()?))),
-            Stream::UNIX(ref mut s) => Ok((Box::new(s.try_clone()?), Box::new(s.try_clone()?))),
+            Stream::TCP(ref mut s) => Ok((
+                Box::new(s.try_clone().map_err(minto_cherr!())?),
+                Box::new(s.try_clone().map_err(minto_cherr!())?),
+            )),
+            Stream::UNIX(ref mut s) => Ok((
+                Box::new(s.try_clone().map_err(minto_cherr!())?),
+                Box::new(s.try_clone().map_err(minto_cherr!())?),
+            )),
         }
     }
     pub fn shutdown(&mut self) -> Result<()> {
         match *self {
-            Stream::TCP(ref mut s) => s.shutdown(Shutdown::Both)?,
-            Stream::UNIX(ref mut s) => s.shutdown(Shutdown::Both)?,
+            Stream::TCP(ref mut s) => s.shutdown(Shutdown::Both).map_err(minto_cherr!())?,
+            Stream::UNIX(ref mut s) => s.shutdown(Shutdown::Both).map_err(minto_cherr!())?,
         }
         Ok(())
     }
@@ -61,11 +68,11 @@ impl<'a> Stream {
     pub fn set_nonblocking(&mut self, b: bool) -> Result<()> {
         match *self {
             Stream::TCP(ref mut s) => {
-                s.set_nonblocking(b)?;
+                s.set_nonblocking(b).map_err(minto_cherr!())?;
                 Ok(())
             }
             Stream::UNIX(ref mut s) => {
-                s.set_nonblocking(b)?;
+                s.set_nonblocking(b).map_err(minto_cherr!())?;
                 Ok(())
             }
         }
@@ -195,14 +202,16 @@ fn get_abstract_unixlistener(addr: &str) -> Result<UnixListener> {
 
     unsafe {
         Ok(UnixListener::from_raw_fd(
-            AbstractUnixListener::bind(addr)?.into_raw_fd(),
+            AbstractUnixListener::bind(addr)
+                .map_err(minto_cherr!())?
+                .into_raw_fd(),
         ))
     }
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 fn get_abstract_unixlistener(_addr: &str) -> Result<UnixListener> {
-    Err(ErrorKind::InvalidAddress.into())
+    Err(into_cherr!(ErrorKind::InvalidAddress))
 }
 
 impl Listener {
@@ -227,7 +236,7 @@ impl Listener {
                         ));
                     }
                 } else {
-                    return Err(ErrorKind::InvalidAddress.into());
+                    return Err(into_cherr!(ErrorKind::InvalidAddress));
                 }
             }
             #[cfg(unix)]
@@ -247,14 +256,14 @@ impl Listener {
                         ));
                     }
                 } else {
-                    return Err(ErrorKind::InvalidAddress.into());
+                    return Err(into_cherr!(ErrorKind::InvalidAddress));
                 }
             }
         }
 
         if address.starts_with("tcp:") {
             Ok(Listener::TCP(
-                Some(TcpListener::bind(&address[4..])?),
+                Some(TcpListener::bind(&address[4..]).map_err(minto_cherr!())?),
                 false,
             ))
         } else if address.starts_with("unix:") {
@@ -266,9 +275,12 @@ impl Listener {
             }
             // ignore error on non-existant file
             let _ = fs::remove_file(&*addr);
-            Ok(Listener::UNIX(Some(UnixListener::bind(addr)?), false))
+            Ok(Listener::UNIX(
+                Some(UnixListener::bind(addr).map_err(minto_cherr!())?),
+                false,
+            ))
         } else {
-            Err(ErrorKind::InvalidAddress.into())
+            Err(into_cherr!(ErrorKind::InvalidAddress))
         }
     }
 
@@ -281,7 +293,7 @@ impl Listener {
             let socket: usize = match self {
                 Listener::TCP(Some(l), _) => l.as_raw_socket(),
                 Listener::UNIX(Some(l), _) => l.as_raw_socket(),
-                _ => return Err(ErrorKind::ConnectionClosed.into()),
+                _ => return Err(into_cherr!(ErrorKind::ConnectionClosed)),
             } as usize;
 
             unsafe {
@@ -304,21 +316,21 @@ impl Listener {
                 }
 
                 if readfs.fd_count == 0 || readfs.fd_array[0] != socket {
-                    return Err(ErrorKind::Timeout.into());
+                    return Err(into_cherr!(ErrorKind::Timeout));
                 }
             }
         }
 
         match self {
             &Listener::TCP(Some(ref l), _) => {
-                let (s, _addr) = l.accept()?;
+                let (s, _addr) = l.accept().map_err(minto_cherr!())?;
                 Ok(Stream::TCP(s))
             }
             Listener::UNIX(Some(ref l), _) => {
-                let (s, _addr) = l.accept()?;
+                let (s, _addr) = l.accept().map_err(minto_cherr!())?;
                 Ok(Stream::UNIX(s))
             }
-            _ => Err(ErrorKind::ConnectionClosed.into()),
+            _ => Err(into_cherr!(ErrorKind::ConnectionClosed)),
         }
     }
 
@@ -330,7 +342,7 @@ impl Listener {
             let fd = match self {
                 Listener::TCP(Some(l), _) => l.as_raw_fd(),
                 Listener::UNIX(Some(l), _) => l.as_raw_fd(),
-                _ => return Err(ErrorKind::ConnectionClosed.into()),
+                _ => return Err(into_cherr!(ErrorKind::ConnectionClosed)),
             };
 
             unsafe {
@@ -359,28 +371,28 @@ impl Listener {
                     }
                 }
                 if !FD_ISSET(fd, &mut readfs) {
-                    return Err(ErrorKind::Timeout.into());
+                    return Err(into_cherr!(ErrorKind::Timeout));
                 }
             }
         }
         match self {
             &Listener::TCP(Some(ref l), _) => {
-                let (s, _addr) = l.accept()?;
+                let (s, _addr) = l.accept().map_err(minto_cherr!())?;
                 Ok(Stream::TCP(s))
             }
             Listener::UNIX(Some(ref l), _) => {
-                let (s, _addr) = l.accept()?;
+                let (s, _addr) = l.accept().map_err(minto_cherr!())?;
                 Ok(Stream::UNIX(s))
             }
-            _ => Err(ErrorKind::ConnectionClosed.into()),
+            _ => Err(into_cherr!(ErrorKind::ConnectionClosed)),
         }
     }
 
     pub fn set_nonblocking(&self, b: bool) -> Result<()> {
         match *self {
-            Listener::TCP(Some(ref l), _) => l.set_nonblocking(b)?,
-            Listener::UNIX(Some(ref l), _) => l.set_nonblocking(b)?,
-            _ => Err(ErrorKind::ConnectionClosed)?,
+            Listener::TCP(Some(ref l), _) => l.set_nonblocking(b).map_err(minto_cherr!())?,
+            Listener::UNIX(Some(ref l), _) => l.set_nonblocking(b).map_err(minto_cherr!())?,
+            _ => Err(into_cherr!(ErrorKind::ConnectionClosed))?,
         }
         Ok(())
     }
@@ -581,9 +593,7 @@ impl Worker {
 # Examples
 
 ```
- extern crate failure;
  extern crate varlink;
- use failure::Fail;
 
  let service = varlink::VarlinkService::new(
      "org.varlink",
@@ -594,8 +604,8 @@ impl Worker {
  );
 
  if let Err(e) = varlink::listen(service, "unix:test_listen_timeout", 1, 10, 1) {
-     if e.kind() != varlink::ErrorKind::Timeout {
-         panic!("Error listen: {:?}", e.cause());
+     if *e.kind() != varlink::ErrorKind::Timeout {
+         panic!("Error listen: {:?}", e);
      }
  }
 ```
@@ -619,16 +629,17 @@ pub fn listen<S: ?Sized + AsRef<str>, H: crate::ConnectionHandler + Send + Sync 
 
     loop {
         let mut stream = match listener.accept(idle_timeout) {
-            Err(e) => {
-                if e.kind() == ErrorKind::Timeout {
+            Err(e) => match e.kind() {
+                ErrorKind::Timeout => {
                     if pool.num_busy() == 0 {
                         return Err(e);
                     }
                     continue;
-                } else {
+                }
+                _ => {
                     return Err(e);
                 }
-            }
+            },
             r => r?,
         };
         let handler = handler.clone();
@@ -651,10 +662,7 @@ pub fn listen<S: ?Sized + AsRef<str>, H: crate::ConnectionHandler + Send + Sync 
                         match err.kind() {
                             ErrorKind::ConnectionClosed | ErrorKind::SerdeJsonDe(_) => {}
                             _ => {
-                                eprintln!("Worker error: {}", err);
-                                for cause in Fail::iter_causes(&err).skip(1) {
-                                    eprintln!("  caused by: {}", cause);
-                                }
+                                eprintln!("Worker error: {:?}", err);
                             }
                         }
                         let _ = stream.shutdown();

@@ -1,101 +1,85 @@
-use failure::{Backtrace, Context, Fail};
+use chainerror::*;
+use std::io;
 
-#[derive(Debug)]
-pub struct Error {
-    inner: Context<ErrorKind>,
-}
-
-#[derive(Clone, PartialEq, Debug, Fail)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum ErrorKind {
-    #[fail(display = "IO error")]
     Io(::std::io::ErrorKind),
-    #[fail(display = "JSON Serialization Error")]
     SerdeJsonSer(::serde_json::error::Category),
-    #[fail(display = "JSON Deserialization Error of '{}'", _0)]
     SerdeJsonDe(String),
-    #[fail(display = "Interface not found: '{}'", _0)]
     InterfaceNotFound(String),
-    #[fail(display = "Invalid parameter: '{}'", _0)]
     InvalidParameter(String),
-    #[fail(display = "Method not found: '{}'", _0)]
     MethodNotFound(String),
-    #[fail(display = "Method not implemented: '{}'", _0)]
     MethodNotImplemented(String),
-    #[fail(display = "Unknown error reply: '{:#?}'", _0)]
     VarlinkErrorReply(crate::Reply),
-    #[fail(display = "Call::reply() called with continues, but without more in the request")]
     CallContinuesMismatch,
-    #[fail(display = "Varlink: method called already")]
     MethodCalledAlready,
-    #[fail(display = "Varlink: connection busy with other method")]
     ConnectionBusy,
-    #[fail(display = "Varlink: Iterator called on old reply")]
     IteratorOldReply,
-    #[fail(display = "Server Error")]
     Server,
-    #[fail(display = "Timeout Error")]
     Timeout,
-    #[fail(display = "Connection Closed")]
     ConnectionClosed,
-    #[fail(display = "Invalid varlink address URI")]
     InvalidAddress,
+    Generic,
 }
 
-impl Fail for Error {
-    fn cause(&self) -> Option<&Fail> {
-        self.inner.cause()
-    }
+impl ::std::error::Error for ErrorKind {}
 
-    fn backtrace(&self) -> Option<&Backtrace> {
-        self.inner.backtrace()
-    }
-}
-
-impl ::std::fmt::Display for Error {
+impl ::std::fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        ::std::fmt::Display::fmt(&self.inner, f)
-    }
-}
-
-impl Error {
-    pub fn kind(&self) -> ErrorKind {
-        self.inner.get_context().clone()
-    }
-}
-
-impl From<ErrorKind> for Error {
-    fn from(kind: ErrorKind) -> Error {
-        Error {
-            inner: Context::new(kind),
+        match self {
+            ErrorKind::Io(_) => write!(f, "IO error"),
+            ErrorKind::SerdeJsonSer(_) => write!(f, "JSON Serialization Error"),
+            ErrorKind::SerdeJsonDe(v) => write!(f, "JSON Deserialization Error of '{}'", v),
+            ErrorKind::InterfaceNotFound(v) => write!(f, "Interface not found: '{}'", v),
+            ErrorKind::InvalidParameter(v) => write!(f, "Invalid parameter: '{}'", v),
+            ErrorKind::MethodNotFound(v) => write!(f, "Method not found: '{}'", v),
+            ErrorKind::MethodNotImplemented(v) => write!(f, "Method not implemented: '{}'", v),
+            ErrorKind::VarlinkErrorReply(v) => write!(f, "Unknown error reply: '{:#?}'", v),
+            ErrorKind::CallContinuesMismatch => write!(
+                f,
+                "Call::reply() called with continues, but without more in the request"
+            ),
+            ErrorKind::MethodCalledAlready => write!(f, "Varlink: method called already"),
+            ErrorKind::ConnectionBusy => write!(f, "Varlink: connection busy with other method"),
+            ErrorKind::IteratorOldReply => write!(f, "Varlink: Iterator called on old reply"),
+            ErrorKind::Server => write!(f, "Server Error"),
+            ErrorKind::Timeout => write!(f, "Timeout Error"),
+            ErrorKind::ConnectionClosed => write!(f, "Connection Closed"),
+            ErrorKind::InvalidAddress => write!(f, "Invalid varlink address URI"),
+            ErrorKind::Generic => Ok(()),
         }
     }
 }
 
-impl From<Context<ErrorKind>> for Error {
-    fn from(inner: Context<ErrorKind>) -> Error {
-        Error { inner }
-    }
-}
-
-impl From<::std::io::Error> for Error {
-    fn from(e: ::std::io::Error) -> Error {
-        let kind = e.kind();
-        match kind {
-            ::std::io::ErrorKind::BrokenPipe
-            | ::std::io::ErrorKind::ConnectionReset
-            | ::std::io::ErrorKind::ConnectionAborted => {
-                e.context(ErrorKind::ConnectionClosed).into()
+impl ChainErrorFrom<std::io::Error> for ErrorKind {
+    fn chain_error_from(
+        e: io::Error,
+        line_filename: Option<(u32, &'static str)>,
+    ) -> ChainError<Self> {
+        match e.kind() {
+            io::ErrorKind::BrokenPipe
+            | io::ErrorKind::ConnectionAborted
+            | io::ErrorKind::ConnectionReset => {
+                ChainError::<_>::new(ErrorKind::ConnectionClosed, Some(Box::from(e)), line_filename)
             }
-            _ => e.context(ErrorKind::Io(kind)).into(),
+
+            kind => ChainError::<_>::new(ErrorKind::Io(kind), Some(Box::from(e)), line_filename),
         }
     }
 }
 
-impl From<::serde_json::Error> for Error {
-    fn from(e: ::serde_json::Error) -> Error {
-        let category = e.classify();
-        e.context(ErrorKind::SerdeJsonSer(category)).into()
+impl ChainErrorFrom<serde_json::error::Error> for ErrorKind {
+    fn chain_error_from(
+        e: serde_json::error::Error,
+        line_filename: Option<(u32, &'static str)>,
+    ) -> ChainError<Self> {
+        ChainError::<_>::new(
+            ErrorKind::SerdeJsonSer(e.classify()),
+            Some(Box::from(e)),
+            line_filename,
+        )
     }
 }
 
-pub type Result<T> = ::std::result::Result<T, Error>;
+pub type Result<T> = ChainResult<T, ErrorKind>;
+pub type Error = ChainError<ErrorKind>;

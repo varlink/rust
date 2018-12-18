@@ -4,9 +4,9 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::str;
 
+use chainerror::*;
 use clap::{App, Arg, SubCommand};
 use colored_json::{ColorMode, ColoredFormatter, Colour, Output, PrettyFormatter, Style, Styler};
-use failure::ResultExt;
 
 use varlink::{
     Connection, GetInterfaceDescriptionReply, MethodCall, OrgVarlinkServiceClient,
@@ -15,21 +15,23 @@ use varlink::{
 use varlink_parser::{Format, FormatColored, Varlink};
 use varlink_stdinterfaces::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 
-use crate::error::{ErrorKind, Result};
 use crate::proxy::{handle, handle_connect};
 
 #[cfg(test)]
 mod test;
 
-mod error;
+pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
 
 mod proxy;
 
 fn varlink_format(filename: &str, line_len: Option<&str>, should_colorize: bool) -> Result<()> {
     let mut buffer = String::new();
-    File::open(Path::new(filename))?.read_to_string(&mut buffer)?;
+    File::open(Path::new(filename))
+        .map_err(mstrerr!("Failed to open '{}'", filename))?
+        .read_to_string(&mut buffer)
+        .map_err(mstrerr!("Failed to read '{}'", filename))?;
 
-    let v = Varlink::from_string(&buffer)?;
+    let v = Varlink::from_string(&buffer).map_err(mstrerr!("Failed to parse '{}'", buffer))?;
     if should_colorize {
         println!(
             "{}",
@@ -54,30 +56,33 @@ fn varlink_info(
     should_colorize: bool,
 ) -> Result<()> {
     let connection = match activate {
-        Some(activate) => Connection::with_activate(activate)?,
+        Some(activate) => Connection::with_activate(activate)
+            .map_err(mstrerr!("Failed to connect with activate '{}'", activate))?,
         None => match bridge {
-            Some(bridge) => Connection::with_bridge(bridge)?,
+            Some(bridge) => Connection::with_bridge(bridge)
+                .map_err(mstrerr!("Failed to connect with bridge '{}'", bridge))?,
             None => {
                 let address = address.unwrap();
                 if address.rfind(':').is_none() {
-                    let conn = Connection::new(resolver)?;
+                    let conn = Connection::new(resolver)
+                        .map_err(mstrerr!("Failed to connect with resolver '{}'", resolver))?;
                     let mut resolver = VarlinkClient::new(conn);
                     let address = match resolver.resolve(address.into()).call() {
                         Ok(r) => r.address.clone(),
-                        _ => Err(varlink::Error::from(varlink::ErrorKind::InterfaceNotFound(
-                            address.into(),
-                        )))?,
+                        _ => Err(strerr!("Interface '{}' not found", address))?,
                     };
-                    Connection::with_address(&address)?
+                    Connection::with_address(&address)
+                        .map_err(mstrerr!("Failed to connect to '{}'", address))?
                 } else {
-                    Connection::with_address(&address)?
+                    Connection::with_address(&address)
+                        .map_err(mstrerr!("Failed to connect to '{}'", address))?
                 }
             }
         },
     };
 
     let mut call = OrgVarlinkServiceClient::new(connection);
-    let info = call.get_info()?;
+    let info = call.get_info().map_err(mstrerr!("Cannot call GetInfo()"))?;
 
     let bold: fn(w: &str) -> String = if should_colorize {
         |w| Style::new().bold().paint(w).to_string()
@@ -112,41 +117,49 @@ fn varlink_help(
     let connection = if let Some(del) = url.rfind('/') {
         address = &url[0..del];
         interface = &url[(del + 1)..];
-        Connection::with_address(&address)?
+        Connection::with_address(&address).map_err(mstrerr!("Cannot connect to '{}'", address))?
     } else {
         interface = url;
         match activate {
-            Some(activate) => Connection::with_activate(activate)?,
+            Some(activate) => Connection::with_activate(activate)
+                .map_err(mstrerr!("Failed to connect with activate '{}'", activate))?,
             None => match bridge {
-                Some(bridge) => Connection::with_bridge(bridge)?,
+                Some(bridge) => Connection::with_bridge(bridge)
+                    .map_err(mstrerr!("Failed to connect with bridge '{}'", bridge))?,
                 None => {
-                    let conn = Connection::new(resolver)?;
+                    let conn = Connection::new(resolver)
+                        .map_err(mstrerr!("Failed to connect with resolver '{}'", resolver))?;
                     let mut resolver = VarlinkClient::new(conn);
                     let address = match resolver.resolve(interface.into()).call() {
                         Ok(r) => r.address.clone(),
-                        _ => Err(varlink::Error::from(varlink::ErrorKind::InterfaceNotFound(
-                            interface.into(),
-                        )))?,
+                        _ => Err(strerr!("Interface '{}' not found", interface))?,
                     };
-                    Connection::with_address(&address)?
+                    Connection::with_address(&address)
+                        .map_err(mstrerr!("Failed to connect to '{}'", address))?
                 }
             },
         }
     };
 
     if interface.find('.') == None {
-        Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress))?
+        Err(strerr!("Invalid address {}", url))?
     }
 
     let mut call = OrgVarlinkServiceClient::new(connection);
-    match call.get_interface_description(interface.to_string())? {
+    match call
+        .get_interface_description(interface.to_string())
+        .map_err(mstrerr!(
+            "Can't get interface description for {}",
+            interface
+        ))? {
         GetInterfaceDescriptionReply {
             description: Some(desc),
         } => {
             if should_colorize {
                 println!(
                     "{}",
-                    Varlink::from_string(&desc)?
+                    Varlink::from_string(&desc)
+                        .map_err(mstrerr!("Can't parse '{}'", desc))?
                         .interface
                         .get_multiline_colored(
                             0,
@@ -156,15 +169,14 @@ fn varlink_help(
             } else {
                 println!(
                     "{}",
-                    Varlink::from_string(&desc)?
+                    Varlink::from_string(&desc)
+                        .map_err(mstrerr!("Can't parse '{}'", desc))?
                         .interface
                         .get_multiline(0, columns.unwrap_or("80").parse::<usize>().unwrap_or(80))
                 );
             }
         }
-        _ => {
-            return Err(ErrorKind::NoDescription(format!("No description for {}", url)).into());
-        }
+        _ => Err(strerr!("No description for {}", url))?,
     };
 
     Ok(())
@@ -187,60 +199,59 @@ fn varlink_call(
     let connection = match activate {
         Some(activate) => {
             method = url;
-            Connection::with_activate(activate)?
+            Connection::with_activate(activate)
+                .map_err(mstrerr!("Failed to connect with activate '{}'", activate))?
         }
         None => match bridge {
             Some(bridge) => {
                 method = url;
-                Connection::with_bridge(bridge)?
+                Connection::with_bridge(bridge)
+                    .map_err(mstrerr!("Failed to connect with bridge '{}'", bridge))?
             }
             None => {
                 if let Some(del) = url.rfind('/') {
                     address = &url[0..del];
                     method = &url[(del + 1)..];
                     if method.find('.') == None {
-                        return Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress).into());
+                        return Err(strerr!("Invalid address {}", url).into());
                     }
                 } else {
                     if let Some(del) = url.rfind('.') {
                         interface = &url[0..del];
                         method = url;
                         if method.find('.') == None {
-                            return Err(
-                                varlink::Error::from(varlink::ErrorKind::InvalidAddress).into()
-                            );
+                            return Err(strerr!("Invalid address {}", url).into());
                         }
                     } else {
-                        return Err(varlink::Error::from(varlink::ErrorKind::InvalidAddress).into());
+                        return Err(strerr!("Invalid address {}", url).into());
                     }
-                    let conn = Connection::new(resolver)?;
+                    let conn = Connection::new(resolver)
+                        .map_err(mstrerr!("Failed to connect with resolver '{}'", resolver))?;
                     let mut resolver = VarlinkClient::new(conn);
                     address = match resolver.resolve(interface.into()).call() {
                         Ok(r) => {
                             resolved_address = r.address.clone();
                             resolved_address.as_ref()
                         }
-                        _ => Err(varlink::Error::from(varlink::ErrorKind::InterfaceNotFound(
-                            interface.into(),
-                        )))?,
+                        _ => Err(strerr!("Interface '{}' not found", interface))?,
                     };
                 }
-                Connection::with_address(address).context(ErrorKind::Connection(address.into()))?
+                Connection::with_address(address)
+                    .map_err(mstrerr!("Failed to connect to '{}'", address))?
             }
         },
     };
 
     let args = match args {
-        Some(args) => {
-            serde_json::from_str(args).context(ErrorKind::SerdeJsonDe(args.to_string()))?
-        }
+        Some(args) => serde_json::from_str(args)
+            .map_err(mstrerr!("Failed to parse JSON for '{}'", args.to_string()))?,
         None => serde_json::Value::Null,
     };
 
-    let mut call = MethodCall::<serde_json::Value, serde_json::Value, varlink::Error>::new(
+    let mut call = MethodCall::<serde_json::Value, serde_json::Value, varlink::ErrorKind>::new(
         connection.clone(),
         String::from(method),
-        args,
+        args.clone(),
     );
 
     let color_mode = if should_colorize {
@@ -265,11 +276,28 @@ fn varlink_call(
     );
 
     if !more {
-        let reply = call.call()?;
-        println!("{}", cf.to_colored_json(&reply, color_mode)?);
+        let reply =
+            call.call()
+                .map_err(mstrerr!("Failed to call method '{}({})'", &method, &args))?;
+        println!(
+            "{}",
+            cf.to_colored_json(&reply, color_mode)
+                .map_err(mstrerr!("Failed to print json for '{}'", reply))?
+        );
     } else {
-        for reply in call.more()? {
-            println!("{}", cf.clone().to_colored_json(&reply?, color_mode)?);
+        for reply in
+            call.more()
+                .map_err(mstrerr!("Failed to call method '{}({})'", method, args))?
+        {
+            println!(
+                "{}",
+                cf.clone()
+                    .to_colored_json(
+                        &reply.map_err(mstrerr!("Failed to call method '{}({})'", method, args))?,
+                        color_mode,
+                    )
+                    .map_err(mstrerr!("Failed to print json for reply"))?
+            );
         }
     }
 
@@ -288,9 +316,10 @@ fn varlink_bridge(address: Option<&str>) -> Result<()> {
     let outw = unsafe { ::std::fs::File::from_raw_fd(stdout.as_raw_fd()) };
 
     if let Some(address) = address {
-        handle_connect(address, inbuf, outw)?;
+        handle_connect(address, inbuf, outw)
+            .map_err(mstrerr!("Error bridging to address {}", address))?;
     } else {
-        handle(inbuf, outw)?;
+        handle(inbuf, outw).map_err(mstrerr!("Error bridging"))?;
     }
     Ok(())
 }
@@ -308,16 +337,17 @@ fn varlink_bridge(address: Option<&str>) -> Result<()> {
     let outw = unsafe { ::std::fs::File::from_raw_handle(stdout.as_raw_handle()) };
 
     if let Some(address) = address {
-        handle_connect(address, inbuf, outw)?;
+        handle_connect(address, inbuf, outw)
+            .map_err(mstrerr!("Error bridging to address {}", address))?;
     } else {
-        handle(inbuf, outw)?;
+        handle(inbuf, outw).map_err(mstrerr!("Error bridging"))?;
     }
     Ok(())
 }
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-fn main() -> Result<()> {
+fn main() {
     #[cfg(windows)]
     let _enabled = colored_json::enable_ansi_support();
 
@@ -333,6 +363,7 @@ fn main() -> Result<()> {
                         .takes_value(true),
                 )
         */
+        .arg(Arg::with_name("debug").long("debug").help("print debug"))
         .arg(
             Arg::with_name("color")
                 .long("color")
@@ -471,6 +502,17 @@ fn main() -> Result<()> {
                 ),
         );
 
+    if let Err(e) = do_main(&mut app) {
+        if app.get_matches().is_present("debug") {
+            eprintln!("{:?}", e);
+        } else {
+            eprintln!("{}", e);
+        }
+        std::process::exit(1);
+    }
+}
+
+fn do_main(app: &mut App) -> Result<()> {
     let matches = app.clone().get_matches();
     let resolver = matches.value_of("resolver").unwrap();
     let bridge = matches.value_of("bridge");
@@ -496,11 +538,9 @@ fn main() -> Result<()> {
         ("info", Some(sub_matches)) => {
             let address = sub_matches.value_of("ADDRESS");
             if address.is_none() && activate.is_none() && bridge.is_none() {
-                app.print_help().context(ErrorKind::Argument)?;
+                app.print_help().map_err(mstrerr!("Couldn't print help"))?;
                 println!();
-                return Err(
-                    ErrorKind::Connection("No ADDRESS or activation or bridge".into()).into(),
-                );
+                Err(strerr!("No ADDRESS or activation or bridge"))?
             }
 
             varlink_info(address, resolver, activate, bridge, color_bool)?
@@ -522,7 +562,7 @@ fn main() -> Result<()> {
             varlink_call(method, args, more, resolver, activate, bridge, color_bool)?
         }
         (_, _) => {
-            app.print_help().context(ErrorKind::Argument)?;
+            app.print_help().map_err(mstrerr!("Couldn't print help"))?;
             println!();
         }
     }

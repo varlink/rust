@@ -356,6 +356,7 @@ method F() -> ()
         "Interface definition error: '\
 Interface `foo.example`: multiple definitions of type `Device`!
 Interface `foo.example`: multiple definitions of type `F`!
-Interface `foo.example`: multiple definitions of type `T`!'"
+Interface `foo.example`: multiple definitions of type `T`!'
+"
     );
 }

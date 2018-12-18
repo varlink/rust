@@ -1,14 +1,14 @@
-use crate::io_systemd_network::Result;
-use failure::Fail;
-use std::io;
+use chainerror::*;
 use std::{thread, time};
 use varlink::Connection;
+
+pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
 
 fn run_self_test(address: &'static str) -> Result<()> {
     let child = thread::spawn(move || {
         if let Err(e) = crate::run_server(address, 4) {
-            if e.kind() != ::varlink::ErrorKind::Timeout {
-                panic!("error: {:#?}", e.cause());
+            if *e.kind() != ::varlink::ErrorKind::Timeout {
+                panic!("error: {:?}", e);
             }
         }
     });
@@ -20,8 +20,8 @@ fn run_self_test(address: &'static str) -> Result<()> {
     if let Err(e) = ret {
         panic!("error: {}", e);
     }
-    if let Err(e) = child.join() {
-        Err(io::Error::new(io::ErrorKind::ConnectionRefused, format!("{:#?}", e)).into())
+    if let Err(_) = child.join() {
+        Err(strerr!("Error joining thread").into())
     } else {
         Ok(())
     }

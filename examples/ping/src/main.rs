@@ -6,6 +6,7 @@ use std::sync::{Arc, RwLock};
 use varlink::{Call, Connection, VarlinkService};
 
 use crate::org_example_ping::*;
+use chainerror::*;
 
 // Dynamically build the varlink rust code.
 mod org_example_ping;
@@ -46,15 +47,16 @@ fn main() {
 
     let client_mode = matches.opt_present("client");
 
-    let ret = if client_mode {
+    let ret: std::result::Result<(), Box<std::error::Error>> = if client_mode {
         let connection = match matches.opt_str("varlink") {
             None => Connection::with_activate(&format!("{} --varlink=$VARLINK_ADDRESS", program))
                 .unwrap(),
             Some(address) => Connection::with_address(&address).unwrap(),
         };
-        run_client(&connection)
+        run_client(&connection).map_err(|e| e.into())
     } else if let Some(address) = matches.opt_str("varlink") {
-        run_server(&address, 0, matches.opt_present("m")).map_err(|e| e.into())
+        run_server(&address, 0, matches.opt_present("m")).map_err(mstrerr!("running server with \
+        address {}", address)).map_err(|e| e.into())
     } else {
         print_usage(&program, &opts);
         eprintln!("Need varlink address in server mode.");
@@ -95,14 +97,14 @@ fn run_client(connection: &Arc<RwLock<varlink::Connection>>) -> Result<()> {
         // serve upgraded connection
         let mut conn = connection.write().unwrap();
         let mut writer = conn.writer.take().unwrap();
-        writer.write_all(b"test test\nEnd\n")?;
+        writer.write_all(b"test test\nEnd\n").map_err(minto_cherr!())?;
         conn.writer = Some(writer);
         let mut buf = Vec::new();
         let mut reader = conn.reader.take().unwrap();
-        if reader.read_until(b'\n', &mut buf)? == 0 {
+        if reader.read_until(b'\n', &mut buf).map_err(minto_cherr!())? == 0 {
             // incomplete data, in real life, store all bytes for the next call
             // for now just read the rest
-            reader.read_to_end(&mut buf)?;
+            reader.read_to_end(&mut buf).map_err(minto_cherr!())?;
         };
         eprintln!("Client: upgraded got: {}", String::from_utf8_lossy(&buf));
         conn.reader = Some(reader);
@@ -130,17 +132,25 @@ impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
     fn call_upgraded(&self, call: &mut Call, bufreader: &mut BufRead) -> varlink::Result<Vec<u8>> {
         loop {
             let mut buf = String::new();
-            let len = bufreader.read_line(&mut buf)?;
+            let len = bufreader
+                .read_line(&mut buf)
+                .map_err(minto_cherr!())?;
             if len == 0 {
                 eprintln!("Server: upgraded got: none");
                 // incomplete data, in real life, store all bytes for the next call
                 // return Ok(buf.as_bytes().to_vec());
-                return Err(varlink::ErrorKind::ConnectionClosed.into());
+                return Err(
+                    into_cherr!(varlink::ErrorKind::ConnectionClosed)
+                );
             }
             eprintln!("Server: upgraded got: {}", buf);
 
-            call.writer.write_all(b"server reply: ")?;
-            call.writer.write_all(buf.as_bytes())?;
+            call.writer
+                .write_all(b"server reply: ")
+                .map_err(minto_cherr!())?;
+            call.writer
+                .write_all(buf.as_bytes())
+                .map_err(minto_cherr!())?;
             if buf.eq("End\n") {
                 break;
             }
@@ -157,8 +167,7 @@ mod multiplex {
     use std::sync::{Arc, RwLock};
     use std::thread;
 
-    use failure::Fail;
-
+        use chainerror::*;
     use varlink::{ConnectionHandler, Listener, ServerStream};
 
     struct FdTracker {
@@ -280,9 +289,6 @@ mod multiplex {
 
                                         if let Err(err) = tracker.write(out.as_ref()) {
                                             eprintln!("write error: {}", err);
-                                            for cause in Fail::iter_causes(&err) {
-                                                eprintln!("  caused by: {}", cause);
-                                            }
                                             let _ = tracker.shutdown();
                                             indices_to_remove.push(i);
                                             break;
@@ -291,9 +297,6 @@ mod multiplex {
                                     Err(e) => match e.kind() {
                                         err => {
                                             eprintln!("handler error: {}", err);
-                                            for cause in Fail::iter_causes(&err).skip(1) {
-                                                eprintln!("  caused by: {}", cause);
-                                            }
                                             let _ = tracker.shutdown();
                                             indices_to_remove.push(i);
                                             break;
@@ -381,9 +384,6 @@ mod multiplex {
                                             }
                                             _ => {
                                                 eprintln!("Upgraded end: {}", err);
-                                                for cause in Fail::iter_causes(&err).skip(1) {
-                                                    eprintln!("  caused by: {}", cause);
-                                                }
                                                 break;
                                             }
                                         },
@@ -412,7 +412,7 @@ mod multiplex {
                 for t in threads {
                     let _r = t.join();
                 }
-                return Err(Error::last_os_error().into());
+                return Err(Error::last_os_error()).map_err(minto_cherr!());
             }
 
             if r == 0 && fds.len() == 1 && *upgraded_in_use.read().unwrap() == 0 {
@@ -421,7 +421,7 @@ mod multiplex {
                     let _r = t.join();
                 }
 
-                return Err(varlink::Error::from(varlink::ErrorKind::Timeout));
+                return Err(into_cherr!(varlink::ErrorKind::Timeout));
             }
         }
     }

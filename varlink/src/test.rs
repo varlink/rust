@@ -14,7 +14,7 @@ fn test_listen() -> Result<()> {
         );
 
         if let Err(e) = listen(service, &address, 1, 10, timeout) {
-            if e.kind() != ErrorKind::Timeout {
+            if *e.kind() != ErrorKind::Timeout {
                 panic!("Error listen: {:#?}", e);
             }
         }
@@ -39,13 +39,13 @@ fn test_listen() -> Result<()> {
         assert!(e.is_err());
 
         match e.err().unwrap().kind() {
-            ErrorKind::InvalidParameter(i) => assert_eq!(i, "interface".to_string()),
+            ErrorKind::InvalidParameter(i) => assert_eq!(*i, "interface".to_string()),
             kind => {
                 panic!("Unknown error {:?}", kind);
             }
         }
 
-        let e = MethodCall::<GetInfoArgs, ServiceInfo, Error>::new(
+        let e = MethodCall::<GetInfoArgs, ServiceInfo, ErrorKind>::new(
             conn.clone(),
             "org.varlink.service.GetInfos",
             GetInfoArgs {},
@@ -54,14 +54,14 @@ fn test_listen() -> Result<()> {
 
         match e.err().unwrap().kind() {
             ErrorKind::MethodNotFound(i) => {
-                assert_eq!(i, "org.varlink.service.GetInfos".to_string())
+                assert_eq!(*i, "org.varlink.service.GetInfos".to_string())
             }
             kind => {
                 panic!("Unknown error {:?}", kind);
             }
         }
 
-        let e = MethodCall::<GetInfoArgs, ServiceInfo, Error>::new(
+        let e = MethodCall::<GetInfoArgs, ServiceInfo, ErrorKind>::new(
             conn.clone(),
             "org.varlink.unknowninterface.Foo",
             GetInfoArgs {},
@@ -70,7 +70,7 @@ fn test_listen() -> Result<()> {
 
         match e.err().unwrap().kind() {
             ErrorKind::InterfaceNotFound(i) => {
-                assert_eq!(i, "org.varlink.unknowninterface".to_string())
+                assert_eq!(*i, "org.varlink.unknowninterface".to_string())
             }
             kind => {
                 panic!("Unknown error {:?}", kind);
@@ -187,7 +187,8 @@ fn test_handle() -> Result<()> {
 
     let reply = from_slice::<Reply>(&w).unwrap();
 
-    let si = from_value::<ServiceInfo>(reply.parameters.unwrap())?;
+    let si =
+        from_value::<ServiceInfo>(reply.parameters.unwrap()).map_err(minto_cherr!())?;
 
     assert_eq!(
         si,

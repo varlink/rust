@@ -1,5 +1,10 @@
-use crate::Result;
-use std::io::{self, BufRead};
+use std::error::Error as StdError;
+use std::result::Result as StdResult;
+
+type Result<T> = StdResult<T, Box<StdError>>;
+
+use chainerror::*;
+use std::io::BufRead;
 use std::{thread, time};
 use varlink::Connection;
 
@@ -19,7 +24,8 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
     thread::sleep(time::Duration::from_secs(1));
 
     {
-        let con = Connection::with_address(&address)?;
+        let con = Connection::with_address(&address)
+            .map_err(mstrerr!("Could not connect to {}", address))?;
 
         let mut conn = con.write().unwrap();
         let mut writer = conn.writer.take().unwrap();
@@ -130,7 +136,8 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
     }
 
     {
-        let con = Connection::with_address(&address)?;
+        let con = Connection::with_address(&address)
+            .map_err(mstrerr!("Could not connect to {}", address))?;
 
         let ret = crate::run_client(&con);
         if let Err(e) = ret {
@@ -139,8 +146,8 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
     }
     eprintln!("run_client finished");
 
-    if let Err(e) = child.join() {
-        Err(io::Error::new(io::ErrorKind::ConnectionRefused, format!("{:#?}", e)).into())
+    if let Err(_) = child.join() {
+        Err(strerr!("Error joining thread").into())
     } else {
         Ok(())
     }

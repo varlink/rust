@@ -7,81 +7,20 @@
 
 use std::borrow::Cow;
 use std::env;
-use std::fmt::{self, Display};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{exit, Command};
 use std::str::FromStr;
 
-use failure::{Backtrace, Context, Fail};
+use chainerror::*;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
 use varlink_parser::{Typedef, VEnum, VError, VStruct, VStructOrEnum, VType, VTypeExt, Varlink};
 
-#[derive(Debug)]
-pub struct Error {
-    inner: Context<ErrorKind>,
-}
-
-#[derive(Clone, PartialEq, Debug, Fail)]
-pub enum ErrorKind {
-    #[fail(display = "IO error")]
-    Io,
-    #[fail(display = "Parse Error")]
-    Parser,
-}
-
-impl Fail for Error {
-    fn cause(&self) -> Option<&Fail> {
-        self.inner.cause()
-    }
-
-    fn backtrace(&self) -> Option<&Backtrace> {
-        self.inner.backtrace()
-    }
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        Display::fmt(&self.inner, f)
-    }
-}
-
-impl Error {
-    pub fn kind(&self) -> ErrorKind {
-        self.inner.get_context().clone()
-    }
-}
-
-impl From<ErrorKind> for Error {
-    fn from(kind: ErrorKind) -> Error {
-        Error {
-            inner: Context::new(kind),
-        }
-    }
-}
-
-impl From<Context<ErrorKind>> for Error {
-    fn from(inner: Context<ErrorKind>) -> Error {
-        Error { inner }
-    }
-}
-
-impl From<::std::io::Error> for Error {
-    fn from(e: ::std::io::Error) -> Error {
-        e.context(ErrorKind::Io).into()
-    }
-}
-
-impl From<varlink_parser::Error> for Error {
-    fn from(e: varlink_parser::Error) -> Error {
-        e.context(ErrorKind::Parser).into()
-    }
-}
-
-pub type Result<T> = ::std::result::Result<T, Error>;
+derive_str_cherr!(Error);
+pub type Result<T> = ChainResult<T, Error>;
 
 trait ToRustString<'short, 'long: 'short> {
     fn to_rust_string(
@@ -328,8 +267,8 @@ fn varlink_to_rust(
     }
 
     ts.extend(quote!(
+        use chainerror::*;
         use serde_derive::{{Deserialize, Serialize}};
-        use failure::{{Backtrace, Context, Fail}};
         use serde_json;
         use std::io::BufRead;
         use std::sync::{{Arc, RwLock}};
@@ -490,7 +429,7 @@ fn varlink_to_rust(
                                 Err(e) => {
                                     let es = format!("{}", e);
                                     let _ = call.reply_invalid_parameter(es.clone());
-                                    return Err(varlink::ErrorKind::SerdeJsonDe(es).into());
+                                    return Err(into_cherr!(varlink::ErrorKind::SerdeJsonDe(es)));
                                 }
                             };
                             self.inner.#method_name(call as &mut #call_name, #(args.#in_field_names),*)
@@ -640,7 +579,7 @@ fn generate_error_code(
                 let innames = inparms_name.iter();
                 let innames2 = inparms_name.iter();
                 inparms = quote!(#(#innames : #inparms_type),*);
-                parms = quote!(Some(serde_json::to_value(#args_name {#(#innames2),*})?));
+                parms = quote!(Some(serde_json::to_value(#args_name {#(#innames2),*}).map_err(minto_cherr!())?));
             } else {
                 parms = quote!(None);
                 inparms = quote!();
@@ -666,19 +605,18 @@ fn generate_error_code(
     }
     ts.extend(quote!(
         impl<'a> VarlinkCallError for varlink::Call<'a> {}
-
-        #[derive(Debug)]
-        pub struct Error {
-            inner: Context<ErrorKind>,
-        }
     ));
     {
         let mut errors = Vec::new();
+        let mut errors_display = Vec::new();
         for t in iface.errors.values() {
             errors.push(
+                TokenStream::from_str(&format!("{ename}(Option<{ename}_Args>)", ename = t.name,))
+                    .unwrap(),
+            );
+            errors_display.push(
                 TokenStream::from_str(&format!(
-                    "#[fail(display = \"{iname}.{ename}: {{:#?}}\", \
-                     _0)]{ename}(Option<{ename}_Args>)",
+                    "ErrorKind::{ename}(v) => write!(f, \"{iname}.{ename}: {{:#?}}\", v)",
                     ename = t.name,
                     iname = iface.name,
                 ))
@@ -687,86 +625,81 @@ fn generate_error_code(
         }
 
         ts.extend(quote!(
-            #[derive(Clone, PartialEq, Debug, Fail)]
+            #[allow(dead_code)]
+            #[derive(Clone, PartialEq, Debug)]
             pub enum ErrorKind {
-                #[fail(display = "IO error")]
                 Io_Error(::std::io::ErrorKind),
-                #[fail(display = "(De)Serialization Error")]
                 SerdeJson_Error(serde_json::error::Category),
-                #[fail(display = "Varlink Error")]
-                Varlink_Error(varlink::ErrorKind),
-                #[fail(display = "Unknown error reply: '{:#?}'", _0)]
+                Varlink_Error,
                 VarlinkReply_Error(varlink::Reply),
+                Generic,
                 #(#errors),*
             }
+            impl ::std::fmt::Display for ErrorKind {
+                fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                    match self {
+                        ErrorKind::Io_Error(_) => write!(f, "IO error"),
+                        ErrorKind::SerdeJson_Error(_) => {
+                            write!(f, "(De)Serialization Error")
+                        }
+                        ErrorKind::Varlink_Error => write!(f, "Varlink Error"),
+                        ErrorKind::VarlinkReply_Error(v) => write!(f, "Unknown error reply: '{:#?}'", v),
+                        ErrorKind::Generic => Ok(()),
+                        #(#errors_display),*
+                    }
+                }
+            }
+            impl ::std::error::Error for ErrorKind {}
+
         ));
     }
     ts.extend(quote!(
-    impl Fail for Error {
-        fn cause(&self) -> Option<&Fail> {
-            self.inner.cause()
-        }
-
-        fn backtrace(&self) -> Option<&Backtrace> {
-            self.inner.backtrace()
-        }
-    }
-
-    impl ::std::fmt::Display for Error {
-        fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-            ::std::fmt::Display::fmt(&self.inner, f)
+    impl ChainErrorFrom<std::io::Error> for ErrorKind {
+        fn chain_error_from(
+            e: std::io::Error,
+            line_filename: Option<(u32, &'static str)>,
+        ) -> ChainError<Self> {
+            ChainError::<_>::new(ErrorKind::Io_Error(e.kind()), Some(Box::from(e)), line_filename)
         }
     }
 
-    impl Error {
-        #[allow(dead_code)]
-        pub fn kind(&self) -> ErrorKind {
-            self.inner.get_context().clone()
+    impl ChainErrorFrom<serde_json::error::Error> for ErrorKind {
+        fn chain_error_from(
+            e: serde_json::error::Error,
+            line_filename: Option<(u32, &'static str)>,
+        ) -> ChainError<Self> {
+            ChainError::<_>::new(
+                ErrorKind::SerdeJson_Error(e.classify()),
+                Some(Box::from(e)),
+                line_filename,
+            )
         }
     }
 
-    impl From<ErrorKind> for Error {
-        fn from(kind: ErrorKind) -> Error {
-            Error {
-                inner: Context::new(kind),
-            }
-        }
-    }
-
-    impl From<Context<ErrorKind>> for Error {
-        fn from(inner: Context<ErrorKind>) -> Error {
-            Error { inner }
-        }
-    }
-
-    impl From<::std::io::Error> for Error {
-        fn from(e: ::std::io::Error) -> Error {
-            let kind = e.kind();
-            e.context(ErrorKind::Io_Error(kind)).into()
-        }
-    }
-
-    impl From<serde_json::Error> for Error {
-        fn from(e: serde_json::Error) -> Error {
-            let cat = e.classify();
-            e.context(ErrorKind::SerdeJson_Error(cat)).into()
+    impl ChainErrorFrom<varlink::ErrorKind> for ErrorKind {
+        fn chain_error_from(
+            e: varlink::ErrorKind,
+            line_filename: Option<(u32, &'static str)>,
+        ) -> ChainError<Self> {
+            ChainError::<_>::new(
+                ErrorKind::Varlink_Error,
+                Some(Box::from(
+                    ChainError::<_>::new(
+                        e,
+                        None,
+                        line_filename,
+                    )
+                )),
+                line_filename,
+            )
         }
     }
 
     #[allow(dead_code)]
-    pub type Result<T> = ::std::result::Result<T, Error>;
-
-    impl From<varlink::Error> for Error {
-        fn from(e: varlink::Error) -> Self {
-            let kind = e.kind();
-            match kind {
-                varlink::ErrorKind::Io(kind) => e.context(ErrorKind::Io_Error(kind)).into(),
-                varlink::ErrorKind::SerdeJsonSer(cat) => e.context(ErrorKind::SerdeJson_Error(cat)).into(),
-                kind => e.context(ErrorKind::Varlink_Error(kind)).into(),
-            }
-        }
-    }
-        ));
+    pub type Result<T> = ChainResult<T, ErrorKind>;
+    #[allow(dead_code)]
+    pub type Error = ErrorKind;
+    ));
     {
         let mut arms = TokenStream::new();
         for t in iface.errors.values() {
@@ -779,25 +712,27 @@ fn generate_error_code(
                            parameters: Some(p),
                            ..
                        } => match serde_json::from_value(p) {
-                           Ok(v) => #ename(v).into(),
-                           Err(_) => #ename(None).into(),
+                           Ok(v) => into_cherr!(#ename(v)),
+                           Err(_) => into_cherr!(#ename(None)),
                        },
-                       _ => #ename(None).into(),
+                       _ => into_cherr!(#ename(None)),
                     }
                 }
             ));
         }
 
         ts.extend(quote!(
-            impl From<varlink::Reply> for Error {
-                fn from(e: varlink::Reply) -> Self {
-                    if varlink::Error::is_error(&e) {
-                        return varlink::Error::from(e).into();
+            impl ChainErrorFrom<varlink::Reply> for ErrorKind {
+                #[allow(unused_variables)]
+                fn chain_error_from(e: varlink::Reply, line_filename: Option<(u32, &'static str)>) -> ChainError<Self> {
+                    if varlink::ErrorKind::is_error(&e) {
+                        let e : varlink::ErrorKind = e.into();
+                        return into_cherr!(e);
                     }
 
                     match e {
                     #arms
-                    _ => ErrorKind::VarlinkReply_Error(e).into(),
+                    _ => into_cherr!(ErrorKind::VarlinkReply_Error(e)),
                     }
                 }
             }
@@ -832,12 +767,17 @@ pub fn generate_with_options(
 ) -> Result<()> {
     let mut buffer = String::new();
 
-    reader.read_to_string(&mut buffer)?;
+    reader
+        .read_to_string(&mut buffer)
+        .map_err(mstrerr!(Error, "Failed to read from buffer"))?;
 
-    let vr = Varlink::from_string(&buffer)?;
+    let vr =
+        Varlink::from_string(&buffer).map_err(mstrerr!(Error, "Failed to parse {}", &buffer))?;
 
     let ts = varlink_to_rust(&vr, options, tosource)?;
-    writer.write_all(ts.to_string().as_bytes())?;
+    writer
+        .write_all(ts.to_string().as_bytes())
+        .map_err(mstrerr!(Error, "Failed to write to buffer"))?;
     Ok(())
 }
 
@@ -996,9 +936,6 @@ where
                 input_path.display(),
                 e
             );
-            for cause in Fail::iter_causes(&e).skip(1) {
-                eprintln!("  caused by: {}", cause);
-            }
 
             exit(1);
         }

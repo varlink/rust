@@ -1,18 +1,23 @@
-use failure::ResultExt;
-use serde_json::{from_slice, from_value, to_string};
 use std::io::{self, copy, BufRead, Write};
 use std::thread;
-use varlink::{
-    Call, Connection, ErrorKind, GetInterfaceDescriptionArgs, Reply, Request, Result, VarlinkStream,
-};
+
+use chainerror::*;
+use serde_json::{from_slice, from_value, to_string};
+
+use varlink::{Call, Connection, GetInterfaceDescriptionArgs, Reply, Request, VarlinkStream};
 use varlink_stdinterfaces::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
+
+use crate::Result;
 
 pub fn handle<R, W>(mut client_reader: R, mut client_writer: W) -> Result<bool>
 where
     R: BufRead + Send + Sync + 'static,
     W: Write + Send + Sync + 'static,
 {
-    let conn = Connection::new("unix:/run/org.varlink.resolver")?;
+    let conn = Connection::new("unix:/run/org.varlink.resolver").map_err(mstrerr!(
+        "Failed to connect to resolver '{}'",
+        "unix:/run/org.varlink.resolver"
+    ))?;
     let mut resolver = VarlinkClient::new(conn);
 
     let mut upgraded = false;
@@ -32,9 +37,7 @@ where
             // pop the last zero byte
             buf.pop();
 
-            let mut req: Request = from_slice(&buf).context(ErrorKind::SerdeJsonDe(
-                String::from_utf8_lossy(&buf).to_string(),
-            ))?;
+            let mut req: Request = from_slice(&buf).map_err(mstrerr!("Error from slice"))?;
 
             if req.method == "org.varlink.service.GetInfo" {
                 req.method = "org.varlink.resolver.GetInfo".into();
@@ -109,7 +112,7 @@ where
                     break;
                 }
                 if buf.is_empty() {
-                    return Err(ErrorKind::ConnectionClosed)?;
+                    return Err(strerr!("Connection Closed").into());
                 }
 
                 client_writer.write_all(&buf)?;
@@ -117,9 +120,7 @@ where
 
                 buf.pop();
 
-                let reply: Reply = from_slice(&buf).context(ErrorKind::SerdeJsonDe(
-                    String::from_utf8_lossy(&buf).to_string(),
-                ))?;
+                let reply: Reply = from_slice(&buf)?;
 
                 if upgraded || (!reply.continues.unwrap_or(false)) {
                     break;
@@ -169,9 +170,7 @@ where
             // pop the last zero byte
             buf.pop();
 
-            let req: Request = from_slice(&buf).context(ErrorKind::SerdeJsonDe(
-                String::from_utf8_lossy(&buf).to_string(),
-            ))?;
+            let req: Request = from_slice(&buf)?;
 
             let n: usize = match req.method.rfind('.') {
                 None => {
@@ -211,7 +210,7 @@ where
                     break;
                 }
                 if buf.is_empty() {
-                    return Err(ErrorKind::ConnectionClosed)?;
+                    return Err(strerr!("Connection Closed!").into());
                 }
 
                 client_writer.write_all(&buf)?;
@@ -219,9 +218,7 @@ where
 
                 buf.pop();
 
-                let reply: Reply = from_slice(&buf).context(ErrorKind::SerdeJsonDe(
-                    String::from_utf8_lossy(&buf).to_string(),
-                ))?;
+                let reply: Reply = from_slice(&buf)?;
 
                 if upgraded || !reply.continues.unwrap_or(false) {
                     break;

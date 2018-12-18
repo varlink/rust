@@ -6,12 +6,16 @@ use std::{thread, time};
 use varlink::{Connection, VarlinkService};
 
 use crate::org_example_more::*;
+use chainerror::*;
 
 // Dynamically build the varlink rust code.
 mod org_example_more;
 
 #[cfg(test)]
 mod test;
+
+pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
+
 
 // Main
 
@@ -59,7 +63,7 @@ fn main() {
         .parse::<u64>()
         .unwrap_or(1000);
 
-    let ret = if client_mode {
+    let ret : Result<()> = if client_mode {
         let connection = match matches.opt_str("varlink") {
             None => Connection::with_activate(&format!("{} --varlink=$VARLINK_ADDRESS", program))
                 .unwrap(),
@@ -67,7 +71,7 @@ fn main() {
         };
         run_client(connection)
     } else if let Some(address) = matches.opt_str("varlink") {
-        run_server(&address, timeout, sleep).map_err(|e| e.into())
+        run_server(&address, timeout, sleep).map_err(|e|e.into())
     } else {
         print_usage(&program, &opts);
         eprintln!("Need varlink address in server mode.");
@@ -147,7 +151,7 @@ impl VarlinkInterface for MyOrgExampleMore {
 
     fn stop_serving(&self, call: &mut Call_StopServing) -> varlink::Result<()> {
         call.reply()?;
-        Err(varlink::ErrorKind::ConnectionClosed.into())
+        Err(into_cherr!(varlink::ErrorKind::ConnectionClosed))
     }
     fn test_more(&self, call: &mut Call_TestMore, n: i64) -> varlink::Result<()> {
         if !call.wants_more() {

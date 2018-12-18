@@ -47,11 +47,12 @@
 
 use self::varlink_grammar::VInterface;
 use ansi_term::Colour;
-use failure::{Backtrace, Context, Fail, ResultExt};
 use itertools::Itertools;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
-use std::fmt::{self, Display};
+use std::fmt;
+
+use chainerror::*;
 
 #[cfg(test)]
 mod test;
@@ -64,56 +65,7 @@ mod varlink_grammar {
 #[cfg(not(feature = "peg"))]
 mod varlink_grammar;
 
-#[derive(Debug)]
-pub struct Error {
-    inner: Context<ErrorKind>,
-}
-
-#[derive(Clone, Eq, PartialEq, Debug, Fail)]
-pub enum ErrorKind {
-    #[fail(display = "Parse error")]
-    Peg,
-    #[fail(display = "Interface definition error: '{}'", _0)]
-    InterfaceDefinition(String),
-}
-
-impl Fail for Error {
-    fn cause(&self) -> Option<&Fail> {
-        self.inner.cause()
-    }
-
-    fn backtrace(&self) -> Option<&Backtrace> {
-        self.inner.backtrace()
-    }
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        Display::fmt(&self.inner, f)
-    }
-}
-
-impl Error {
-    pub fn kind(&self) -> ErrorKind {
-        self.inner.get_context().clone()
-    }
-}
-
-impl From<ErrorKind> for Error {
-    fn from(kind: ErrorKind) -> Error {
-        Error {
-            inner: Context::new(kind),
-        }
-    }
-}
-
-impl From<Context<ErrorKind>> for Error {
-    fn from(inner: Context<ErrorKind>) -> Error {
-        Error { inner }
-    }
-}
-
-pub type Result<T> = std::result::Result<T, Error>;
+derive_str_cherr!(Error);
 
 pub enum VType<'a> {
     Bool,
@@ -1016,18 +968,21 @@ impl<'a> Interface<'a> {
     }
 }
 
-pub struct Varlink<'a> {
-    pub description: &'a str,
-    pub interface: Interface<'a>,
+pub struct Varlink<'short, 'long: 'short> {
+    pub description: &'long str,
+    pub interface: Interface<'short>,
 }
 
-impl<'a> Varlink<'a> {
-    pub fn from_string<S: ?Sized + AsRef<str>>(s: &'a S) -> Result<Self> {
+impl<'short, 'long: 'short> Varlink<'short, 'long> {
+    pub fn from_string<S: ?Sized + AsRef<str>>(s: &'long S) -> ChainResult<Self, Error> {
         let s = s.as_ref();
-        let iface = VInterface(s).context(ErrorKind::Peg)?;
-
+        let iface = VInterface(s).map_err(mstrerr!(Error, "Could not parse: {}", s))?;
         if !iface.error.is_empty() {
-            Err(ErrorKind::InterfaceDefinition(iface.error.into_iter().sorted().join("\n")).into())
+            Err(strerr!(
+                Error,
+                "Interface definition error: '{}'\n",
+                iface.error.into_iter().sorted().join("\n")
+            ))
         } else {
             Ok(Varlink {
                 description: s,

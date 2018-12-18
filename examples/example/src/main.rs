@@ -1,3 +1,4 @@
+use chainerror::*;
 use std::env;
 use std::process::exit;
 use std::sync::{Arc, RwLock};
@@ -10,6 +11,8 @@ mod io_systemd_network;
 
 #[cfg(test)]
 mod test;
+
+pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
 
 // Main
 
@@ -43,7 +46,7 @@ fn main() {
 
     let client_mode = matches.opt_present("client");
 
-    let ret = if client_mode {
+    let ret: Result<()> = if client_mode {
         let connection = match matches.opt_str("varlink") {
             None => Connection::with_activate(&format!("{} --varlink=$VARLINK_ADDRESS", program))
                 .unwrap(),
@@ -69,17 +72,21 @@ fn main() {
 
 // Client
 
-fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> io_systemd_network::Result<()> {
+fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
     let mut iface = varlink::OrgVarlinkServiceClient::new(connection.clone());
     {
-        let info = iface.get_info()?;
+        let info = iface
+            .get_info()
+            .map_err(mstrerr!("Error calling get_info()"))?;
         assert_eq!(&info.vendor, "org.varlink");
         assert_eq!(&info.product, "test service");
         assert_eq!(&info.version, "0.1");
         assert_eq!(&info.url, "http://varlink.org");
         assert_eq!(&info.interfaces[1], "io.systemd.network");
     }
-    let description = iface.get_interface_description("io.systemd.network")?;
+    let description = iface
+        .get_interface_description("io.systemd.network")
+        .map_err(mstrerr!("Error calling get_interface_description()"))?;
 
     assert!(description.description.is_some());
 
@@ -118,11 +125,17 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> io_systemd_networ
         res => panic!("Unknown result {:?}", res),
     }
 
-    match iface.info(3).call().err().unwrap().kind() {
-        io_systemd_network::ErrorKind::Varlink_Error(varlink::ErrorKind::InvalidParameter(
-            ref p,
-        )) if p == "ifindex" => {}
-        res => panic!("Unknown result {:?}", res),
+    let e = iface.info(3).call().err().unwrap();
+
+    match e.kind() {
+        io_systemd_network::ErrorKind::Varlink_Error => {
+            let e = e.find_chain_cause::<varlink::ErrorKind>().unwrap();
+            match e.kind() {
+                varlink::ErrorKind::InvalidParameter(ref p) if p == "ifindex" => {}
+                _ => panic!("Unknown result\n{:?}\n", e),
+            }
+        }
+        _ => panic!("Unknown result\n{:?}\n", e),
     }
 
     match iface.info(4).call().err().unwrap().kind() {

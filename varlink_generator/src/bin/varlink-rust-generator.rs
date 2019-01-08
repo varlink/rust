@@ -18,14 +18,14 @@ use std::io::{Read, Write};
 use std::path::Path;
 
 use chainerror::*;
-use varlink_generator::{generate, Error, Result};
+use varlink_generator::generate;
 
 fn print_usage(program: &str, opts: &getopts::Options) {
     let brief = format!("Usage: {} [VARLINK FILE]", program);
     print!("{}", opts.usage(&brief));
 }
 
-fn main() -> Result<()> {
+fn main() -> std::result::Result<(), Box<std::error::Error>> {
     let args: Vec<_> = env::args().collect();
     let program = args[0].clone();
 
@@ -38,7 +38,7 @@ fn main() -> Result<()> {
         Err(f) => {
             eprintln!("{}", f.to_string());
             print_usage(&program, &opts);
-            return Err(strerr!(Error, "Invalid Arguments"));
+            return Err(strerr!("Invalid Arguments").into());
         }
     };
 
@@ -55,16 +55,13 @@ fn main() -> Result<()> {
             if matches.free[0] == "-" {
                 Box::new(io::stdin())
             } else {
-                Box::new(
-                    File::open(Path::new(&matches.free[0])).map_err(mstrerr!(
-                        Error,
-                        "Failed to open '{}'",
-                        &matches.free[0]
-                    ))?,
-                )
+                Box::new(File::open(Path::new(&matches.free[0])).map_err(mstrerr!(
+                    "Failed to open '{}'",
+                    &matches.free[0]
+                ))?)
             }
         }
     };
     let writer: &mut Write = &mut io::stdout();
-    generate(&mut reader, writer, tosource)
+    generate(&mut reader, writer, tosource).map_err(|e| e.into())
 }

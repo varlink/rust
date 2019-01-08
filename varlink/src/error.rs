@@ -34,7 +34,7 @@ impl ::std::fmt::Display for ErrorKind {
             ErrorKind::InvalidParameter(v) => write!(f, "Invalid parameter: '{}'", v),
             ErrorKind::MethodNotFound(v) => write!(f, "Method not found: '{}'", v),
             ErrorKind::MethodNotImplemented(v) => write!(f, "Method not implemented: '{}'", v),
-            ErrorKind::VarlinkErrorReply(v) => write!(f, "Unknown error reply: '{:#?}'", v),
+            ErrorKind::VarlinkErrorReply(v) => write!(f, "Varlink error reply: '{:#?}'", v),
             ErrorKind::CallContinuesMismatch => write!(
                 f,
                 "Call::reply() called with continues, but without more in the request"

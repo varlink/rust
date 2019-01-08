@@ -1,8 +1,12 @@
+use std::alloc::System;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 use std::str;
+
+#[global_allocator]
+static A: System = System;
 
 use chainerror::*;
 use clap::{App, Arg, SubCommand};

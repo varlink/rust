@@ -107,7 +107,7 @@ impl<'short, 'long: 'short> ToRustString<'short, 'long> for VTypeExt<'long> {
 fn to_snake_case(mut str: &str) -> String {
     let mut words = vec![];
     // Preserve leading underscores
-    str = str.trim_left_matches(|c: char| {
+    str = str.trim_start_matches(|c: char| {
         if c == '_' {
             words.push(String::new());
             true

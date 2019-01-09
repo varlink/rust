@@ -59,6 +59,12 @@ fn varlink_info(
     bridge: Option<&str>,
     should_colorize: bool,
 ) -> Result<()> {
+    let bold: fn(w: &str) -> String = if should_colorize {
+        |w| Style::new().bold().paint(w).to_string()
+    } else {
+        |w| w.to_string()
+    };
+
     let connection = match activate {
         Some(activate) => Connection::with_activate(activate)
             .map_err(mstrerr!("Failed to connect with activate '{}'", activate))?,
@@ -87,12 +93,6 @@ fn varlink_info(
 
     let mut call = OrgVarlinkServiceClient::new(connection);
     let info = call.get_info().map_err(mstrerr!("Cannot call GetInfo()"))?;
-
-    let bold: fn(w: &str) -> String = if should_colorize {
-        |w| Style::new().bold().paint(w).to_string()
-    } else {
-        |w| w.to_string()
-    };
 
     println!("{} {}", bold("Vendor:"), info.vendor);
     println!("{} {}", bold("Product:"), info.product);
@@ -153,7 +153,7 @@ fn varlink_help(
     match call
         .get_interface_description(interface.to_string())
         .map_err(mstrerr!(
-            "Can't get interface description for {}",
+            "Can't get interface description for '{}'",
             interface
         ))? {
         GetInterfaceDescriptionReply {
@@ -280,31 +280,86 @@ fn varlink_call(
     );
 
     if !more {
-        let reply =
-            call.call()
-                .map_err(mstrerr!("Failed to call method '{}({})'", &method, &args))?;
-        println!(
-            "{}",
-            cf.to_colored_json(&reply, color_mode)
-                .map_err(mstrerr!("Failed to print json for '{}'", reply))?
-        );
+        let ret = call.call();
+        print_call_ret(color_mode, cf, ret, should_colorize, method, &args)?
     } else {
-        for reply in
-            call.more()
-                .map_err(mstrerr!("Failed to call method '{}({})'", method, args))?
+        for ret in call
+            .more()
+            .map_err(mstrerr!("Failed to call method '{}({})'", method, args))?
         {
-            println!(
-                "{}",
-                cf.clone()
-                    .to_colored_json(
-                        &reply.map_err(mstrerr!("Failed to call method '{}({})'", method, args))?,
-                        color_mode,
-                    )
-                    .map_err(mstrerr!("Failed to print json for reply"))?
-            );
+            print_call_ret(color_mode, cf.clone(), ret, should_colorize, method, &args)?
         }
     }
 
+    Ok(())
+}
+
+fn print_call_ret(
+    color_mode: ColorMode,
+    cf: ColoredFormatter<PrettyFormatter>,
+    ret: ChainResult<serde_json::Value, varlink::ErrorKind>,
+    should_colorize: bool,
+    method: &str,
+    args: &serde_json::Value,
+) -> Result<()> {
+    let red: fn(w: &str) -> String = if should_colorize {
+        |w| Colour::Red.normal().paint(w).to_string()
+    } else {
+        |w| w.to_string()
+    };
+
+    match ret {
+        Err(e) => match e.kind() {
+            varlink::ErrorKind::InterfaceNotFound(s) => Err(cherr!(
+                e,
+                "Call failed with error: {}: {}",
+                red("InterfaceNotFound"),
+                s
+            ))?,
+            varlink::ErrorKind::MethodNotFound(s) => Err(cherr!(
+                e,
+                "Call failed with error: {}: {}",
+                red("MethodNotFound"),
+                s
+            ))?,
+            varlink::ErrorKind::MethodNotImplemented(s) => Err(cherr!(
+                e,
+                "Call failed with error: {}: {}",
+                red("MethodNotImplemented"),
+                s
+            ))?,
+            varlink::ErrorKind::InvalidParameter(s) => Err(cherr!(
+                e,
+                "Call failed with error: {}: {}",
+                red("InvalidParameter"),
+                s
+            ))?,
+            varlink::ErrorKind::VarlinkErrorReply(varlink::Reply {
+                error: Some(error),
+                parameters: None,
+                ..
+            }) => Err(cherr!(e, "Call failed with error: {}", red(error),))?,
+            varlink::ErrorKind::VarlinkErrorReply(varlink::Reply {
+                error: Some(error),
+                parameters: Some(parameters),
+                ..
+            }) => Err(cherr!(
+                e,
+                "Call failed with error: {}\n{}",
+                red(error),
+                cf.to_colored_json(&parameters, color_mode)
+                    .map_err(mstrerr!("Failed to print json for reply"))?
+            ))?,
+            _ => Err(cherr!(e, "Failed to call method '{}({})'", &method, &args))?,
+        },
+        Ok(reply) => {
+            println!(
+                "{}",
+                cf.to_colored_json(&reply, color_mode)
+                    .map_err(mstrerr!("Failed to print json for '{}'", reply))?
+            );
+        }
+    }
     Ok(())
 }
 
@@ -321,9 +376,9 @@ fn varlink_bridge(address: Option<&str>) -> Result<()> {
 
     if let Some(address) = address {
         handle_connect(address, inbuf, outw)
-            .map_err(mstrerr!("Error bridging to address {}", address))?;
+            .map_err(mstrerr!("Bridging to address {}", address))?;
     } else {
-        handle(inbuf, outw).map_err(mstrerr!("Error bridging"))?;
+        handle(inbuf, outw).map_err(mstrerr!("Bridging"))?;
     }
     Ok(())
 }
@@ -342,9 +397,9 @@ fn varlink_bridge(address: Option<&str>) -> Result<()> {
 
     if let Some(address) = address {
         handle_connect(address, inbuf, outw)
-            .map_err(mstrerr!("Error bridging to address {}", address))?;
+            .map_err(mstrerr!("Bridging to address {}", address))?;
     } else {
-        handle(inbuf, outw).map_err(mstrerr!("Error bridging"))?;
+        handle(inbuf, outw).map_err(mstrerr!("Bridging"))?;
     }
     Ok(())
 }
@@ -507,10 +562,24 @@ fn main() {
         );
 
     if let Err(e) = do_main(&mut app) {
-        if app.get_matches().is_present("debug") {
+        let matches = app.get_matches();
+
+        let color = matches.value_of("color").unwrap();
+        let color_bool = match color {
+            "on" => true,
+            "off" => false,
+            _ => ColorMode::should_colorize(&Output::StdOut),
+        };
+        let red_bold: fn(w: &str) -> String = if color_bool {
+            |w| Colour::Red.bold().paint(w).to_string()
+        } else {
+            |w| w.to_string()
+        };
+
+        if matches.is_present("debug") {
             eprintln!("{:?}", e);
         } else {
-            eprintln!("{}", e);
+            eprintln!("{} {}", red_bold("Error:"), e);
         }
         std::process::exit(1);
     }
@@ -522,7 +591,7 @@ fn do_main(app: &mut App) -> Result<()> {
     let bridge = matches.value_of("bridge");
     let activate = matches.value_of("activate");
     let color = matches.value_of("color").unwrap();
-    let color_bool = match color {
+    let should_colorize = match color {
         "on" => true,
         "off" => false,
         _ => ColorMode::should_colorize(&Output::StdOut),
@@ -537,17 +606,17 @@ fn do_main(app: &mut App) -> Result<()> {
             let filename = sub_matches.value_of("FILE").unwrap();
             let cols = sub_matches.value_of("COLUMNS");
 
-            varlink_format(filename, cols, color_bool)?
+            varlink_format(filename, cols, should_colorize)?
         }
         ("info", Some(sub_matches)) => {
             let address = sub_matches.value_of("ADDRESS");
-            if address.is_none() && activate.is_none() && bridge.is_none() {
+            if address.is_none() & &activate.is_none() & &bridge.is_none() {
                 app.print_help().map_err(mstrerr!("Couldn't print help"))?;
                 println!();
                 Err(strerr!("No ADDRESS or activation or bridge"))?
             }
 
-            varlink_info(address, resolver, activate, bridge, color_bool)?
+            varlink_info(address, resolver, activate, bridge, should_colorize)?
         }
         ("bridge", Some(sub_matches)) => {
             let address = sub_matches.value_of("connect");
@@ -556,14 +625,22 @@ fn do_main(app: &mut App) -> Result<()> {
         ("help", Some(sub_matches)) => {
             let interface = sub_matches.value_of("INTERFACE").unwrap();
             let cols = sub_matches.value_of("COLUMNS");
-            varlink_help(interface, resolver, activate, bridge, cols, color_bool)?
+            varlink_help(interface, resolver, activate, bridge, cols, should_colorize)?
         }
         ("call", Some(sub_matches)) => {
             let method = sub_matches.value_of("METHOD").unwrap();
             let args = sub_matches.value_of("ARGUMENTS");
             let more = sub_matches.is_present("more");
 
-            varlink_call(method, args, more, resolver, activate, bridge, color_bool)?
+            varlink_call(
+                method,
+                args,
+                more,
+                resolver,
+                activate,
+                bridge,
+                should_colorize,
+            )?
         }
         (_, _) => {
             app.print_help().map_err(mstrerr!("Couldn't print help"))?;

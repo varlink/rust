@@ -55,8 +55,9 @@ fn main() {
         };
         run_client(&connection).map_err(|e| e.into())
     } else if let Some(address) = matches.opt_str("varlink") {
-        run_server(&address, 0, matches.opt_present("m")).map_err(mstrerr!("running server with \
-        address {}", address)).map_err(|e| e.into())
+        run_server(&address, 0, matches.opt_present("m"))
+            .map_err(mstrerr!("running server with address {}", address))
+            .map_err(|e| e.into())
     } else {
         print_usage(&program, &opts);
         eprintln!("Need varlink address in server mode.");
@@ -80,24 +81,28 @@ fn run_client(connection: &Arc<RwLock<varlink::Connection>>) -> Result<()> {
 
         let reply = iface.ping(ping.clone()).call()?;
         assert_eq!(ping, reply.pong);
-        println!("Pong: '{}'", reply.pong);
+        eprintln!("Pong: '{}'", reply.pong);
 
         let reply = iface.ping(ping.clone()).call()?;
         assert_eq!(ping, reply.pong);
-        println!("Pong: '{}'", reply.pong);
+        eprintln!("Pong: '{}'", reply.pong);
 
         let reply = iface.ping(ping.clone()).call()?;
         assert_eq!(ping, reply.pong);
-        println!("Pong: '{}'", reply.pong);
+        eprintln!("Pong: '{}'", reply.pong);
 
         let _reply = iface.upgrade().upgrade()?;
-        println!("Client: upgrade()");
+        eprintln!("Client: upgrade()");
     }
     {
-        // serve upgraded connection
+        // talk our own protocol on an upgraded connection
         let mut conn = connection.write().unwrap();
         let mut writer = conn.writer.take().unwrap();
-        writer.write_all(b"test test\nEnd\n").map_err(minto_cherr!())?;
+        eprintln!("Client: send \"test test\\nline 2\\n\"");
+
+        writer
+            .write_all(b"test test\nline 2\n")
+            .map_err(minto_cherr!())?;
         conn.writer = Some(writer);
         let mut buf = Vec::new();
         let mut reader = conn.reader.take().unwrap();
@@ -107,6 +112,25 @@ fn run_client(connection: &Arc<RwLock<varlink::Connection>>) -> Result<()> {
             reader.read_to_end(&mut buf).map_err(minto_cherr!())?;
         };
         eprintln!("Client: upgraded got: {}", String::from_utf8_lossy(&buf));
+        let mut buf = Vec::new();
+        if reader.read_until(b'\n', &mut buf).map_err(minto_cherr!())? == 0 {
+            // incomplete data, in real life, store all bytes for the next call
+            // for now just read the rest
+            reader.read_to_end(&mut buf).map_err(minto_cherr!())?;
+        };
+        eprintln!("Client: upgraded got: {}", String::from_utf8_lossy(&buf));
+        let mut writer = conn.writer.take().unwrap();
+        eprintln!("Client: send \"End\\n\"");
+        writer.write_all(b"End\n").map_err(minto_cherr!())?;
+        writer.flush().map_err(minto_cherr!())?;
+        let mut buf = Vec::new();
+        if reader.read_until(b'\n', &mut buf).map_err(minto_cherr!())? == 0 {
+            // incomplete data, in real life, store all bytes for the next call
+            // for now just read the rest
+            reader.read_to_end(&mut buf).map_err(minto_cherr!())?;
+        };
+        eprintln!("Client: upgraded got: {}", String::from_utf8_lossy(&buf));
+        conn.writer = Some(writer);
         conn.reader = Some(reader);
     }
     Ok(())
@@ -132,16 +156,12 @@ impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
     fn call_upgraded(&self, call: &mut Call, bufreader: &mut BufRead) -> varlink::Result<Vec<u8>> {
         loop {
             let mut buf = String::new();
-            let len = bufreader
-                .read_line(&mut buf)
-                .map_err(minto_cherr!())?;
+            let len = bufreader.read_line(&mut buf).map_err(minto_cherr!())?;
             if len == 0 {
                 eprintln!("Server: upgraded got: none");
                 // incomplete data, in real life, store all bytes for the next call
                 // return Ok(buf.as_bytes().to_vec());
-                return Err(
-                    into_cherr!(varlink::ErrorKind::ConnectionClosed)
-                );
+                return Err(into_cherr!(varlink::ErrorKind::ConnectionClosed));
             }
             eprintln!("Server: upgraded got: {}", buf);
 
@@ -151,6 +171,9 @@ impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
             call.writer
                 .write_all(buf.as_bytes())
                 .map_err(minto_cherr!())?;
+
+            call.writer.flush().map_err(minto_cherr!())?;
+
             if buf.eq("End\n") {
                 break;
             }
@@ -167,7 +190,7 @@ mod multiplex {
     use std::sync::{Arc, RwLock};
     use std::thread;
 
-        use chainerror::*;
+    use chainerror::*;
     use varlink::{ConnectionHandler, Listener, ServerStream};
 
     struct FdTracker {

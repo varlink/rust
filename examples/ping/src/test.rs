@@ -153,12 +153,11 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
     }
 }
 
-/*
+#[cfg(unix)]
 #[test]
 fn test_unix_multiplex() -> Result<()> {
-    run_self_test("unix:/tmp/org.example.ping_multiplex".into(), true)
+    run_self_test("unix:org.example.ping_multiplex".into(), true)
 }
-*/
 
 #[test]
 fn test_unix() -> Result<()> {

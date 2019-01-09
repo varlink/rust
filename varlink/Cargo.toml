@@ -1,6 +1,6 @@
 [package]
 name = "varlink"
-version = "5.3.0"
+version = "7.0.0"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 edition = "2018"
 
@@ -29,7 +29,7 @@ serde_derive = "1"
 serde_json = "1"
 bytes = "0"
 tempfile = "3"
-chainerror = "0.3"
+chainerror = "0.4"
 
 [target.'cfg(windows)'.dependencies]
 uds_windows = { version="0.1.3" }

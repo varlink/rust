@@ -6,12 +6,12 @@ build = "build.rs"
 edition = "2018"
 
 [dependencies]
-varlink = { path = "../../varlink" }
+varlink = { version = "7", path = "../../varlink" }
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
 getopts = "0"
-chainerror = "0.3"
+chainerror = "0.4"
 
 [build-dependencies]
-varlink_generator = { path = "../../varlink_generator" }
+varlink_generator = { version = "7", path = "../../varlink_generator" }

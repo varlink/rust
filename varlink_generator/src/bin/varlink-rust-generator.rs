@@ -55,10 +55,10 @@ fn main() -> std::result::Result<(), Box<std::error::Error>> {
             if matches.free[0] == "-" {
                 Box::new(io::stdin())
             } else {
-                Box::new(File::open(Path::new(&matches.free[0])).map_err(mstrerr!(
-                    "Failed to open '{}'",
-                    &matches.free[0]
-                ))?)
+                Box::new(
+                    File::open(Path::new(&matches.free[0]))
+                        .map_err(mstrerr!("Failed to open '{}'", &matches.free[0]))?,
+                )
             }
         }
     };

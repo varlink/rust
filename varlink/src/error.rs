@@ -59,9 +59,11 @@ impl ChainErrorFrom<std::io::Error> for ErrorKind {
         match e.kind() {
             io::ErrorKind::BrokenPipe
             | io::ErrorKind::ConnectionAborted
-            | io::ErrorKind::ConnectionReset => {
-                ChainError::<_>::new(ErrorKind::ConnectionClosed, Some(Box::from(e)), line_filename)
-            }
+            | io::ErrorKind::ConnectionReset => ChainError::<_>::new(
+                ErrorKind::ConnectionClosed,
+                Some(Box::from(e)),
+                line_filename,
+            ),
 
             kind => ChainError::<_>::new(ErrorKind::Io(kind), Some(Box::from(e)), line_filename),
         }

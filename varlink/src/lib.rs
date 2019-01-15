@@ -1060,9 +1060,7 @@ where
         let mut buf = Vec::new();
 
         let mut reader = self.reader.take().unwrap();
-        reader
-            .read_until(0, &mut buf)
-            .map_err(minto_cherr!())?;
+        reader.read_until(0, &mut buf).map_err(minto_cherr!())?;
         self.reader = Some(reader);
         if buf.is_empty() {
             return Err(into_cherr!(ErrorKind::ConnectionClosed));
@@ -1238,33 +1236,41 @@ error InvalidParameter (parameter: string)
     }
 
     fn call(&self, call: &mut Call) -> Result<()> {
+        // call.request starts at least with "org.varlink.service."
         let req = call.request.unwrap();
-        match req.method.as_ref() {
-            "org.varlink.service.GetInfo" => call.reply_parameters(
-                serde_json::to_value(&self.info).map_err(minto_cherr!())?,
-            ),
-            "org.varlink.service.GetInterfaceDescription" => match req.parameters.as_ref() {
-                None => call.reply_invalid_parameter("parameters".into()),
-                Some(val) => {
-                    let args: GetInterfaceDescriptionArgs =
-                        serde_json::from_value(val.clone()).map_err(minto_cherr!())?;
-                    match args.interface.as_ref() {
-                        "org.varlink.service" => {
-                            call.reply_parameters(json!({"description": self.get_description()}))
-                        }
-                        key => {
-                            if self.ifaces.contains_key(key) {
-                                call.reply_parameters(
-                                    json!({"description": self.ifaces[key].get_description()}),
-                                )
-                            } else {
-                                call.reply_invalid_parameter("interface".into())
-                            }
-                        }
+
+        match req {
+            Request { method: ref m, .. } if m == "org.varlink.service.GetInfo" => {
+                call.reply_parameters(serde_json::to_value(&self.info).map_err(minto_cherr!())?)
+            }
+
+            Request {
+                method: ref m,
+                parameters: Some(params),
+                ..
+            } if m == "org.varlink.service.GetInterfaceDescription" => {
+                let args: GetInterfaceDescriptionArgs =
+                    serde_json::from_value(params.clone()).map_err(minto_cherr!())?;
+                match args.interface.as_ref() {
+                    "org.varlink.service" => {
+                        call.reply_parameters(json!({"description": self.get_description()}))
                     }
+                    key if self.ifaces.contains_key(key) => call.reply_parameters(
+                        json!({"description": self.ifaces[key].get_description()}),
+                    ),
+                    _ => call.reply_invalid_parameter("interface".into()),
                 }
-            },
-            m => call.reply_method_not_found(m.to_string()),
+            }
+
+            Request {
+                method: ref m,
+                parameters: None,
+                ..
+            } if m == "org.varlink.service.GetInterfaceDescription" => {
+                call.reply_invalid_parameter("parameters".into())
+            }
+
+            Request { method: m, .. } => call.reply_method_not_found(m.to_string()),
         }
     }
 }

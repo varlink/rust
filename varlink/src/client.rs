@@ -28,7 +28,9 @@ pub enum VarlinkStream {
 pub fn varlink_exec<S: ?Sized + AsRef<str>>(
     _address: &S,
 ) -> Result<(Child, String, Option<TempDir>)> {
-    return Err(into_cherr!(ErrorKind::MethodNotImplemented("varlink_exec".into())));
+    return Err(into_cherr!(ErrorKind::MethodNotImplemented(
+        "varlink_exec".into()
+    )));
 }
 
 #[cfg(unix)]
@@ -88,7 +90,8 @@ pub fn varlink_bridge<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Child, Var
         .arg(executable)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .spawn().map_err(minto_cherr!())?;
+        .spawn()
+        .map_err(minto_cherr!())?;
 
     let mut client_writer = child.stdin.take().unwrap();
     let mut client_reader = child.stdout.take().unwrap();
@@ -151,9 +154,7 @@ impl<'a> VarlinkStream {
 
         if new_address.starts_with("tcp:") {
             Ok((
-                VarlinkStream::TCP(
-                    TcpStream::connect(&new_address[4..]).map_err(minto_cherr!())?,
-                ),
+                VarlinkStream::TCP(TcpStream::connect(&new_address[4..]).map_err(minto_cherr!())?),
                 new_address,
             ))
         } else if new_address.starts_with("unix:") {
@@ -187,12 +188,8 @@ impl<'a> VarlinkStream {
 
     pub fn shutdown(&mut self) -> Result<()> {
         match *self {
-            VarlinkStream::TCP(ref mut s) => {
-                s.shutdown(Shutdown::Both).map_err(minto_cherr!())?
-            }
-            VarlinkStream::UNIX(ref mut s) => {
-                s.shutdown(Shutdown::Both).map_err(minto_cherr!())?
-            }
+            VarlinkStream::TCP(ref mut s) => s.shutdown(Shutdown::Both).map_err(minto_cherr!())?,
+            VarlinkStream::UNIX(ref mut s) => s.shutdown(Shutdown::Both).map_err(minto_cherr!())?,
         }
         Ok(())
     }

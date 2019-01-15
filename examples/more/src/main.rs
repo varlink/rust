@@ -16,7 +16,6 @@ mod test;
 
 pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
 
-
 // Main
 
 fn print_usage(program: &str, opts: &getopts::Options) {
@@ -63,7 +62,7 @@ fn main() {
         .parse::<u64>()
         .unwrap_or(1000);
 
-    let ret : Result<()> = if client_mode {
+    let ret: Result<()> = if client_mode {
         let connection = match matches.opt_str("varlink") {
             None => Connection::with_activate(&format!("{} --varlink=$VARLINK_ADDRESS", program))
                 .unwrap(),
@@ -71,7 +70,7 @@ fn main() {
         };
         run_client(connection)
     } else if let Some(address) = matches.opt_str("varlink") {
-        run_server(&address, timeout, sleep).map_err(|e|e.into())
+        run_server(&address, timeout, sleep).map_err(|e| e.into())
     } else {
         print_usage(&program, &opts);
         eprintln!("Need varlink address in server mode.");

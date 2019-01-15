@@ -187,8 +187,7 @@ fn test_handle() -> Result<()> {
 
     let reply = from_slice::<Reply>(&w).unwrap();
 
-    let si =
-        from_value::<ServiceInfo>(reply.parameters.unwrap()).map_err(minto_cherr!())?;
+    let si = from_value::<ServiceInfo>(reply.parameters.unwrap()).map_err(minto_cherr!())?;
 
     assert_eq!(
         si,

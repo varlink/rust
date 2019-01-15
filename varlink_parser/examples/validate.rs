@@ -1,16 +1,16 @@
 extern crate varlink_parser;
 
 use std::env;
+use std::error::Error;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 use std::process::exit;
-use varlink_parser::{FormatColored, Varlink};
 use std::result::Result;
-use std::error::Error;
+use varlink_parser::{FormatColored, Varlink};
 
-fn main() ->  Result<(), Box<Error>> {
+fn main() -> Result<(), Box<Error>> {
     let mut buffer = String::new();
     let args: Vec<_> = env::args().collect();
 

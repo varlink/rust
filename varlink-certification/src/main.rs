@@ -381,7 +381,7 @@ impl VarlinkInterface for CertInterface {
             },
             varlink::Request {
                 more: None,
-                oneway: Some(true),
+                oneway: Some(false),
                 upgrade: None,
                 method: "org.varlink.certification.Start".into(),
                 parameters: None,

@@ -17,10 +17,8 @@ where
     R: BufRead + Send + Sync + 'static,
     W: Write + Send + Sync + 'static,
 {
-    let conn = Connection::new(resolver).map_err(mstrerr!(
-        "Failed to connect to resolver '{}'",
-        resolver
-    ))?;
+    let conn = Connection::new(resolver)
+        .map_err(mstrerr!("Failed to connect to resolver '{}'", resolver))?;
     let mut resolver = VarlinkClient::new(conn);
 
     let mut upgraded = false;

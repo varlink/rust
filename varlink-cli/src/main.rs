@@ -16,7 +16,7 @@ use varlink::{
     Connection, GetInterfaceDescriptionReply, MethodCall, OrgVarlinkServiceClient,
     OrgVarlinkServiceInterface,
 };
-use varlink_parser::{Format, FormatColored, Varlink};
+use varlink_parser::{Format, FormatColored, IDL};
 use varlink_stdinterfaces::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 
 use crate::proxy::{handle, handle_connect};
@@ -35,18 +35,16 @@ fn varlink_format(filename: &str, line_len: Option<&str>, should_colorize: bool)
         .read_to_string(&mut buffer)
         .map_err(mstrerr!("Failed to read '{}'", filename))?;
 
-    let v = Varlink::from_string(&buffer).map_err(mstrerr!("Failed to parse '{}'", buffer))?;
+    let idl = IDL::from_string(&buffer).map_err(mstrerr!("Failed to parse '{}'", buffer))?;
     if should_colorize {
         println!(
             "{}",
-            v.interface
-                .get_multiline_colored(0, line_len.unwrap_or("80").parse::<usize>().unwrap_or(80))
+            idl.get_multiline_colored(0, line_len.unwrap_or("80").parse::<usize>().unwrap_or(80))
         );
     } else {
         println!(
             "{}",
-            v.interface
-                .get_multiline(0, line_len.unwrap_or("80").parse::<usize>().unwrap_or(80))
+            idl.get_multiline(0, line_len.unwrap_or("80").parse::<usize>().unwrap_or(80))
         );
     };
     Ok(())
@@ -162,9 +160,8 @@ fn varlink_help(
             if should_colorize {
                 println!(
                     "{}",
-                    Varlink::from_string(&desc)
+                    IDL::from_string(&desc)
                         .map_err(mstrerr!("Can't parse '{}'", desc))?
-                        .interface
                         .get_multiline_colored(
                             0,
                             columns.unwrap_or("80").parse::<usize>().unwrap_or(80),
@@ -173,9 +170,8 @@ fn varlink_help(
             } else {
                 println!(
                     "{}",
-                    Varlink::from_string(&desc)
+                    IDL::from_string(&desc)
                         .map_err(mstrerr!("Can't parse '{}'", desc))?
-                        .interface
                         .get_multiline(0, columns.unwrap_or("80").parse::<usize>().unwrap_or(80))
                 );
             }
@@ -637,7 +633,7 @@ fn do_main(app: &mut App) -> Result<()> {
         }
         ("info", Some(sub_matches)) => {
             let address = sub_matches.value_of("ADDRESS");
-            if address.is_none() & &activate.is_none() & &bridge.is_none() {
+            if address.is_none() && activate.is_none() && bridge.is_none() {
                 app.print_help().map_err(mstrerr!("Couldn't print help"))?;
                 println!();
                 Err(strerr!("No ADDRESS or activation or bridge"))?

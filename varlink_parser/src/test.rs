@@ -2,7 +2,7 @@ use crate::*;
 
 #[test]
 fn test_standard() {
-    let v = Varlink::from_string(
+    let v = IDL::from_string(
         "
 # The Varlink Service Interface is provided by every varlink service. It
 # describes the service and the interfaces it implements.
@@ -36,25 +36,21 @@ error InvalidParameter (parameter: string)
 ",
     )
     .unwrap();
-    assert_eq!(v.interface.name, "org.varlink.service");
+    assert_eq!(v.name, "org.varlink.service");
     assert_eq!(
-        v.interface.doc,
+        v.doc,
         "\
          # The Varlink Service Interface is provided by every varlink service. It\n\
          # describes the service and the interfaces it implements.\
          "
     );
     assert_eq!(
-        v.interface
-            .methods
-            .get("GetInterfaceDescription".into())
-            .unwrap()
-            .doc,
+        v.methods.get("GetInterfaceDescription".into()).unwrap().doc,
         "# Get the description of an interface that is implemented by this service."
     );
-    //println!("{}", v.interface.to_string());
+    //println!("{}", v.to_string());
     assert_eq!(
-        v.interface.to_string(),
+        v.to_string(),
         "\
 # The Varlink Service Interface is provided by every varlink service. It
 # describes the service and the interfaces it implements.
@@ -91,7 +87,7 @@ error InvalidParameter (parameter: string)
 
 #[test]
 fn test_complex() {
-    let v = Varlink::from_string(
+    let v = IDL::from_string(
         "interface org.example.complex
 type TypeEnum ( a, b, c )
 
@@ -111,10 +107,10 @@ error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)
 ",
     )
     .unwrap();
-    assert_eq!(v.interface.name, "org.example.complex");
-    println!("{}", v.interface.to_string());
+    assert_eq!(v.name, "org.example.complex");
+    println!("{}", v.to_string());
     assert_eq!(
-        v.interface.to_string(),
+        v.to_string(),
         "\
 interface org.example.complex
 
@@ -142,7 +138,7 @@ error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)
 
 #[test]
 fn test_formatted() {
-    let v = Varlink::from_string(
+    let v = IDL::from_string(
         "\
 # 345678901234567890123456789012345678901234567890123456789012345678901234567890
 interface org.example.format
@@ -160,11 +156,11 @@ error ErrorFoo1 (a: (foo: bool, bar: int, baz: (a: int, b: int), b: (beee: int))
 ",
     )
     .unwrap();
-    assert_eq!(v.interface.name, "org.example.format");
-    println!("{}", v.interface.get_oneline());
-    println!("{}", v.interface.to_string());
+    assert_eq!(v.name, "org.example.format");
+    println!("{}", v.get_oneline());
+    println!("{}", v.to_string());
     assert_eq!(
-        v.interface.to_string(),
+        v.to_string(),
         "\
 # 345678901234567890123456789012345678901234567890123456789012345678901234567890
 interface org.example.format
@@ -203,142 +199,123 @@ error ErrorFoo1 (
 
 #[test]
 fn test_one_method() {
-    let v = Varlink::from_string("interface foo.bar\nmethod Foo()->()");
+    let v = IDL::from_string("interface foo.bar\nmethod Foo()->()");
     assert!(v.is_ok());
 }
 
 #[test]
 fn test_one_method_no_type() {
-    assert!(VInterface("interface foo.bar\nmethod Foo()->(b:)").is_err());
+    assert!(ParseInterface("interface foo.bar\nmethod Foo()->(b:)").is_err());
 }
 
 #[test]
 fn test_domainnames() {
-    assert!(Varlink::from_string("interface org.varlink.service\nmethod F()->()").is_ok());
-    assert!(Varlink::from_string("interface com.example.0example\nmethod F()->()").is_ok());
-    assert!(Varlink::from_string("interface com.example.example-dash\nmethod F()->()").is_ok());
-    assert!(Varlink::from_string("interface com.-example.leadinghyphen\nmethod F()->()").is_err());
-    assert!(
-        Varlink::from_string("interface xn--lgbbat1ad8j.example.algeria\nmethod F()->()").is_ok()
-    );
-    assert!(
-        Varlink::from_string("interface com.example-.danglinghyphen-\nmethod F()->()").is_err()
-    );
-    assert!(
-        Varlink::from_string("interface Com.example.uppercase-toplevel\nmethod F()->()").is_err()
-    );
-    assert!(Varlink::from_string("interface Co9.example.number-toplevel\nmethod F()->()").is_err());
-    assert!(Varlink::from_string("interface 1om.example.number-toplevel\nmethod F()->()").is_err());
-    assert!(Varlink::from_string("interface com.Example\nmethod F()->()").is_err());
-    assert!(Varlink::from_string("interface a.b\nmethod F()->()").is_ok());
-    assert!(Varlink::from_string("interface a.b.c\nmethod F()->()").is_ok());
-    assert!(Varlink::from_string("interface a1.b1.c1\nmethod F()->()").is_ok());
-    assert!(Varlink::from_string("interface a1.b--1.c--1\nmethod F()->()").is_ok());
-    assert!(Varlink::from_string("interface a--1.b--1.c--1\nmethod F()->()").is_ok());
-    assert!(Varlink::from_string("interface a.21.c\nmethod F()->()").is_ok());
-    assert!(Varlink::from_string("interface a.1\nmethod F()->()").is_ok());
-    assert!(Varlink::from_string("interface a.0.0\nmethod F()->()").is_ok());
-    assert!(Varlink::from_string("interface ab\nmethod F()->()").is_err());
-    assert!(Varlink::from_string("interface .a.b.c\nmethod F()->()").is_err());
-    assert!(Varlink::from_string("interface a.b.c.\nmethod F()->()").is_err());
-    assert!(Varlink::from_string("interface a..b.c\nmethod F()->()").is_err());
-    assert!(Varlink::from_string("interface 1.b.c\nmethod F()->()").is_err());
-    assert!(Varlink::from_string("interface 8a.0.0\nmethod F()->()").is_err());
-    assert!(Varlink::from_string("interface -a.b.c\nmethod F()->()").is_err());
-    assert!(Varlink::from_string("interface a.b.c-\nmethod F()->()").is_err());
-    assert!(Varlink::from_string("interface a.b-.c-\nmethod F()->()").is_err());
-    assert!(Varlink::from_string("interface a.-b.c-\nmethod F()->()").is_err());
-    assert!(Varlink::from_string("interface a.-.c\nmethod F()->()").is_err());
-    assert!(Varlink::from_string("interface a.*.c\nmethod F()->()").is_err());
-    assert!(Varlink::from_string("interface a.?\nmethod F()->()").is_err());
+    assert!(IDL::from_string("interface org.varlink.service\nmethod F()->()").is_ok());
+    assert!(IDL::from_string("interface com.example.0example\nmethod F()->()").is_ok());
+    assert!(IDL::from_string("interface com.example.example-dash\nmethod F()->()").is_ok());
+    assert!(IDL::from_string("interface com.-example.leadinghyphen\nmethod F()->()").is_err());
+    assert!(IDL::from_string("interface xn--lgbbat1ad8j.example.algeria\nmethod F()->()").is_ok());
+    assert!(IDL::from_string("interface com.example-.danglinghyphen-\nmethod F()->()").is_err());
+    assert!(IDL::from_string("interface Com.example.uppercase-toplevel\nmethod F()->()").is_err());
+    assert!(IDL::from_string("interface Co9.example.number-toplevel\nmethod F()->()").is_err());
+    assert!(IDL::from_string("interface 1om.example.number-toplevel\nmethod F()->()").is_err());
+    assert!(IDL::from_string("interface com.Example\nmethod F()->()").is_err());
+    assert!(IDL::from_string("interface a.b\nmethod F()->()").is_ok());
+    assert!(IDL::from_string("interface a.b.c\nmethod F()->()").is_ok());
+    assert!(IDL::from_string("interface a1.b1.c1\nmethod F()->()").is_ok());
+    assert!(IDL::from_string("interface a1.b--1.c--1\nmethod F()->()").is_ok());
+    assert!(IDL::from_string("interface a--1.b--1.c--1\nmethod F()->()").is_ok());
+    assert!(IDL::from_string("interface a.21.c\nmethod F()->()").is_ok());
+    assert!(IDL::from_string("interface a.1\nmethod F()->()").is_ok());
+    assert!(IDL::from_string("interface a.0.0\nmethod F()->()").is_ok());
+    assert!(IDL::from_string("interface ab\nmethod F()->()").is_err());
+    assert!(IDL::from_string("interface .a.b.c\nmethod F()->()").is_err());
+    assert!(IDL::from_string("interface a.b.c.\nmethod F()->()").is_err());
+    assert!(IDL::from_string("interface a..b.c\nmethod F()->()").is_err());
+    assert!(IDL::from_string("interface 1.b.c\nmethod F()->()").is_err());
+    assert!(IDL::from_string("interface 8a.0.0\nmethod F()->()").is_err());
+    assert!(IDL::from_string("interface -a.b.c\nmethod F()->()").is_err());
+    assert!(IDL::from_string("interface a.b.c-\nmethod F()->()").is_err());
+    assert!(IDL::from_string("interface a.b-.c-\nmethod F()->()").is_err());
+    assert!(IDL::from_string("interface a.-b.c-\nmethod F()->()").is_err());
+    assert!(IDL::from_string("interface a.-.c\nmethod F()->()").is_err());
+    assert!(IDL::from_string("interface a.*.c\nmethod F()->()").is_err());
+    assert!(IDL::from_string("interface a.?\nmethod F()->()").is_err());
 }
 
 #[test]
 fn test_type_no_args() {
-    assert!(Varlink::from_string("interface foo.bar\n type I ()\nmethod F()->()").is_ok());
+    assert!(IDL::from_string("interface foo.bar\n type I ()\nmethod F()->()").is_ok());
 }
 
 #[test]
 fn test_type_one_arg() {
-    assert!(Varlink::from_string("interface foo.bar\n type I (b:bool)\nmethod F()->()").is_ok());
+    assert!(IDL::from_string("interface foo.bar\n type I (b:bool)\nmethod F()->()").is_ok());
 }
 
 #[test]
 fn test_type_enum() {
-    assert!(Varlink::from_string(
-        "interface foo.bar\n type I (b: (foo, bar, baz))\nmethod F()->()"
-    )
-    .is_ok());
+    assert!(
+        IDL::from_string("interface foo.bar\n type I (b: (foo, bar, baz))\nmethod F()->()").is_ok()
+    );
 }
 
 #[test]
 fn test_type_string() {
-    assert!(Varlink::from_string("interface foo.bar\n type I (b: string)\nmethod F()->()").is_ok());
+    assert!(IDL::from_string("interface foo.bar\n type I (b: string)\nmethod F()->()").is_ok());
 }
 
 #[test]
 fn test_type_stringmap() {
     assert!(
-        Varlink::from_string("interface foo.bar\n type I (b: [string]string)\nmethod F()->()")
-            .is_ok()
+        IDL::from_string("interface foo.bar\n type I (b: [string]string)\nmethod F()->()").is_ok()
     );
 }
 
 #[test]
 fn test_type_stringmap_set() {
-    assert!(
-        Varlink::from_string("interface foo.bar\n type I (b: [string]())\nmethod F()->()").is_ok()
-    );
+    assert!(IDL::from_string("interface foo.bar\n type I (b: [string]())\nmethod F()->()").is_ok());
 }
 
 #[test]
 fn test_type_object() {
-    assert!(Varlink::from_string("interface foo.bar\n type I (b: object)\nmethod F()->()").is_ok());
+    assert!(IDL::from_string("interface foo.bar\n type I (b: object)\nmethod F()->()").is_ok());
 }
 
 #[test]
 fn test_type_int() {
-    assert!(Varlink::from_string("interface foo.bar\n type I (b: int)\nmethod F()->()").is_ok());
+    assert!(IDL::from_string("interface foo.bar\n type I (b: int)\nmethod F()->()").is_ok());
 }
 
 #[test]
 fn test_type_float() {
-    assert!(Varlink::from_string("interface foo.bar\n type I (b: float)\nmethod F()->()").is_ok());
+    assert!(IDL::from_string("interface foo.bar\n type I (b: float)\nmethod F()->()").is_ok());
 }
 
 #[test]
 fn test_type_one_array() {
-    assert!(Varlink::from_string("interface foo.bar\n type I (b:[]bool)\nmethod  F()->()").is_ok());
+    assert!(IDL::from_string("interface foo.bar\n type I (b:[]bool)\nmethod  F()->()").is_ok());
+    assert!(IDL::from_string("interface foo.bar\n type I (b:bool[ ])\nmethod  F()->()").is_err());
+    assert!(IDL::from_string("interface foo.bar\n type I (b:[ ]bool)\nmethod  F()->()").is_err());
+    assert!(IDL::from_string("interface foo.bar\n type I (b:[1]bool)\nmethod  F()->()").is_err());
+    assert!(IDL::from_string("interface foo.bar\n type I (b:[ 1 ]bool)\nmethod  F()->()").is_err());
     assert!(
-        Varlink::from_string("interface foo.bar\n type I (b:bool[ ])\nmethod  F()->()").is_err()
-    );
-    assert!(
-        Varlink::from_string("interface foo.bar\n type I (b:[ ]bool)\nmethod  F()->()").is_err()
-    );
-    assert!(
-        Varlink::from_string("interface foo.bar\n type I (b:[1]bool)\nmethod  F()->()").is_err()
-    );
-    assert!(
-        Varlink::from_string("interface foo.bar\n type I (b:[ 1 ]bool)\nmethod  F()->()").is_err()
-    );
-    assert!(
-        Varlink::from_string("interface foo.bar\n type I (b:[ 1 1 ]bool)\nmethod  F()->()")
-            .is_err()
+        IDL::from_string("interface foo.bar\n type I (b:[ 1 1 ]bool)\nmethod  F()->()").is_err()
     );
 }
 
 #[test]
 fn test_format() {
-    let v = Varlink::from_string("interface foo.bar\ntype I(b:[]bool)\nmethod  F()->()").unwrap();
+    let v = IDL::from_string("interface foo.bar\ntype I(b:[]bool)\nmethod  F()->()").unwrap();
     assert_eq!(
-        v.interface.to_string(),
+        v.to_string(),
         "interface foo.bar\n\ntype I (b: []bool)\n\nmethod F() -> ()\n"
     );
 }
 
 #[test]
 fn test_duplicate() {
-    let e = Varlink::from_string(
+    let e = IDL::from_string(
         "
 interface foo.example
 type Device()

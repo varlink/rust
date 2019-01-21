@@ -109,8 +109,8 @@ member -> MethodOrTypedefOrError<'input>
     / t:vtypedef { MethodOrTypedefOrError::Typedef(t) }
     / e:error { MethodOrTypedefOrError::Error(e) }
 
-use super::Interface;
-pub VInterface -> Interface<'input>
+use super::IDL;
+pub ParseInterface -> IDL<'input>
 	= d:$(_*) "interface" _+ n:$interface_name eol mt:(member++ eol) _*  {
-	    Interface::from_token(n, mt, trim_doc(d))
+	    IDL::from_token(__input, n, mt, trim_doc(d))
 	 }

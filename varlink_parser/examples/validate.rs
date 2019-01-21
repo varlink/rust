@@ -8,7 +8,7 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::process::exit;
 use std::result::Result;
-use varlink_parser::{FormatColored, Varlink};
+use varlink_parser::{FormatColored, IDL};
 
 fn main() -> Result<(), Box<Error>> {
     let mut buffer = String::new();
@@ -19,7 +19,7 @@ fn main() -> Result<(), Box<Error>> {
         _ => File::open(Path::new(&args[1]))?.read_to_string(&mut buffer)?,
     };
 
-    let v = Varlink::from_string(&buffer)?;
-    println!("{}", v.interface.get_multiline_colored(0, 80));
+    let v = IDL::from_string(&buffer)?;
+    println!("{}", v.get_multiline_colored(0, 80));
     exit(0);
 }

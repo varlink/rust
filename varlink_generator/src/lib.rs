@@ -17,7 +17,7 @@ use chainerror::*;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
-use varlink_parser::{Typedef, VEnum, VError, VStruct, VStructOrEnum, VType, VTypeExt, Varlink};
+use varlink_parser::{Typedef, VEnum, VError, VStruct, VStructOrEnum, VType, VTypeExt, IDL};
 
 derive_str_cherr!(Error);
 pub type Result<T> = ChainResult<T, Error>;
@@ -250,12 +250,7 @@ impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VError<'long> {
     }
 }
 
-fn varlink_to_rust(
-    varlink: &Varlink,
-    options: &GeneratorOptions,
-    tosource: bool,
-) -> Result<TokenStream> {
-    let iface = &varlink.interface;
+fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Result<TokenStream> {
     let mut ts = TokenStream::new();
 
     if tosource {
@@ -279,24 +274,24 @@ fn varlink_to_rust(
         ts.extend(v.clone());
     }
 
-    for t in iface.typedefs.values() {
+    for t in idl.typedefs.values() {
         t.to_tokenstream("", &mut ts, options);
     }
 
-    for t in iface.errors.values() {
+    for t in idl.errors.values() {
         t.to_tokenstream("", &mut ts, options);
     }
 
-    generate_error_code(options, &iface, &mut ts);
+    generate_error_code(options, &idl, &mut ts);
 
     let mut server_method_decls = TokenStream::new();
     let mut client_method_decls = TokenStream::new();
     let mut server_method_impls = TokenStream::new();
     let mut client_method_impls = TokenStream::new();
-    let iname = iface.name;
-    let description = varlink.description;
+    let iname = idl.name;
+    let description = idl.description;
 
-    for t in iface.methods.values() {
+    for t in idl.methods.values() {
         let mut in_field_types = Vec::new();
         let mut in_field_names = Vec::new();
         let in_struct_name = Ident::new(&format!("{}_Args", t.name), Span::call_site());
@@ -309,7 +304,7 @@ fn varlink_to_rust(
 
         let call_name = Ident::new(&format!("Call_{}", t.name), Span::call_site());
         let method_name = Ident::new(&to_snake_case(t.name), Span::call_site());
-        let varlink_method_name = format!("{}.{}", iface.name, t.name);
+        let varlink_method_name = format!("{}.{}", idl.name, t.name);
 
         generate_anon_struct(
             &format!("{}_{}", t.name, "Args"),
@@ -544,14 +539,14 @@ fn generate_anon_struct(
 
 fn generate_error_code(
     options: &GeneratorOptions,
-    iface: &varlink_parser::Interface,
+    idl: &varlink_parser::IDL,
     ts: &mut TokenStream,
 ) {
     // Errors traits
     {
         let mut error_structs_and_enums = TokenStream::new();
         let mut funcs = TokenStream::new();
-        for t in iface.errors.values() {
+        for t in idl.errors.values() {
             let mut inparms_name = Vec::new();
             let mut inparms_type = Vec::new();
 
@@ -584,7 +579,7 @@ fn generate_error_code(
                 parms = quote!(None);
                 inparms = quote!();
             }
-            let errorname = format!("{iname}.{ename}", iname = iface.name, ename = t.name);
+            let errorname = format!("{iname}.{ename}", iname = idl.name, ename = t.name);
             let func_name = Ident::new(
                 &format!("reply_{}", to_snake_case(t.name)),
                 Span::call_site(),
@@ -609,7 +604,7 @@ fn generate_error_code(
     {
         let mut errors = Vec::new();
         let mut errors_display = Vec::new();
-        for t in iface.errors.values() {
+        for t in idl.errors.values() {
             errors.push(
                 TokenStream::from_str(&format!("{ename}(Option<{ename}_Args>)", ename = t.name,))
                     .unwrap(),
@@ -618,7 +613,7 @@ fn generate_error_code(
                 TokenStream::from_str(&format!(
                     "ErrorKind::{ename}(v) => write!(f, \"{iname}.{ename}: {{:#?}}\", v)",
                     ename = t.name,
-                    iname = iface.name,
+                    iname = idl.name,
                 ))
                 .unwrap(),
             );
@@ -702,8 +697,8 @@ fn generate_error_code(
     ));
     {
         let mut arms = TokenStream::new();
-        for t in iface.errors.values() {
-            let error_name = format!("{iname}.{ename}", iname = iface.name, ename = t.name);
+        for t in idl.errors.values() {
+            let error_name = format!("{iname}.{ename}", iname = idl.name, ename = t.name);
             let ename = TokenStream::from_str(&format!("ErrorKind::{}", t.name)).unwrap();
             arms.extend(quote!(
                 varlink::Reply { error: Some(ref t), .. } if t == #error_name => {
@@ -771,10 +766,9 @@ pub fn generate_with_options(
         .read_to_string(&mut buffer)
         .map_err(mstrerr!(Error, "Failed to read from buffer"))?;
 
-    let vr =
-        Varlink::from_string(&buffer).map_err(mstrerr!(Error, "Failed to parse {}", &buffer))?;
+    let idl = IDL::from_string(&buffer).map_err(mstrerr!(Error, "Failed to parse {}", &buffer))?;
 
-    let ts = varlink_to_rust(&vr, options, tosource)?;
+    let ts = varlink_to_rust(&idl, options, tosource)?;
     writer
         .write_all(ts.to_string().as_bytes())
         .map_err(mstrerr!(Error, "Failed to write to buffer"))?;

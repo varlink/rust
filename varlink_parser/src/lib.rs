@@ -4,8 +4,8 @@
  # Examples
 
  ```rust
- use varlink_parser::Varlink;
- let v = Varlink::from_string("
+ use varlink_parser::IDL;
+ let interface = IDL::from_string("
  ## The Varlink Service Interface is provided by every varlink service. It
  ## describes the service and the interfaces it implements.
  interface org.varlink.service
@@ -36,7 +36,7 @@
  ## One of the passed parameters is invalid.
  error InvalidParameter (parameter: string)
  ").unwrap();
-    assert_eq!(v.interface.name, "org.varlink.service");
+    assert_eq!(interface.name, "org.varlink.service");
  ```
 !*/
 
@@ -45,7 +45,7 @@
     html_favicon_url = "https://varlink.org/images/varlink-small.png"
 )]
 
-use self::varlink_grammar::VInterface;
+use self::varlink_grammar::ParseInterface;
 use ansi_term::Colour;
 use itertools::Itertools;
 use std::collections::BTreeMap;
@@ -128,7 +128,8 @@ enum MethodOrTypedefOrError<'a> {
     Method(Method<'a>),
 }
 
-pub struct Interface<'a> {
+pub struct IDL<'a> {
+    pub description: &'a str,
     pub name: &'a str,
     pub doc: &'a str,
     pub methods: BTreeMap<&'a str, Method<'a>>,
@@ -488,13 +489,13 @@ fn trim_doc(s: &str) -> &str {
     ] as &[_])
 }
 
-impl<'a> fmt::Display for Interface<'a> {
+impl<'a> fmt::Display for IDL<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(&self.get_multiline(0, 80))
     }
 }
 
-impl<'a> Format for Interface<'a> {
+impl<'a> Format for IDL<'a> {
     fn get_oneline(&self) -> String {
         let mut f = String::new();
 
@@ -695,7 +696,7 @@ impl<'a> Format for Interface<'a> {
     }
 }
 
-impl<'a> FormatColored for Interface<'a> {
+impl<'a> FormatColored for IDL<'a> {
     fn get_oneline_colored(&self) -> String {
         let mut f = String::new();
 
@@ -914,13 +915,15 @@ impl<'a> FormatColored for Interface<'a> {
     }
 }
 
-impl<'a> Interface<'a> {
+impl<'a> IDL<'a> {
     fn from_token(
+        description: &'a str,
         name: &'a str,
         mt: Vec<MethodOrTypedefOrError<'a>>,
         doc: &'a str,
-    ) -> Interface<'a> {
-        let mut i = Interface {
+    ) -> IDL<'a> {
+        let mut i = IDL {
+            description,
             name,
             doc,
             methods: BTreeMap::new(),
@@ -968,26 +971,17 @@ impl<'a> Interface<'a> {
     }
 }
 
-pub struct Varlink<'short, 'long: 'short> {
-    pub description: &'long str,
-    pub interface: Interface<'short>,
-}
-
-impl<'short, 'long: 'short> Varlink<'short, 'long> {
-    pub fn from_string<S: ?Sized + AsRef<str>>(s: &'long S) -> ChainResult<Self, Error> {
-        let s = s.as_ref();
-        let iface = VInterface(s).map_err(mstrerr!(Error, "Could not parse: {}", s))?;
-        if !iface.error.is_empty() {
+impl<'a> IDL<'a> {
+    pub fn from_string(s: &'a str) -> ChainResult<Self, Error> {
+        let interface = ParseInterface(s).map_err(mstrerr!(Error, "Could not parse: {}", s))?;
+        if !interface.error.is_empty() {
             Err(strerr!(
                 Error,
                 "Interface definition error: '{}'\n",
-                iface.error.into_iter().sorted().join("\n")
+                interface.error.into_iter().sorted().join("\n")
             ))
         } else {
-            Ok(Varlink {
-                description: s,
-                interface: iface,
-            })
+            Ok(interface)
         }
     }
 }

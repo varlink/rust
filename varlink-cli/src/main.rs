@@ -364,43 +364,70 @@ fn print_call_ret(
 }
 
 #[cfg(unix)]
-fn varlink_bridge(address: Option<&str>) -> Result<()> {
+fn get_in_out() -> (std::io::BufReader<std::fs::File>, std::fs::File) {
     use std::os::unix::io::{AsRawFd, FromRawFd};
 
     let stdin = ::std::io::stdin();
     let stdout = ::std::io::stdout();
-
-    let inbuf =
+    let in_buffer =
         unsafe { ::std::io::BufReader::new(::std::fs::File::from_raw_fd(stdin.as_raw_fd())) };
-    let outw = unsafe { ::std::fs::File::from_raw_fd(stdout.as_raw_fd()) };
-
-    if let Some(address) = address {
-        handle_connect(address, inbuf, outw)
-            .map_err(mstrerr!("Bridging to address {}", address))?;
-    } else {
-        handle(inbuf, outw).map_err(mstrerr!("Bridging"))?;
-    }
-    Ok(())
+    let out_writer = unsafe { ::std::fs::File::from_raw_fd(stdout.as_raw_fd()) };
+    (in_buffer, out_writer)
 }
 
 #[cfg(windows)]
-fn varlink_bridge(address: Option<&str>) -> Result<()> {
+fn get_in_out() -> (std::io::BufReader<std::fs::File>, std::fs::File) {
     use std::os::windows::io::{AsRawHandle, FromRawHandle};
 
     let stdin = ::std::io::stdin();
     let stdout = ::std::io::stdout();
 
-    let inbuf = unsafe {
+    let in_buffer = unsafe {
         ::std::io::BufReader::new(::std::fs::File::from_raw_handle(stdin.as_raw_handle()))
     };
-    let outw = unsafe { ::std::fs::File::from_raw_handle(stdout.as_raw_handle()) };
+    let out_writer = unsafe { ::std::fs::File::from_raw_handle(stdout.as_raw_handle()) };
+    (in_buffer, out_writer)
+}
 
-    if let Some(address) = address {
-        handle_connect(address, inbuf, outw)
-            .map_err(mstrerr!("Bridging to address {}", address))?;
-    } else {
-        handle(inbuf, outw).map_err(mstrerr!("Bridging"))?;
-    }
+fn varlink_bridge(
+    address: Option<&str>,
+    resolver: &str,
+    activate: Option<&str>,
+    bridge: Option<&str>,
+) -> Result<()> {
+    let (in_buffer, out_writer) = get_in_out();
+
+    let connection = match activate {
+        Some(activate) => Connection::with_activate(activate)
+            .map_err(mstrerr!("Failed to connect with activate '{}'", activate))?,
+        None => match bridge {
+            Some(bridge) => Connection::with_bridge(bridge)
+                .map_err(mstrerr!("Failed to connect with bridge '{}'", bridge))?,
+            None => {
+                if let Some(address) = address {
+                    if address.rfind(':').is_none() {
+                        let conn = Connection::new(resolver)
+                            .map_err(mstrerr!("Failed to connect with resolver '{}'", resolver))?;
+                        let mut resolver = VarlinkClient::new(conn);
+                        let address = match resolver.resolve(address.into()).call() {
+                            Ok(r) => r.address.clone(),
+                            _ => Err(strerr!("Interface '{}' not found", address))?,
+                        };
+                        Connection::with_address(&address)
+                            .map_err(mstrerr!("Failed to connect to '{}'", address))?
+                    } else {
+                        Connection::with_address(&address)
+                            .map_err(mstrerr!("Failed to connect to '{}'", address))?
+                    }
+                } else {
+                    handle(resolver, in_buffer, out_writer).map_err(mstrerr!("Bridging"))?;
+                    return Ok(());
+                }
+            }
+        },
+    };
+    handle_connect(connection, in_buffer, out_writer).map_err(mstrerr!("Bridging"))?;
+
     Ok(())
 }
 
@@ -620,7 +647,7 @@ fn do_main(app: &mut App) -> Result<()> {
         }
         ("bridge", Some(sub_matches)) => {
             let address = sub_matches.value_of("connect");
-            varlink_bridge(address)?
+            varlink_bridge(address, resolver, activate, bridge)?
         }
         ("help", Some(sub_matches)) => {
             let interface = sub_matches.value_of("INTERFACE").unwrap();

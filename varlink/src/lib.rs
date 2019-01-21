@@ -806,9 +806,9 @@ pub struct Connection {
     pub writer: Option<Box<Write + Send + Sync>>,
     address: String,
     #[allow(dead_code)] // For the stream Drop()
-    stream: Option<client::VarlinkStream>,
-    child: Option<Child>,
-    tempdir: Option<TempDir>,
+    pub stream: Option<client::VarlinkStream>,
+    pub child: Option<Child>,
+    pub tempdir: Option<TempDir>,
 }
 
 impl Connection {

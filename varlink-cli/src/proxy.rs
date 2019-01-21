@@ -1,22 +1,25 @@
 use std::io::{self, copy, BufRead, Write};
+use std::sync::{Arc, RwLock};
 use std::thread;
 
 use chainerror::*;
 use serde_json::{from_slice, from_value, to_string};
 
-use varlink::{Call, Connection, GetInterfaceDescriptionArgs, Reply, Request, VarlinkStream};
+use varlink::{
+    Call, Connection, ErrorKind, GetInterfaceDescriptionArgs, Reply, Request, VarlinkStream,
+};
 use varlink_stdinterfaces::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 
 use crate::Result;
 
-pub fn handle<R, W>(mut client_reader: R, mut client_writer: W) -> Result<bool>
+pub fn handle<R, W>(resolver: &str, mut client_reader: R, mut client_writer: W) -> Result<bool>
 where
     R: BufRead + Send + Sync + 'static,
     W: Write + Send + Sync + 'static,
 {
-    let conn = Connection::new("unix:/run/org.varlink.resolver").map_err(mstrerr!(
+    let conn = Connection::new(resolver).map_err(mstrerr!(
         "Failed to connect to resolver '{}'",
-        "unix:/run/org.varlink.resolver"
+        resolver
     ))?;
     let mut resolver = VarlinkClient::new(conn);
 
@@ -144,7 +147,7 @@ where
 }
 
 pub fn handle_connect<R, W>(
-    address: &str,
+    connection: Arc<RwLock<Connection>>,
     mut client_reader: R,
     mut client_writer: W,
 ) -> Result<bool>
@@ -154,11 +157,16 @@ where
 {
     let mut upgraded = false;
     let mut last_iface = String::new();
-    let (mut stream, _) = VarlinkStream::connect(&address)?;
+
+    let mut conn = connection.write().unwrap();
 
     loop {
         if !upgraded {
-            let (service_reader, mut service_writer) = stream.split()?;
+            if conn.reader.is_none() || conn.writer.is_none() {
+                return Err(ErrorKind::ConnectionBusy.into());
+            }
+            let (mut service_reader, mut service_writer) =
+                (conn.reader.take().unwrap(), conn.writer.take().unwrap());
 
             let mut buf = Vec::new();
             match client_reader.read_until(b'\0', &mut buf) {
@@ -201,12 +209,10 @@ where
 
             upgraded = req.upgrade.unwrap_or(false);
 
-            let mut service_bufreader = ::std::io::BufReader::new(service_reader);
-
             loop {
                 let mut buf = Vec::new();
 
-                if service_bufreader.read_until(0, &mut buf)? == 0 {
+                if service_reader.read_until(0, &mut buf)? == 0 {
                     break;
                 }
                 if buf.is_empty() {
@@ -224,8 +230,15 @@ where
                     break;
                 }
             }
+
+            conn.reader = Some(service_reader);
+            conn.writer = Some(service_writer)
         } else {
-            let (mut service_reader, mut service_writer) = stream.split()?;
+            if conn.reader.is_none() || conn.writer.is_none() {
+                return Err(ErrorKind::ConnectionBusy.into());
+            }
+            let (mut service_reader, mut service_writer) =
+                (conn.reader.take().unwrap(), conn.writer.take().unwrap());
 
             // Should copy back and forth, until someone disconnects.
             {

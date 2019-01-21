@@ -1,6 +1,6 @@
 [package]
 name = "varlink_generator"
-version = "7.0.0"
+version = "7.0.1"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 edition = "2018"
 
@@ -24,7 +24,7 @@ path = "src/bin/varlink-rust-generator.rs"
 
 [dependencies]
 chainerror = "0.4"
-varlink_parser = { version = "3", path = "../varlink_parser" }
+varlink_parser = { version = "4", path = "../varlink_parser" }
 quote = "0.6"
 proc-macro2 = "0.4"
 getopts = "0"

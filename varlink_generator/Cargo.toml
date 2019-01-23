@@ -6,7 +6,7 @@ edition = "2018"
 
 license = "MIT/Apache-2.0"
 documentation = "https://github.com/varlink/rust/blob/master/varlink/README.md"
-homepage = "https://github.com/varlink/rust/blob/master/varlink"
+homepage = "https://github.com/varlink/rust/blob/master/varlink_generator"
 repository = "https://github.com/varlink/rust"
 description = "Rust code generator for the varlink protocol."
 readme = "README.md"

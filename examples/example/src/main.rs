@@ -7,8 +7,9 @@ use varlink::{Connection, OrgVarlinkServiceInterface, VarlinkService};
 
 use varlink_derive;
 
-// It has the drawback, that most IDEs don't execute this and thus
-// offer no code completion.
+// Using the `varlink_derive::varlink!` macro has the drawback,
+// that most IDEs don't execute this and thus offer no code completion.
+// Better use a build.rs as the other examples.
 varlink_derive::varlink!(
     org_example_network,
     r#"

@@ -2,6 +2,7 @@
 members = [
     "varlink_parser",
     "varlink_generator",
+    "varlink_derive",
     "varlink",
     "varlink_stdinterfaces",
     "varlink-cli",

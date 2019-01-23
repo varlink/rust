@@ -735,6 +735,17 @@ fn generate_error_code(
     }
 }
 
+pub fn compile(source: String) -> Result<TokenStream> {
+    let idl = IDL::from_string(&source).map_err(mstrerr!(Error, "Failed to parse {}", &source))?;
+    varlink_to_rust(
+        &idl,
+        &GeneratorOptions {
+            ..Default::default()
+        },
+        true,
+    )
+}
+
 /**
  `generate` reads a varlink interface definition from `reader` and writes
  the rust code to `writer`.

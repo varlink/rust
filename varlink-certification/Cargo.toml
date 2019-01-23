@@ -4,6 +4,7 @@ version = "2.0.1"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 build = "build.rs"
 edition = "2018"
+publish = false
 
 [dependencies]
 varlink = { version = "7", path = "../varlink" }

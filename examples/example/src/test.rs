@@ -29,5 +29,5 @@ fn run_self_test(address: &'static str) -> Result<()> {
 
 #[test]
 fn test_unix() -> Result<()> {
-    run_self_test("unix:io.systemd.network")
+    run_self_test("unix:org.example.network")
 }

@@ -5,9 +5,36 @@ use std::sync::{Arc, RwLock};
 
 use varlink::{Connection, OrgVarlinkServiceInterface, VarlinkService};
 
-use crate::io_systemd_network::VarlinkClientInterface;
+use varlink_derive;
 
-mod io_systemd_network;
+// It has the drawback, that most IDEs don't execute this and thus
+// offer no code completion.
+varlink_derive::varlink!(org_example_network, r#"
+# Provides information about network state
+#
+interface org.example.network
+
+type NetdevInfo (
+  ifindex: int,
+  ifname: string
+)
+
+type Netdev (
+  ifindex: int,
+  ifname: string
+)
+
+# Returns information about a network device
+method Info(ifindex: int) -> (info: NetdevInfo)
+
+# Lists all network devices
+method List() -> (netdevs: []Netdev)
+
+error UnknownNetworkIfIndex (ifindex: int)
+error UnknownError (text: string)
+"#);
+
+use crate::org_example_network::VarlinkClientInterface;
 
 #[cfg(test)]
 mod test;
@@ -82,18 +109,18 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
         assert_eq!(&info.product, "test service");
         assert_eq!(&info.version, "0.1");
         assert_eq!(&info.url, "http://varlink.org");
-        assert_eq!(&info.interfaces[1], "io.systemd.network");
+        assert_eq!(&info.interfaces[1], "org.example.network");
     }
     let description = iface
-        .get_interface_description("io.systemd.network")
+        .get_interface_description("org.example.network")
         .map_err(mstrerr!("Error calling get_interface_description()"))?;
 
     assert!(description.description.is_some());
 
-    let mut iface = io_systemd_network::VarlinkClient::new(connection);
+    let mut iface = org_example_network::VarlinkClient::new(connection);
 
     match iface.list().call() {
-        Ok(io_systemd_network::List_Reply { netdevs: vec }) => {
+        Ok(org_example_network::List_Reply { netdevs: vec }) => {
             assert_eq!(vec.len(), 2);
             assert_eq!(vec[0].ifindex, 1);
             assert_eq!(vec[0].ifname, String::from("lo"));
@@ -104,9 +131,9 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
     }
 
     match iface.info(1).call() {
-        Ok(io_systemd_network::Info_Reply {
+        Ok(org_example_network::Info_Reply {
             info:
-                io_systemd_network::NetdevInfo {
+                org_example_network::NetdevInfo {
                     ifindex: 1,
                     ifname: ref p,
                 },
@@ -115,9 +142,9 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
     }
 
     match iface.info(2).call() {
-        Ok(io_systemd_network::Info_Reply {
+        Ok(org_example_network::Info_Reply {
             info:
-                io_systemd_network::NetdevInfo {
+                org_example_network::NetdevInfo {
                     ifindex: 2,
                     ifname: ref p,
                 },
@@ -128,7 +155,7 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
     let e = iface.info(3).call().err().unwrap();
 
     match e.kind() {
-        io_systemd_network::ErrorKind::Varlink_Error => {
+        org_example_network::ErrorKind::Varlink_Error => {
             let e = e.find_chain_cause::<varlink::ErrorKind>().unwrap();
             match e.kind() {
                 varlink::ErrorKind::InvalidParameter(ref p) if p == "ifindex" => {}
@@ -139,8 +166,8 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
     }
 
     match iface.info(4).call().err().unwrap().kind() {
-        io_systemd_network::ErrorKind::UnknownNetworkIfIndex(Some(
-            io_systemd_network::UnknownNetworkIfIndex_Args { ifindex: 4 },
+        org_example_network::ErrorKind::UnknownNetworkIfIndex(Some(
+            org_example_network::UnknownNetworkIfIndex_Args { ifindex: 4 },
         )) => {}
         res => panic!("Unknown result {:?}", res),
     }
@@ -148,12 +175,12 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
     Ok(())
 }
 
-struct MyIoSystemdNetwork {
+struct MyOrgExampleNetwork {
     pub state: Arc<RwLock<i64>>,
 }
 
-impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
-    fn info(&self, call: &mut io_systemd_network::Call_Info, ifindex: i64) -> varlink::Result<()> {
+impl org_example_network::VarlinkInterface for MyOrgExampleNetwork {
+    fn info(&self, call: &mut org_example_network::Call_Info, ifindex: i64) -> varlink::Result<()> {
         // State example
         {
             let mut number = self.state.write().unwrap();
@@ -164,11 +191,11 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
         }
 
         match ifindex {
-            1 => call.reply(io_systemd_network::NetdevInfo {
+            1 => call.reply(org_example_network::NetdevInfo {
                 ifindex: 1,
                 ifname: "lo".into(),
             }),
-            2 => call.reply(io_systemd_network::NetdevInfo {
+            2 => call.reply(org_example_network::NetdevInfo {
                 ifindex: 2,
                 ifname: "eth".into(),
             }),
@@ -180,7 +207,7 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
         }
     }
 
-    fn list(&self, call: &mut io_systemd_network::Call_List) -> varlink::Result<()> {
+    fn list(&self, call: &mut org_example_network::Call_List) -> varlink::Result<()> {
         // State example
         {
             let mut number = self.state.write().unwrap();
@@ -190,11 +217,11 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
             eprintln!("{}", *number);
         }
         call.reply(vec![
-            io_systemd_network::Netdev {
+            org_example_network::Netdev {
                 ifindex: 1,
                 ifname: "lo".into(),
             },
-            io_systemd_network::Netdev {
+            org_example_network::Netdev {
                 ifindex: 2,
                 ifname: "eth0".into(),
             },
@@ -204,8 +231,8 @@ impl io_systemd_network::VarlinkInterface for MyIoSystemdNetwork {
 
 fn run_server<S: ?Sized + AsRef<str>>(address: &S, timeout: u64) -> varlink::Result<()> {
     let state = Arc::new(RwLock::new(0));
-    let myiosystemdnetwork = MyIoSystemdNetwork { state };
-    let myinterface = io_systemd_network::new(Box::new(myiosystemdnetwork));
+    let myiosystemdnetwork = MyOrgExampleNetwork { state };
+    let myinterface = org_example_network::new(Box::new(myiosystemdnetwork));
     let service = VarlinkService::new(
         "org.varlink",
         "test service",

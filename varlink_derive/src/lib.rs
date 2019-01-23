@@ -20,11 +20,10 @@
 //! ~~~
 //!
 
-extern crate varlink_generator;
 extern crate proc_macro;
+extern crate varlink_generator;
 
-use proc_macro::{ TokenStream, TokenTree, Span };
-
+use proc_macro::{Span, TokenStream, TokenTree};
 
 /// Generates a module from a varlink interface definition
 ///
@@ -58,31 +57,30 @@ fn parse_varlink_args(input: TokenStream) -> (String, String, Span) {
     let name = match iter.next() {
         Some(TokenTree::Ident(i)) => i.to_string(),
         Some(other) => panic!("Expected module name, found {}", other),
-        None => panic!("Unexpected end of macro input")
+        None => panic!("Unexpected end of macro input"),
     };
     match iter.next() {
-        Some(TokenTree::Punct (ref p)) if p.as_char() == ',' => {},
+        Some(TokenTree::Punct(ref p)) if p.as_char() == ',' => {}
         Some(other) => panic!("Expected ',', found {}", other),
-        None => panic!("Unexpected end of macro input")
+        None => panic!("Unexpected end of macro input"),
     };
     let (body_literal, span) = match iter.next() {
         Some(TokenTree::Literal(l)) => (l.to_string(), l.span()),
         Some(other) => panic!("Expected raw string literal, found {}", other),
-        None => panic!("Unexpected end of macro input")
+        None => panic!("Unexpected end of macro input"),
     };
     if !body_literal.starts_with("r#\"") || !body_literal.ends_with("\"#") {
         panic!("Expected raw string literal (`r#\"...\"#`)");
     }
-    let body_string = body_literal[3..body_literal.len()-2].to_string();
+    let body_string = body_literal[3..body_literal.len() - 2].to_string();
     match iter.next() {
         None => {}
-        Some(_) => panic!("Unexpected trailing tokens in macro")
+        Some(_) => panic!("Unexpected trailing tokens in macro"),
     }
     (name, body_string, span)
 }
 
 fn expand_varlink(name: String, source: String) -> TokenStream {
-
     let code = match varlink_generator::compile(source) {
         Ok(code) => code,
         Err(_) => panic!("Errors above in rust-varlink grammar"),

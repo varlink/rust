@@ -9,7 +9,9 @@ use varlink_derive;
 
 // It has the drawback, that most IDEs don't execute this and thus
 // offer no code completion.
-varlink_derive::varlink!(org_example_network, r#"
+varlink_derive::varlink!(
+    org_example_network,
+    r#"
 # Provides information about network state
 #
 interface org.example.network
@@ -32,7 +34,8 @@ method List() -> (netdevs: []Netdev)
 
 error UnknownNetworkIfIndex (ifindex: int)
 error UnknownError (text: string)
-"#);
+"#
+);
 
 use crate::org_example_network::VarlinkClientInterface;
 

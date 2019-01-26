@@ -52,7 +52,7 @@ use chainerror::*;
 
 mod format;
 
-pub use format::{Format, FormatColored};
+pub use crate::format::{Format, FormatColored};
 
 #[cfg(test)]
 mod test;

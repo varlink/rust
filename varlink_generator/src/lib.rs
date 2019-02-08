@@ -762,7 +762,7 @@ fn generate_error_code(
 }
 
 pub fn compile(source: String) -> Result<TokenStream> {
-    let idl = IDL::from_string(&source).map_err(mstrerr!(Error, "Failed to parse {}", &source))?;
+    let idl = IDL::from_string(&source).map_err(mstrerr!(Error, "Error compiling varlink"))?;
     varlink_to_rust(
         &idl,
         &GeneratorOptions {
@@ -799,7 +799,7 @@ pub fn generate_with_options(
         .read_to_string(&mut buffer)
         .map_err(mstrerr!(Error, "Failed to read from buffer"))?;
 
-    let idl = IDL::from_string(&buffer).map_err(mstrerr!(Error, "Failed to parse {}", &buffer))?;
+    let idl = IDL::from_string(&buffer).map_err(mstrerr!(Error, "Failed to parse"))?;
 
     let ts = varlink_to_rust(&idl, options, tosource)?;
     writer
@@ -950,10 +950,12 @@ where
         }));
 
         if let Err(e) = generate_with_options(reader, writer, options, false) {
+            use itertools::Itertools;
+            let w = e.iter().map(|e| e.to_string()).join("\n");
             eprintln!(
                 "Could not generate rust code from varlink file `{}`: {}",
                 input_path.display(),
-                e
+                w
             );
 
             exit(1);
@@ -1067,10 +1069,12 @@ pub fn cargo_build_tosource_options<T: AsRef<Path> + ?Sized>(
     }));
 
     if let Err(e) = generate_with_options(reader, writer, options, true) {
+        use itertools::Itertools;
+        let w = e.iter().map(|e| e.to_string()).join("\n");
         eprintln!(
             "Could not generate rust code from varlink file `{}`: {}",
             input_path.display(),
-            e
+            w
         );
         exit(1);
     }

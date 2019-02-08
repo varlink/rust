@@ -11,5 +11,5 @@ serde = "1"
 serde_derive = "1"
 serde_json = "1"
 getopts = "0"
-chainerror = "0.4"
+chainerror = "0.4.2"
 varlink_derive = { version = "0", path = "../../varlink_derive" }

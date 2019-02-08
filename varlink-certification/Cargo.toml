@@ -12,7 +12,7 @@ serde = "1"
 serde_derive = "1"
 serde_json = "1"
 getopts = "0"
-chainerror = "0.4"
+chainerror = "0.4.2"
 
 [build-dependencies]
 varlink_generator = { version = "7", path = "../varlink_generator" }

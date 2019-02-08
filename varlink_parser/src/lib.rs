@@ -172,15 +172,28 @@ impl<'a> IDL<'a> {
         for o in mt {
             match o {
                 MethodOrTypedefOrError::Method(m) => {
+                    if i.error_keys.contains(&m.name) || i.typedef_keys.contains(&m.name) {
+                        i.error.insert(format!(
+                            "Interface `{}`: multiple definitions of `{}`!",
+                            i.name, m.name
+                        ));
+                    }
+
                     i.method_keys.push(m.name);
                     if let Some(d) = i.methods.insert(m.name, m) {
                         i.error.insert(format!(
-                            "Interface `{}`: multiple definitions of type `{}`!",
+                            "Interface `{}`: multiple definitions of method `{}`!",
                             i.name, d.name
                         ));
                     };
                 }
                 MethodOrTypedefOrError::Typedef(t) => {
+                    if i.error_keys.contains(&t.name) || i.method_keys.contains(&t.name) {
+                        i.error.insert(format!(
+                            "Interface `{}`: multiple definitions of `{}`!",
+                            i.name, t.name
+                        ));
+                    }
                     i.typedef_keys.push(t.name);
                     if let Some(d) = i.typedefs.insert(t.name, t) {
                         i.error.insert(format!(
@@ -190,6 +203,12 @@ impl<'a> IDL<'a> {
                     };
                 }
                 MethodOrTypedefOrError::Error(e) => {
+                    if i.typedef_keys.contains(&e.name) || i.method_keys.contains(&e.name) {
+                        i.error.insert(format!(
+                            "Interface `{}`: multiple definitions of `{}`!",
+                            i.name, e.name
+                        ));
+                    }
                     i.error_keys.push(e.name);
                     if let Some(d) = i.errors.insert(e.name, e) {
                         i.error.insert(format!(
@@ -207,7 +226,18 @@ impl<'a> IDL<'a> {
 
 impl<'a> IDL<'a> {
     pub fn from_string(s: &'a str) -> ChainResult<Self, Error> {
-        let interface = ParseInterface(s).map_err(mstrerr!(Error, "Could not parse: {}", s))?;
+        let interface = ParseInterface(s).map_err(|e| {
+            let line = s.split("\n").nth(e.line - 1).unwrap();
+            cherr!(
+                e,
+                Error(format!(
+                    "Varlink parse error\n{}\n{marker:>col$}",
+                    line,
+                    marker = "^",
+                    col = e.column
+                ))
+            )
+        })?;
         if !interface.error.is_empty() {
             Err(strerr!(
                 Error,

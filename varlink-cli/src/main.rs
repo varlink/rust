@@ -35,7 +35,11 @@ fn varlink_format(filename: &str, line_len: Option<&str>, should_colorize: bool)
         .read_to_string(&mut buffer)
         .map_err(mstrerr!("Failed to read '{}'", filename))?;
 
-    let idl = IDL::from_string(&buffer).map_err(mstrerr!("Failed to parse '{}'", buffer))?;
+    let idl = IDL::from_string(&buffer).map_err(|e| {
+        use itertools::Itertools;
+        let s = e.iter().map(|e| e.to_string()).join("\n");
+        cherr!(e, s)
+    })?;
     if should_colorize {
         println!(
             "{}",

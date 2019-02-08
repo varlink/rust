@@ -83,7 +83,11 @@ fn parse_varlink_args(input: TokenStream) -> (String, String, Span) {
 fn expand_varlink(name: String, source: String) -> TokenStream {
     let code = match varlink_generator::compile(source) {
         Ok(code) => code,
-        Err(_) => panic!("Errors above in rust-varlink grammar"),
+        Err(e) => {
+            use itertools::Itertools;
+            let w = e.iter().map(|e| e.to_string()).join("\n");
+            panic!(w)
+        }
     };
 
     format!("mod {} {{ {} }}", name, code).parse().unwrap()

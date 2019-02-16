@@ -598,7 +598,7 @@ fn main() {
         let color_bool = match color {
             "on" => true,
             "off" => false,
-            _ => ColorMode::should_colorize(&Output::StdOut),
+            _ => ColorMode::should_colorize(Output::StdOut),
         };
         let red_bold: fn(w: &str) -> String = if color_bool {
             |w| Colour::Red.bold().paint(w).to_string()
@@ -624,7 +624,7 @@ fn do_main(app: &mut App) -> Result<()> {
     let should_colorize = match color {
         "on" => true,
         "off" => false,
-        _ => ColorMode::should_colorize(&Output::StdOut),
+        _ => ColorMode::should_colorize(Output::StdOut),
     };
 
     match matches.subcommand() {

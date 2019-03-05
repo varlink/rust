@@ -92,7 +92,7 @@ impl<'a> FormatColored for VTypeExt<'a> {
 }
 
 impl<'a> fmt::Display for VTypeExt<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.get_oneline())
     }
 }
@@ -130,7 +130,7 @@ impl<'a> FormatColored for VStructOrEnum<'a> {
 }
 
 impl<'a> fmt::Display for VStructOrEnum<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.get_oneline())
     }
 }
@@ -160,13 +160,13 @@ impl<'a> FormatColored for Argument<'a> {
 }
 
 impl<'a> fmt::Display for Argument<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.get_oneline())
     }
 }
 
 impl<'a> fmt::Display for VStruct<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "(")?;
         let mut iter = self.elts.iter();
         if let Some(fst) = iter.next() {
@@ -296,7 +296,7 @@ impl<'a> FormatColored for VStruct<'a> {
 }
 
 impl<'a> fmt::Display for VEnum<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.get_oneline())
     }
 }
@@ -344,7 +344,7 @@ impl<'a> FormatColored for VEnum<'a> {
 }
 
 impl<'a> fmt::Display for IDL<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.get_multiline(0, 80))
     }
 }

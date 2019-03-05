@@ -25,10 +25,10 @@ path = "src/bin/varlink-rust-generator.rs"
 [dependencies]
 chainerror = "0.4.2"
 varlink_parser = { version = "4", path = "../varlink_parser" }
-quote = "0.6"
+quote = "0.6.11"
 proc-macro2 = "0.4"
 getopts = "0"
-syn = "0.15.0"
+syn = "0.15.27"
 itertools = "0"
 
 [badges]

@@ -2,30 +2,31 @@
 
 #![allow(dead_code)]
 
-#[cfg(unix)]
-use libc::{close, dup2, getpid};
 use std::io::{Read, Write};
 use std::net::{Shutdown, TcpStream};
-use std::process::Child;
-use tempfile::TempDir;
-
 #[cfg(unix)]
 use std::os::unix::io::IntoRawFd;
 #[cfg(unix)]
 use std::os::unix::net::UnixStream;
+use std::process::Child;
+
+use chainerror::*;
+#[cfg(unix)]
+use libc::{close, dup2, getpid};
+use tempfile::TempDir;
 #[cfg(windows)]
 use uds_windows::UnixStream;
 
 use crate::error::*;
-use chainerror::*;
 
+#[derive(Debug)]
 pub enum VarlinkStream {
     TCP(TcpStream),
     UNIX(UnixStream),
 }
 
 #[cfg(windows)]
-pub fn varlink_exec<S: ?Sized + AsRef<str>>(
+pub(crate) fn varlink_exec<S: ?Sized + AsRef<str>>(
     _address: &S,
 ) -> Result<(Child, String, Option<TempDir>)> {
     return Err(into_cherr!(ErrorKind::MethodNotImplemented(
@@ -34,7 +35,7 @@ pub fn varlink_exec<S: ?Sized + AsRef<str>>(
 }
 
 #[cfg(unix)]
-pub fn varlink_exec<S: ?Sized + AsRef<str>>(
+pub(crate) fn varlink_exec<S: ?Sized + AsRef<str>>(
     address: &S,
 ) -> Result<(Child, String, Option<TempDir>)> {
     use std::env;
@@ -60,8 +61,8 @@ pub fn varlink_exec<S: ?Sized + AsRef<str>>(
             move || {
                 unsafe {
                     if fd != 3 {
-                        close(3);
-                        dup2(fd, 3);
+                        let _ = close(3);
+                        let _ = dup2(fd, 3);
                     }
                     env::set_var("VARLINK_ADDRESS", format!("unix:{}", file_path.display()));
                     env::set_var("LISTEN_FDS", "1");
@@ -77,7 +78,9 @@ pub fn varlink_exec<S: ?Sized + AsRef<str>>(
 }
 
 #[cfg(windows)]
-pub fn varlink_bridge<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Child, VarlinkStream)> {
+pub(crate) fn varlink_bridge<S: ?Sized + AsRef<str>>(
+    address: &S,
+) -> Result<(Child, VarlinkStream)> {
     use std::io::copy;
     use std::process::{Command, Stdio};
     use std::thread;
@@ -105,7 +108,9 @@ pub fn varlink_bridge<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Child, Var
 }
 
 #[cfg(unix)]
-pub fn varlink_bridge<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Child, VarlinkStream)> {
+pub(crate) fn varlink_bridge<S: ?Sized + AsRef<str>>(
+    address: &S,
+) -> Result<(Child, VarlinkStream)> {
     use std::os::unix::io::FromRawFd;
     use std::process::Command;
 
@@ -147,7 +152,7 @@ fn get_abstract_unixstream(_addr: &str) -> Result<UnixStream> {
     Err(into_cherr!(ErrorKind::InvalidAddress))
 }
 
-impl<'a> VarlinkStream {
+impl VarlinkStream {
     pub fn connect<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Self, String)> {
         let address = address.as_ref();
         let new_address: String = address.into();
@@ -173,7 +178,7 @@ impl<'a> VarlinkStream {
         }
     }
 
-    pub fn split(&mut self) -> Result<(Box<Read + Send + Sync>, Box<Write + Send + Sync>)> {
+    pub fn split(&mut self) -> Result<(Box<dyn Read + Send + Sync>, Box<dyn Write + Send + Sync>)> {
         match *self {
             VarlinkStream::TCP(ref mut s) => Ok((
                 Box::new(s.try_clone().map_err(minto_cherr!())?),

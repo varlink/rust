@@ -36,9 +36,9 @@ pub enum Stream {
     UNIX(UnixStream),
 }
 
-impl<'a> Stream {
+impl Stream {
     #[allow(dead_code)]
-    pub fn split(&mut self) -> Result<(Box<Read + Send + Sync>, Box<Write + Send + Sync>)> {
+    pub fn split(&mut self) -> Result<(Box<dyn Read + Send + Sync>, Box<dyn Write + Send + Sync>)> {
         match *self {
             Stream::TCP(ref mut s) => Ok((
                 Box::new(s.try_clone().map_err(minto_cherr!())?),
@@ -186,7 +186,7 @@ fn activation_listener() -> Result<Option<usize>> {
 
     for (i, v) in fdnames.split(':').enumerate() {
         if v == "varlink" {
-            return Ok(Some(3 + i as usize));
+            return Ok(Some(3 + i));
         }
     }
 
@@ -346,7 +346,7 @@ impl Listener {
             };
 
             unsafe {
-                let mut readfs: libc::fd_set = mem::uninitialized();
+                let mut readfs: fd_set = mem::uninitialized();
                 loop {
                     FD_ZERO(&mut readfs);
                     let mut writefds: fd_set = mem::uninitialized();
@@ -479,7 +479,7 @@ impl<F: FnOnce()> FnBox for F {
     }
 }
 
-type Job = Box<FnBox + Send + 'static>;
+type Job = Box<dyn FnBox + Send + 'static>;
 
 impl ThreadPool {
     /// Create a new ThreadPool.
@@ -489,7 +489,7 @@ impl ThreadPool {
     /// # Panics
     ///
     /// The `new` function will panic if the initial_worker is zero.
-    pub fn new(initial_worker: usize, max_workers: usize) -> ThreadPool {
+    pub(crate) fn new(initial_worker: usize, max_workers: usize) -> ThreadPool {
         assert!(initial_worker > 0);
 
         let (sender, receiver) = mpsc::channel();
@@ -498,7 +498,7 @@ impl ThreadPool {
 
         let mut workers = Vec::with_capacity(initial_worker);
 
-        let num_busy = Arc::new(RwLock::new(0 as usize));
+        let num_busy = Arc::new(RwLock::new(0));
 
         for _ in 0..initial_worker {
             workers.push(Worker::new(Arc::clone(&receiver), Arc::clone(&num_busy)));
@@ -513,7 +513,7 @@ impl ThreadPool {
         }
     }
 
-    pub fn execute<F>(&mut self, f: F)
+    pub(crate) fn execute<F>(&mut self, f: F)
     where
         F: FnOnce() + Send + 'static,
     {
@@ -528,7 +528,7 @@ impl ThreadPool {
         }
     }
 
-    pub fn num_busy(&self) -> usize {
+    pub(crate) fn num_busy(&self) -> usize {
         let num_busy = self.num_busy.read().unwrap();
         *num_busy
     }

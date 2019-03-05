@@ -220,6 +220,28 @@
     html_logo_url = "https://varlink.org/images/varlink.png",
     html_favicon_url = "https://varlink.org/images/varlink-small.png"
 )]
+#![deny(
+    warnings,
+    absolute_paths_not_starting_with_crate,
+    keyword_idents,
+    macro_use_extern_crate,
+    missing_debug_implementations,
+    trivial_numeric_casts,
+    unused_extern_crates,
+    unused_import_braces,
+    unused_qualifications,
+    unused_results,
+    unused_labels,
+    unused_lifetimes,
+    unstable_features,
+    unreachable_pub,
+    future_incompatible,
+    missing_copy_implementations,
+    missing_doc_code_examples,
+    rust_2018_idioms,
+    rust_2018_compatibility
+)]
+#![allow(elided_lifetimes_in_paths, missing_docs, unsafe_code)]
 
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
@@ -347,7 +369,7 @@ impl ErrorKind {
 pub trait Interface {
     fn get_description(&self) -> &'static str;
     fn get_name(&self) -> &'static str;
-    fn call_upgraded(&self, call: &mut Call, bufreader: &mut BufRead) -> Result<Vec<u8>>;
+    fn call_upgraded(&self, call: &mut Call, bufreader: &mut dyn BufRead) -> Result<Vec<u8>>;
     fn call(&self, call: &mut Call) -> Result<()>;
 }
 
@@ -413,7 +435,7 @@ impl Serialize for StringHashSet {
     where
         S: Serializer,
     {
-        let null_obj: serde_json::Value = serde_json::Value::Object(serde_json::Map::new());
+        let null_obj: Value = serde_json::Value::Object(serde_json::Map::new());
 
         let mut map = serializer.serialize_map(Some(self.inner.len()))?;
         for k in &self.inner {
@@ -454,7 +476,7 @@ impl<'de> de::Deserialize<'de> for StringHashSet {
                 let mut values = StringHashSet::new();
 
                 while let Some(key) = visitor.next_key()? {
-                    values.insert(key);
+                    let _ = values.insert(key);
                 }
 
                 Ok(values)
@@ -543,8 +565,9 @@ where
 /// # }
 /// # fn main() {}
 /// ```
+#[allow(missing_debug_implementations)]
 pub struct Call<'a> {
-    pub writer: &'a mut Write,
+    pub writer: &'a mut dyn Write,
     pub request: Option<&'a Request<'a>>,
     continues: bool,
     upgraded: bool,
@@ -744,7 +767,7 @@ impl<'a> CallTrait for Call<'a> {
 }
 
 impl<'a> Call<'a> {
-    pub fn new(writer: &'a mut Write, request: &'a Request<'a>) -> Self {
+    pub fn new(writer: &'a mut dyn Write, request: &'a Request<'a>) -> Self {
         Call {
             writer,
             request: Some(request),
@@ -752,7 +775,7 @@ impl<'a> Call<'a> {
             upgraded: false,
         }
     }
-    fn new_upgraded(writer: &'a mut Write) -> Self {
+    fn new_upgraded(writer: &'a mut dyn Write) -> Self {
         Call {
             writer,
             request: None,
@@ -788,13 +811,14 @@ impl<'a> Call<'a> {
 }
 
 /// A client connection builder to a varlink service.
+#[allow(missing_debug_implementations)]
 #[derive(Default)]
 pub struct Connection {
-    pub reader: Option<BufReader<Box<Read + Send + Sync>>>,
-    pub writer: Option<Box<Write + Send + Sync>>,
+    pub reader: Option<BufReader<Box<dyn Read + Send + Sync>>>,
+    pub writer: Option<Box<dyn Write + Send + Sync>>,
     address: String,
     #[allow(dead_code)] // For the stream Drop()
-    pub stream: Option<client::VarlinkStream>,
+    pub stream: Option<VarlinkStream>,
     pub child: Option<Child>,
     pub tempdir: Option<TempDir>,
 }
@@ -922,20 +946,21 @@ impl Drop for Connection {
     }
 }
 
+#[allow(missing_debug_implementations)]
 pub struct MethodCall<MRequest, MReply, MError>
 where
     MRequest: Serialize,
     MReply: DeserializeOwned,
-    MError: chainerror::ChainErrorFrom<ErrorKind>
-        + chainerror::ChainErrorFrom<Reply>
-        + chainerror::ChainErrorFrom<serde_json::error::Error>
-        + chainerror::ChainErrorFrom<::std::io::Error>,
+    MError: ChainErrorFrom<ErrorKind>
+        + ChainErrorFrom<Reply>
+        + ChainErrorFrom<serde_json::error::Error>
+        + ChainErrorFrom<::std::io::Error>,
 {
     connection: Arc<RwLock<Connection>>,
     request: Option<MRequest>,
     method: Option<Cow<'static, str>>,
-    reader: Option<BufReader<Box<Read + Send + Sync>>>,
-    writer: Option<Box<Write + Send + Sync>>,
+    reader: Option<BufReader<Box<dyn Read + Send + Sync>>>,
+    writer: Option<Box<dyn Write + Send + Sync>>,
     continues: bool,
     phantom_reply: PhantomData<MReply>,
     phantom_error: PhantomData<MError>,
@@ -945,10 +970,10 @@ impl<MRequestParameters, MReply, MError> MethodCall<MRequestParameters, MReply, 
 where
     MRequestParameters: Serialize,
     MReply: DeserializeOwned,
-    MError: chainerror::ChainErrorFrom<ErrorKind>
-        + chainerror::ChainErrorFrom<Reply>
-        + chainerror::ChainErrorFrom<serde_json::error::Error>
-        + chainerror::ChainErrorFrom<::std::io::Error>,
+    MError: ChainErrorFrom<ErrorKind>
+        + ChainErrorFrom<Reply>
+        + ChainErrorFrom<serde_json::error::Error>
+        + ChainErrorFrom<::std::io::Error>,
 {
     pub fn new<S: Into<Cow<'static, str>>>(
         connection: Arc<RwLock<Connection>>,
@@ -1041,12 +1066,12 @@ where
         let mut buf = Vec::new();
 
         let mut reader = self.reader.take().unwrap();
-        reader.read_until(0, &mut buf).map_err(minto_cherr!())?;
+        let _ = reader.read_until(0, &mut buf).map_err(minto_cherr!())?;
         self.reader = Some(reader);
         if buf.is_empty() {
             return Err(into_cherr!(ErrorKind::ConnectionClosed));
         }
-        buf.pop();
+        let _ = buf.pop();
         let reply: Reply = serde_json::from_slice(&buf).map_err(minto_cherr!())?;
         match reply.continues {
             Some(true) => self.continues = true,
@@ -1085,10 +1110,10 @@ impl<MRequest, MReply, MError> Iterator for MethodCall<MRequest, MReply, MError>
 where
     MRequest: Serialize,
     MReply: DeserializeOwned,
-    MError: chainerror::ChainErrorFrom<ErrorKind>
-        + chainerror::ChainErrorFrom<Reply>
-        + chainerror::ChainErrorFrom<serde_json::error::Error>
-        + chainerror::ChainErrorFrom<::std::io::Error>,
+    MError: ChainErrorFrom<ErrorKind>
+        + ChainErrorFrom<Reply>
+        + ChainErrorFrom<serde_json::error::Error>
+        + ChainErrorFrom<::std::io::Error>,
 {
     type Item = ChainResult<MReply, MError>;
     fn next(&mut self) -> Option<ChainResult<MReply, MError>> {
@@ -1114,7 +1139,7 @@ pub struct ServiceInfo {
     pub interfaces: Vec<Cow<'static, str>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Default, Clone, Copy)]
 pub struct GetInfoArgs;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Default, Clone)]
@@ -1125,6 +1150,7 @@ pub struct GetInterfaceDescriptionReply {
 
 impl VarlinkReply for GetInterfaceDescriptionReply {}
 
+#[allow(missing_debug_implementations)]
 pub struct OrgVarlinkServiceClient {
     connection: Arc<RwLock<Connection>>,
 }
@@ -1168,9 +1194,10 @@ impl OrgVarlinkServiceInterface for OrgVarlinkServiceClient {
 }
 
 /// VarlinkService handles all the I/O and dispatches method calls to the registered interfaces.
+#[allow(missing_debug_implementations)]
 pub struct VarlinkService {
     info: ServiceInfo,
-    ifaces: HashMap<Cow<'static, str>, Box<Interface + Send + Sync>>,
+    ifaces: HashMap<Cow<'static, str>, Box<dyn Interface + Send + Sync>>,
 }
 
 impl Interface for VarlinkService {
@@ -1211,7 +1238,7 @@ error InvalidParameter (parameter: string)
         "org.varlink.service"
     }
 
-    fn call_upgraded(&self, call: &mut Call, _bufreader: &mut BufRead) -> Result<Vec<u8>> {
+    fn call_upgraded(&self, call: &mut Call, _bufreader: &mut dyn BufRead) -> Result<Vec<u8>> {
         call.upgraded = false;
         Ok(Vec::new())
     }
@@ -1300,11 +1327,11 @@ impl VarlinkService {
         product: S,
         version: S,
         url: S,
-        interfaces: Vec<Box<Interface + Send + Sync>>,
+        interfaces: Vec<Box<dyn Interface + Send + Sync>>,
     ) -> Self {
-        let mut ifhashmap = HashMap::<Cow<'static, str>, Box<Interface + Send + Sync>>::new();
+        let mut ifhashmap = HashMap::<Cow<'static, str>, Box<dyn Interface + Send + Sync>>::new();
         for i in interfaces {
-            ifhashmap.insert(i.get_name().into(), i);
+            let _ = ifhashmap.insert(i.get_name().into(), i);
         }
         let mut ifnames: Vec<Cow<'static, str>> = Vec::new();
         ifnames.push("org.varlink.service".into());
@@ -1338,7 +1365,7 @@ impl VarlinkService {
         &self,
         iface: &str,
         call: &mut Call,
-        bufreader: &mut BufRead,
+        bufreader: &mut dyn BufRead,
     ) -> Result<Vec<u8>> {
         match iface {
             "org.varlink.service" => self::Interface::call_upgraded(self, call, bufreader),
@@ -1357,8 +1384,8 @@ impl VarlinkService {
 pub trait ConnectionHandler {
     fn handle(
         &self,
-        bufreader: &mut BufRead,
-        writer: &mut Write,
+        bufreader: &mut dyn BufRead,
+        writer: &mut dyn Write,
         upgraded_iface: Option<String>,
     ) -> Result<(Vec<u8>, Option<String>)>;
 }
@@ -1397,8 +1424,8 @@ impl ConnectionHandler for VarlinkService {
     /// # fn main() {}
     fn handle(
         &self,
-        bufreader: &mut BufRead,
-        writer: &mut Write,
+        bufreader: &mut dyn BufRead,
+        writer: &mut dyn Write,
         upgraded_last_interface: Option<String>,
     ) -> Result<(Vec<u8>, Option<String>)> {
         let mut upgraded_iface = upgraded_last_interface.clone();
@@ -1425,7 +1452,7 @@ impl ConnectionHandler for VarlinkService {
             }
 
             // pop the last zero byte
-            buf.pop();
+            let _ = buf.pop();
 
             let req: Request = serde_json::from_slice(&buf).map_err(|e| {
                 cherr!(

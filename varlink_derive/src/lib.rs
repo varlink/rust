@@ -19,11 +19,36 @@
 //! use crate::org_example_ping::VarlinkClientInterface;
 //! ~~~
 //!
+#![deny(
+    warnings,
+    unsafe_code,
+    absolute_paths_not_starting_with_crate,
+    deprecated_in_future,
+    keyword_idents,
+    macro_use_extern_crate,
+    missing_debug_implementations,
+    trivial_numeric_casts,
+    unused_extern_crates,
+    unused_import_braces,
+    unused_qualifications,
+    unused_results,
+    unused_labels,
+    unused_lifetimes,
+    unstable_features,
+    unreachable_pub,
+    future_incompatible,
+    missing_copy_implementations,
+    missing_doc_code_examples,
+    rust_2018_idioms,
+    rust_2018_compatibility
+)]
+#![allow(elided_lifetimes_in_paths, missing_docs)]
 
 extern crate proc_macro;
-extern crate varlink_generator;
 
 use proc_macro::{Span, TokenStream, TokenTree};
+
+use varlink_generator;
 
 /// Generates a module from a varlink interface definition
 ///

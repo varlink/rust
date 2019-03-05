@@ -1,6 +1,8 @@
-use crate::*;
-use serde_json::{from_slice, from_value};
 use std::{thread, time};
+
+use serde_json::{from_slice, from_value};
+
+use crate::*;
 
 #[test]
 fn test_listen() -> Result<()> {
@@ -174,7 +176,7 @@ fn test_handle() -> Result<()> {
         }
     }
 
-    w.pop();
+    let _ = w.pop();
 
     assert_eq!(
         w,

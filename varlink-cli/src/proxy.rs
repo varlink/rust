@@ -12,7 +12,11 @@ use varlink_stdinterfaces::org_varlink_resolver::{VarlinkClient, VarlinkClientIn
 
 use crate::Result;
 
-pub fn handle<R, W>(resolver: &str, mut client_reader: R, mut client_writer: W) -> Result<bool>
+pub(crate) fn handle<R, W>(
+    resolver: &str,
+    mut client_reader: R,
+    mut client_writer: W,
+) -> Result<bool>
 where
     R: BufRead + Send + Sync + 'static,
     W: Write + Send + Sync + 'static,
@@ -36,7 +40,7 @@ where
             }
 
             // pop the last zero byte
-            buf.pop();
+            let _ = buf.pop();
 
             let mut req: Request = from_slice(&buf).map_err(mstrerr!("Error from slice"))?;
 
@@ -119,7 +123,7 @@ where
                 client_writer.write_all(&buf)?;
                 client_writer.flush()?;
 
-                buf.pop();
+                let _ = buf.pop();
 
                 let reply: Reply = from_slice(&buf)?;
 
@@ -134,9 +138,11 @@ where
                 let copy1 = thread::spawn(move || copy(&mut client_reader, &mut service_writer));
                 let copy2 = thread::spawn(move || copy(&mut service_reader, &mut client_writer));
                 let r = copy1.join();
-                r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
+                let _ =
+                    r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
                 let r = copy2.join();
-                r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
+                let _ =
+                    r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
             }
             return Ok(true);
         }
@@ -144,7 +150,7 @@ where
     Ok(upgraded)
 }
 
-pub fn handle_connect<R, W>(
+pub(crate) fn handle_connect<R, W>(
     connection: Arc<RwLock<Connection>>,
     mut client_reader: R,
     mut client_writer: W,
@@ -174,7 +180,7 @@ where
             }
 
             // pop the last zero byte
-            buf.pop();
+            let _ = buf.pop();
 
             let req: Request = from_slice(&buf)?;
 
@@ -220,7 +226,7 @@ where
                 client_writer.write_all(&buf)?;
                 client_writer.flush()?;
 
-                buf.pop();
+                let _ = buf.pop();
 
                 let reply: Reply = from_slice(&buf)?;
 
@@ -243,9 +249,11 @@ where
                 let copy1 = thread::spawn(move || copy(&mut client_reader, &mut service_writer));
                 let copy2 = thread::spawn(move || copy(&mut service_reader, &mut client_writer));
                 let r = copy1.join();
-                r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
+                let _ =
+                    r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
                 let r = copy2.join();
-                r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
+                let _ =
+                    r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
             }
             return Ok(true);
         }

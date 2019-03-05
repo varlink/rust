@@ -1,12 +1,33 @@
+#![deny(
+    warnings,
+    absolute_paths_not_starting_with_crate,
+    deprecated_in_future,
+    keyword_idents,
+    macro_use_extern_crate,
+    missing_debug_implementations,
+    trivial_numeric_casts,
+    unused_extern_crates,
+    unused_import_braces,
+    unused_qualifications,
+    unused_results,
+    unused_labels,
+    unused_lifetimes,
+    unstable_features,
+    unreachable_pub,
+    future_incompatible,
+    missing_copy_implementations,
+    missing_doc_code_examples,
+    rust_2018_idioms,
+    rust_2018_compatibility
+)]
+#![allow(elided_lifetimes_in_paths, missing_docs)]
+
 use std::alloc::System;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 use std::str;
-
-#[global_allocator]
-static A: System = System;
 
 use chainerror::*;
 use clap::{App, Arg, SubCommand};
@@ -21,16 +42,19 @@ use varlink_stdinterfaces::org_varlink_resolver::{VarlinkClient, VarlinkClientIn
 
 use crate::proxy::{handle, handle_connect};
 
+#[global_allocator]
+static A: System = System;
+
 #[cfg(test)]
 mod test;
 
-pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
+pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 mod proxy;
 
 fn varlink_format(filename: &str, line_len: Option<&str>, should_colorize: bool) -> Result<()> {
     let mut buffer = String::new();
-    File::open(Path::new(filename))
+    let _ = File::open(Path::new(filename))
         .map_err(mstrerr!("Failed to open '{}'", filename))?
         .read_to_string(&mut buffer)
         .map_err(mstrerr!("Failed to read '{}'", filename))?;
@@ -364,7 +388,7 @@ fn print_call_ret(
 }
 
 #[cfg(unix)]
-fn get_in_out() -> (std::io::BufReader<std::fs::File>, std::fs::File) {
+fn get_in_out() -> (std::io::BufReader<File>, File) {
     use std::os::unix::io::{AsRawFd, FromRawFd};
 
     let stdin = ::std::io::stdin();
@@ -420,13 +444,14 @@ fn varlink_bridge(
                             .map_err(mstrerr!("Failed to connect to '{}'", address))?
                     }
                 } else {
-                    handle(resolver, in_buffer, out_writer).map_err(mstrerr!("Bridging"))?;
+                    let _ =
+                        handle(resolver, in_buffer, out_writer).map_err(mstrerr!("Bridging"))?;
                     return Ok(());
                 }
             }
         },
     };
-    handle_connect(connection, in_buffer, out_writer).map_err(mstrerr!("Bridging"))?;
+    let _ = handle_connect(connection, in_buffer, out_writer).map_err(mstrerr!("Bridging"))?;
 
     Ok(())
 }

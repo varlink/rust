@@ -2,7 +2,7 @@ use chainerror::*;
 use std::{thread, time};
 use varlink::Connection;
 
-pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
+pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 fn run_self_test(address: String) -> Result<()> {
     let client_address = address.clone();

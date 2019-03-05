@@ -42,17 +42,43 @@
     html_logo_url = "https://varlink.org/images/varlink.png",
     html_favicon_url = "https://varlink.org/images/varlink-small.png"
 )]
+#![deny(
+    warnings,
+    unsafe_code,
+    absolute_paths_not_starting_with_crate,
+    deprecated_in_future,
+    keyword_idents,
+    macro_use_extern_crate,
+    missing_debug_implementations,
+    trivial_numeric_casts,
+    unused_extern_crates,
+    unused_import_braces,
+    unused_qualifications,
+    unused_results,
+    unused_labels,
+    unused_lifetimes,
+    unstable_features,
+    unreachable_pub,
+    future_incompatible,
+    missing_copy_implementations,
+    missing_doc_code_examples,
+    rust_2018_idioms,
+    rust_2018_compatibility
+)]
+#![allow(elided_lifetimes_in_paths, missing_docs)]
 
-use self::varlink_grammar::ParseInterface;
-use itertools::Itertools;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 
 use chainerror::*;
-
-mod format;
+use itertools::Itertools;
 
 pub use crate::format::{Format, FormatColored};
+
+pub use self::varlink_grammar::ParseError;
+use self::varlink_grammar::ParseInterface;
+
+mod format;
 
 #[cfg(test)]
 mod test;
@@ -67,6 +93,7 @@ mod varlink_grammar;
 
 derive_str_cherr!(Error);
 
+#[derive(Debug)]
 pub enum VType<'a> {
     Bool,
     Int,
@@ -78,6 +105,7 @@ pub enum VType<'a> {
     Enum(Box<VEnum<'a>>),
 }
 
+#[derive(Debug)]
 pub enum VTypeExt<'a> {
     Array(Box<VTypeExt<'a>>),
     Dict(Box<VTypeExt<'a>>),
@@ -85,36 +113,43 @@ pub enum VTypeExt<'a> {
     Plain(VType<'a>),
 }
 
+#[derive(Debug)]
 pub struct Argument<'a> {
     pub name: &'a str,
     pub vtype: VTypeExt<'a>,
 }
 
+#[derive(Debug)]
 pub struct VStruct<'a> {
     pub elts: Vec<Argument<'a>>,
 }
 
+#[derive(Debug)]
 pub struct VEnum<'a> {
     pub elts: Vec<&'a str>,
 }
 
+#[derive(Debug)]
 pub struct VError<'a> {
     pub name: &'a str,
     pub doc: &'a str,
     pub parm: VStruct<'a>,
 }
 
+#[derive(Debug)]
 pub enum VStructOrEnum<'a> {
     VStruct(Box<VStruct<'a>>),
     VEnum(Box<VEnum<'a>>),
 }
 
+#[derive(Debug)]
 pub struct Typedef<'a> {
     pub name: &'a str,
     pub doc: &'a str,
     pub elt: VStructOrEnum<'a>,
 }
 
+#[derive(Debug)]
 pub struct Method<'a> {
     pub name: &'a str,
     pub doc: &'a str,
@@ -122,12 +157,14 @@ pub struct Method<'a> {
     pub output: VStruct<'a>,
 }
 
+#[derive(Debug)]
 enum MethodOrTypedefOrError<'a> {
     Error(VError<'a>),
     Typedef(Typedef<'a>),
     Method(Method<'a>),
 }
 
+#[derive(Debug)]
 pub struct IDL<'a> {
     pub description: &'a str,
     pub name: &'a str,
@@ -173,7 +210,7 @@ impl<'a> IDL<'a> {
             match o {
                 MethodOrTypedefOrError::Method(m) => {
                     if i.error_keys.contains(&m.name) || i.typedef_keys.contains(&m.name) {
-                        i.error.insert(format!(
+                        let _ = i.error.insert(format!(
                             "Interface `{}`: multiple definitions of `{}`!",
                             i.name, m.name
                         ));
@@ -181,7 +218,7 @@ impl<'a> IDL<'a> {
 
                     i.method_keys.push(m.name);
                     if let Some(d) = i.methods.insert(m.name, m) {
-                        i.error.insert(format!(
+                        let _ = i.error.insert(format!(
                             "Interface `{}`: multiple definitions of method `{}`!",
                             i.name, d.name
                         ));
@@ -189,14 +226,14 @@ impl<'a> IDL<'a> {
                 }
                 MethodOrTypedefOrError::Typedef(t) => {
                     if i.error_keys.contains(&t.name) || i.method_keys.contains(&t.name) {
-                        i.error.insert(format!(
+                        let _ = i.error.insert(format!(
                             "Interface `{}`: multiple definitions of `{}`!",
                             i.name, t.name
                         ));
                     }
                     i.typedef_keys.push(t.name);
                     if let Some(d) = i.typedefs.insert(t.name, t) {
-                        i.error.insert(format!(
+                        let _ = i.error.insert(format!(
                             "Interface `{}`: multiple definitions of type `{}`!",
                             i.name, d.name
                         ));
@@ -204,14 +241,14 @@ impl<'a> IDL<'a> {
                 }
                 MethodOrTypedefOrError::Error(e) => {
                     if i.typedef_keys.contains(&e.name) || i.method_keys.contains(&e.name) {
-                        i.error.insert(format!(
+                        let _ = i.error.insert(format!(
                             "Interface `{}`: multiple definitions of `{}`!",
                             i.name, e.name
                         ));
                     }
                     i.error_keys.push(e.name);
                     if let Some(d) = i.errors.insert(e.name, e) {
-                        i.error.insert(format!(
+                        let _ = i.error.insert(format!(
                             "Interface `{}`: multiple definitions of error `{}`!",
                             i.name, d.name
                         ));

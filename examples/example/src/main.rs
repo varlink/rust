@@ -184,7 +184,11 @@ struct MyOrgExampleNetwork {
 }
 
 impl org_example_network::VarlinkInterface for MyOrgExampleNetwork {
-    fn info(&self, call: &mut org_example_network::Call_Info, ifindex: i64) -> varlink::Result<()> {
+    fn info(
+        &self,
+        call: &mut dyn org_example_network::Call_Info,
+        ifindex: i64,
+    ) -> varlink::Result<()> {
         // State example
         {
             let mut number = self.state.write().unwrap();

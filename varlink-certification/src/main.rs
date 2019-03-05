@@ -1,3 +1,26 @@
+#![deny(
+    warnings,
+    unsafe_code,
+    absolute_paths_not_starting_with_crate,
+    deprecated_in_future,
+    keyword_idents,
+    macro_use_extern_crate,
+    missing_debug_implementations,
+    trivial_numeric_casts,
+    unused_extern_crates,
+    unused_import_braces,
+    unused_qualifications,
+    unused_labels,
+    unused_lifetimes,
+    unstable_features,
+    future_incompatible,
+    missing_copy_implementations,
+    missing_doc_code_examples,
+    rust_2018_idioms,
+    rust_2018_compatibility
+)]
+#![allow(elided_lifetimes_in_paths, missing_docs, unreachable_pub)]
+
 use std::collections::{hash_map::DefaultHasher, VecDeque};
 use std::env;
 use std::hash::{Hash, Hasher};
@@ -8,11 +31,11 @@ use std::time::Instant;
 
 use chainerror::*;
 
-pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
-
 use varlink::{Connection, StringHashMap, StringHashSet, VarlinkService};
 
 use crate::org_varlink_certification::*;
+
+pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 mod org_varlink_certification;
 #[cfg(test)]
@@ -28,16 +51,17 @@ fn main() -> Result<()> {
     let program = args[0].clone();
 
     let mut opts = getopts::Options::new();
-    opts.optopt("", "varlink", "varlink address URL", "<ADDRESS>");
-    opts.optopt(
-        "b",
-        "bridge",
-        "Command to execute and connect to",
-        "<COMMAND>",
-    );
-    opts.optflag("", "client", "run in client mode");
-    opts.optflag("h", "help", "print this help menu");
-    opts.optopt("", "timeout", "server timeout", "<seconds>");
+    let _ = opts
+        .optopt("", "varlink", "varlink address URL", "<ADDRESS>")
+        .optopt(
+            "b",
+            "bridge",
+            "Command to execute and connect to",
+            "<COMMAND>",
+        )
+        .optflag("", "client", "run in client mode")
+        .optflag("h", "help", "print this help menu")
+        .optopt("", "timeout", "server timeout", "<seconds>");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
@@ -89,7 +113,7 @@ fn main() -> Result<()> {
 
 // Client
 
-fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
+fn run_client(connection: Arc<RwLock<Connection>>) -> Result<()> {
     let mut iface = VarlinkClient::new(connection);
 
     let ret = iface.start().call()?;
@@ -352,7 +376,7 @@ macro_rules! check_call_oneway {
 }
 
 impl VarlinkInterface for CertInterface {
-    fn start(&self, call: &mut Call_Start) -> varlink::Result<()> {
+    fn start(&self, call: &mut dyn Call_Start) -> varlink::Result<()> {
         check_call_expr!(
             call,
             match call.get_request() {
@@ -391,7 +415,7 @@ impl VarlinkInterface for CertInterface {
         call.reply(self.new_client_id())
     }
 
-    fn test01(&self, call: &mut Call_Test01, client_id: String) -> varlink::Result<()> {
+    fn test01(&self, call: &mut dyn Call_Test01, client_id: String) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "Test01", "Test02") {
             return call.reply_client_id_error();
         }
@@ -408,7 +432,7 @@ impl VarlinkInterface for CertInterface {
 
     fn test02(
         &self,
-        call: &mut Call_Test02,
+        call: &mut dyn Call_Test02,
         client_id: String,
         _bool_: bool,
     ) -> varlink::Result<()> {
@@ -428,7 +452,12 @@ impl VarlinkInterface for CertInterface {
         call.reply(1)
     }
 
-    fn test03(&self, call: &mut Call_Test03, client_id: String, _int: i64) -> varlink::Result<()> {
+    fn test03(
+        &self,
+        call: &mut dyn Call_Test03,
+        client_id: String,
+        _int: i64,
+    ) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "Test03", "Test04") {
             return call.reply_client_id_error();
         }
@@ -444,7 +473,7 @@ impl VarlinkInterface for CertInterface {
 
     fn test04(
         &self,
-        call: &mut Call_Test04,
+        call: &mut dyn Call_Test04,
         client_id: String,
         _float: f64,
     ) -> varlink::Result<()> {
@@ -466,7 +495,7 @@ impl VarlinkInterface for CertInterface {
 
     fn test05(
         &self,
-        call: &mut Call_Test05,
+        call: &mut dyn Call_Test05,
         client_id: String,
         _string: String,
     ) -> varlink::Result<()> {
@@ -488,7 +517,7 @@ impl VarlinkInterface for CertInterface {
 
     fn test06(
         &self,
-        call: &mut Call_Test06,
+        call: &mut dyn Call_Test06,
         client_id: String,
         _bool_: bool,
         _int: i64,
@@ -521,7 +550,7 @@ impl VarlinkInterface for CertInterface {
 
     fn test07(
         &self,
-        call: &mut Call_Test07,
+        call: &mut dyn Call_Test07,
         client_id: String,
         _struct_: Test07_Args_struct,
     ) -> varlink::Result<()> {
@@ -551,7 +580,7 @@ impl VarlinkInterface for CertInterface {
 
     fn test08(
         &self,
-        call: &mut Call_Test08,
+        call: &mut dyn Call_Test08,
         client_id: String,
         _map: ::std::collections::HashMap<String, String>,
     ) -> varlink::Result<()> {
@@ -578,9 +607,9 @@ impl VarlinkInterface for CertInterface {
 
     fn test09(
         &self,
-        call: &mut Call_Test09,
+        call: &mut dyn Call_Test09,
         client_id: String,
-        _set: varlink::StringHashSet,
+        _set: StringHashSet,
     ) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "Test09", "Test10") {
             return call.reply_client_id_error();
@@ -602,7 +631,7 @@ impl VarlinkInterface for CertInterface {
 
     fn test10(
         &self,
-        call: &mut Call_Test10,
+        call: &mut dyn Call_Test10,
         client_id: String,
         _mytype: MyType,
     ) -> varlink::Result<()> {
@@ -631,7 +660,7 @@ impl VarlinkInterface for CertInterface {
 
     fn test11(
         &self,
-        call: &mut Call_Test11,
+        call: &mut dyn Call_Test11,
         client_id: String,
         _last_more_replies: Vec<String>,
     ) -> varlink::Result<()> {
@@ -657,7 +686,7 @@ impl VarlinkInterface for CertInterface {
         Ok(())
     }
 
-    fn end(&self, call: &mut Call_End, client_id: String) -> varlink::Result<()> {
+    fn end(&self, call: &mut dyn Call_End, client_id: String) -> varlink::Result<()> {
         if !self.check_client_id(&client_id, "End", "End") {
             return call.reply_client_id_error();
         }

@@ -202,9 +202,9 @@ macro_rules! check_call_expr {
         let check = $pat;
         if !check {
             let got: serde_json::Value =
-                serde_json::to_value($c.get_request().unwrap()).map_err(minto_cherr!())?;
+                serde_json::to_value($c.get_request().unwrap()).map_err(varlink::minto_cherr!(varlink::ErrorKind))?;
             return $c.reply_certification_error(
-                serde_json::to_value($wants).map_err(minto_cherr!())?,
+                serde_json::to_value($wants).map_err(varlink::minto_cherr!(varlink::ErrorKind))?,
                 got,
             );
         }
@@ -242,8 +242,8 @@ macro_rules! check_call_normal {
         };
         if !check {
             let got: serde_json::Value =
-                serde_json::to_value($c.get_request().unwrap()).map_err(minto_cherr!())?;
-            let wants = serde_json::to_value(wants).map_err(minto_cherr!())?;
+                serde_json::to_value($c.get_request().unwrap()).map_err(varlink::minto_cherr!(varlink::ErrorKind))?;
+            let wants = serde_json::to_value(wants).map_err(varlink::minto_cherr!(varlink::ErrorKind))?;
             return $c.reply_certification_error(
                 serde_json::to_value(varlink::Request {
                     more: None,
@@ -252,7 +252,7 @@ macro_rules! check_call_normal {
                     method: $test.into(),
                     parameters: Some(wants),
                 })
-                .map_err(minto_cherr!())?,
+                .map_err(varlink::minto_cherr!(varlink::ErrorKind))?,
                 got,
             );
         }
@@ -288,8 +288,8 @@ macro_rules! check_call_more {
         };
         if !check {
             let got: serde_json::Value =
-                serde_json::to_value($c.get_request().unwrap()).map_err(minto_cherr!())?;
-            let wants = serde_json::to_value(wants).map_err(minto_cherr!())?;
+                serde_json::to_value($c.get_request().unwrap()).map_err(varlink::minto_cherr!(varlink::ErrorKind))?;
+            let wants = serde_json::to_value(wants).map_err(varlink::minto_cherr!(varlink::ErrorKind))?;
             return $c.reply_certification_error(
                 serde_json::to_value(varlink::Request {
                     more: None,
@@ -298,7 +298,7 @@ macro_rules! check_call_more {
                     method: $test.into(),
                     parameters: Some(wants),
                 })
-                .map_err(minto_cherr!())?,
+                .map_err(varlink::minto_cherr!(varlink::ErrorKind))?,
                 got,
             );
         }
@@ -334,8 +334,8 @@ macro_rules! check_call_oneway {
         };
         if !check {
             let got: serde_json::Value =
-                serde_json::to_value($c.get_request().unwrap()).map_err(minto_cherr!())?;
-            let wants = serde_json::to_value(wants).map_err(minto_cherr!())?;
+                serde_json::to_value($c.get_request().unwrap()).map_err(varlink::minto_cherr!(varlink::ErrorKind))?;
+            let wants = serde_json::to_value(wants).map_err(varlink::minto_cherr!(varlink::ErrorKind))?;
             return $c.reply_certification_error(
                 serde_json::to_value(varlink::Request {
                     more: None,
@@ -344,7 +344,7 @@ macro_rules! check_call_oneway {
                     method: $test.into(),
                     parameters: Some(wants),
                 })
-                .map_err(minto_cherr!())?,
+                .map_err(varlink::minto_cherr!(varlink::ErrorKind))?,
                 got,
             );
         }
@@ -597,7 +597,7 @@ impl VarlinkInterface for CertInterface {
             Test09_Args { client_id, set }
         );
 
-        call.reply(new_mytype().map_err(minto_cherr!())?)
+        call.reply(new_mytype().map_err(varlink::minto_cherr!(varlink::ErrorKind))?)
     }
 
     fn test10(
@@ -615,7 +615,7 @@ impl VarlinkInterface for CertInterface {
             Test10_Args,
             Test10_Args {
                 client_id,
-                mytype: new_mytype().map_err(minto_cherr!())?,
+                mytype: new_mytype().map_err(varlink::minto_cherr!(varlink::ErrorKind))?,
             }
         );
 

@@ -23,13 +23,12 @@ name = "varlink-rust-generator"
 path = "src/bin/varlink-rust-generator.rs"
 
 [dependencies]
-chainerror = "0.4.2"
 varlink_parser = { version = "4", path = "../varlink_parser" }
 quote = "0.6"
 proc-macro2 = "0.4"
 getopts = "0"
 syn = "0.15.0"
-itertools = "0"
+chainerror = "0.4.4"
 
 [badges]
 travis-ci = { repository = "varlink/rust" }

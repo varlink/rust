@@ -2,11 +2,14 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
+use std::io::BufRead;
+use std::sync::{Arc, RwLock};
+
+#[cfg(feature = "chainerror")]
 use chainerror::*;
 use serde_derive::{Deserialize, Serialize};
 use serde_json;
-use std::io::BufRead;
-use std::sync::{Arc, RwLock};
+
 use varlink::{self, CallTrait};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -67,61 +70,91 @@ impl ::std::fmt::Display for ErrorKind {
     }
 }
 
-impl ::std::error::Error for ErrorKind {}
-
-impl ChainErrorFrom<std::io::Error> for ErrorKind {
-    fn chain_error_from(
-        e: std::io::Error,
-        line_filename: Option<(u32, &'static str)>,
-    ) -> ChainError<Self> {
-        ChainError::<_>::new(
-            ErrorKind::Io_Error(e.kind()),
-            Some(Box::from(e)),
-            line_filename,
-        )
+impl From<&std::io::Error> for ErrorKind {
+    fn from(e: &std::io::Error) -> Self {
+        ErrorKind::Io_Error(e.kind())
     }
 }
 
-impl ChainErrorFrom<serde_json::error::Error> for ErrorKind {
-    fn chain_error_from(
-        e: serde_json::error::Error,
-        line_filename: Option<(u32, &'static str)>,
-    ) -> ChainError<Self> {
-        ChainError::<_>::new(
-            ErrorKind::SerdeJson_Error(e.classify()),
-            Some(Box::from(e)),
-            line_filename,
-        )
+impl From<&serde_json::error::Error> for ErrorKind {
+    fn from(e: &serde_json::error::Error) -> Self {
+        ErrorKind::SerdeJson_Error(e.classify())
     }
 }
 
-impl ChainErrorFrom<varlink::ErrorKind> for ErrorKind {
-    fn chain_error_from(
-        e: varlink::ErrorKind,
-        line_filename: Option<(u32, &'static str)>,
-    ) -> ChainError<Self> {
-        ChainError::<_>::new(
-            ErrorKind::Varlink_Error,
-            Some(Box::from(ChainError::<_>::new(e, None, line_filename))),
-            line_filename,
-        )
+impl From<varlink::ErrorKind> for ErrorKind {
+    fn from(_e: varlink::ErrorKind) -> Self {
+        ErrorKind::Varlink_Error
+    }
+}
+
+#[cfg(feature = "chainerror")]
+#[allow(dead_code)]
+derive_err_kind!(Error, ErrorKind);
+
+#[cfg(not(feature = "chainerror"))]
+pub struct Error(
+    pub ErrorKind,
+    pub Option<Box<dyn std::error::Error + 'static>>,
+    pub Option<&'static str>,
+);
+#[cfg(not(feature = "chainerror"))]
+impl Error {
+    #[allow(dead_code)]
+    pub fn kind(&self) -> &ErrorKind {
+        &self.0
+    }
+}
+#[cfg(not(feature = "chainerror"))]
+impl From<ErrorKind> for Error {
+    fn from(e: ErrorKind) -> Self {
+        Error(e, None, None)
+    }
+}
+#[cfg(not(feature = "chainerror"))]
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.1.as_ref().map(|e| e.as_ref())
+    }
+}
+#[cfg(not(feature = "chainerror"))]
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
+    }
+}
+#[cfg(not(feature = "chainerror"))]
+impl std::fmt::Debug for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        use std::error::Error as StdError;
+        if let Some(ref o) = self.2 {
+            std::fmt::Display::fmt(o, f)?;
+        }
+        std::fmt::Debug::fmt(&self.0, f)?;
+        if let Some(e) = self.source() {
+            std::fmt::Display::fmt("\nCaused by:\n", f)?;
+            std::fmt::Debug::fmt(&e, f)?;
+        }
+        Ok(())
     }
 }
 
 #[allow(dead_code)]
-pub type Result<T> = ChainResult<T, ErrorKind>;
-#[allow(dead_code)]
-pub type Error = ErrorKind;
+pub type Result<T> = std::result::Result<T, Error>;
 
-impl ChainErrorFrom<varlink::Reply> for ErrorKind {
+impl From<varlink::Error> for Error {
+    fn from(_e: varlink::Error) -> Self {
+        ErrorKind::Varlink_Error.into()
+    }
+}
+
+impl From<varlink::Reply> for ErrorKind {
     #[allow(unused_variables)]
-    fn chain_error_from(
+    fn from(
         e: varlink::Reply,
-        line_filename: Option<(u32, &'static str)>,
-    ) -> ChainError<Self> {
+    ) -> Self {
         if varlink::ErrorKind::is_error(&e) {
-            let e: varlink::ErrorKind = e.into();
-            return into_cherr!(e);
+            return varlink::ErrorKind::from(e).into();
         }
         match e {
             varlink::Reply {
@@ -131,10 +164,10 @@ impl ChainErrorFrom<varlink::Reply> for ErrorKind {
                     parameters: Some(p),
                     ..
                 } => match serde_json::from_value(p) {
-                    Ok(v) => into_cherr!(ErrorKind::InterfaceNotFound(v)),
-                    Err(_) => into_cherr!(ErrorKind::InterfaceNotFound(None)),
+                    Ok(v) => ErrorKind::InterfaceNotFound(v),
+                    Err(_) => ErrorKind::InterfaceNotFound(None),
                 },
-                _ => into_cherr!(ErrorKind::InterfaceNotFound(None)),
+                _ => ErrorKind::InterfaceNotFound(None),
             },
             varlink::Reply {
                 error: Some(ref t), ..
@@ -143,10 +176,10 @@ impl ChainErrorFrom<varlink::Reply> for ErrorKind {
                     parameters: Some(p),
                     ..
                 } => match serde_json::from_value(p) {
-                    Ok(v) => into_cherr!(ErrorKind::InvalidParameter(v)),
-                    Err(_) => into_cherr!(ErrorKind::InvalidParameter(None)),
+                    Ok(v) => ErrorKind::InvalidParameter(v),
+                    Err(_) => ErrorKind::InvalidParameter(None),
                 },
-                _ => into_cherr!(ErrorKind::InvalidParameter(None)),
+                _ => ErrorKind::InvalidParameter(None),
             },
             varlink::Reply {
                 error: Some(ref t), ..
@@ -155,10 +188,10 @@ impl ChainErrorFrom<varlink::Reply> for ErrorKind {
                     parameters: Some(p),
                     ..
                 } => match serde_json::from_value(p) {
-                    Ok(v) => into_cherr!(ErrorKind::MethodNotFound(v)),
-                    Err(_) => into_cherr!(ErrorKind::MethodNotFound(None)),
+                    Ok(v) => ErrorKind::MethodNotFound(v),
+                    Err(_) => ErrorKind::MethodNotFound(None),
                 },
-                _ => into_cherr!(ErrorKind::MethodNotFound(None)),
+                _ => ErrorKind::MethodNotFound(None),
             },
             varlink::Reply {
                 error: Some(ref t), ..
@@ -167,12 +200,12 @@ impl ChainErrorFrom<varlink::Reply> for ErrorKind {
                     parameters: Some(p),
                     ..
                 } => match serde_json::from_value(p) {
-                    Ok(v) => into_cherr!(ErrorKind::MethodNotImplemented(v)),
-                    Err(_) => into_cherr!(ErrorKind::MethodNotImplemented(None)),
+                    Ok(v) => ErrorKind::MethodNotImplemented(v),
+                    Err(_) => ErrorKind::MethodNotImplemented(None),
                 },
-                _ => into_cherr!(ErrorKind::MethodNotImplemented(None)),
+                _ => ErrorKind::MethodNotImplemented(None),
             },
-            _ => into_cherr!(ErrorKind::VarlinkReply_Error(e)),
+            _ => ErrorKind::VarlinkReply_Error(e),
         }
     }
 }
@@ -323,7 +356,7 @@ impl varlink::Interface for VarlinkInterfaceProxy {
                         Err(e) => {
                             let es = format!("{}", e);
                             let _ = call.reply_invalid_parameter(es.clone());
-                            return Err(into_cherr!(varlink::ErrorKind::SerdeJsonDe(es)));
+                            return Err(varlink::cherr!(varlink::ErrorKind::SerdeJsonDe(es)).into());
                         }
                     };
                     self.inner.get_interface_description(

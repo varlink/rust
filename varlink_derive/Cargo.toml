@@ -16,4 +16,4 @@ path = "src/lib.rs"
 
 [dependencies]
 varlink_generator = { version = "7.1", path = "../varlink_generator" }
-itertools = "0"
+

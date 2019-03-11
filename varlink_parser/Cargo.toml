@@ -19,12 +19,11 @@ build = "build.rs"
 travis-ci = { repository = "varlink/rust" }
 
 [dependencies]
-itertools = "0"
-bytes = "0"
 ansi_term = "0.11"
-chainerror = "0.4.2"
+chainerror = "0.4.4"
 
 [features]
+default = []
 dynamic_peg = [ "peg" ]
 
 [build-dependencies]

@@ -84,9 +84,12 @@ fn expand_varlink(name: String, source: String) -> TokenStream {
     let code = match varlink_generator::compile(source) {
         Ok(code) => code,
         Err(e) => {
-            use itertools::Itertools;
-            let w = e.iter().map(|e| e.to_string()).join("\n");
-            panic!(w)
+            let mut s = String::new();
+            for i in e.iter() {
+                s += &i.to_string();
+                s += "\n";
+            }
+            panic!(s)
         }
     };
 

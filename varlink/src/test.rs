@@ -45,7 +45,7 @@ fn test_listen() -> Result<()> {
             }
         }
 
-        let e = MethodCall::<GetInfoArgs, ServiceInfo, ErrorKind>::new(
+        let e = MethodCall::<GetInfoArgs, ServiceInfo, Error>::new(
             conn.clone(),
             "org.varlink.service.GetInfos",
             GetInfoArgs {},
@@ -61,7 +61,7 @@ fn test_listen() -> Result<()> {
             }
         }
 
-        let e = MethodCall::<GetInfoArgs, ServiceInfo, ErrorKind>::new(
+        let e = MethodCall::<GetInfoArgs, ServiceInfo, Error>::new(
             conn.clone(),
             "org.varlink.unknowninterface.Foo",
             GetInfoArgs {},
@@ -187,7 +187,8 @@ fn test_handle() -> Result<()> {
 
     let reply = from_slice::<Reply>(&w).unwrap();
 
-    let si = from_value::<ServiceInfo>(reply.parameters.unwrap()).map_err(minto_cherr!())?;
+    let si =
+        from_value::<ServiceInfo>(reply.parameters.unwrap()).map_err(minto_cherr!(ErrorKind))?;
 
     assert_eq!(
         si,

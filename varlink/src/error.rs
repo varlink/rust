@@ -1,5 +1,6 @@
-use chainerror::*;
 use std::io;
+#[cfg(feature = "chainerror")]
+pub use chainerror::*;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum ErrorKind {
@@ -21,8 +22,6 @@ pub enum ErrorKind {
     InvalidAddress,
     Generic,
 }
-
-impl ::std::error::Error for ErrorKind {}
 
 impl ::std::fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
@@ -51,37 +50,111 @@ impl ::std::fmt::Display for ErrorKind {
     }
 }
 
-impl ChainErrorFrom<std::io::Error> for ErrorKind {
-    fn chain_error_from(
-        e: io::Error,
-        line_filename: Option<(u32, &'static str)>,
-    ) -> ChainError<Self> {
+impl From<&std::io::Error> for ErrorKind {
+    fn from(e: &io::Error) -> Self {
         match e.kind() {
             io::ErrorKind::BrokenPipe
             | io::ErrorKind::ConnectionAborted
-            | io::ErrorKind::ConnectionReset => ChainError::<_>::new(
-                ErrorKind::ConnectionClosed,
-                Some(Box::from(e)),
-                line_filename,
-            ),
-
-            kind => ChainError::<_>::new(ErrorKind::Io(kind), Some(Box::from(e)), line_filename),
+            | io::ErrorKind::ConnectionReset => ErrorKind::ConnectionClosed,
+            kind => ErrorKind::Io(kind),
         }
     }
 }
 
-impl ChainErrorFrom<serde_json::error::Error> for ErrorKind {
-    fn chain_error_from(
-        e: serde_json::error::Error,
-        line_filename: Option<(u32, &'static str)>,
-    ) -> ChainError<Self> {
-        ChainError::<_>::new(
-            ErrorKind::SerdeJsonSer(e.classify()),
-            Some(Box::from(e)),
-            line_filename,
-        )
+impl From<&serde_json::error::Error> for ErrorKind {
+    fn from(e: &serde_json::error::Error) -> Self {
+        ErrorKind::SerdeJsonSer(e.classify())
     }
 }
 
-pub type Result<T> = ChainResult<T, ErrorKind>;
-pub type Error = ChainError<ErrorKind>;
+#[cfg(feature = "chainerror")]
+derive_err_kind!(Error, ErrorKind);
+
+#[cfg(not(feature = "chainerror"))]
+pub struct Error(
+    pub ErrorKind,
+    pub Option<Box<dyn std::error::Error + 'static>>,
+    pub Option<&'static str>,
+);
+
+#[cfg(not(feature = "chainerror"))]
+impl Error {
+    pub fn kind(&self) -> &ErrorKind {
+        &self.0
+    }
+}
+
+#[cfg(not(feature = "chainerror"))]
+impl From<ErrorKind> for Error {
+    fn from(e: ErrorKind) -> Self {
+        Error(e, None, None)
+    }
+}
+
+#[cfg(not(feature = "chainerror"))]
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.1.as_ref().map(|e| e.as_ref())
+    }
+}
+
+#[cfg(not(feature = "chainerror"))]
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
+    }
+}
+
+#[cfg(not(feature = "chainerror"))]
+impl std::fmt::Debug for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        use std::error::Error as StdError;
+
+        if let Some(ref o) = self.2 {
+            std::fmt::Display::fmt(o, f)?;
+        }
+
+        std::fmt::Debug::fmt(&self.0, f)?;
+        if let Some(e) = self.source() {
+            std::fmt::Display::fmt("\nCaused by:\n", f)?;
+            std::fmt::Debug::fmt(&e, f)?;
+        }
+        Ok(())
+    }
+}
+
+#[macro_export]
+#[cfg(not(feature = "chainerror"))]
+macro_rules! minto_cherr {
+    ( $k:ident ) => (
+        |e| $crate::cherr!(e, $k::from(&e))
+    );
+    ( $enum:ident $(:: $enum_path:ident)* ) => (
+        |e| $crate::cherr!(e, $enum $(:: $enum_path)*::from(&e))
+    );
+}
+
+#[macro_export]
+#[cfg(not(feature = "chainerror"))]
+macro_rules! cherr {
+    ( $k:expr ) => ({
+        $crate::error::Error($k, None, Some(concat!(file!(), ":", line!(), ": ")))
+    });
+    ( None, $k:expr ) => ({
+        $crate::error::Error($k, None, Some(concat!(file!(), ":", line!(), ": ")))
+    });
+    ( None, $fmt:expr, $($arg:tt)+ ) => ({
+        $crate::cherr!(None, format!($fmt, $($arg)+ ))
+    });
+    ( None, $fmt:expr, $($arg:tt)+ ) => ({
+        $crate::error::cherr!(None, format!($fmt, $($arg)+ ))
+    });
+    ( $e:path, $k:expr ) => ({
+        $crate::error::Error($k, Some(Box::from($e)), Some(concat!(file!(), ":", line!(), ": ")))
+    });
+    ( $e:path, $fmt:expr, $($arg:tt)+ ) => ({
+        $crate::cherr!($e, format!($fmt, $($arg)+ ))
+    });
+}
+
+pub type Result<T> = std::result::Result<T, Error>;

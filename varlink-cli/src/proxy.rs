@@ -6,7 +6,7 @@ use chainerror::*;
 use serde_json::{from_slice, from_value, to_string};
 
 use varlink::{
-    Call, Connection, ErrorKind, GetInterfaceDescriptionArgs, Reply, Request, VarlinkStream,
+    Call, Connection, Error, ErrorKind, GetInterfaceDescriptionArgs, Reply, Request, VarlinkStream,
 };
 use varlink_stdinterfaces::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 
@@ -161,7 +161,7 @@ where
     loop {
         if !upgraded {
             if conn.reader.is_none() || conn.writer.is_none() {
-                return Err(ErrorKind::ConnectionBusy.into());
+                return Err(Error::from(ErrorKind::ConnectionBusy).into());
             }
             let (mut service_reader, mut service_writer) =
                 (conn.reader.take().unwrap(), conn.writer.take().unwrap());
@@ -233,7 +233,7 @@ where
             conn.writer = Some(service_writer)
         } else {
             if conn.reader.is_none() || conn.writer.is_none() {
-                return Err(ErrorKind::ConnectionBusy.into());
+                return Err(Error::from(ErrorKind::ConnectionBusy).into());
             }
             let (mut service_reader, mut service_writer) =
                 (conn.reader.take().unwrap(), conn.writer.take().unwrap());

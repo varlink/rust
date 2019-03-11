@@ -36,8 +36,11 @@ fn varlink_format(filename: &str, line_len: Option<&str>, should_colorize: bool)
         .map_err(mstrerr!("Failed to read '{}'", filename))?;
 
     let idl = IDL::from_string(&buffer).map_err(|e| {
-        use itertools::Itertools;
-        let s = e.iter().map(|e| e.to_string()).join("\n");
+        let mut s = String::new();
+        for i in e.iter() {
+            s += &i.to_string();
+            s += "\n";
+        }
         cherr!(e, s)
     })?;
     if should_colorize {
@@ -252,7 +255,7 @@ fn varlink_call(
         None => serde_json::Value::Null,
     };
 
-    let mut call = MethodCall::<serde_json::Value, serde_json::Value, varlink::ErrorKind>::new(
+    let mut call = MethodCall::<serde_json::Value, serde_json::Value, varlink::Error>::new(
         connection.clone(),
         String::from(method),
         args.clone(),
@@ -297,7 +300,7 @@ fn varlink_call(
 fn print_call_ret(
     color_mode: ColorMode,
     cf: ColoredFormatter<PrettyFormatter>,
-    ret: ChainResult<serde_json::Value, varlink::ErrorKind>,
+    ret: varlink::Result<serde_json::Value>,
     should_colorize: bool,
     method: &str,
     args: &serde_json::Value,

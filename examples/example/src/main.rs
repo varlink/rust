@@ -1,11 +1,12 @@
-use chainerror::*;
 use std::env;
 use std::process::exit;
 use std::sync::{Arc, RwLock};
 
 use varlink::{Connection, OrgVarlinkServiceInterface, VarlinkService};
-
 use varlink_derive;
+use chainerror::*;
+
+use crate::org_example_network::VarlinkClientInterface;
 
 // Using the `varlink_derive::varlink!` macro has the drawback,
 // that most IDEs don't execute this and thus offer no code completion.
@@ -37,8 +38,6 @@ error UnknownNetworkIfIndex (ifindex: int)
 error UnknownError (text: string)
 "#
 );
-
-use crate::org_example_network::VarlinkClientInterface;
 
 #[cfg(test)]
 mod test;
@@ -117,7 +116,9 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
     }
     let description = iface
         .get_interface_description("org.example.network")
-        .map_err(mstrerr!("Error calling get_interface_description()"))?;
+        .map_err(mstrerr!(
+            "Error calling get_interface_description()"
+        ))?;
 
     assert!(description.description.is_some());
 
@@ -159,13 +160,18 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
     let e = iface.info(3).call().err().unwrap();
 
     match e.kind() {
-        org_example_network::ErrorKind::Varlink_Error => {
-            let e = e.find_chain_cause::<varlink::ErrorKind>().unwrap();
-            match e.kind() {
-                varlink::ErrorKind::InvalidParameter(ref p) if p == "ifindex" => {}
-                _ => panic!("Unknown result\n{:?}\n", e),
-            }
-        }
+        org_example_network::ErrorKind::Varlink_Error => match e.source_varlink_kind() {
+            Some(varlink::ErrorKind::InvalidParameter(ref p)) if p == "ifindex" => {}
+            _ => panic!("Unknown result\n{:?}\n", e),
+        },
+        _ => panic!("Unknown result\n{:?}\n", e),
+    }
+
+    let e = iface.info(4).call().err().unwrap();
+    match e.source_varlink_kind() {
+        Some(varlink::ErrorKind::VarlinkErrorReply(varlink::Reply {
+            error: Some(ref t), ..
+        })) if t == "org.example.network.UnknownNetworkIfIndex" => {}
         _ => panic!("Unknown result\n{:?}\n", e),
     }
 

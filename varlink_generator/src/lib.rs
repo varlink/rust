@@ -288,6 +288,7 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
     }
 
     ts.extend(quote!(
+        #[cfg(feature = "chainerror")]
         use chainerror::*;
         use serde_derive::{{Deserialize, Serialize}};
         use serde_json;
@@ -300,6 +301,8 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
         ts.extend(v.clone());
     }
 
+    generate_error_code(options, &idl, &mut ts);
+
     for t in idl.typedefs.values() {
         t.to_tokenstream("", &mut ts, options);
     }
@@ -307,8 +310,6 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
     for t in idl.errors.values() {
         t.to_tokenstream("", &mut ts, options);
     }
-
-    generate_error_code(options, &idl, &mut ts);
 
     let mut server_method_decls = TokenStream::new();
     let mut client_method_decls = TokenStream::new();
@@ -442,7 +443,7 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
             let in_field_names = in_field_names.iter();
 
             if !t.input.elts.is_empty() {
-                server_method_impls.extend(quote!(
+                    server_method_impls.extend(quote!(
                     #varlink_method_name => {
                         if let Some(args) = req.parameters.clone() {
                             let args: #in_struct_name = match serde_json::from_value(args) {
@@ -450,7 +451,7 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
                                 Err(e) => {
                                     let es = format!("{}", e);
                                     let _ = call.reply_invalid_parameter(es.clone());
-                                    return Err(into_cherr!(varlink::ErrorKind::SerdeJsonDe(es)));
+                                    return Err(varlink::cherr!(varlink::ErrorKind::SerdeJsonDe(es)).into());
                                 }
                             };
                             self.inner.#method_name(call as &mut #call_name, #(args.#in_field_names),*)
@@ -572,6 +573,184 @@ fn generate_error_code(
     {
         let mut error_structs_and_enums = TokenStream::new();
         let mut funcs = TokenStream::new();
+    {
+        let mut errors = Vec::new();
+        let mut errors_display = Vec::new();
+        for t in idl.errors.values() {
+            errors.push(
+                TokenStream::from_str(&format!("{ename}(Option<{ename}_Args>)", ename = t.name,))
+                    .unwrap(),
+            );
+            errors_display.push(
+                TokenStream::from_str(&format!(
+                    "ErrorKind::{ename}(v) => write!(f, \"{iname}.{ename}: {{:#?}}\", v)",
+                    ename = t.name,
+                    iname = idl.name,
+                ))
+                .unwrap(),
+            );
+        }
+
+        ts.extend(quote!(
+            #[allow(dead_code)]
+            #[derive(Clone, PartialEq, Debug)]
+            pub enum ErrorKind {
+                Varlink_Error,
+                VarlinkReply_Error,
+                #(#errors),*
+            }
+            impl ::std::fmt::Display for ErrorKind {
+                fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                    match self {
+                        ErrorKind::Varlink_Error => write!(f, "Varlink Error"),
+                        ErrorKind::VarlinkReply_Error => write!(f, "Varlink error reply"),
+                        #(#errors_display),*
+                    }
+                }
+            }
+        ));
+    }
+    ts.extend(quote!(
+        #[allow(dead_code)]
+        #[cfg(feature = "chainerror")]
+        derive_err_kind!(Error, ErrorKind);
+
+
+        #[cfg(not(feature = "chainerror"))]
+        pub struct Error(
+            pub ErrorKind,
+            pub Option<Box<dyn std::error::Error + 'static>>,
+            pub Option<&'static str>,
+        );
+
+        #[cfg(not(feature = "chainerror"))]
+        impl Error {
+            #[allow(dead_code)]
+            pub fn kind(&self) -> &ErrorKind {
+                &self.0
+            }
+        }
+
+        #[cfg(not(feature = "chainerror"))]
+        impl From<ErrorKind> for Error {
+            fn from(e: ErrorKind) -> Self {
+                Error(e, None, None)
+            }
+        }
+
+        #[cfg(not(feature = "chainerror"))]
+        impl std::error::Error for Error {
+            fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+                self.1.as_ref().map(|e| e.as_ref())
+            }
+        }
+
+        #[cfg(not(feature = "chainerror"))]
+        impl std::fmt::Display for Error {
+            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                std::fmt::Display::fmt(&self.0, f)
+            }
+        }
+
+        #[cfg(not(feature = "chainerror"))]
+        impl std::fmt::Debug for Error {
+            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                use std::error::Error as StdError;
+
+                if let Some(ref o) = self.2 {
+                    std::fmt::Display::fmt(o, f)?;
+                }
+
+                std::fmt::Debug::fmt(&self.0, f)?;
+                if let Some(e) = self.source() {
+                    std::fmt::Display::fmt("\nCaused by:\n", f)?;
+                    std::fmt::Debug::fmt(&e, f)?;
+                }
+                Ok(())
+            }
+        }
+
+        #[allow(dead_code)]
+        pub type Result<T> = std::result::Result<T, Error>;
+
+        #[cfg(feature = "chainerror")]
+        impl From<varlink::Error> for Error {
+            fn from(
+                e: varlink::Error,
+            ) -> Self {
+                match e.kind() {
+                    varlink::ErrorKind::VarlinkErrorReply(r) => Error::from(cherr!(e, ErrorKind::from(r))),
+                    _  => Error::from(cherr!(e, ErrorKind::Varlink_Error))
+                }
+            }
+        }
+
+        #[cfg(not(feature = "chainerror"))]
+        impl From<varlink::Error> for Error {
+            fn from(
+                e: varlink::Error,
+            ) -> Self {
+                match e.kind() {
+                    varlink::ErrorKind::VarlinkErrorReply(r) => Error(ErrorKind::from(r), Some(Box::from(e)), Some(concat!(file!(), ":", line!(), ": "))),
+                    _  => Error(ErrorKind::Varlink_Error, Some(Box::from(e)), Some(concat!(file!(), ":", line!(), ": ")))
+                }
+            }
+        }
+
+        #[allow(dead_code)]
+        impl Error {
+            pub fn source_varlink_kind(&self) -> Option<&varlink::ErrorKind> {
+                use std::error::Error as StdError;
+                let mut s: &StdError = self;
+                while let Some(c) = s.source() {
+                    let k = self
+                        .source()
+                        .and_then(|e| e.downcast_ref::<varlink::Error>())
+                        .and_then(|e| Some(e.kind()));
+
+                    if k.is_some() {
+                        return k;
+                    }
+
+                    s = c;
+                }
+                None
+            }
+        }
+    ));
+    {
+        let mut arms = TokenStream::new();
+        for t in idl.errors.values() {
+            let error_name = format!("{iname}.{ename}", iname = idl.name, ename = t.name);
+            let ename = TokenStream::from_str(&format!("ErrorKind::{}", t.name)).unwrap();
+            arms.extend(quote!(
+                varlink::Reply { error: Some(ref t), .. } if t == #error_name => {
+                    match e {
+                       varlink::Reply {
+                           parameters: Some(p),
+                           ..
+                       } => match serde_json::from_value(p.clone()) {
+                           Ok(v) => #ename(v),
+                           Err(_) => #ename(None),
+                       },
+                       _ => #ename(None),
+                    }
+                }
+            ));
+        }
+
+        ts.extend(quote!(
+            impl From<&varlink::Reply> for ErrorKind {
+                #[allow(unused_variables)]
+                fn from(e: &varlink::Reply) -> Self {
+                    match e {
+                    #arms
+                    _ => ErrorKind::VarlinkReply_Error,
+                    }
+                }
+            }
+        ));
+    }
         for t in idl.errors.values() {
             let mut inparms_name = Vec::new();
             let mut inparms_type = Vec::new();
@@ -594,13 +773,13 @@ fn generate_error_code(
                                 )
                                 .as_ref(),
                         )
-                        .unwrap(),
+                            .unwrap(),
                     );
                 }
                 let innames = inparms_name.iter();
                 let innames2 = inparms_name.iter();
                 inparms = quote!(#(#innames : #inparms_type),*);
-                parms = quote!(Some(serde_json::to_value(#args_name {#(#innames2),*}).map_err(minto_cherr!())?));
+                parms = quote!(Some(serde_json::to_value(#args_name {#(#innames2),*}).map_err(varlink::minto_cherr!(varlink::ErrorKind))?));
             } else {
                 parms = quote!(None);
                 inparms = quote!();
@@ -627,138 +806,6 @@ fn generate_error_code(
     ts.extend(quote!(
         impl<'a> VarlinkCallError for varlink::Call<'a> {}
     ));
-    {
-        let mut errors = Vec::new();
-        let mut errors_display = Vec::new();
-        for t in idl.errors.values() {
-            errors.push(
-                TokenStream::from_str(&format!("{ename}(Option<{ename}_Args>)", ename = t.name,))
-                    .unwrap(),
-            );
-            errors_display.push(
-                TokenStream::from_str(&format!(
-                    "ErrorKind::{ename}(v) => write!(f, \"{iname}.{ename}: {{:#?}}\", v)",
-                    ename = t.name,
-                    iname = idl.name,
-                ))
-                .unwrap(),
-            );
-        }
-
-        ts.extend(quote!(
-            #[allow(dead_code)]
-            #[derive(Clone, PartialEq, Debug)]
-            pub enum ErrorKind {
-                Io_Error(::std::io::ErrorKind),
-                SerdeJson_Error(serde_json::error::Category),
-                Varlink_Error,
-                VarlinkReply_Error(varlink::Reply),
-                Generic,
-                #(#errors),*
-            }
-            impl ::std::fmt::Display for ErrorKind {
-                fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-                    match self {
-                        ErrorKind::Io_Error(_) => write!(f, "IO error"),
-                        ErrorKind::SerdeJson_Error(_) => {
-                            write!(f, "(De)Serialization Error")
-                        }
-                        ErrorKind::Varlink_Error => write!(f, "Varlink Error"),
-                        ErrorKind::VarlinkReply_Error(v) => write!(f, "Unknown error reply: '{:#?}'", v),
-                        ErrorKind::Generic => Ok(()),
-                        #(#errors_display),*
-                    }
-                }
-            }
-            impl ::std::error::Error for ErrorKind {}
-
-        ));
-    }
-    ts.extend(quote!(
-    impl ChainErrorFrom<std::io::Error> for ErrorKind {
-        fn chain_error_from(
-            e: std::io::Error,
-            line_filename: Option<(u32, &'static str)>,
-        ) -> ChainError<Self> {
-            ChainError::<_>::new(ErrorKind::Io_Error(e.kind()), Some(Box::from(e)), line_filename)
-        }
-    }
-
-    impl ChainErrorFrom<serde_json::error::Error> for ErrorKind {
-        fn chain_error_from(
-            e: serde_json::error::Error,
-            line_filename: Option<(u32, &'static str)>,
-        ) -> ChainError<Self> {
-            ChainError::<_>::new(
-                ErrorKind::SerdeJson_Error(e.classify()),
-                Some(Box::from(e)),
-                line_filename,
-            )
-        }
-    }
-
-    impl ChainErrorFrom<varlink::ErrorKind> for ErrorKind {
-        fn chain_error_from(
-            e: varlink::ErrorKind,
-            line_filename: Option<(u32, &'static str)>,
-        ) -> ChainError<Self> {
-            ChainError::<_>::new(
-                ErrorKind::Varlink_Error,
-                Some(Box::from(
-                    ChainError::<_>::new(
-                        e,
-                        None,
-                        line_filename,
-                    )
-                )),
-                line_filename,
-            )
-        }
-    }
-
-    #[allow(dead_code)]
-    pub type Result<T> = ChainResult<T, ErrorKind>;
-    #[allow(dead_code)]
-    pub type Error = ErrorKind;
-    ));
-    {
-        let mut arms = TokenStream::new();
-        for t in idl.errors.values() {
-            let error_name = format!("{iname}.{ename}", iname = idl.name, ename = t.name);
-            let ename = TokenStream::from_str(&format!("ErrorKind::{}", t.name)).unwrap();
-            arms.extend(quote!(
-                varlink::Reply { error: Some(ref t), .. } if t == #error_name => {
-                    match e {
-                       varlink::Reply {
-                           parameters: Some(p),
-                           ..
-                       } => match serde_json::from_value(p) {
-                           Ok(v) => into_cherr!(#ename(v)),
-                           Err(_) => into_cherr!(#ename(None)),
-                       },
-                       _ => into_cherr!(#ename(None)),
-                    }
-                }
-            ));
-        }
-
-        ts.extend(quote!(
-            impl ChainErrorFrom<varlink::Reply> for ErrorKind {
-                #[allow(unused_variables)]
-                fn chain_error_from(e: varlink::Reply, line_filename: Option<(u32, &'static str)>) -> ChainError<Self> {
-                    if varlink::ErrorKind::is_error(&e) {
-                        let e : varlink::ErrorKind = e.into();
-                        return into_cherr!(e);
-                    }
-
-                    match e {
-                    #arms
-                    _ => into_cherr!(ErrorKind::VarlinkReply_Error(e)),
-                    }
-                }
-            }
-        ));
-    }
 }
 
 pub fn compile(source: String) -> Result<TokenStream> {
@@ -950,12 +997,15 @@ where
         }));
 
         if let Err(e) = generate_with_options(reader, writer, options, false) {
-            use itertools::Itertools;
-            let w = e.iter().map(|e| e.to_string()).join("\n");
+            let mut s = String::new();
+            for i in e.iter() {
+                s += &i.to_string();
+                s += "\n";
+            }
             eprintln!(
                 "Could not generate rust code from varlink file `{}`: {}",
                 input_path.display(),
-                w
+                s
             );
 
             exit(1);
@@ -1069,12 +1119,15 @@ pub fn cargo_build_tosource_options<T: AsRef<Path> + ?Sized>(
     }));
 
     if let Err(e) = generate_with_options(reader, writer, options, true) {
-        use itertools::Itertools;
-        let w = e.iter().map(|e| e.to_string()).join("\n");
+        let mut s = String::new();
+        for i in e.iter() {
+            s += &i.to_string();
+            s += "\n";
+        }
         eprintln!(
             "Could not generate rust code from varlink file `{}`: {}",
             input_path.display(),
-            w
+            s
         );
         exit(1);
     }

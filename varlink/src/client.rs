@@ -17,7 +17,6 @@ use std::os::unix::net::UnixStream;
 use uds_windows::UnixStream;
 
 use crate::error::*;
-use chainerror::*;
 
 pub enum VarlinkStream {
     TCP(TcpStream),
@@ -46,10 +45,10 @@ pub fn varlink_exec<S: ?Sized + AsRef<str>>(
 
     use unix_socket::UnixListener;
 
-    let dir = tempdir().map_err(minto_cherr!())?;
+    let dir = tempdir().map_err(minto_cherr!(ErrorKind))?;
     let file_path = dir.path().join("varlink-socket");
 
-    let listener = UnixListener::bind(file_path.clone()).map_err(minto_cherr!())?;
+    let listener = UnixListener::bind(file_path.clone()).map_err(minto_cherr!(ErrorKind))?;
     let fd = listener.into_raw_fd();
 
     let child = Command::new("sh")
@@ -72,7 +71,7 @@ pub fn varlink_exec<S: ?Sized + AsRef<str>>(
             }
         })
         .spawn()
-        .map_err(minto_cherr!())?;
+        .map_err(minto_cherr!(ErrorKind))?;
     Ok((child, format!("unix:{}", file_path.display()), Some(dir)))
 }
 
@@ -82,7 +81,7 @@ pub fn varlink_bridge<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Child, Var
     use std::process::{Command, Stdio};
     use std::thread;
 
-    let (stream0, stream1) = UnixStream::pair().map_err(minto_cherr!())?;
+    let (stream0, stream1) = UnixStream::pair().map_err(minto_cherr!(ErrorKind))?;
     let executable = address.as_ref();
 
     let mut child = Command::new("cmd")
@@ -91,11 +90,11 @@ pub fn varlink_bridge<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Child, Var
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
-        .map_err(minto_cherr!())?;
+        .map_err(minto_cherr!(ErrorKind))?;
 
     let mut client_writer = child.stdin.take().unwrap();
     let mut client_reader = child.stdout.take().unwrap();
-    let mut service_writer = stream1.try_clone().map_err(minto_cherr!())?;
+    let mut service_writer = stream1.try_clone().map_err(minto_cherr!(ErrorKind))?;
     let mut service_reader = stream1;
 
     thread::spawn(move || copy(&mut client_reader, &mut service_writer));
@@ -111,7 +110,7 @@ pub fn varlink_bridge<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Child, Var
 
     let executable = address.as_ref();
     // use unix_socket::UnixStream;
-    let (stream0, stream1) = UnixStream::pair().map_err(minto_cherr!())?;
+    let (stream0, stream1) = UnixStream::pair().map_err(minto_cherr!(ErrorKind))?;
     let fd = stream1.into_raw_fd();
     let childin = unsafe { ::std::fs::File::from_raw_fd(fd) };
     let childout = unsafe { ::std::fs::File::from_raw_fd(fd) };
@@ -122,7 +121,7 @@ pub fn varlink_bridge<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Child, Var
         .stdin(childin)
         .stdout(childout)
         .spawn()
-        .map_err(minto_cherr!())?;
+        .map_err(minto_cherr!(ErrorKind))?;
     Ok((child, VarlinkStream::UNIX(stream0)))
 }
 
@@ -136,7 +135,7 @@ fn get_abstract_unixstream(addr: &str) -> Result<UnixStream> {
     unsafe {
         Ok(UnixStream::from_raw_fd(
             AbstractStream::connect(addr)
-                .map_err(minto_cherr!())?
+                .map_err(minto_cherr!(ErrorKind))?
                 .into_raw_fd(),
         ))
     }
@@ -154,7 +153,9 @@ impl<'a> VarlinkStream {
 
         if new_address.starts_with("tcp:") {
             Ok((
-                VarlinkStream::TCP(TcpStream::connect(&new_address[4..]).map_err(minto_cherr!())?),
+                VarlinkStream::TCP(
+                    TcpStream::connect(&new_address[4..]).map_err(minto_cherr!(ErrorKind))?,
+                ),
                 new_address,
             ))
         } else if new_address.starts_with("unix:") {
@@ -165,39 +166,43 @@ impl<'a> VarlinkStream {
                     .and_then(|v| Ok((VarlinkStream::UNIX(v), new_address)));
             }
             Ok((
-                VarlinkStream::UNIX(UnixStream::connect(addr).map_err(minto_cherr!())?),
+                VarlinkStream::UNIX(UnixStream::connect(addr).map_err(minto_cherr!(ErrorKind))?),
                 new_address,
             ))
         } else {
-            Err(into_cherr!(ErrorKind::InvalidAddress))?
+            Err(cherr!(ErrorKind::InvalidAddress))?
         }
     }
 
     pub fn split(&mut self) -> Result<(Box<Read + Send + Sync>, Box<Write + Send + Sync>)> {
         match *self {
             VarlinkStream::TCP(ref mut s) => Ok((
-                Box::new(s.try_clone().map_err(minto_cherr!())?),
-                Box::new(s.try_clone().map_err(minto_cherr!())?),
+                Box::new(s.try_clone().map_err(minto_cherr!(ErrorKind))?),
+                Box::new(s.try_clone().map_err(minto_cherr!(ErrorKind))?),
             )),
             VarlinkStream::UNIX(ref mut s) => Ok((
-                Box::new(s.try_clone().map_err(minto_cherr!())?),
-                Box::new(s.try_clone().map_err(minto_cherr!())?),
+                Box::new(s.try_clone().map_err(minto_cherr!(ErrorKind))?),
+                Box::new(s.try_clone().map_err(minto_cherr!(ErrorKind))?),
             )),
         }
     }
 
     pub fn shutdown(&mut self) -> Result<()> {
         match *self {
-            VarlinkStream::TCP(ref mut s) => s.shutdown(Shutdown::Both).map_err(minto_cherr!())?,
-            VarlinkStream::UNIX(ref mut s) => s.shutdown(Shutdown::Both).map_err(minto_cherr!())?,
+            VarlinkStream::TCP(ref mut s) => s
+                .shutdown(Shutdown::Both)
+                .map_err(minto_cherr!(ErrorKind))?,
+            VarlinkStream::UNIX(ref mut s) => s
+                .shutdown(Shutdown::Both)
+                .map_err(minto_cherr!(ErrorKind))?,
         }
         Ok(())
     }
 
     pub fn set_nonblocking(&self, b: bool) -> Result<()> {
         match *self {
-            VarlinkStream::TCP(ref l) => l.set_nonblocking(b).map_err(minto_cherr!())?,
-            VarlinkStream::UNIX(ref l) => l.set_nonblocking(b).map_err(minto_cherr!())?,
+            VarlinkStream::TCP(ref l) => l.set_nonblocking(b).map_err(minto_cherr!(ErrorKind))?,
+            VarlinkStream::UNIX(ref l) => l.set_nonblocking(b).map_err(minto_cherr!(ErrorKind))?,
         }
         Ok(())
     }

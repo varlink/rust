@@ -23,13 +23,15 @@ name = "varlink"
 path = "src/lib.rs"
 
 [dependencies]
-itertools = "0"
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
-bytes = "0"
 tempfile = "3"
-chainerror = "0.4.2"
+chainerror = { version="0.4.4", optional = true }
+
+[features]
+default = []
+chain-error = [ "chainerror" ]
 
 [target.'cfg(windows)'.dependencies]
 uds_windows = { version="0.1.3" }

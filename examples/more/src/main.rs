@@ -6,7 +6,6 @@ use std::{thread, time};
 use varlink::{Connection, VarlinkService};
 
 use crate::org_example_more::*;
-use chainerror::*;
 
 // Dynamically build the varlink rust code.
 mod org_example_more;
@@ -150,7 +149,7 @@ impl VarlinkInterface for MyOrgExampleMore {
 
     fn stop_serving(&self, call: &mut Call_StopServing) -> varlink::Result<()> {
         call.reply()?;
-        Err(into_cherr!(varlink::ErrorKind::ConnectionClosed))
+        Err(varlink::ErrorKind::ConnectionClosed.into())
     }
     fn test_more(&self, call: &mut Call_TestMore, n: i64) -> varlink::Result<()> {
         if !call.wants_more() {

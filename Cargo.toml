@@ -11,3 +11,7 @@ members = [
     "examples/more",
     "examples/ping",
 ]
+
+[patch.crates-io]
+chainerror = { path = "../../chainerror" }
+

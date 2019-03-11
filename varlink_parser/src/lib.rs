@@ -44,7 +44,6 @@
 )]
 
 use self::varlink_grammar::ParseInterface;
-use itertools::Itertools;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 
@@ -227,7 +226,7 @@ impl<'a> IDL<'a> {
 impl<'a> IDL<'a> {
     pub fn from_string(s: &'a str) -> ChainResult<Self, Error> {
         let interface = ParseInterface(s).map_err(|e| {
-            let line = s.split("\n").nth(e.line - 1).unwrap();
+            let line = s.split('\n').nth(e.line - 1).unwrap();
             cherr!(
                 e,
                 Error(format!(
@@ -239,10 +238,22 @@ impl<'a> IDL<'a> {
             )
         })?;
         if !interface.error.is_empty() {
+            let mut v : Vec<_> = interface.error.into_iter().collect();
+            v.sort();
+            let mut s = String::new();
+            let mut first : bool = true;
+            for i in v.iter() {
+                if ! first {
+                    s += "\n";
+                }
+                first = false;
+                s += &i.to_string();
+            }
+
             Err(strerr!(
                 Error,
                 "Interface definition error: '{}'\n",
-                interface.error.into_iter().sorted().join("\n")
+                s
             ))
         } else {
             Ok(interface)

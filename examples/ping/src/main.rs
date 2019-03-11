@@ -6,7 +6,6 @@ use std::sync::{Arc, RwLock};
 use varlink::{Call, Connection, VarlinkService};
 
 use crate::org_example_ping::*;
-use chainerror::*;
 
 // Dynamically build the varlink rust code.
 mod org_example_ping;
@@ -56,7 +55,7 @@ fn main() {
         run_client(&connection).map_err(|e| e.into())
     } else if let Some(address) = matches.opt_str("varlink") {
         run_server(&address, 0, matches.opt_present("m"))
-            .map_err(mstrerr!("running server with address {}", address))
+            //            .map_err(mstrerr!("running server with address {}", address))
             .map_err(|e| e.into())
     } else {
         print_usage(&program, &opts);
@@ -102,32 +101,63 @@ fn run_client(connection: &Arc<RwLock<varlink::Connection>>) -> Result<()> {
 
         writer
             .write_all(b"test test\nline 2\n")
-            .map_err(minto_cherr!())?;
+            .map_err(varlink::minto_cherr!(varlink::ErrorKind))
+            .map_err(varlink::Error::from)?;
         conn.writer = Some(writer);
         let mut buf = Vec::new();
         let mut reader = conn.reader.take().unwrap();
-        if reader.read_until(b'\n', &mut buf).map_err(minto_cherr!())? == 0 {
+        if reader
+            .read_until(b'\n', &mut buf)
+            .map_err(varlink::minto_cherr!(varlink::ErrorKind))
+            .map_err(varlink::Error::from)?
+            == 0
+        {
             // incomplete data, in real life, store all bytes for the next call
             // for now just read the rest
-            reader.read_to_end(&mut buf).map_err(minto_cherr!())?;
+            reader
+                .read_to_end(&mut buf)
+                .map_err(varlink::minto_cherr!(varlink::ErrorKind))
+                .map_err(varlink::Error::from)?;
         };
         eprintln!("Client: upgraded got: {}", String::from_utf8_lossy(&buf));
         let mut buf = Vec::new();
-        if reader.read_until(b'\n', &mut buf).map_err(minto_cherr!())? == 0 {
+        if reader
+            .read_until(b'\n', &mut buf)
+            .map_err(varlink::minto_cherr!(varlink::ErrorKind))
+            .map_err(varlink::Error::from)?
+            == 0
+        {
             // incomplete data, in real life, store all bytes for the next call
             // for now just read the rest
-            reader.read_to_end(&mut buf).map_err(minto_cherr!())?;
+            reader
+                .read_to_end(&mut buf)
+                .map_err(varlink::minto_cherr!(varlink::ErrorKind))
+                .map_err(varlink::Error::from)?;
         };
         eprintln!("Client: upgraded got: {}", String::from_utf8_lossy(&buf));
         let mut writer = conn.writer.take().unwrap();
         eprintln!("Client: send \"End\\n\"");
-        writer.write_all(b"End\n").map_err(minto_cherr!())?;
-        writer.flush().map_err(minto_cherr!())?;
+        writer
+            .write_all(b"End\n")
+            .map_err(varlink::minto_cherr!(varlink::ErrorKind))
+            .map_err(varlink::Error::from)?;
+        writer
+            .flush()
+            .map_err(varlink::minto_cherr!(varlink::ErrorKind))
+            .map_err(varlink::Error::from)?;
         let mut buf = Vec::new();
-        if reader.read_until(b'\n', &mut buf).map_err(minto_cherr!())? == 0 {
+        if reader
+            .read_until(b'\n', &mut buf)
+            .map_err(varlink::minto_cherr!(varlink::ErrorKind))
+            .map_err(varlink::Error::from)?
+            == 0
+        {
             // incomplete data, in real life, store all bytes for the next call
             // for now just read the rest
-            reader.read_to_end(&mut buf).map_err(minto_cherr!())?;
+            reader
+                .read_to_end(&mut buf)
+                .map_err(varlink::minto_cherr!(varlink::ErrorKind))
+                .map_err(varlink::Error::from)?;
         };
         eprintln!("Client: upgraded got: {}", String::from_utf8_lossy(&buf));
         conn.writer = Some(writer);
@@ -156,23 +186,27 @@ impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
     fn call_upgraded(&self, call: &mut Call, bufreader: &mut BufRead) -> varlink::Result<Vec<u8>> {
         loop {
             let mut buf = String::new();
-            let len = bufreader.read_line(&mut buf).map_err(minto_cherr!())?;
+            let len = bufreader
+                .read_line(&mut buf)
+                .map_err(varlink::minto_cherr!(varlink::ErrorKind))?;
             if len == 0 {
                 eprintln!("Server: upgraded got: none");
                 // incomplete data, in real life, store all bytes for the next call
                 // return Ok(buf.as_bytes().to_vec());
-                return Err(into_cherr!(varlink::ErrorKind::ConnectionClosed));
+                return Err(varlink::cherr!(varlink::ErrorKind::ConnectionClosed).into());
             }
             eprintln!("Server: upgraded got: {}", buf);
 
             call.writer
                 .write_all(b"server reply: ")
-                .map_err(minto_cherr!())?;
+                .map_err(varlink::minto_cherr!(varlink::ErrorKind))?;
             call.writer
                 .write_all(buf.as_bytes())
-                .map_err(minto_cherr!())?;
+                .map_err(varlink::minto_cherr!(varlink::ErrorKind))?;
 
-            call.writer.flush().map_err(minto_cherr!())?;
+            call.writer
+                .flush()
+                .map_err(varlink::minto_cherr!(varlink::ErrorKind))?;
 
             if buf.eq("End\n") {
                 break;
@@ -190,7 +224,6 @@ mod multiplex {
     use std::sync::{Arc, RwLock};
     use std::thread;
 
-    use chainerror::*;
     use varlink::{ConnectionHandler, Listener, ServerStream};
 
     struct FdTracker {
@@ -435,7 +468,9 @@ mod multiplex {
                 for t in threads {
                     let _r = t.join();
                 }
-                return Err(Error::last_os_error()).map_err(minto_cherr!());
+                return Err(Error::last_os_error())
+                    .map_err(varlink::minto_cherr!(varlink::ErrorKind))
+                    .map_err(|e| e.into());
             }
 
             if r == 0 && fds.len() == 1 && *upgraded_in_use.read().unwrap() == 0 {
@@ -444,7 +479,7 @@ mod multiplex {
                     let _r = t.join();
                 }
 
-                return Err(into_cherr!(varlink::ErrorKind::Timeout));
+                return Err(varlink::cherr!(varlink::ErrorKind::Timeout).into());
             }
         }
     }

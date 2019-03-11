@@ -230,22 +230,27 @@ use std::ops::{Deref, DerefMut};
 use std::process::Child;
 use std::sync::{Arc, RwLock};
 
-use chainerror::*;
 use serde::de::{self, DeserializeOwned};
 use serde::ser::{Serialize, SerializeMap, Serializer};
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tempfile::TempDir;
 
+
 pub use crate::client::VarlinkStream;
 use crate::client::{varlink_bridge, varlink_exec};
-pub use crate::error::{Error, ErrorKind, Result};
+
 pub use crate::server::Stream as ServerStream;
 pub use crate::server::{listen, Listener};
 
-mod client;
+#[cfg(feature = "chainerror")]
+pub use chainerror::*;
 
-mod error;
+#[macro_use]
+pub mod error;
+pub use error::{Error, ErrorKind, Result};
+
+mod client;
 mod server;
 #[cfg(test)]
 mod test;
@@ -573,7 +578,7 @@ pub struct Call<'a> {
 /// # impl TestService {
 /// fn test_method(&self, call: &mut Call_TestMethod, testparam: i64) -> varlink::Result<()> {
 ///     match testparam {
-///         0 ... 100 => {},
+///         0 ... 100 => {}
 ///         _ => {
 ///             return call.reply_invalid_parameter("testparam".into());
 ///         }
@@ -661,7 +666,7 @@ pub trait CallTrait {
                 serde_json::to_value(ErrorMethodNotFound {
                     method: Some(method_name),
                 })
-                .map_err(minto_cherr!())?,
+                .map_err(minto_cherr!(ErrorKind))?,
             ),
         ))
     }
@@ -674,7 +679,7 @@ pub trait CallTrait {
                 serde_json::to_value(ErrorMethodNotImplemented {
                     method: Some(method_name),
                 })
-                .map_err(minto_cherr!())?,
+                .map_err(minto_cherr!(ErrorKind))?,
             ),
         ))
     }
@@ -687,7 +692,7 @@ pub trait CallTrait {
                 serde_json::to_value(ErrorInvalidParameter {
                     parameter: Some(parameter_name),
                 })
-                .map_err(minto_cherr!())?,
+                .map_err(minto_cherr!(ErrorKind))?,
             ),
         ))
     }
@@ -696,18 +701,18 @@ pub trait CallTrait {
 impl<'a> CallTrait for Call<'a> {
     fn reply_struct(&mut self, mut reply: Reply) -> Result<()> {
         if self.continues && (!self.wants_more()) {
-            return Err(into_cherr!(ErrorKind::CallContinuesMismatch));
+            Err(cherr!(ErrorKind::CallContinuesMismatch))?;
         }
         if self.continues {
             reply.continues = Some(true);
         }
         // serde_json::to_writer(&mut *self.writer, &reply)?;
-        let b = serde_json::to_string(&reply).map_err(minto_cherr!())? + "\0";
+        let b = serde_json::to_string(&reply).map_err(minto_cherr!(ErrorKind))? + "\0";
 
         self.writer
             .write_all(b.as_bytes())
-            .map_err(minto_cherr!())?;
-        self.writer.flush().map_err(minto_cherr!())?;
+            .map_err(minto_cherr!(ErrorKind))?;
+        self.writer.flush().map_err(minto_cherr!(ErrorKind))?;
         Ok(())
     }
 
@@ -767,7 +772,7 @@ impl<'a> Call<'a> {
             match arg {
                 Some(a) => Some(
                     serde_json::to_value(ErrorInterfaceNotFound { interface: Some(a) })
-                        .map_err(minto_cherr!())?,
+                        .map_err(minto_cherr!(ErrorKind))?,
                 ),
                 None => None,
             },
@@ -777,12 +782,12 @@ impl<'a> Call<'a> {
     fn reply_parameters(&mut self, parameters: Value) -> Result<()> {
         let reply = Reply::parameters(Some(parameters));
         //serde_json::to_writer(&mut *self.writer, &reply)?;
-        let b = serde_json::to_string(&reply).map_err(minto_cherr!())? + "\0";
+        let b = serde_json::to_string(&reply).map_err(minto_cherr!(ErrorKind))? + "\0";
 
         self.writer
             .write_all(b.as_bytes())
-            .map_err(minto_cherr!())?;
-        self.writer.flush().map_err(minto_cherr!())?;
+            .map_err(minto_cherr!(ErrorKind))?;
+        self.writer.flush().map_err(minto_cherr!(ErrorKind))?;
         Ok(())
     }
 }
@@ -926,10 +931,7 @@ pub struct MethodCall<MRequest, MReply, MError>
 where
     MRequest: Serialize,
     MReply: DeserializeOwned,
-    MError: chainerror::ChainErrorFrom<ErrorKind>
-        + chainerror::ChainErrorFrom<Reply>
-        + chainerror::ChainErrorFrom<serde_json::error::Error>
-        + chainerror::ChainErrorFrom<::std::io::Error>,
+    MError: From<Error>,
 {
     connection: Arc<RwLock<Connection>>,
     request: Option<MRequest>,
@@ -941,14 +943,27 @@ where
     phantom_error: PhantomData<MError>,
 }
 
+impl<MRequest, MReply, MError> Iterator for MethodCall<MRequest, MReply, MError>
+where
+    MRequest: Serialize,
+    MReply: DeserializeOwned,
+    MError: From<Error>,
+{
+    type Item = std::result::Result<MReply, MError>;
+    fn next(&mut self) -> Option<std::result::Result<MReply, MError>> {
+        if !self.continues {
+            return None;
+        }
+
+        Some(self.recv())
+    }
+}
+
 impl<MRequestParameters, MReply, MError> MethodCall<MRequestParameters, MReply, MError>
 where
     MRequestParameters: Serialize,
     MReply: DeserializeOwned,
-    MError: chainerror::ChainErrorFrom<ErrorKind>
-        + chainerror::ChainErrorFrom<Reply>
-        + chainerror::ChainErrorFrom<serde_json::error::Error>
-        + chainerror::ChainErrorFrom<::std::io::Error>,
+    MError: From<Error>,
 {
     pub fn new<S: Into<Cow<'static, str>>>(
         connection: Arc<RwLock<Connection>>,
@@ -967,21 +982,27 @@ where
         }
     }
 
-    fn send(&mut self, oneway: bool, more: bool, upgrade: bool) -> ChainResult<(), MError> {
+    fn send(&mut self, oneway: bool, more: bool, upgrade: bool) -> std::result::Result<(), MError> {
         {
             let mut conn = self.connection.write().unwrap();
             let mut req = match (self.method.take(), self.request.take()) {
                 (Some(method), Some(request)) => Request::create(
                     method,
-                    Some(serde_json::to_value(request).map_err(minto_cherr!())?),
+                    Some(
+                        serde_json::to_value(request)
+                            .map_err(minto_cherr!(ErrorKind))
+                            .map_err(Error::from)?,
+                    ),
                 ),
                 _ => {
-                    return Err(into_cherr!(ErrorKind::MethodCalledAlready));
+                    return Err(MError::from(Error::from(cherr!(
+                        ErrorKind::MethodCalledAlready
+                    ))));
                 }
             };
 
             if conn.reader.is_none() || conn.writer.is_none() {
-                return Err(into_cherr!(ErrorKind::ConnectionBusy));
+                return Err(Error::from(cherr!(ErrorKind::ConnectionBusy)).into());
             }
 
             if oneway {
@@ -1000,10 +1021,17 @@ where
 
             let mut w = conn.writer.take().unwrap();
 
-            let b = serde_json::to_string(&req).map_err(minto_cherr!())? + "\0";
+            let b = serde_json::to_string(&req)
+                .map_err(minto_cherr!(ErrorKind))
+                .map_err(Error::from)?
+                + "\0";
 
-            w.write_all(b.as_bytes()).map_err(minto_cherr!())?;
-            w.flush().map_err(minto_cherr!())?;
+            w.write_all(b.as_bytes())
+                .map_err(minto_cherr!(ErrorKind))
+                .map_err(Error::from)?;
+            w.flush()
+                .map_err(minto_cherr!(ErrorKind))
+                .map_err(Error::from)?;
             if oneway {
                 conn.writer = Some(w);
             } else {
@@ -1013,41 +1041,46 @@ where
         Ok(())
     }
 
-    pub fn call(&mut self) -> ChainResult<MReply, MError> {
+    pub fn call(&mut self) -> std::result::Result<MReply, MError> {
         self.send(false, false, false)?;
         self.recv()
     }
 
-    pub fn upgrade(&mut self) -> ChainResult<MReply, MError> {
+    pub fn upgrade(&mut self) -> std::result::Result<MReply, MError> {
         self.send(false, false, true)?;
         self.recv()
     }
 
-    pub fn oneway(&mut self) -> ChainResult<(), MError> {
+    pub fn oneway(&mut self) -> std::result::Result<(), MError> {
         self.send(true, false, false)
     }
 
-    pub fn more(&mut self) -> ChainResult<&mut Self, MError> {
+    pub fn more(&mut self) -> std::result::Result<&mut Self, MError> {
         self.continues = true;
         self.send(false, true, false)?;
         Ok(self)
     }
 
-    pub fn recv(&mut self) -> ChainResult<MReply, MError> {
+    pub fn recv(&mut self) -> std::result::Result<MReply, MError> {
         if self.reader.is_none() || self.writer.is_none() {
-            return Err(into_cherr!(ErrorKind::IteratorOldReply));
+            return Err(Error::from(cherr!(ErrorKind::IteratorOldReply)).into());
         }
 
         let mut buf = Vec::new();
 
         let mut reader = self.reader.take().unwrap();
-        reader.read_until(0, &mut buf).map_err(minto_cherr!())?;
+        reader
+            .read_until(0, &mut buf)
+            .map_err(minto_cherr!(ErrorKind))
+            .map_err(Error::from)?;
         self.reader = Some(reader);
         if buf.is_empty() {
-            return Err(into_cherr!(ErrorKind::ConnectionClosed));
+            return Err(Error::from(cherr!(ErrorKind::ConnectionClosed)).into());
         }
         buf.pop();
-        let reply: Reply = serde_json::from_slice(&buf).map_err(minto_cherr!())?;
+        let reply: Reply = serde_json::from_slice(&buf)
+            .map_err(minto_cherr!(ErrorKind))
+            .map_err(Error::from)?;
         match reply.continues {
             Some(true) => self.continues = true,
             _ => {
@@ -1058,7 +1091,7 @@ where
             }
         }
         if reply.error != None {
-            return Err(into_cherr!(reply));
+            return Err(Error::from(cherr!(ErrorKind::from(reply))).into());
         }
 
         match reply {
@@ -1066,7 +1099,9 @@ where
                 parameters: Some(p),
                 ..
             } => {
-                let mreply: MReply = serde_json::from_value(p).map_err(minto_cherr!())?;
+                let mreply: MReply = serde_json::from_value(p)
+                    .map_err(minto_cherr!(ErrorKind))
+                    .map_err(Error::from)?;
                 Ok(mreply)
             }
             Reply {
@@ -1074,29 +1109,11 @@ where
             } => {
                 let mreply: MReply =
                     serde_json::from_value(serde_json::Value::Object(serde_json::Map::new()))
-                        .map_err(minto_cherr!())?;
+                        .map_err(minto_cherr!(ErrorKind))
+                        .map_err(Error::from)?;
                 Ok(mreply)
             }
         }
-    }
-}
-
-impl<MRequest, MReply, MError> Iterator for MethodCall<MRequest, MReply, MError>
-where
-    MRequest: Serialize,
-    MReply: DeserializeOwned,
-    MError: chainerror::ChainErrorFrom<ErrorKind>
-        + chainerror::ChainErrorFrom<Reply>
-        + chainerror::ChainErrorFrom<serde_json::error::Error>
-        + chainerror::ChainErrorFrom<::std::io::Error>,
-{
-    type Item = ChainResult<MReply, MError>;
-    fn next(&mut self) -> Option<ChainResult<MReply, MError>> {
-        if !self.continues {
-            return None;
-        }
-
-        Some(self.recv())
     }
 }
 
@@ -1145,7 +1162,7 @@ pub trait OrgVarlinkServiceInterface {
 
 impl OrgVarlinkServiceInterface for OrgVarlinkServiceClient {
     fn get_info(&mut self) -> Result<ServiceInfo> {
-        MethodCall::<GetInfoArgs, ServiceInfo, ErrorKind>::new(
+        MethodCall::<GetInfoArgs, ServiceInfo, Error>::new(
             self.connection.clone(),
             "org.varlink.service.GetInfo",
             GetInfoArgs {},
@@ -1156,7 +1173,7 @@ impl OrgVarlinkServiceInterface for OrgVarlinkServiceClient {
         &mut self,
         interface: S,
     ) -> Result<GetInterfaceDescriptionReply> {
-        MethodCall::<GetInterfaceDescriptionArgs, GetInterfaceDescriptionReply, ErrorKind>::new(
+        MethodCall::<GetInterfaceDescriptionArgs, GetInterfaceDescriptionReply, Error>::new(
             self.connection.clone(),
             "org.varlink.service.GetInterfaceDescription",
             GetInterfaceDescriptionArgs {
@@ -1221,9 +1238,10 @@ error InvalidParameter (parameter: string)
         let req = call.request.unwrap();
 
         match req {
-            Request { method: ref m, .. } if m == "org.varlink.service.GetInfo" => {
-                call.reply_parameters(serde_json::to_value(&self.info).map_err(minto_cherr!())?)
-            }
+            Request { method: ref m, .. } if m == "org.varlink.service.GetInfo" => call
+                .reply_parameters(
+                    serde_json::to_value(&self.info).map_err(minto_cherr!(ErrorKind))?,
+                ),
 
             Request {
                 method: ref m,
@@ -1231,7 +1249,7 @@ error InvalidParameter (parameter: string)
                 ..
             } if m == "org.varlink.service.GetInterfaceDescription" => {
                 let args: GetInterfaceDescriptionArgs =
-                    serde_json::from_value(params.clone()).map_err(minto_cherr!())?;
+                    serde_json::from_value(params.clone()).map_err(minto_cherr!(ErrorKind))?;
                 match args.interface.as_ref() {
                     "org.varlink.service" => {
                         call.reply_parameters(json!({"description": self.get_description()}))
@@ -1412,7 +1430,7 @@ impl ConnectionHandler for VarlinkService {
             let mut buf = Vec::new();
             let len = bufreader
                 .read_until(b'\0', &mut buf)
-                .map_err(minto_cherr!())?;
+                .map_err(minto_cherr!(ErrorKind))?;
 
             if len == 0 {
                 // EOF

@@ -224,14 +224,14 @@ impl Listener {
                 if address.starts_with("tcp:") {
                     unsafe {
                         return Ok(Listener::TCP(
-                            Some(TcpListener::from_raw_socket(l as u64)),
+                            Some(TcpListener::from_raw_socket(l as RawSocket)),
                             true,
                         ));
                     }
                 } else if address.starts_with("unix:") {
                     unsafe {
                         return Ok(Listener::UNIX(
-                            Some(UnixListener::from_raw_socket(l as u64)),
+                            Some(UnixListener::from_raw_socket(l as RawSocket)),
                             true,
                         ));
                     }
@@ -244,14 +244,14 @@ impl Listener {
                 if address.starts_with("tcp:") {
                     unsafe {
                         return Ok(Listener::TCP(
-                            Some(TcpListener::from_raw_fd(l as i32)),
+                            Some(TcpListener::from_raw_fd(l as RawFd)),
                             true,
                         ));
                     }
                 } else if address.starts_with("unix:") {
                     unsafe {
                         return Ok(Listener::UNIX(
-                            Some(UnixListener::from_raw_fd(l as i32)),
+                            Some(UnixListener::from_raw_fd(l as RawFd)),
                             true,
                         ));
                     }

@@ -27,7 +27,7 @@ pub enum VarlinkStream {
 pub fn varlink_exec<S: ?Sized + AsRef<str>>(
     _address: &S,
 ) -> Result<(Child, String, Option<TempDir>)> {
-    return Err(into_cherr!(ErrorKind::MethodNotImplemented(
+    return Err(context!(ErrorKind::MethodNotImplemented(
         "varlink_exec".into()
     )));
 }
@@ -143,7 +143,7 @@ fn get_abstract_unixstream(addr: &str) -> Result<UnixStream> {
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 fn get_abstract_unixstream(_addr: &str) -> Result<UnixStream> {
-    Err(into_cherr!(ErrorKind::InvalidAddress))
+    Err(context!(ErrorKind::InvalidAddress))
 }
 
 impl<'a> VarlinkStream {

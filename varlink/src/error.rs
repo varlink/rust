@@ -127,17 +127,8 @@ macro_rules! context {
     ( None, $k:expr ) => ({
         $crate::error::Error($k, None, Some(concat!(file!(), ":", line!(), ": ")))
     });
-    ( None, $fmt:expr, $($arg:tt)+ ) => ({
-        $crate::context!(None, format!($fmt, $($arg)+ ))
-    });
-    ( None, $fmt:expr, $($arg:tt)+ ) => ({
-        $crate::error::cherr!(None, format!($fmt, $($arg)+ ))
-    });
     ( $e:path, $k:expr ) => ({
         $crate::error::Error($k, Some(Box::from($e)), Some(concat!(file!(), ":", line!(), ": ")))
-    });
-    ( $e:path, $fmt:expr, $($arg:tt)+ ) => ({
-        $crate::context!($e, format!($fmt, $($arg)+ ))
     });
 }
 

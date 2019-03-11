@@ -214,7 +214,7 @@ fn get_abstract_unixlistener(addr: &str) -> Result<UnixListener> {
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 fn get_abstract_unixlistener(_addr: &str) -> Result<UnixListener> {
-    Err(into_cherr!(ErrorKind::InvalidAddress))
+    Err(context!(ErrorKind::InvalidAddress))
 }
 
 impl Listener {
@@ -239,7 +239,7 @@ impl Listener {
                         ));
                     }
                 } else {
-                    return Err(into_cherr!(ErrorKind::InvalidAddress));
+                    return Err(context!(ErrorKind::InvalidAddress));
                 }
             }
             #[cfg(unix)]
@@ -319,7 +319,7 @@ impl Listener {
                 }
 
                 if readfs.fd_count == 0 || readfs.fd_array[0] != socket {
-                    return Err(into_cherr!(ErrorKind::Timeout));
+                    return Err(context!(ErrorKind::Timeout));
                 }
             }
         }
@@ -333,7 +333,7 @@ impl Listener {
                 let (s, _addr) = l.accept().map_err(map_context!())?;
                 Ok(Stream::UNIX(s))
             }
-            _ => Err(into_cherr!(ErrorKind::ConnectionClosed)),
+            _ => Err(context!(ErrorKind::ConnectionClosed)),
         }
     }
 

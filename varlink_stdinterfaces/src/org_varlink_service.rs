@@ -5,8 +5,6 @@
 use std::io::BufRead;
 use std::sync::{Arc, RwLock};
 
-#[cfg(feature = "chainerror")]
-use chainerror::*;
 use serde_derive::{Deserialize, Serialize};
 use serde_json;
 
@@ -88,42 +86,37 @@ impl From<varlink::ErrorKind> for ErrorKind {
     }
 }
 
-#[cfg(feature = "chainerror")]
-#[allow(dead_code)]
-derive_err_kind!(Error, ErrorKind);
-
-#[cfg(not(feature = "chainerror"))]
 pub struct Error(
     pub ErrorKind,
     pub Option<Box<dyn std::error::Error + 'static>>,
     pub Option<&'static str>,
 );
-#[cfg(not(feature = "chainerror"))]
+
 impl Error {
     #[allow(dead_code)]
     pub fn kind(&self) -> &ErrorKind {
         &self.0
     }
 }
-#[cfg(not(feature = "chainerror"))]
+
 impl From<ErrorKind> for Error {
     fn from(e: ErrorKind) -> Self {
         Error(e, None, None)
     }
 }
-#[cfg(not(feature = "chainerror"))]
+
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         self.1.as_ref().map(|e| e.as_ref())
     }
 }
-#[cfg(not(feature = "chainerror"))]
+
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         std::fmt::Display::fmt(&self.0, f)
     }
 }
-#[cfg(not(feature = "chainerror"))]
+
 impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         use std::error::Error as StdError;
@@ -150,9 +143,7 @@ impl From<varlink::Error> for Error {
 
 impl From<varlink::Reply> for ErrorKind {
     #[allow(unused_variables)]
-    fn from(
-        e: varlink::Reply,
-    ) -> Self {
+    fn from(e: varlink::Reply) -> Self {
         if varlink::ErrorKind::is_error(&e) {
             return varlink::ErrorKind::from(e).into();
         }
@@ -356,7 +347,7 @@ impl varlink::Interface for VarlinkInterfaceProxy {
                         Err(e) => {
                             let es = format!("{}", e);
                             let _ = call.reply_invalid_parameter(es.clone());
-                            return Err(varlink::cherr!(varlink::ErrorKind::SerdeJsonDe(es)).into());
+                            return Err(varlink::context!(varlink::ErrorKind::SerdeJsonDe(es)).into());
                         }
                     };
                     self.inner.get_interface_description(

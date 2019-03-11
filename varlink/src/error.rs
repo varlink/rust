@@ -1,6 +1,4 @@
 use std::io;
-#[cfg(feature = "chainerror")]
-pub use chainerror::*;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum ErrorKind {
@@ -67,45 +65,36 @@ impl From<&serde_json::error::Error> for ErrorKind {
     }
 }
 
-#[cfg(feature = "chainerror")]
-derive_err_kind!(Error, ErrorKind);
-
-#[cfg(not(feature = "chainerror"))]
 pub struct Error(
     pub ErrorKind,
     pub Option<Box<dyn std::error::Error + 'static>>,
     pub Option<&'static str>,
 );
 
-#[cfg(not(feature = "chainerror"))]
 impl Error {
     pub fn kind(&self) -> &ErrorKind {
         &self.0
     }
 }
 
-#[cfg(not(feature = "chainerror"))]
 impl From<ErrorKind> for Error {
     fn from(e: ErrorKind) -> Self {
         Error(e, None, None)
     }
 }
 
-#[cfg(not(feature = "chainerror"))]
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         self.1.as_ref().map(|e| e.as_ref())
     }
 }
 
-#[cfg(not(feature = "chainerror"))]
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         std::fmt::Display::fmt(&self.0, f)
     }
 }
 
-#[cfg(not(feature = "chainerror"))]
 impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         use std::error::Error as StdError;
@@ -124,19 +113,14 @@ impl std::fmt::Debug for Error {
 }
 
 #[macro_export]
-#[cfg(not(feature = "chainerror"))]
-macro_rules! minto_cherr {
-    ( $k:ident ) => (
-        |e| $crate::cherr!(e, $k::from(&e))
-    );
-    ( $enum:ident $(:: $enum_path:ident)* ) => (
-        |e| $crate::cherr!(e, $enum $(:: $enum_path)*::from(&e))
-    );
+macro_rules! map_context {
+    () => {
+        |e| $crate::context!(e, $crate::ErrorKind::from(&e))
+    };
 }
 
 #[macro_export]
-#[cfg(not(feature = "chainerror"))]
-macro_rules! cherr {
+macro_rules! context {
     ( $k:expr ) => ({
         $crate::error::Error($k, None, Some(concat!(file!(), ":", line!(), ": ")))
     });
@@ -144,7 +128,7 @@ macro_rules! cherr {
         $crate::error::Error($k, None, Some(concat!(file!(), ":", line!(), ": ")))
     });
     ( None, $fmt:expr, $($arg:tt)+ ) => ({
-        $crate::cherr!(None, format!($fmt, $($arg)+ ))
+        $crate::context!(None, format!($fmt, $($arg)+ ))
     });
     ( None, $fmt:expr, $($arg:tt)+ ) => ({
         $crate::error::cherr!(None, format!($fmt, $($arg)+ ))
@@ -153,7 +137,7 @@ macro_rules! cherr {
         $crate::error::Error($k, Some(Box::from($e)), Some(concat!(file!(), ":", line!(), ": ")))
     });
     ( $e:path, $fmt:expr, $($arg:tt)+ ) => ({
-        $crate::cherr!($e, format!($fmt, $($arg)+ ))
+        $crate::context!($e, format!($fmt, $($arg)+ ))
     });
 }
 

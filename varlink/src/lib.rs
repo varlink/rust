@@ -666,7 +666,7 @@ pub trait CallTrait {
                 serde_json::to_value(ErrorMethodNotFound {
                     method: Some(method_name),
                 })
-                .map_err(minto_cherr!(ErrorKind))?,
+                .map_err(map_context!())?,
             ),
         ))
     }
@@ -679,7 +679,7 @@ pub trait CallTrait {
                 serde_json::to_value(ErrorMethodNotImplemented {
                     method: Some(method_name),
                 })
-                .map_err(minto_cherr!(ErrorKind))?,
+                .map_err(map_context!())?,
             ),
         ))
     }
@@ -692,7 +692,7 @@ pub trait CallTrait {
                 serde_json::to_value(ErrorInvalidParameter {
                     parameter: Some(parameter_name),
                 })
-                .map_err(minto_cherr!(ErrorKind))?,
+                .map_err(map_context!())?,
             ),
         ))
     }
@@ -701,18 +701,18 @@ pub trait CallTrait {
 impl<'a> CallTrait for Call<'a> {
     fn reply_struct(&mut self, mut reply: Reply) -> Result<()> {
         if self.continues && (!self.wants_more()) {
-            Err(cherr!(ErrorKind::CallContinuesMismatch))?;
+            Err(context!(ErrorKind::CallContinuesMismatch))?;
         }
         if self.continues {
             reply.continues = Some(true);
         }
         // serde_json::to_writer(&mut *self.writer, &reply)?;
-        let b = serde_json::to_string(&reply).map_err(minto_cherr!(ErrorKind))? + "\0";
+        let b = serde_json::to_string(&reply).map_err(map_context!())? + "\0";
 
         self.writer
             .write_all(b.as_bytes())
-            .map_err(minto_cherr!(ErrorKind))?;
-        self.writer.flush().map_err(minto_cherr!(ErrorKind))?;
+            .map_err(map_context!())?;
+        self.writer.flush().map_err(map_context!())?;
         Ok(())
     }
 
@@ -772,7 +772,7 @@ impl<'a> Call<'a> {
             match arg {
                 Some(a) => Some(
                     serde_json::to_value(ErrorInterfaceNotFound { interface: Some(a) })
-                        .map_err(minto_cherr!(ErrorKind))?,
+                        .map_err(map_context!())?,
                 ),
                 None => None,
             },
@@ -782,12 +782,12 @@ impl<'a> Call<'a> {
     fn reply_parameters(&mut self, parameters: Value) -> Result<()> {
         let reply = Reply::parameters(Some(parameters));
         //serde_json::to_writer(&mut *self.writer, &reply)?;
-        let b = serde_json::to_string(&reply).map_err(minto_cherr!(ErrorKind))? + "\0";
+        let b = serde_json::to_string(&reply).map_err(map_context!())? + "\0";
 
         self.writer
             .write_all(b.as_bytes())
-            .map_err(minto_cherr!(ErrorKind))?;
-        self.writer.flush().map_err(minto_cherr!(ErrorKind))?;
+            .map_err(map_context!())?;
+        self.writer.flush().map_err(map_context!())?;
         Ok(())
     }
 }
@@ -990,19 +990,19 @@ where
                     method,
                     Some(
                         serde_json::to_value(request)
-                            .map_err(minto_cherr!(ErrorKind))
+                            .map_err(map_context!())
                             .map_err(Error::from)?,
                     ),
                 ),
                 _ => {
-                    return Err(MError::from(Error::from(cherr!(
+                    return Err(MError::from(Error::from(context!(
                         ErrorKind::MethodCalledAlready
                     ))));
                 }
             };
 
             if conn.reader.is_none() || conn.writer.is_none() {
-                return Err(Error::from(cherr!(ErrorKind::ConnectionBusy)).into());
+                return Err(Error::from(context!(ErrorKind::ConnectionBusy)).into());
             }
 
             if oneway {
@@ -1022,15 +1022,15 @@ where
             let mut w = conn.writer.take().unwrap();
 
             let b = serde_json::to_string(&req)
-                .map_err(minto_cherr!(ErrorKind))
+                .map_err(map_context!())
                 .map_err(Error::from)?
                 + "\0";
 
             w.write_all(b.as_bytes())
-                .map_err(minto_cherr!(ErrorKind))
+                .map_err(map_context!())
                 .map_err(Error::from)?;
             w.flush()
-                .map_err(minto_cherr!(ErrorKind))
+                .map_err(map_context!())
                 .map_err(Error::from)?;
             if oneway {
                 conn.writer = Some(w);
@@ -1063,7 +1063,7 @@ where
 
     pub fn recv(&mut self) -> std::result::Result<MReply, MError> {
         if self.reader.is_none() || self.writer.is_none() {
-            return Err(Error::from(cherr!(ErrorKind::IteratorOldReply)).into());
+            return Err(Error::from(context!(ErrorKind::IteratorOldReply)).into());
         }
 
         let mut buf = Vec::new();
@@ -1071,15 +1071,15 @@ where
         let mut reader = self.reader.take().unwrap();
         reader
             .read_until(0, &mut buf)
-            .map_err(minto_cherr!(ErrorKind))
+            .map_err(map_context!())
             .map_err(Error::from)?;
         self.reader = Some(reader);
         if buf.is_empty() {
-            return Err(Error::from(cherr!(ErrorKind::ConnectionClosed)).into());
+            return Err(Error::from(context!(ErrorKind::ConnectionClosed)).into());
         }
         buf.pop();
         let reply: Reply = serde_json::from_slice(&buf)
-            .map_err(minto_cherr!(ErrorKind))
+            .map_err(map_context!())
             .map_err(Error::from)?;
         match reply.continues {
             Some(true) => self.continues = true,
@@ -1091,7 +1091,7 @@ where
             }
         }
         if reply.error != None {
-            return Err(Error::from(cherr!(ErrorKind::from(reply))).into());
+            return Err(Error::from(context!(ErrorKind::from(reply))).into());
         }
 
         match reply {
@@ -1100,7 +1100,7 @@ where
                 ..
             } => {
                 let mreply: MReply = serde_json::from_value(p)
-                    .map_err(minto_cherr!(ErrorKind))
+                    .map_err(map_context!())
                     .map_err(Error::from)?;
                 Ok(mreply)
             }
@@ -1109,7 +1109,7 @@ where
             } => {
                 let mreply: MReply =
                     serde_json::from_value(serde_json::Value::Object(serde_json::Map::new()))
-                        .map_err(minto_cherr!(ErrorKind))
+                        .map_err(map_context!())
                         .map_err(Error::from)?;
                 Ok(mreply)
             }
@@ -1240,7 +1240,7 @@ error InvalidParameter (parameter: string)
         match req {
             Request { method: ref m, .. } if m == "org.varlink.service.GetInfo" => call
                 .reply_parameters(
-                    serde_json::to_value(&self.info).map_err(minto_cherr!(ErrorKind))?,
+                    serde_json::to_value(&self.info).map_err(map_context!())?,
                 ),
 
             Request {
@@ -1249,7 +1249,7 @@ error InvalidParameter (parameter: string)
                 ..
             } if m == "org.varlink.service.GetInterfaceDescription" => {
                 let args: GetInterfaceDescriptionArgs =
-                    serde_json::from_value(params.clone()).map_err(minto_cherr!(ErrorKind))?;
+                    serde_json::from_value(params.clone()).map_err(map_context!())?;
                 match args.interface.as_ref() {
                     "org.varlink.service" => {
                         call.reply_parameters(json!({"description": self.get_description()}))
@@ -1430,7 +1430,7 @@ impl ConnectionHandler for VarlinkService {
             let mut buf = Vec::new();
             let len = bufreader
                 .read_until(b'\0', &mut buf)
-                .map_err(minto_cherr!(ErrorKind))?;
+                .map_err(map_context!())?;
 
             if len == 0 {
                 // EOF
@@ -1446,7 +1446,7 @@ impl ConnectionHandler for VarlinkService {
             buf.pop();
 
             let req: Request = serde_json::from_slice(&buf).map_err(|e| {
-                cherr!(
+                context!(
                     e,
                     ErrorKind::SerdeJsonDe(String::from_utf8_lossy(&buf).to_string())
                 )

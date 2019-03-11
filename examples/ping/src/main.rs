@@ -93,6 +93,8 @@ fn run_client(connection: &Arc<RwLock<varlink::Connection>>) -> Result<()> {
         let _reply = iface.upgrade().upgrade()?;
         eprintln!("Client: upgrade()");
     }
+
+    // Extended upgrade protocol test
     {
         // talk our own protocol on an upgraded connection
         let mut conn = connection.write().unwrap();
@@ -101,63 +103,54 @@ fn run_client(connection: &Arc<RwLock<varlink::Connection>>) -> Result<()> {
 
         writer
             .write_all(b"test test\nline 2\n")
-            .map_err(varlink::minto_cherr!(varlink::ErrorKind))
-            .map_err(varlink::Error::from)?;
+            .map_err(varlink::map_context!())?;
         conn.writer = Some(writer);
         let mut buf = Vec::new();
         let mut reader = conn.reader.take().unwrap();
         if reader
             .read_until(b'\n', &mut buf)
-            .map_err(varlink::minto_cherr!(varlink::ErrorKind))
-            .map_err(varlink::Error::from)?
+            .map_err(varlink::map_context!())?
             == 0
         {
             // incomplete data, in real life, store all bytes for the next call
             // for now just read the rest
             reader
                 .read_to_end(&mut buf)
-                .map_err(varlink::minto_cherr!(varlink::ErrorKind))
-                .map_err(varlink::Error::from)?;
+                .map_err(varlink::map_context!())?;
         };
         eprintln!("Client: upgraded got: {}", String::from_utf8_lossy(&buf));
         let mut buf = Vec::new();
         if reader
             .read_until(b'\n', &mut buf)
-            .map_err(varlink::minto_cherr!(varlink::ErrorKind))
-            .map_err(varlink::Error::from)?
+            .map_err(varlink::map_context!())?
             == 0
         {
             // incomplete data, in real life, store all bytes for the next call
             // for now just read the rest
             reader
                 .read_to_end(&mut buf)
-                .map_err(varlink::minto_cherr!(varlink::ErrorKind))
-                .map_err(varlink::Error::from)?;
+                .map_err(varlink::map_context!())?;
         };
         eprintln!("Client: upgraded got: {}", String::from_utf8_lossy(&buf));
         let mut writer = conn.writer.take().unwrap();
         eprintln!("Client: send \"End\\n\"");
         writer
             .write_all(b"End\n")
-            .map_err(varlink::minto_cherr!(varlink::ErrorKind))
-            .map_err(varlink::Error::from)?;
+            .map_err(varlink::map_context!())?;
         writer
             .flush()
-            .map_err(varlink::minto_cherr!(varlink::ErrorKind))
-            .map_err(varlink::Error::from)?;
+            .map_err(varlink::map_context!())?;
         let mut buf = Vec::new();
         if reader
             .read_until(b'\n', &mut buf)
-            .map_err(varlink::minto_cherr!(varlink::ErrorKind))
-            .map_err(varlink::Error::from)?
+            .map_err(varlink::map_context!())?
             == 0
         {
             // incomplete data, in real life, store all bytes for the next call
             // for now just read the rest
             reader
                 .read_to_end(&mut buf)
-                .map_err(varlink::minto_cherr!(varlink::ErrorKind))
-                .map_err(varlink::Error::from)?;
+                .map_err(varlink::map_context!())?;
         };
         eprintln!("Client: upgraded got: {}", String::from_utf8_lossy(&buf));
         conn.writer = Some(writer);
@@ -188,25 +181,24 @@ impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
             let mut buf = String::new();
             let len = bufreader
                 .read_line(&mut buf)
-                .map_err(varlink::minto_cherr!(varlink::ErrorKind))?;
+                .map_err(varlink::map_context!())?;
             if len == 0 {
                 eprintln!("Server: upgraded got: none");
                 // incomplete data, in real life, store all bytes for the next call
                 // return Ok(buf.as_bytes().to_vec());
-                return Err(varlink::cherr!(varlink::ErrorKind::ConnectionClosed).into());
+                return Err(varlink::context!(varlink::ErrorKind::ConnectionClosed).into());
             }
             eprintln!("Server: upgraded got: {}", buf);
 
             call.writer
                 .write_all(b"server reply: ")
-                .map_err(varlink::minto_cherr!(varlink::ErrorKind))?;
+                .map_err(varlink::map_context!())?;
             call.writer
                 .write_all(buf.as_bytes())
-                .map_err(varlink::minto_cherr!(varlink::ErrorKind))?;
-
+                .map_err(varlink::map_context!())?;
             call.writer
                 .flush()
-                .map_err(varlink::minto_cherr!(varlink::ErrorKind))?;
+                .map_err(varlink::map_context!())?;
 
             if buf.eq("End\n") {
                 break;
@@ -469,7 +461,7 @@ mod multiplex {
                     let _r = t.join();
                 }
                 return Err(Error::last_os_error())
-                    .map_err(varlink::minto_cherr!(varlink::ErrorKind))
+                    .map_err(varlink::map_context!())
                     .map_err(|e| e.into());
             }
 
@@ -479,7 +471,7 @@ mod multiplex {
                     let _r = t.join();
                 }
 
-                return Err(varlink::cherr!(varlink::ErrorKind::Timeout).into());
+                return Err(varlink::context!(varlink::ErrorKind::Timeout).into());
             }
         }
     }

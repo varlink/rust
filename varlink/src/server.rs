@@ -40,12 +40,12 @@ impl<'a> Stream {
     pub fn split(&mut self) -> Result<(Box<Read + Send + Sync>, Box<Write + Send + Sync>)> {
         match *self {
             Stream::TCP(ref mut s) => Ok((
-                Box::new(s.try_clone().map_err(minto_cherr!(ErrorKind))?),
-                Box::new(s.try_clone().map_err(minto_cherr!(ErrorKind))?),
+                Box::new(s.try_clone().map_err(map_context!())?),
+                Box::new(s.try_clone().map_err(map_context!())?),
             )),
             Stream::UNIX(ref mut s) => Ok((
-                Box::new(s.try_clone().map_err(minto_cherr!(ErrorKind))?),
-                Box::new(s.try_clone().map_err(minto_cherr!(ErrorKind))?),
+                Box::new(s.try_clone().map_err(map_context!())?),
+                Box::new(s.try_clone().map_err(map_context!())?),
             )),
         }
     }
@@ -53,10 +53,10 @@ impl<'a> Stream {
         match *self {
             Stream::TCP(ref mut s) => s
                 .shutdown(Shutdown::Both)
-                .map_err(minto_cherr!(ErrorKind))?,
+                .map_err(map_context!())?,
             Stream::UNIX(ref mut s) => s
                 .shutdown(Shutdown::Both)
-                .map_err(minto_cherr!(ErrorKind))?,
+                .map_err(map_context!())?,
         }
         Ok(())
     }
@@ -71,11 +71,11 @@ impl<'a> Stream {
     pub fn set_nonblocking(&mut self, b: bool) -> Result<()> {
         match *self {
             Stream::TCP(ref mut s) => {
-                s.set_nonblocking(b).map_err(minto_cherr!(ErrorKind))?;
+                s.set_nonblocking(b).map_err(map_context!())?;
                 Ok(())
             }
             Stream::UNIX(ref mut s) => {
-                s.set_nonblocking(b).map_err(minto_cherr!(ErrorKind))?;
+                s.set_nonblocking(b).map_err(map_context!())?;
                 Ok(())
             }
         }
@@ -206,7 +206,7 @@ fn get_abstract_unixlistener(addr: &str) -> Result<UnixListener> {
     unsafe {
         Ok(UnixListener::from_raw_fd(
             AbstractUnixListener::bind(addr)
-                .map_err(minto_cherr!(ErrorKind))?
+                .map_err(map_context!())?
                 .into_raw_fd(),
         ))
     }
@@ -259,14 +259,14 @@ impl Listener {
                         ));
                     }
                 } else {
-                    return Err(Error::from(cherr!(ErrorKind::InvalidAddress)));
+                    return Err(Error::from(context!(ErrorKind::InvalidAddress)));
                 }
             }
         }
 
         if address.starts_with("tcp:") {
             Ok(Listener::TCP(
-                Some(TcpListener::bind(&address[4..]).map_err(minto_cherr!(ErrorKind))?),
+                Some(TcpListener::bind(&address[4..]).map_err(map_context!())?),
                 false,
             ))
         } else if address.starts_with("unix:") {
@@ -279,11 +279,11 @@ impl Listener {
             // ignore error on non-existant file
             let _ = fs::remove_file(&*addr);
             Ok(Listener::UNIX(
-                Some(UnixListener::bind(addr).map_err(minto_cherr!(ErrorKind))?),
+                Some(UnixListener::bind(addr).map_err(map_context!())?),
                 false,
             ))
         } else {
-            Err(Error::from(cherr!(ErrorKind::InvalidAddress)))
+            Err(Error::from(context!(ErrorKind::InvalidAddress)))
         }
     }
 
@@ -296,7 +296,7 @@ impl Listener {
             let socket: usize = match self {
                 Listener::TCP(Some(l), _) => l.as_raw_socket(),
                 Listener::UNIX(Some(l), _) => l.as_raw_socket(),
-                _ => return Err(cherr!(ErrorKind::ConnectionClosed)),
+                _ => return Err(context!(ErrorKind::ConnectionClosed)),
             } as usize;
 
             unsafe {
@@ -326,11 +326,11 @@ impl Listener {
 
         match self {
             &Listener::TCP(Some(ref l), _) => {
-                let (s, _addr) = l.accept().map_err(minto_cherr!(ErrorKind))?;
+                let (s, _addr) = l.accept().map_err(map_context!())?;
                 Ok(Stream::TCP(s))
             }
             Listener::UNIX(Some(ref l), _) => {
-                let (s, _addr) = l.accept().map_err(minto_cherr!(ErrorKind))?;
+                let (s, _addr) = l.accept().map_err(map_context!())?;
                 Ok(Stream::UNIX(s))
             }
             _ => Err(into_cherr!(ErrorKind::ConnectionClosed)),
@@ -345,7 +345,7 @@ impl Listener {
             let fd = match self {
                 Listener::TCP(Some(l), _) => l.as_raw_fd(),
                 Listener::UNIX(Some(l), _) => l.as_raw_fd(),
-                _ => return Err(Error::from(cherr!(ErrorKind::ConnectionClosed))),
+                _ => return Err(Error::from(context!(ErrorKind::ConnectionClosed))),
             };
 
             unsafe {
@@ -374,32 +374,32 @@ impl Listener {
                     }
                 }
                 if !FD_ISSET(fd, &mut readfs) {
-                    return Err(Error::from(cherr!(ErrorKind::Timeout)));
+                    return Err(Error::from(context!(ErrorKind::Timeout)));
                 }
             }
         }
         match self {
             &Listener::TCP(Some(ref l), _) => {
-                let (s, _addr) = l.accept().map_err(minto_cherr!(ErrorKind))?;
+                let (s, _addr) = l.accept().map_err(map_context!())?;
                 Ok(Stream::TCP(s))
             }
             Listener::UNIX(Some(ref l), _) => {
-                let (s, _addr) = l.accept().map_err(minto_cherr!(ErrorKind))?;
+                let (s, _addr) = l.accept().map_err(map_context!())?;
                 Ok(Stream::UNIX(s))
             }
-            _ => Err(Error::from(cherr!(ErrorKind::ConnectionClosed))),
+            _ => Err(Error::from(context!(ErrorKind::ConnectionClosed))),
         }
     }
 
     pub fn set_nonblocking(&self, b: bool) -> Result<()> {
         match *self {
             Listener::TCP(Some(ref l), _) => {
-                l.set_nonblocking(b).map_err(minto_cherr!(ErrorKind))?
+                l.set_nonblocking(b).map_err(map_context!())?
             }
             Listener::UNIX(Some(ref l), _) => {
-                l.set_nonblocking(b).map_err(minto_cherr!(ErrorKind))?
+                l.set_nonblocking(b).map_err(map_context!())?
             }
-            _ => Err(cherr!(ErrorKind::ConnectionClosed))?,
+            _ => Err(context!(ErrorKind::ConnectionClosed))?,
         }
         Ok(())
     }

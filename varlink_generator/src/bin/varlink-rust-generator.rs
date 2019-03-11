@@ -3,7 +3,7 @@
 //!
 //! # Usage
 //!
-//! ~~~
+//! ~~~norun
 //! $ varlink-rust-generator `[<varlink_file>]`
 //! ~~~
 //!

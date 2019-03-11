@@ -270,7 +270,7 @@ impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VError<'long> {
         tokenstream.extend(quote!(
             #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
             pub struct #args_name {
-                            #(#args_anot pub #args_enames: #args_etypes,)*
+                #(#args_anot pub #args_enames: #args_etypes,)*
             }
         ));
     }
@@ -288,8 +288,6 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
     }
 
     ts.extend(quote!(
-        #[cfg(feature = "chainerror")]
-        use chainerror::*;
         use serde_derive::{{Deserialize, Serialize}};
         use serde_json;
         use std::io::BufRead;
@@ -443,7 +441,7 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
             let in_field_names = in_field_names.iter();
 
             if !t.input.elts.is_empty() {
-                    server_method_impls.extend(quote!(
+                server_method_impls.extend(quote!(
                     #varlink_method_name => {
                         if let Some(args) = req.parameters.clone() {
                             let args: #in_struct_name = match serde_json::from_value(args) {
@@ -451,7 +449,7 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
                                 Err(e) => {
                                     let es = format!("{}", e);
                                     let _ = call.reply_invalid_parameter(es.clone());
-                                    return Err(varlink::cherr!(varlink::ErrorKind::SerdeJsonDe(es)).into());
+                                    return Err(varlink::context!(varlink::ErrorKind::SerdeJsonDe(es)).into());
                                 }
                             };
                             self.inner.#method_name(call as &mut #call_name, #(args.#in_field_names),*)
@@ -573,57 +571,53 @@ fn generate_error_code(
     {
         let mut error_structs_and_enums = TokenStream::new();
         let mut funcs = TokenStream::new();
-    {
-        let mut errors = Vec::new();
-        let mut errors_display = Vec::new();
-        for t in idl.errors.values() {
-            errors.push(
-                TokenStream::from_str(&format!("{ename}(Option<{ename}_Args>)", ename = t.name,))
+        {
+            let mut errors = Vec::new();
+            let mut errors_display = Vec::new();
+            for t in idl.errors.values() {
+                errors.push(
+                    TokenStream::from_str(&format!(
+                        "{ename}(Option<{ename}_Args>)",
+                        ename = t.name,
+                    ))
                     .unwrap(),
-            );
-            errors_display.push(
-                TokenStream::from_str(&format!(
-                    "ErrorKind::{ename}(v) => write!(f, \"{iname}.{ename}: {{:#?}}\", v)",
-                    ename = t.name,
-                    iname = idl.name,
-                ))
-                .unwrap(),
-            );
-        }
-
-        ts.extend(quote!(
-            #[allow(dead_code)]
-            #[derive(Clone, PartialEq, Debug)]
-            pub enum ErrorKind {
-                Varlink_Error,
-                VarlinkReply_Error,
-                #(#errors),*
+                );
+                errors_display.push(
+                    TokenStream::from_str(&format!(
+                        "ErrorKind::{ename}(v) => write!(f, \"{iname}.{ename}: {{:#?}}\", v)",
+                        ename = t.name,
+                        iname = idl.name,
+                    ))
+                    .unwrap(),
+                );
             }
-            impl ::std::fmt::Display for ErrorKind {
-                fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-                    match self {
-                        ErrorKind::Varlink_Error => write!(f, "Varlink Error"),
-                        ErrorKind::VarlinkReply_Error => write!(f, "Varlink error reply"),
-                        #(#errors_display),*
+
+            ts.extend(quote!(
+                #[allow(dead_code)]
+                #[derive(Clone, PartialEq, Debug)]
+                pub enum ErrorKind {
+                    Varlink_Error,
+                    VarlinkReply_Error,
+                    #(#errors),*
+                }
+                impl ::std::fmt::Display for ErrorKind {
+                    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                        match self {
+                            ErrorKind::Varlink_Error => write!(f, "Varlink Error"),
+                            ErrorKind::VarlinkReply_Error => write!(f, "Varlink error reply"),
+                            #(#errors_display),*
+                        }
                     }
                 }
-            }
-        ));
-    }
-    ts.extend(quote!(
-        #[allow(dead_code)]
-        #[cfg(feature = "chainerror")]
-        derive_err_kind!(Error, ErrorKind);
-
-
-        #[cfg(not(feature = "chainerror"))]
+            ));
+        }
+        ts.extend(quote!(
         pub struct Error(
             pub ErrorKind,
             pub Option<Box<dyn std::error::Error + 'static>>,
             pub Option<&'static str>,
         );
 
-        #[cfg(not(feature = "chainerror"))]
         impl Error {
             #[allow(dead_code)]
             pub fn kind(&self) -> &ErrorKind {
@@ -631,28 +625,24 @@ fn generate_error_code(
             }
         }
 
-        #[cfg(not(feature = "chainerror"))]
         impl From<ErrorKind> for Error {
             fn from(e: ErrorKind) -> Self {
                 Error(e, None, None)
             }
         }
 
-        #[cfg(not(feature = "chainerror"))]
         impl std::error::Error for Error {
             fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
                 self.1.as_ref().map(|e| e.as_ref())
             }
         }
 
-        #[cfg(not(feature = "chainerror"))]
         impl std::fmt::Display for Error {
             fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                 std::fmt::Display::fmt(&self.0, f)
             }
         }
 
-        #[cfg(not(feature = "chainerror"))]
         impl std::fmt::Debug for Error {
             fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                 use std::error::Error as StdError;
@@ -673,19 +663,6 @@ fn generate_error_code(
         #[allow(dead_code)]
         pub type Result<T> = std::result::Result<T, Error>;
 
-        #[cfg(feature = "chainerror")]
-        impl From<varlink::Error> for Error {
-            fn from(
-                e: varlink::Error,
-            ) -> Self {
-                match e.kind() {
-                    varlink::ErrorKind::VarlinkErrorReply(r) => Error::from(cherr!(e, ErrorKind::from(r))),
-                    _  => Error::from(cherr!(e, ErrorKind::Varlink_Error))
-                }
-            }
-        }
-
-        #[cfg(not(feature = "chainerror"))]
         impl From<varlink::Error> for Error {
             fn from(
                 e: varlink::Error,
@@ -718,39 +695,39 @@ fn generate_error_code(
             }
         }
     ));
-    {
-        let mut arms = TokenStream::new();
-        for t in idl.errors.values() {
-            let error_name = format!("{iname}.{ename}", iname = idl.name, ename = t.name);
-            let ename = TokenStream::from_str(&format!("ErrorKind::{}", t.name)).unwrap();
-            arms.extend(quote!(
-                varlink::Reply { error: Some(ref t), .. } if t == #error_name => {
-                    match e {
-                       varlink::Reply {
-                           parameters: Some(p),
-                           ..
-                       } => match serde_json::from_value(p.clone()) {
-                           Ok(v) => #ename(v),
-                           Err(_) => #ename(None),
-                       },
-                       _ => #ename(None),
+        {
+            let mut arms = TokenStream::new();
+            for t in idl.errors.values() {
+                let error_name = format!("{iname}.{ename}", iname = idl.name, ename = t.name);
+                let ename = TokenStream::from_str(&format!("ErrorKind::{}", t.name)).unwrap();
+                arms.extend(quote!(
+                    varlink::Reply { error: Some(ref t), .. } if t == #error_name => {
+                        match e {
+                           varlink::Reply {
+                               parameters: Some(p),
+                               ..
+                           } => match serde_json::from_value(p.clone()) {
+                               Ok(v) => #ename(v),
+                               Err(_) => #ename(None),
+                           },
+                           _ => #ename(None),
+                        }
+                    }
+                ));
+            }
+
+            ts.extend(quote!(
+                impl From<&varlink::Reply> for ErrorKind {
+                    #[allow(unused_variables)]
+                    fn from(e: &varlink::Reply) -> Self {
+                        match e {
+                        #arms
+                        _ => ErrorKind::VarlinkReply_Error,
+                        }
                     }
                 }
             ));
         }
-
-        ts.extend(quote!(
-            impl From<&varlink::Reply> for ErrorKind {
-                #[allow(unused_variables)]
-                fn from(e: &varlink::Reply) -> Self {
-                    match e {
-                    #arms
-                    _ => ErrorKind::VarlinkReply_Error,
-                    }
-                }
-            }
-        ));
-    }
         for t in idl.errors.values() {
             let mut inparms_name = Vec::new();
             let mut inparms_type = Vec::new();
@@ -773,13 +750,13 @@ fn generate_error_code(
                                 )
                                 .as_ref(),
                         )
-                            .unwrap(),
+                        .unwrap(),
                     );
                 }
                 let innames = inparms_name.iter();
                 let innames2 = inparms_name.iter();
                 inparms = quote!(#(#innames : #inparms_type),*);
-                parms = quote!(Some(serde_json::to_value(#args_name {#(#innames2),*}).map_err(varlink::minto_cherr!(varlink::ErrorKind))?));
+                parms = quote!(Some(serde_json::to_value(#args_name {#(#innames2),*}).map_err(varlink::map_context!())?));
             } else {
                 parms = quote!(None);
                 inparms = quote!();

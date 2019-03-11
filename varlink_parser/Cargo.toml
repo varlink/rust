@@ -20,7 +20,7 @@ travis-ci = { repository = "varlink/rust" }
 
 [dependencies]
 ansi_term = "0.11"
-chainerror = "0.4.4"
+chainerror = "0.4.2"
 
 [features]
 default = []

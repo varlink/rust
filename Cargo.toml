@@ -12,6 +12,3 @@ members = [
     "examples/ping",
 ]
 
-[patch.crates-io]
-chainerror = { path = "../../chainerror" }
-

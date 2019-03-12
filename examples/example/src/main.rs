@@ -8,35 +8,12 @@ use chainerror::*;
 
 use crate::org_example_network::VarlinkClientInterface;
 
-// Using the `varlink_derive::varlink!` macro has the drawback,
+// Using the `varlink_derive::varlink_file!` macro has the drawback,
 // that most IDEs don't execute this and thus offer no code completion.
-// Better use a build.rs as the other examples.
-varlink_derive::varlink!(
+// Better use a `build.rs` as the other examples.
+varlink_derive::varlink_file!(
     org_example_network,
-    r#"
-# Provides information about network state
-#
-interface org.example.network
-
-type NetdevInfo (
-  ifindex: int,
-  ifname: string
-)
-
-type Netdev (
-  ifindex: int,
-  ifname: string
-)
-
-# Returns information about a network device
-method Info(ifindex: int) -> (info: NetdevInfo)
-
-# Lists all network devices
-method List() -> (netdevs: []Netdev)
-
-error UnknownNetworkIfIndex (ifindex: int)
-error UnknownError (text: string)
-"#
+    "examples/example/src/org.example.network.varlink"
 );
 
 #[cfg(test)]

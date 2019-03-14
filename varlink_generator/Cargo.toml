@@ -1,6 +1,6 @@
 [package]
 name = "varlink_generator"
-version = "7.1.1"
+version = "8.0.0"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 edition = "2018"
 

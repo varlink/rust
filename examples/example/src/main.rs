@@ -61,7 +61,7 @@ fn main() {
         };
         run_client(connection)
     } else if let Some(address) = matches.opt_str("varlink") {
-        run_server(&address, 0).map_err(|e| e.into())
+        run_server(&address, 10).map_err(|e| e.into())
     } else {
         print_usage(&program, &opts);
         eprintln!("Need varlink address in server mode.");

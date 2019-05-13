@@ -59,7 +59,7 @@ fn main() -> Result<()> {
         .opt_str("timeout")
         .unwrap_or_default()
         .parse::<u64>()
-        .unwrap_or(0);
+        .unwrap_or(1000);
 
     if client_mode {
         let connection = match matches.opt_str("varlink") {

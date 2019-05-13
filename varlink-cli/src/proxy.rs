@@ -7,7 +7,7 @@ use chainerror::*;
 use serde_json::{from_slice, from_value, to_string};
 
 use varlink::{
-    Call, Connection, Error, ErrorKind, GetInterfaceDescriptionArgs, Reply, Request, VarlinkStream,
+    Call, Connection, ErrorKind, GetInterfaceDescriptionArgs, Reply, Request, VarlinkStream,
 };
 use varlink_stdinterfaces::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 

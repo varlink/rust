@@ -1,5 +1,7 @@
-use chainerror::*;
 use std::{thread, time};
+
+use chainerror::*;
+
 use varlink::Connection;
 
 pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
@@ -11,7 +13,7 @@ fn run_self_test(address: String) -> Result<()> {
         if let Err(e) = crate::run_server(&address, 4) {
             match e.kind() {
                 ::varlink::ErrorKind::Timeout => {}
-                _ => panic!("error: {}", e),
+                _ => panic!("error: {:#?}", e),
             }
         }
     });
@@ -38,7 +40,7 @@ fn test_unix() -> crate::Result<()> {
 #[test]
 #[cfg(any(target_os = "linux", target_os = "android"))]
 fn test_unix_abstract() -> Result<()> {
-    run_self_test("unix:@org.varlink.certification".into())
+    run_self_test("unix:@org.varlink.certification_abs".into())
 }
 
 #[test]

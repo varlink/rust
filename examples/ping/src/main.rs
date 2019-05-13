@@ -62,7 +62,7 @@ fn main() {
         };
         run_client(&connection).map_err(|e| e.into())
     } else if let Some(address) = matches.opt_str("varlink") {
-        run_server(&address, 0, matches.opt_present("m"))
+        run_server(&address, 1000, matches.opt_present("m"))
             //            .map_err(mstrerr!("running server with address {}", address))
             .map_err(|e| e.into())
     } else {

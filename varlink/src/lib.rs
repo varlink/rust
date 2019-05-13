@@ -914,10 +914,12 @@ impl Drop for Connection {
         if let Some(ref mut stream) = self.stream {
             let _r = stream.shutdown();
         }
+        /*
         if let Some(ref mut child) = self.child {
             let _res = child.kill();
             let _res = child.wait();
         }
+        */
         if self.tempdir.is_some() {
             if let Some(dir) = self.tempdir.take() {
                 use std::fs;

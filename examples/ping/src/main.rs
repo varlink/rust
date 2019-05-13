@@ -27,6 +27,7 @@ fn main() {
     let mut opts = getopts::Options::new();
     opts.optopt("", "varlink", "varlink address URL", "<address>");
     opts.optflag("", "client", "run in client mode");
+    opts.optopt("", "bridge", "bridge", "<bridge>");
     opts.optflag("m", "multiplex", "run in multiplex mode");
     opts.optflag("h", "help", "print this help menu");
 
@@ -45,12 +46,19 @@ fn main() {
     }
 
     let client_mode = matches.opt_present("client");
+    let bridge = matches.opt_str("bridge");
 
     let ret: std::result::Result<(), Box<std::error::Error>> = if client_mode {
-        let connection = match matches.opt_str("varlink") {
-            None => Connection::with_activate(&format!("{} --varlink=$VARLINK_ADDRESS", program))
-                .unwrap(),
-            Some(address) => Connection::with_address(&address).unwrap(),
+        let connection = if bridge.is_none() {
+            match matches.opt_str("varlink") {
+                None => {
+                    Connection::with_activate(&format!("{} --varlink=$VARLINK_ADDRESS", program))
+                        .unwrap()
+                }
+                Some(address) => Connection::with_address(&address).unwrap(),
+            }
+        } else {
+            Connection::with_bridge(&bridge.unwrap()).unwrap()
         };
         run_client(&connection).map_err(|e| e.into())
     } else if let Some(address) = matches.opt_str("varlink") {
@@ -62,6 +70,7 @@ fn main() {
         eprintln!("Need varlink address in server mode.");
         exit(1);
     };
+
     exit(match ret {
         Ok(_) => 0,
         Err(err) => {
@@ -403,7 +412,7 @@ mod multiplex {
                                                     break;
                                                 }
                                                 Ok(buf) => {
-                                                    if buf.is_empty() && unread.is_empty() {
+                                                    if buf.is_empty() & &unread.is_empty() {
                                                         eprintln!("Upgraded end");
                                                         break;
                                                     }

@@ -30,6 +30,7 @@ fn main() {
     opts.optopt("", "varlink", "varlink address URL", "<address>");
     opts.optflag("", "client", "run in client mode");
     opts.optflag("h", "help", "print this help menu");
+    opts.optopt("", "bridge", "bridge", "<bridge>");
     opts.optopt("", "timeout", "server timeout", "<seconds>");
     opts.optopt("", "sleep", "sleep duration", "<milliseconds>");
 
@@ -61,11 +62,19 @@ fn main() {
         .parse::<u64>()
         .unwrap_or(1000);
 
+    let bridge = matches.opt_str("bridge").unwrap_or_default();
+
     let ret: Result<()> = if client_mode {
-        let connection = match matches.opt_str("varlink") {
-            None => Connection::with_activate(&format!("{} --varlink=$VARLINK_ADDRESS", program))
-                .unwrap(),
-            Some(address) => Connection::with_address(&address).unwrap(),
+        let connection = if bridge.is_empty() {
+            match matches.opt_str("varlink") {
+                None => {
+                    Connection::with_activate(&format!("{} --varlink=$VARLINK_ADDRESS", program))
+                        .unwrap()
+                }
+                Some(address) => Connection::with_address(&address).unwrap(),
+            }
+        } else {
+            Connection::with_bridge(&bridge).unwrap()
         };
         run_client(connection)
     } else if let Some(address) = matches.opt_str("varlink") {
@@ -87,14 +96,16 @@ fn main() {
 // Client
 
 fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
+    /*
     let new_addr = {
         let conn = connection.read().unwrap();
         conn.address()
     };
+    */
     let mut iface = org_example_more::VarlinkClient::new(connection);
 
-    let con2 = varlink::Connection::with_address(&new_addr)?;
-    let mut pingiface = org_example_more::VarlinkClient::new(con2);
+    //let con2 = varlink::Connection::with_address(&new_addr)?;
+    //let mut pingiface = org_example_more::VarlinkClient::new(con2);
 
     for reply in iface.test_more(10).more()? {
         let reply = reply?;
@@ -124,10 +135,12 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
                 ..
             } => {
                 eprintln!("Progress: {}", progress);
+                /*
                 if progress > 50 {
                     let reply = pingiface.ping("Test".into()).call()?;
                     eprintln!("Pong: '{}'", reply.pong);
                 }
+                */
             }
             _ => eprintln!("Got unknown state: {:?}", state),
         }

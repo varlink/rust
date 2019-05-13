@@ -1,4 +1,5 @@
-use std::io::{self, copy, BufRead, Write};
+use std::io::{self, copy, BufRead, Read, Write};
+use std::os::unix::io::{AsRawFd, FromRawFd};
 use std::sync::{Arc, RwLock};
 use std::thread;
 
@@ -10,15 +11,24 @@ use varlink::{
 };
 use varlink_stdinterfaces::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 
+#[cfg(unix)]
+use crate::watchclose_epoll::WatchClose;
+#[cfg(windows)]
+use crate::watchclose_windows::WatchClose;
 use crate::Result;
 
-pub fn handle<R, W>(resolver: &str, mut client_reader: R, mut client_writer: W) -> Result<bool>
+pub fn handle<R, W>(resolver: &str, client_reader_o: R, mut client_writer: W) -> Result<bool>
 where
-    R: BufRead + Send + Sync + 'static,
-    W: Write + Send + Sync + 'static,
+    R: Read + AsRawFd + Send + 'static,
+    W: Write + AsRawFd + Send + 'static,
 {
     let conn = Connection::new(resolver)
         .map_err(mstrerr!("Failed to connect to resolver '{}'", resolver))?;
+
+    let mut client_reader = unsafe {
+        ::std::io::BufReader::new(::std::fs::File::from_raw_fd(client_reader_o.as_raw_fd()))
+    };
+
     let mut resolver = VarlinkClient::new(conn);
 
     let mut upgraded = false;
@@ -89,9 +99,11 @@ where
                 }
             };
 
-            let (service_reader, mut service_writer) = stream.split()?;
-            last_service_stream = Some(stream);
+            let (_, mut service_writer) = stream.split()?;
+            let service_reader = WatchClose::new_read(&stream, &client_writer)?;
             let mut service_bufreader = ::std::io::BufReader::new(service_reader);
+
+            last_service_stream = Some(stream);
 
             {
                 let b = to_string(&req)? + "\0";
@@ -129,16 +141,21 @@ where
             }
         } else if let Some(ref mut service_stream) = last_service_stream {
             // Should copy back and forth, until someone disconnects.
-            let (mut service_reader, mut service_writer) = service_stream.split()?;
+            let (_, mut service_writer) = service_stream.split()?;
+            let mut service_reader = WatchClose::new_read(service_stream, &client_writer)?;
+            let mut client_reader = WatchClose::new_read(&client_reader_o, service_stream)?;
+
             {
                 let copy1 = thread::spawn(move || copy(&mut client_reader, &mut service_writer));
                 let copy2 = thread::spawn(move || copy(&mut service_reader, &mut client_writer));
-                let r = copy1.join();
-                r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
                 let r = copy2.join();
+                r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
+                let r = copy1.join();
                 r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
             }
             return Ok(true);
+        } else {
+            unreachable!();
         }
     }
     Ok(upgraded)
@@ -146,27 +163,34 @@ where
 
 pub fn handle_connect<R, W>(
     connection: Arc<RwLock<Connection>>,
-    mut client_reader: R,
+    client_reader: R,
     mut client_writer: W,
 ) -> Result<bool>
 where
-    R: BufRead + Send + Sync + 'static,
-    W: Write + Send + Sync + 'static,
+    R: Read + AsRawFd + Send + 'static,
+    W: Write + AsRawFd + Send + 'static,
 {
     let mut upgraded = false;
-    let mut last_iface = String::new();
 
     let mut conn = connection.write().unwrap();
 
+    if conn.stream.is_none() {
+        return Err(varlink::context!(ErrorKind::ConnectionBusy).into());
+    }
+
+    let stream = conn.stream.take().unwrap();
+    let mut service_writer = unsafe { ::std::fs::File::from_raw_fd(stream.as_raw_fd()) };
+
+    let mut service_reader =
+        ::std::io::BufReader::new(WatchClose::new_read(&stream, &client_writer)?);
+
+    let mut client_reader =
+        ::std::io::BufReader::new(WatchClose::new_read(&client_reader, &stream)?);
+
     loop {
         if !upgraded {
-            if conn.reader.is_none() || conn.writer.is_none() {
-                return Err(Error::from(ErrorKind::ConnectionBusy).into());
-            }
-            let (mut service_reader, mut service_writer) =
-                (conn.reader.take().unwrap(), conn.writer.take().unwrap());
-
             let mut buf = Vec::new();
+            // FIXME: check if service_writer was closed, while reading
             match client_reader.read_until(b'\0', &mut buf) {
                 Ok(0) => break,
                 Err(_e) => break,
@@ -178,26 +202,10 @@ where
 
             let req: Request = from_slice(&buf)?;
 
-            let n: usize = match req.method.rfind('.') {
-                None => {
-                    let method: String = String::from(req.method.as_ref());
-                    let mut call = Call::new(&mut client_writer, &req);
-                    call.reply_interface_not_found(Some(method))?;
-                    return Ok(false);
-                }
-                Some(x) => x,
-            };
-
-            let iface = String::from(&req.method[..n]);
-
-            if iface != last_iface {
-                last_iface = iface.clone();
-            }
-
             {
-                let b = to_string(&req)? + "\0";
-
-                service_writer.write_all(b.as_bytes())?;
+                buf.push(0);
+                // FIXME: check if client_reader was closed, while writing
+                service_writer.write_all(&buf)?;
                 service_writer.flush()?;
             }
 
@@ -228,23 +236,14 @@ where
                     break;
                 }
             }
-
-            conn.reader = Some(service_reader);
-            conn.writer = Some(service_writer)
         } else {
-            if conn.reader.is_none() || conn.writer.is_none() {
-                return Err(Error::from(ErrorKind::ConnectionBusy).into());
-            }
-            let (mut service_reader, mut service_writer) =
-                (conn.reader.take().unwrap(), conn.writer.take().unwrap());
-
             // Should copy back and forth, until someone disconnects.
             {
                 let copy1 = thread::spawn(move || copy(&mut client_reader, &mut service_writer));
                 let copy2 = thread::spawn(move || copy(&mut service_reader, &mut client_writer));
-                let r = copy1.join();
-                r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
                 let r = copy2.join();
+                r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
+                let r = copy1.join();
                 r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
             }
             return Ok(true);

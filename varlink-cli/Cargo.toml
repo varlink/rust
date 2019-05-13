@@ -23,6 +23,10 @@ serde_json = "1"
 clap = "2"
 colored_json = "2"
 chainerror = "0.4.2"
+libc = { version = "0", default-features = false }
 
 [dev-dependencies]
 escargot = "0.3"
+
+[target.'cfg(unix)'.dependencies]
+epoll = "4.1.0"

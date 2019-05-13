@@ -1,12 +1,8 @@
-use std::alloc::System;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 use std::str;
-
-#[global_allocator]
-static A: System = System;
 
 use chainerror::*;
 use clap::{App, Arg, SubCommand};
@@ -25,6 +21,11 @@ use crate::proxy::{handle, handle_connect};
 mod test;
 
 pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
+
+#[cfg(unix)]
+mod watchclose_epoll;
+#[cfg(windows)]
+mod watchclose_windows;
 
 mod proxy;
 
@@ -366,40 +367,12 @@ fn print_call_ret(
     Ok(())
 }
 
-#[cfg(unix)]
-fn get_in_out() -> (std::io::BufReader<std::fs::File>, std::fs::File) {
-    use std::os::unix::io::{AsRawFd, FromRawFd};
-
-    let stdin = ::std::io::stdin();
-    let stdout = ::std::io::stdout();
-    let in_buffer =
-        unsafe { ::std::io::BufReader::new(::std::fs::File::from_raw_fd(stdin.as_raw_fd())) };
-    let out_writer = unsafe { ::std::fs::File::from_raw_fd(stdout.as_raw_fd()) };
-    (in_buffer, out_writer)
-}
-
-#[cfg(windows)]
-fn get_in_out() -> (std::io::BufReader<std::fs::File>, std::fs::File) {
-    use std::os::windows::io::{AsRawHandle, FromRawHandle};
-
-    let stdin = ::std::io::stdin();
-    let stdout = ::std::io::stdout();
-
-    let in_buffer = unsafe {
-        ::std::io::BufReader::new(::std::fs::File::from_raw_handle(stdin.as_raw_handle()))
-    };
-    let out_writer = unsafe { ::std::fs::File::from_raw_handle(stdout.as_raw_handle()) };
-    (in_buffer, out_writer)
-}
-
 fn varlink_bridge(
     address: Option<&str>,
     resolver: &str,
     activate: Option<&str>,
     bridge: Option<&str>,
 ) -> Result<()> {
-    let (in_buffer, out_writer) = get_in_out();
-
     let connection = match activate {
         Some(activate) => Connection::with_activate(activate)
             .map_err(mstrerr!("Failed to connect with activate '{}'", activate))?,
@@ -423,13 +396,19 @@ fn varlink_bridge(
                             .map_err(mstrerr!("Failed to connect to '{}'", address))?
                     }
                 } else {
-                    handle(resolver, in_buffer, out_writer).map_err(mstrerr!("Bridging"))?;
+                    let stdin = ::std::io::stdin();
+                    let stdout = ::std::io::stdout();
+                    handle(resolver, stdin, stdout).map_err(mstrerr!("Bridging"))?;
                     return Ok(());
                 }
             }
         },
     };
-    handle_connect(connection, in_buffer, out_writer).map_err(mstrerr!("Bridging"))?;
+
+    let stdin = ::std::io::stdin();
+    let stdout = ::std::io::stdout();
+
+    handle_connect(connection, stdin, stdout).map_err(mstrerr!("Bridging"))?;
 
     Ok(())
 }

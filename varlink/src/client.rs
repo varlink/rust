@@ -2,17 +2,19 @@
 
 #![allow(dead_code)]
 
-#[cfg(unix)]
-use libc::{close, dup2, getpid};
 use std::io::{Read, Write};
 use std::net::{Shutdown, TcpStream};
-use std::process::Child;
-use tempfile::TempDir;
-
 #[cfg(unix)]
 use std::os::unix::io::IntoRawFd;
 #[cfg(unix)]
+use std::os::unix::io::{AsRawFd, RawFd};
+#[cfg(unix)]
 use std::os::unix::net::UnixStream;
+use std::process::Child;
+
+#[cfg(unix)]
+use libc::{close, dup2, getpid};
+use tempfile::TempDir;
 #[cfg(windows)]
 use uds_windows::UnixStream;
 
@@ -58,6 +60,7 @@ pub fn varlink_exec<S: ?Sized + AsRef<str>>(
             let file_path = file_path.clone();
             move || {
                 unsafe {
+                    dup2(2, 1);
                     if fd != 3 {
                         close(3);
                         dup2(fd, 3);
@@ -205,6 +208,15 @@ impl<'a> VarlinkStream {
             VarlinkStream::UNIX(ref l) => l.set_nonblocking(b).map_err(map_context!())?,
         }
         Ok(())
+    }
+}
+
+impl AsRawFd for VarlinkStream {
+    fn as_raw_fd(&self) -> RawFd {
+        match *self {
+            VarlinkStream::TCP(ref l) => l.as_raw_fd(),
+            VarlinkStream::UNIX(ref l) => l.as_raw_fd(),
+        }
     }
 }
 

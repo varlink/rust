@@ -140,7 +140,6 @@ where
                 }
             }
         } else if let Some(ref mut service_stream) = last_service_stream {
-            // Should copy back and forth, until someone disconnects.
             let (_, service_writer) = service_stream.split()?;
             let service_reader = WatchClose::new_read(service_stream, &client_writer)?;
             let client_reader = WatchClose::new_read(&client_reader_o, service_stream)?;
@@ -204,33 +203,6 @@ where
                     _ => panic!("Unknown"),
                 };
             }
-/*
-            {
-                let copy1 = thread::spawn({
-                    let mut client_reader = client_reader;
-                    let mut service_writer = service_writer;
-
-                    move || {
-                        let r = copy(&mut client_reader, &mut service_writer);
-                        eprintln!("copy1 end");
-                        r
-                    }
-                });
-                let copy2 = thread::spawn({
-                    let mut service_reader = service_reader;
-
-                    move || {
-                        let r = copy(&mut service_reader, &mut client_writer);
-                        eprintln!("copy2 end");
-                        r
-                    }
-                });
-                let r = copy2.join();
-                r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
-                let r = copy1.join();
-                r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
-            }
-            */
             return Ok(true);
         }
          else {
@@ -299,7 +271,6 @@ where
     loop {
         if !upgraded {
             let mut buf = Vec::new();
-            // FIXME: check if service_writer was closed, while reading
             match client_reader.read_until(b'\0', &mut buf) {
                 Ok(0) => break,
                 Err(_e) => break,
@@ -313,7 +284,6 @@ where
 
             {
                 buf.push(0);
-                // FIXME: check if client_reader was closed, while writing
                 service_writer.write_all(&buf)?;
                 service_writer.flush()?;
             }

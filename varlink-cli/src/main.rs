@@ -408,7 +408,16 @@ fn varlink_bridge(
     let stdin = ::std::io::stdin();
     let stdout = ::std::io::stdout();
 
-    handle_connect(connection, stdin, stdout).map_err(mstrerr!("Bridging"))?;
+    let r = handle_connect(connection, stdin, stdout);
+
+    if let Err(ref e) = r {
+        if let Some(io_e) = e.downcast_ref::<std::io::Error>() {
+            if io_e.kind() == std::io::ErrorKind::BrokenPipe {
+                return Ok(());
+            }
+        }
+    }
+    r.map_err(mstrerr!("Bridging"))?;
 
     Ok(())
 }

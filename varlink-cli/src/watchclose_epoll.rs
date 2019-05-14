@@ -127,7 +127,7 @@ impl Read for WatchClose {
 
             for ev in v.iter().take(r) {
                 if err_mask.bits() & ev.events != 0 {
-                    return Err(io::Error::from(io::ErrorKind::ConnectionAborted));
+                    return Err(io::Error::from(io::ErrorKind::BrokenPipe));
                 }
             }
 

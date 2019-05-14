@@ -1,4 +1,4 @@
-use std::io::{self, copy, BufRead, Read, Write};
+use std::io::{self, BufRead, Read, Write};
 use std::os::unix::io::{AsRawFd, FromRawFd};
 use std::sync::{Arc, RwLock};
 use std::thread;
@@ -141,29 +141,138 @@ where
             }
         } else if let Some(ref mut service_stream) = last_service_stream {
             // Should copy back and forth, until someone disconnects.
-            let (_, mut service_writer) = service_stream.split()?;
-            let mut service_reader = WatchClose::new_read(service_stream, &client_writer)?;
-            let mut client_reader = WatchClose::new_read(&client_reader_o, service_stream)?;
+            let (_, service_writer) = service_stream.split()?;
+            let service_reader = WatchClose::new_read(service_stream, &client_writer)?;
+            let client_reader = WatchClose::new_read(&client_reader_o, service_stream)?;
 
+            use std::sync::mpsc::channel;
+            let (tx_end, rx_end) = channel();
+
+            // Should copy back and forth, until someone disconnects.
             {
-                let copy1 = thread::spawn(move || copy(&mut client_reader, &mut service_writer));
-                let copy2 = thread::spawn(move || copy(&mut service_reader, &mut client_writer));
+                let copy1 = thread::spawn({
+                    let tx_end = tx_end.clone();
+                    let mut client_reader = client_reader;
+                    let mut service_writer = service_writer;
+
+                    move || {
+                        let r = copy(&mut client_reader, &mut service_writer);
+                        tx_end.send(1).expect("channel should be open");
+                        r
+                    }
+                });
+
+                let copy2 = thread::spawn({
+                    let tx_end = tx_end.clone();
+                    let mut service_reader = service_reader;
+
+                    move || {
+                        let r = copy(&mut service_reader, &mut client_writer);
+                        tx_end.send(2).expect("channel should be open");
+                        r
+                    }
+                });
+
+                let end_tid = rx_end.recv()?;
+
+                match end_tid {
+                    1 => {
+                        let r1 = copy1.join().unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+
+                        let _ = service_stream.shutdown();
+                        unsafe { libc::close(service_stream.as_raw_fd()) };
+                        r1?;
+
+                        let _ = rx_end.recv()?;
+                        let r2 = copy2.join().unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+
+                        r2?;
+                    }
+
+                    2 => {
+                        let r2 = copy2.join().unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+
+                        let _ = service_stream.shutdown();
+                        unsafe { libc::close(service_stream.as_raw_fd()) };
+                        r2?;
+
+                        let _ = rx_end.recv()?;
+                        let r1 = copy1.join().unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+
+                        r1?;
+                    }
+                    _ => panic!("Unknown"),
+                };
+            }
+/*
+            {
+                let copy1 = thread::spawn({
+                    let mut client_reader = client_reader;
+                    let mut service_writer = service_writer;
+
+                    move || {
+                        let r = copy(&mut client_reader, &mut service_writer);
+                        eprintln!("copy1 end");
+                        r
+                    }
+                });
+                let copy2 = thread::spawn({
+                    let mut service_reader = service_reader;
+
+                    move || {
+                        let r = copy(&mut service_reader, &mut client_writer);
+                        eprintln!("copy2 end");
+                        r
+                    }
+                });
                 let r = copy2.join();
                 r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
                 let r = copy1.join();
                 r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
             }
+            */
             return Ok(true);
-        } else {
+        }
+         else {
             unreachable!();
         }
+
     }
     Ok(upgraded)
 }
 
+pub fn copy<R: ?Sized, W: ?Sized>(reader: &mut R, writer: &mut W) -> io::Result<u64>
+where
+    R: Read,
+    W: Write,
+{
+    use std::io::ErrorKind;
+    use std::mem;
+
+    let mut buf = unsafe {
+        let mut buf: [u8; 8192] = mem::uninitialized();
+        //reader.initializer().initialize(&mut buf);
+        std::ptr::write_bytes(buf.as_mut_ptr(), 0, buf.len());
+        buf
+    };
+
+    let mut written = 0;
+    loop {
+        let len = match reader.read(&mut buf) {
+            Ok(0) => return Ok(written),
+            Ok(len) => len,
+            Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
+            Err(e) => return Err(e),
+        };
+        writer.write_all(&buf[..len])?;
+        writer.flush()?;
+        written += len as u64;
+    }
+}
+
 pub fn handle_connect<R, W>(
     connection: Arc<RwLock<Connection>>,
-    client_reader: R,
+    client_reader_o: R,
     mut client_writer: W,
 ) -> Result<bool>
 where
@@ -178,14 +287,14 @@ where
         return Err(varlink::context!(ErrorKind::ConnectionBusy).into());
     }
 
-    let stream = conn.stream.take().unwrap();
+    let mut stream = conn.stream.take().unwrap();
     let mut service_writer = unsafe { ::std::fs::File::from_raw_fd(stream.as_raw_fd()) };
 
     let mut service_reader =
         ::std::io::BufReader::new(WatchClose::new_read(&stream, &client_writer)?);
 
     let mut client_reader =
-        ::std::io::BufReader::new(WatchClose::new_read(&client_reader, &stream)?);
+        ::std::io::BufReader::new(WatchClose::new_read(&client_reader_o, &stream)?);
 
     loop {
         if !upgraded {
@@ -237,14 +346,63 @@ where
                 }
             }
         } else {
+            use std::sync::mpsc::channel;
+            let (tx_end, rx_end) = channel();
+
             // Should copy back and forth, until someone disconnects.
             {
-                let copy1 = thread::spawn(move || copy(&mut client_reader, &mut service_writer));
-                let copy2 = thread::spawn(move || copy(&mut service_reader, &mut client_writer));
-                let r = copy2.join();
-                r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
-                let r = copy1.join();
-                r.unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::ConnectionAborted)))?;
+                let copy1 = thread::spawn({
+                    let tx_end = tx_end.clone();
+                    let mut client_reader = WatchClose::new_read(&client_reader_o, &stream)?;
+
+                    move || {
+                        let r = copy(&mut client_reader, &mut service_writer);
+                        tx_end.send(1).expect("channel should be open");
+                        r
+                    }
+                });
+
+                let copy2 = thread::spawn({
+                    let tx_end = tx_end.clone();
+                    let mut service_reader = WatchClose::new_read(&stream, &client_writer)?;
+
+                    move || {
+                        let r = copy(&mut service_reader, &mut client_writer);
+                        tx_end.send(2).expect("channel should be open");
+                        r
+                    }
+                });
+
+                let end_tid = rx_end.recv()?;
+
+                match end_tid {
+                    1 => {
+                        let r1 = copy1.join().unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+
+                        let _ = stream.shutdown();
+                        unsafe { libc::close(stream.as_raw_fd()) };
+                        r1?;
+
+                        let _ = rx_end.recv()?;
+                        let r2 = copy2.join().unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+
+                        r2?;
+                    }
+
+                    2 => {
+                        let r2 = copy2.join().unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+
+                        let _ = stream.shutdown();
+                        unsafe { libc::close(stream.as_raw_fd()) };
+                        r2?;
+
+                        let _ = rx_end.recv()?;
+                        let r1 = copy1.join().unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+
+                        r1?;
+                    }
+                    _ => panic!("Unknown"),
+                };
             }
             return Ok(true);
         }

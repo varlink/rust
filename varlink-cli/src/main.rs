@@ -15,19 +15,16 @@ use varlink::{
 use varlink_parser::{Format, FormatColored, IDL};
 use varlink_stdinterfaces::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 
-use crate::proxy::{handle, handle_connect};
 
 #[cfg(test)]
 mod test;
 
-pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
-
-#[cfg(unix)]
-mod watchclose_epoll;
-#[cfg(windows)]
-mod watchclose_windows;
-
+#[cfg(target_os = "linux")]
 mod proxy;
+#[cfg(target_os = "linux")]
+mod watchclose_epoll;
+
+pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
 
 fn varlink_format(filename: &str, line_len: Option<&str>, should_colorize: bool) -> Result<()> {
     let mut buffer = String::new();
@@ -367,12 +364,15 @@ fn print_call_ret(
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
 fn varlink_bridge(
     address: Option<&str>,
     resolver: &str,
     activate: Option<&str>,
     bridge: Option<&str>,
 ) -> Result<()> {
+    use crate::proxy::{handle, handle_connect};
+
     let connection = match activate {
         Some(activate) => Connection::with_activate(activate)
             .map_err(mstrerr!("Failed to connect with activate '{}'", activate))?,
@@ -420,6 +420,19 @@ fn varlink_bridge(
     r.map_err(mstrerr!("Bridging"))?;
 
     Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn varlink_bridge(
+    _address: Option<&str>,
+    _resolver: &str,
+    _activate: Option<&str>,
+    _bridge: Option<&str>,
+) -> Result<()> {
+    Err(strerr!(
+        "Not implemented for this architecture. Waiting for a stable rust async interface."
+    )
+    .into())
 }
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");

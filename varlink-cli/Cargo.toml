@@ -1,6 +1,6 @@
 [package]
 name = "varlink-cli"
-version = "4.1.2"
+version = "4.2.0"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 edition = "2018"
 
@@ -15,7 +15,7 @@ name = "varlink"
 path = "src/main.rs"
 
 [dependencies]
-varlink = { version = "8", path = "../varlink" }
+varlink = { version = "8.1", path = "../varlink" }
 varlink_stdinterfaces = { version = "8", path = "../varlink_stdinterfaces" }
 varlink_parser = { version = "4", path = "../varlink_parser" }
 serde = "1"
@@ -27,6 +27,5 @@ libc = { version = "0", default-features = false }
 
 [dev-dependencies]
 escargot = "0.3"
-
-[target.'cfg(unix)'.dependencies]
+[target.'cfg(target_os = "linux")'.dependencies]
 epoll = "4.1.0"

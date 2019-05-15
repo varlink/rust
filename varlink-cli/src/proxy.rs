@@ -11,10 +11,7 @@ use varlink::{
 };
 use varlink_stdinterfaces::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 
-#[cfg(unix)]
 use crate::watchclose_epoll::WatchClose;
-#[cfg(windows)]
-use crate::watchclose_windows::WatchClose;
 use crate::Result;
 
 pub fn handle<R, W>(resolver: &str, client_reader_o: R, mut client_writer: W) -> Result<bool>
@@ -176,27 +173,35 @@ where
 
                 match end_tid {
                     1 => {
-                        let r1 = copy1.join().unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+                        let r1 = copy1
+                            .join()
+                            .unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
 
                         let _ = service_stream.shutdown();
                         unsafe { libc::close(service_stream.as_raw_fd()) };
                         r1?;
 
                         let _ = rx_end.recv()?;
-                        let r2 = copy2.join().unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+                        let r2 = copy2
+                            .join()
+                            .unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
 
                         r2?;
                     }
 
                     2 => {
-                        let r2 = copy2.join().unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+                        let r2 = copy2
+                            .join()
+                            .unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
 
                         let _ = service_stream.shutdown();
                         unsafe { libc::close(service_stream.as_raw_fd()) };
                         r2?;
 
                         let _ = rx_end.recv()?;
-                        let r1 = copy1.join().unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+                        let r1 = copy1
+                            .join()
+                            .unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
 
                         r1?;
                     }
@@ -204,11 +209,9 @@ where
                 };
             }
             return Ok(true);
-        }
-         else {
+        } else {
             unreachable!();
         }
-
     }
     Ok(upgraded)
 }
@@ -347,27 +350,35 @@ where
 
                 match end_tid {
                     1 => {
-                        let r1 = copy1.join().unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+                        let r1 = copy1
+                            .join()
+                            .unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
 
                         let _ = stream.shutdown();
                         unsafe { libc::close(stream.as_raw_fd()) };
                         r1?;
 
                         let _ = rx_end.recv()?;
-                        let r2 = copy2.join().unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+                        let r2 = copy2
+                            .join()
+                            .unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
 
                         r2?;
                     }
 
                     2 => {
-                        let r2 = copy2.join().unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+                        let r2 = copy2
+                            .join()
+                            .unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
 
                         let _ = stream.shutdown();
                         unsafe { libc::close(stream.as_raw_fd()) };
                         r2?;
 
                         let _ = rx_end.recv()?;
-                        let r1 = copy1.join().unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+                        let r1 = copy1
+                            .join()
+                            .unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
 
                         r1?;
                     }

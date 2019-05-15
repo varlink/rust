@@ -243,9 +243,6 @@ use crate::client::{varlink_bridge, varlink_exec};
 pub use crate::server::Stream as ServerStream;
 pub use crate::server::{listen, Listener};
 
-#[cfg(feature = "chainerror")]
-pub use chainerror::*;
-
 #[macro_use]
 pub mod error;
 pub use error::{Error, ErrorKind, Result};

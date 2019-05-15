@@ -211,6 +211,7 @@ impl<'a> VarlinkStream {
     }
 }
 
+#[cfg(unix)]
 impl AsRawFd for VarlinkStream {
     fn as_raw_fd(&self) -> RawFd {
         match *self {

@@ -16,12 +16,8 @@ cache:
 before_cache:
 - rm -rf target
 
-before_script: |
-  cargo install --force cargo-audit
-
 script:
 - cargo update
-- cargo audit
 - cargo build --all
 - cargo test --all
 - cargo build --all --all-features

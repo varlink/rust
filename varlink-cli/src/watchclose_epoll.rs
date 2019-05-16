@@ -1,10 +1,78 @@
-use epoll;
-use libc;
-use libc::{c_int, c_void, ssize_t};
 use std::io::{self, Read, Result};
 use std::os::unix::io::{AsRawFd, RawFd};
 
-pub trait IsMinusOne {
+use libc::{self, c_int, c_void, ssize_t};
+
+#[repr(i32)]
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+enum ControlOptions {
+    EPOLL_CTL_ADD = libc::EPOLL_CTL_ADD,
+    EPOLL_CTL_MOD = libc::EPOLL_CTL_MOD,
+    EPOLL_CTL_DEL = libc::EPOLL_CTL_DEL,
+}
+
+bitflags! {
+    struct Events: u32 {
+        const EPOLLET      = libc::EPOLLET as u32;
+        const EPOLLIN      = libc::EPOLLIN as u32;
+        const EPOLLERR     = libc::EPOLLERR as u32;
+        const EPOLLHUP     = libc::EPOLLHUP as u32;
+        const EPOLLOUT     = libc::EPOLLOUT as u32;
+        const EPOLLPRI     = libc::EPOLLPRI as u32;
+        const EPOLLRDHUP   = libc::EPOLLRDHUP as u32;
+        const EPOLLWAKEUP  = libc::EPOLLWAKEUP as u32;
+        const EPOLLONESHOT = libc::EPOLLONESHOT as u32;
+    }
+}
+
+#[repr(C)]
+#[cfg_attr(target_arch = "x86_64", repr(packed))]
+#[derive(Clone, Copy)]
+struct Event {
+    pub events: u32,
+    pub data: u64,
+}
+
+impl Event {
+    pub fn new(events: Events, data: u64) -> Event {
+        Event {
+            events: events.bits(),
+            data: data,
+        }
+    }
+}
+
+fn epoll_create(cloexec: bool) -> io::Result<RawFd> {
+    let flags = if cloexec { libc::EPOLL_CLOEXEC } else { 0 };
+    unsafe { cvt(libc::epoll_create1(flags)) }
+}
+
+fn epoll_ctl(epfd: RawFd, op: ControlOptions, fd: RawFd, mut event: Event) -> io::Result<()> {
+    let e = &mut event as *mut _ as *mut libc::epoll_event;
+    unsafe { cvt(libc::epoll_ctl(epfd, op as i32, fd, e))? };
+    Ok(())
+}
+
+fn epoll_wait(epfd: RawFd, timeout: i32, buf: &mut [Event]) -> io::Result<usize> {
+    let timeout = if timeout < -1 { -1 } else { timeout };
+    let num_events = unsafe {
+        cvt(libc::epoll_wait(
+            epfd,
+            buf.as_mut_ptr() as *mut libc::epoll_event,
+            buf.len() as i32,
+            timeout,
+        ))? as usize
+    };
+    Ok(num_events)
+}
+
+fn epoll_close(epfd: RawFd) -> io::Result<()> {
+    cvt(unsafe { libc::close(epfd) })?;
+    Ok(())
+}
+
+trait IsMinusOne {
     fn is_minus_one(&self) -> bool;
 }
 
@@ -18,7 +86,7 @@ macro_rules! impl_is_minus_one {
 
 impl_is_minus_one! { i8 i16 i32 i64 isize }
 
-pub fn cvt<T: IsMinusOne>(t: T) -> crate::io::Result<T> {
+fn cvt<T: IsMinusOne>(t: T) -> crate::io::Result<T> {
     if t.is_minus_one() {
         Err(crate::io::Error::last_os_error())
     } else {
@@ -27,14 +95,6 @@ pub fn cvt<T: IsMinusOne>(t: T) -> crate::io::Result<T> {
 }
 
 fn max_len() -> usize {
-    // The maximum read limit on most posix-like systems is `SSIZE_MAX`,
-    // with the man page quoting that if the count of bytes to read is
-    // greater than `SSIZE_MAX` the result is "unspecified".
-    //
-    // On macOS, however, apparently the 64-bit libc is either buggy or
-    // intentionally showing odd behavior by rejecting any read with a size
-    // larger than or equal to INT_MAX. To handle both of these the read
-    // size is capped on both platforms.
     if cfg!(target_os = "macos") {
         <c_int>::max_value() as usize - 1
     } else {
@@ -52,7 +112,7 @@ pub struct WatchClose {
 impl Drop for WatchClose {
     fn drop(&mut self) {
         let _ = self.set_nonblocking(self.prev_block);
-        let _ = epoll::close(self.efd);
+        let _ = epoll_close(self.efd);
     }
 }
 
@@ -68,22 +128,22 @@ impl WatchClose {
         let mut wc = WatchClose {
             fd: fd,
             towatch: towatch.as_raw_fd(),
-            efd: epoll::create(true)?,
+            efd: epoll_create(true)?,
             prev_block: false,
         };
 
-        epoll::ctl(
+        epoll_ctl(
             wc.efd,
-            epoll::ControlOptions::EPOLL_CTL_ADD,
+            ControlOptions::EPOLL_CTL_ADD,
             wc.towatch,
-            epoll::Event::new(epoll::Events::EPOLLRDHUP, 1),
+            Event::new(Events::EPOLLRDHUP, 1),
         )?;
 
-        epoll::ctl(
+        epoll_ctl(
             wc.efd,
-            epoll::ControlOptions::EPOLL_CTL_ADD,
+            ControlOptions::EPOLL_CTL_ADD,
             wc.fd,
-            epoll::Event::new(epoll::Events::EPOLLIN | epoll::Events::EPOLLRDHUP, 0),
+            Event::new(Events::EPOLLIN | Events::EPOLLRDHUP, 0),
         )?;
 
         wc.prev_block = wc.set_nonblocking(true)?;
@@ -109,21 +169,20 @@ impl WatchClose {
 impl Read for WatchClose {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         let mut v = vec![
-            epoll::Event {
-                events: epoll::Events::EPOLLIN.bits(),
+            Event {
+                events: Events::EPOLLIN.bits(),
                 data: 0,
             },
-            epoll::Event {
-                events: epoll::Events::EPOLLRDHUP.bits(),
+            Event {
+                events: Events::EPOLLRDHUP.bits(),
                 data: 1,
             },
         ];
 
         'outer: loop {
-            let r = epoll::wait(self.efd, -1, &mut v[..])?;
+            let r = epoll_wait(self.efd, -1, &mut v[..])?;
 
-            let err_mask =
-                epoll::Events::EPOLLRDHUP | epoll::Events::EPOLLHUP | epoll::Events::EPOLLERR;
+            let err_mask = Events::EPOLLRDHUP | Events::EPOLLHUP | Events::EPOLLERR;
 
             for ev in v.iter().take(r) {
                 if err_mask.bits() & ev.events != 0 {
@@ -132,7 +191,7 @@ impl Read for WatchClose {
             }
 
             for ev in v.iter().take(r) {
-                if epoll::Events::EPOLLIN.bits() & ev.events != 0 {
+                if Events::EPOLLIN.bits() & ev.events != 0 {
                     break 'outer;
                 }
             }

@@ -15,6 +15,9 @@ use varlink::{
 use varlink_parser::{Format, FormatColored, IDL};
 use varlink_stdinterfaces::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 
+#[macro_use]
+extern crate bitflags;
+
 
 #[cfg(test)]
 mod test;

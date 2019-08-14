@@ -41,7 +41,7 @@ use std::str::FromStr;
 
 use chainerror::*;
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::quote;
+use quote::{format_ident, quote};
 
 use varlink_parser::{Typedef, VEnum, VError, VStruct, VStructOrEnum, VType, VTypeExt, IDL};
 
@@ -167,7 +167,7 @@ impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VStruct<'long> {
         tokenstream: &mut TokenStream,
         options: &'long GeneratorOptions,
     ) {
-        let tname: Ident = syn::parse_str(&(String::from("r#") + name)).unwrap();
+        let tname: Ident = format_ident!("r#{}", name);
 
         let mut enames = vec![];
         let mut etypes = vec![];
@@ -288,11 +288,11 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
     }
 
     ts.extend(quote!(
-        use serde_derive::{{Deserialize, Serialize}};
+        use serde_derive::{Deserialize, Serialize};
         use serde_json;
         use std::io::BufRead;
-        use std::sync::{{Arc, RwLock}};
-        use varlink::{{self, CallTrait}};
+        use std::sync::{Arc, RwLock};
+        use varlink::{self, CallTrait};
     ));
 
     if let Some(ref v) = options.preamble {

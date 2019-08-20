@@ -169,13 +169,13 @@ impl Listener {
             } as usize;
 
             unsafe {
-                let mut readfs: fd_set = mem::zeroed();
+                let mut readfs: fd_set = mem::MaybeUninit::zeroed().assume_init();
                 loop {
                     readfs.fd_count = 1;
                     readfs.fd_array[0] = socket;
 
-                    let mut writefds: fd_set = mem::zeroed();
-                    let mut errorfds: fd_set = mem::zeroed();
+                    let mut writefds: fd_set = mem::MaybeUninit::zeroed().assume_init();
+                    let mut errorfds: fd_set = mem::MaybeUninit::zeroed().assume_init();
                     let mut timeout = timeval {
                         tv_sec: timeout as i32,
                         tv_usec: 0,
@@ -218,31 +218,34 @@ impl Listener {
             };
 
             unsafe {
-                let mut readfs: libc::fd_set = mem::uninitialized();
+                let mut readfs = mem::MaybeUninit::<fd_set>::uninit();
                 loop {
-                    FD_ZERO(&mut readfs);
-                    let mut writefds: fd_set = mem::uninitialized();
-                    FD_ZERO(&mut writefds);
-                    let mut errorfds: fd_set = mem::uninitialized();
-                    FD_ZERO(&mut errorfds);
+                    FD_ZERO(readfs.as_mut_ptr());
+                    readfs.assume_init();
+                    let mut writefds = mem::MaybeUninit::<fd_set>::uninit();
+                    FD_ZERO(writefds.as_mut_ptr());
+                    writefds.assume_init();
+                    let mut errorfds = mem::MaybeUninit::<fd_set>::uninit();
+                    FD_ZERO(errorfds.as_mut_ptr());
+                    errorfds.assume_init();
                     let mut timeout = timeval {
                         tv_sec: timeout as time_t,
                         tv_usec: 0,
                     };
 
-                    FD_SET(fd, &mut readfs);
+                    FD_SET(fd, readfs.as_mut_ptr());
                     let ret = select(
                         fd + 1,
-                        &mut readfs,
-                        &mut writefds,
-                        &mut errorfds,
+                        readfs.as_mut_ptr(),
+                        writefds.as_mut_ptr(),
+                        errorfds.as_mut_ptr(),
                         &mut timeout,
                     );
                     if ret != EINTR && ret != EAGAIN {
                         break;
                     }
                 }
-                if !FD_ISSET(fd, &mut readfs) {
+                if !FD_ISSET(fd, readfs.as_mut_ptr()) {
                     return Err(Error::from(context!(ErrorKind::Timeout)));
                 }
             }

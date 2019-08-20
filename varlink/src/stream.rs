@@ -29,21 +29,26 @@ pub trait Stream: Read + Write + Send + Sync + AsRawSocket {
 }
 
 impl Stream for TcpStream {
+    #[inline]
     fn split(&mut self) -> Result<(Box<dyn Read + Send + Sync>, Box<dyn Write + Send + Sync>)> {
         Ok((
             Box::new(TcpStream::try_clone(self).map_err(map_context!())?),
             Box::new(TcpStream::try_clone(self).map_err(map_context!())?),
         ))
     }
+
+    #[inline]
     fn shutdown(&mut self) -> Result<()> {
         TcpStream::shutdown(self, Shutdown::Both).map_err(map_context!())?;
         Ok(())
     }
 
+    #[inline]
     fn try_clone(&mut self) -> ::std::io::Result<Box<dyn Stream>> {
         Ok(Box::new(TcpStream::try_clone(self)?))
     }
 
+    #[inline]
     fn set_nonblocking(&mut self, b: bool) -> Result<()> {
         TcpStream::set_nonblocking(self, b).map_err(map_context!())?;
         Ok(())
@@ -51,21 +56,26 @@ impl Stream for TcpStream {
 }
 
 impl Stream for UnixStream {
+    #[inline]
     fn split(&mut self) -> Result<(Box<dyn Read + Send + Sync>, Box<dyn Write + Send + Sync>)> {
         Ok((
             Box::new(UnixStream::try_clone(self).map_err(map_context!())?),
             Box::new(UnixStream::try_clone(self).map_err(map_context!())?),
         ))
     }
+
+    #[inline]
     fn shutdown(&mut self) -> Result<()> {
         UnixStream::shutdown(self, Shutdown::Both).map_err(map_context!())?;
         Ok(())
     }
 
+    #[inline]
     fn try_clone(&mut self) -> ::std::io::Result<Box<dyn Stream>> {
         Ok(Box::new(UnixStream::try_clone(self)?))
     }
 
+    #[inline]
     fn set_nonblocking(&mut self, b: bool) -> Result<()> {
         UnixStream::set_nonblocking(self, b).map_err(map_context!())?;
         Ok(())

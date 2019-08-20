@@ -1,161 +1,31 @@
 //! Handle network connections for a varlink service
 #![allow(dead_code)]
 
-use crate::error::*;
-
+use std::{env, fs, thread};
 //#![feature(getpid)]
 //use std::process;
-use std::io::{BufRead, BufReader, Read, Write};
-use std::net::{Shutdown, TcpListener, TcpStream};
-use std::process;
-use std::sync::{mpsc, Arc, Mutex, RwLock};
-use std::{env, fs, thread};
-
+use std::io::{BufRead, BufReader};
+use std::mem;
+use std::net::{TcpListener, TcpStream};
+#[cfg(unix)]
+use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 #[cfg(unix)]
 use std::os::unix::net::{UnixListener, UnixStream};
 #[cfg(windows)]
-use uds_windows::{UnixListener, UnixStream};
-
-#[cfg(unix)]
-use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
-#[cfg(windows)]
 use std::os::windows::io::{AsRawSocket, FromRawSocket, IntoRawSocket, RawSocket};
+use std::process;
+use std::sync::{mpsc, Arc, Mutex, RwLock};
 
-use std::mem;
+#[cfg(windows)]
+use uds_windows::UnixListener;
+
+use crate::error::*;
+use crate::stream::Stream;
 
 #[derive(Debug)]
 pub enum Listener {
     TCP(Option<TcpListener>, bool),
     UNIX(Option<UnixListener>, bool),
-}
-
-#[derive(Debug)]
-pub enum Stream {
-    TCP(TcpStream),
-    UNIX(UnixStream),
-}
-
-impl<'a> Stream {
-    #[allow(dead_code)]
-    pub fn split(&mut self) -> Result<(Box<Read + Send + Sync>, Box<Write + Send + Sync>)> {
-        match *self {
-            Stream::TCP(ref mut s) => Ok((
-                Box::new(s.try_clone().map_err(map_context!())?),
-                Box::new(s.try_clone().map_err(map_context!())?),
-            )),
-            Stream::UNIX(ref mut s) => Ok((
-                Box::new(s.try_clone().map_err(map_context!())?),
-                Box::new(s.try_clone().map_err(map_context!())?),
-            )),
-        }
-    }
-    pub fn shutdown(&mut self) -> Result<()> {
-        match *self {
-            Stream::TCP(ref mut s) => s
-                .shutdown(Shutdown::Both)
-                .map_err(map_context!())?,
-            Stream::UNIX(ref mut s) => s
-                .shutdown(Shutdown::Both)
-                .map_err(map_context!())?,
-        }
-        Ok(())
-    }
-
-    pub fn try_clone(&mut self) -> ::std::io::Result<Stream> {
-        match *self {
-            Stream::TCP(ref mut s) => Ok(Stream::TCP(s.try_clone()?)),
-            Stream::UNIX(ref mut s) => Ok(Stream::UNIX(s.try_clone()?)),
-        }
-    }
-
-    pub fn set_nonblocking(&mut self, b: bool) -> Result<()> {
-        match *self {
-            Stream::TCP(ref mut s) => {
-                s.set_nonblocking(b).map_err(map_context!())?;
-                Ok(())
-            }
-            Stream::UNIX(ref mut s) => {
-                s.set_nonblocking(b).map_err(map_context!())?;
-                Ok(())
-            }
-        }
-    }
-
-    #[cfg(unix)]
-    pub fn as_raw_fd(&mut self) -> RawFd {
-        match *self {
-            Stream::TCP(ref mut s) => s.as_raw_fd(),
-            Stream::UNIX(ref mut s) => s.as_raw_fd(),
-        }
-    }
-
-    #[cfg(windows)]
-    pub fn as_raw_socket(&mut self) -> RawSocket {
-        match self {
-            Stream::TCP(ref mut s) => s.as_raw_socket(),
-            Stream::UNIX(ref mut s) => s.as_raw_socket(),
-        }
-    }
-}
-
-impl ::std::io::Write for Stream {
-    fn write(&mut self, buf: &[u8]) -> ::std::io::Result<usize> {
-        match *self {
-            Stream::TCP(ref mut s) => s.write(buf),
-            Stream::UNIX(ref mut s) => s.write(buf),
-        }
-    }
-
-    fn flush(&mut self) -> ::std::io::Result<()> {
-        match *self {
-            Stream::TCP(ref mut s) => s.flush(),
-            Stream::UNIX(ref mut s) => s.flush(),
-        }
-    }
-
-    fn write_all(&mut self, buf: &[u8]) -> ::std::io::Result<()> {
-        match *self {
-            Stream::TCP(ref mut s) => s.write_all(buf),
-            Stream::UNIX(ref mut s) => s.write_all(buf),
-        }
-    }
-
-    fn write_fmt(&mut self, fmt: ::std::fmt::Arguments) -> ::std::io::Result<()> {
-        match *self {
-            Stream::TCP(ref mut s) => s.write_fmt(fmt),
-            Stream::UNIX(ref mut s) => s.write_fmt(fmt),
-        }
-    }
-}
-
-impl ::std::io::Read for Stream {
-    fn read(&mut self, buf: &mut [u8]) -> ::std::io::Result<usize> {
-        match *self {
-            Stream::TCP(ref mut s) => s.read(buf),
-            Stream::UNIX(ref mut s) => s.read(buf),
-        }
-    }
-
-    fn read_to_end(&mut self, buf: &mut Vec<u8>) -> ::std::io::Result<usize> {
-        match *self {
-            Stream::TCP(ref mut s) => s.read_to_end(buf),
-            Stream::UNIX(ref mut s) => s.read_to_end(buf),
-        }
-    }
-
-    fn read_to_string(&mut self, buf: &mut String) -> ::std::io::Result<usize> {
-        match *self {
-            Stream::TCP(ref mut s) => s.read_to_string(buf),
-            Stream::UNIX(ref mut s) => s.read_to_string(buf),
-        }
-    }
-
-    fn read_exact(&mut self, buf: &mut [u8]) -> ::std::io::Result<()> {
-        match *self {
-            Stream::TCP(ref mut s) => s.read_exact(buf),
-            Stream::UNIX(ref mut s) => s.read_exact(buf),
-        }
-    }
 }
 
 fn activation_listener() -> Result<Option<usize>> {
@@ -200,7 +70,6 @@ fn activation_listener() -> Result<Option<usize>> {
 fn get_abstract_unixlistener(addr: &str) -> Result<UnixListener> {
     // FIXME: abstract unix domains sockets still not in std
     // FIXME: https://github.com/rust-lang/rust/issues/14194
-    use std::os::unix::io::FromRawFd;
     use unix_socket::UnixListener as AbstractUnixListener;
 
     unsafe {
@@ -288,7 +157,7 @@ impl Listener {
     }
 
     #[cfg(windows)]
-    pub fn accept(&self, timeout: u64) -> Result<Stream> {
+    pub fn accept(&self, timeout: u64) -> Result<Box<dyn Stream>> {
         use winapi::um::winsock2::WSAEINTR as EINTR;
         use winapi::um::winsock2::{fd_set, select, timeval};
 
@@ -327,18 +196,18 @@ impl Listener {
         match self {
             &Listener::TCP(Some(ref l), _) => {
                 let (s, _addr) = l.accept().map_err(map_context!())?;
-                Ok(Stream::TCP(s))
+                Ok(Box::new(s))
             }
             Listener::UNIX(Some(ref l), _) => {
                 let (s, _addr) = l.accept().map_err(map_context!())?;
-                Ok(Stream::UNIX(s))
+                Ok(Box::new(s))
             }
             _ => Err(context!(ErrorKind::ConnectionClosed)),
         }
     }
 
     #[cfg(unix)]
-    pub fn accept(&self, timeout: u64) -> Result<Stream> {
+    pub fn accept(&self, timeout: u64) -> Result<Box<dyn Stream>> {
         use libc::{fd_set, select, time_t, timeval, EAGAIN, EINTR, FD_ISSET, FD_SET, FD_ZERO};
 
         if timeout > 0 {
@@ -381,11 +250,11 @@ impl Listener {
         match self {
             &Listener::TCP(Some(ref l), _) => {
                 let (s, _addr) = l.accept().map_err(map_context!())?;
-                Ok(Stream::TCP(s))
+                Ok(Box::new(s))
             }
             Listener::UNIX(Some(ref l), _) => {
                 let (s, _addr) = l.accept().map_err(map_context!())?;
-                Ok(Stream::UNIX(s))
+                Ok(Box::new(s))
             }
             _ => Err(Error::from(context!(ErrorKind::ConnectionClosed))),
         }
@@ -393,12 +262,8 @@ impl Listener {
 
     pub fn set_nonblocking(&self, b: bool) -> Result<()> {
         match *self {
-            Listener::TCP(Some(ref l), _) => {
-                l.set_nonblocking(b).map_err(map_context!())?
-            }
-            Listener::UNIX(Some(ref l), _) => {
-                l.set_nonblocking(b).map_err(map_context!())?
-            }
+            Listener::TCP(Some(ref l), _) => l.set_nonblocking(b).map_err(map_context!())?,
+            Listener::UNIX(Some(ref l), _) => l.set_nonblocking(b).map_err(map_context!())?,
             _ => Err(context!(ErrorKind::ConnectionClosed))?,
         }
         Ok(())
@@ -414,7 +279,7 @@ impl Listener {
     }
 
     #[cfg(windows)]
-    pub fn into_raw_socket(&self) -> RawSocket {
+    pub fn as_raw_socket(&self) -> RawSocket {
         match *self {
             Listener::TCP(Some(ref l), _) => l.as_raw_socket(),
             Listener::UNIX(Some(ref l), _) => l.as_raw_socket(),
@@ -486,7 +351,7 @@ impl<F: FnOnce()> FnBox for F {
     }
 }
 
-type Job = Box<FnBox + Send + 'static>;
+type Job = Box<dyn FnBox + Send + 'static>;
 
 impl ThreadPool {
     /// Create a new ThreadPool.

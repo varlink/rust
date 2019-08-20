@@ -1,7 +1,7 @@
 use std::error::Error as StdError;
 use std::result::Result as StdResult;
 
-type Result<T> = StdResult<T, Box<StdError>>;
+type Result<T> = StdResult<T, Box<dyn StdError>>;
 
 use chainerror::*;
 use std::io::BufRead;
@@ -153,7 +153,7 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
     }
 }
 
-#[cfg(target_os = "linuxxxx")]
+#[cfg(target_os = "linux")]
 #[test]
 fn test_unix_multiplex() -> Result<()> {
     run_self_test("unix:org.example.ping_multiplex".into(), true)

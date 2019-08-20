@@ -6,7 +6,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
-varlink = { version = "8", path = "../../varlink" }
+varlink = { version = "9", path = "../../varlink" }
 serde = "1"
 serde_derive = "1"
 serde_json = "1"

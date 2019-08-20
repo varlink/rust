@@ -48,7 +48,7 @@ fn main() {
     let client_mode = matches.opt_present("client");
     let bridge = matches.opt_str("bridge");
 
-    let ret: std::result::Result<(), Box<std::error::Error>> = if client_mode {
+    let ret: std::result::Result<(), Box<dyn std::error::Error>> = if client_mode {
         let connection = if bridge.is_none() {
             match matches.opt_str("varlink") {
                 None => {
@@ -146,9 +146,7 @@ fn run_client(connection: &Arc<RwLock<varlink::Connection>>) -> Result<()> {
         writer
             .write_all(b"End\n")
             .map_err(varlink::map_context!())?;
-        writer
-            .flush()
-            .map_err(varlink::map_context!())?;
+        writer.flush().map_err(varlink::map_context!())?;
         let mut buf = Vec::new();
         if reader
             .read_until(b'\n', &mut buf)
@@ -173,11 +171,11 @@ fn run_client(connection: &Arc<RwLock<varlink::Connection>>) -> Result<()> {
 struct MyOrgExamplePing;
 
 impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
-    fn ping(&self, call: &mut Call_Ping, ping: String) -> varlink::Result<()> {
+    fn ping(&self, call: &mut dyn Call_Ping, ping: String) -> varlink::Result<()> {
         call.reply(ping)
     }
 
-    fn upgrade(&self, call: &mut Call_Upgrade) -> varlink::Result<()> {
+    fn upgrade(&self, call: &mut dyn Call_Upgrade) -> varlink::Result<()> {
         eprintln!("Server: called upgrade");
         call.to_upgraded();
         call.reply()
@@ -185,7 +183,11 @@ impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
 
     // An upgraded connection has its own application specific protocol.
     // Normally, there is no way back to the varlink protocol with this connection.
-    fn call_upgraded(&self, call: &mut Call, bufreader: &mut BufRead) -> varlink::Result<Vec<u8>> {
+    fn call_upgraded(
+        &self,
+        call: &mut Call,
+        bufreader: &mut dyn BufRead,
+    ) -> varlink::Result<Vec<u8>> {
         loop {
             let mut buf = String::new();
             let len = bufreader
@@ -205,9 +207,7 @@ impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
             call.writer
                 .write_all(buf.as_bytes())
                 .map_err(varlink::map_context!())?;
-            call.writer
-                .flush()
-                .map_err(varlink::map_context!())?;
+            call.writer.flush().map_err(varlink::map_context!())?;
 
             if buf.eq("End\n") {
                 break;

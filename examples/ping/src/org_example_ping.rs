@@ -84,7 +84,7 @@ impl From<varlink::Error> for Error {
 impl Error {
     pub fn source_varlink_kind(&self) -> Option<&varlink::ErrorKind> {
         use std::error::Error as StdError;
-        let mut s: &StdError = self;
+        let mut s: &dyn StdError = self;
         while let Some(c) = s.source() {
             let k = self
                 .source()
@@ -161,12 +161,12 @@ pub trait Call_Upgrade: VarlinkCallError {
 }
 impl<'a> Call_Upgrade for varlink::Call<'a> {}
 pub trait VarlinkInterface {
-    fn ping(&self, call: &mut Call_Ping, r#ping: String) -> varlink::Result<()>;
-    fn upgrade(&self, call: &mut Call_Upgrade) -> varlink::Result<()>;
+    fn ping(&self, call: &mut dyn Call_Ping, r#ping: String) -> varlink::Result<()>;
+    fn upgrade(&self, call: &mut dyn Call_Upgrade) -> varlink::Result<()>;
     fn call_upgraded(
         &self,
         _call: &mut varlink::Call,
-        _bufreader: &mut BufRead,
+        _bufreader: &mut dyn BufRead,
     ) -> varlink::Result<Vec<u8>> {
         Ok(Vec::new())
     }
@@ -203,10 +203,10 @@ impl VarlinkClientInterface for VarlinkClient {
 }
 #[allow(dead_code)]
 pub struct VarlinkInterfaceProxy {
-    inner: Box<VarlinkInterface + Send + Sync>,
+    inner: Box<dyn VarlinkInterface + Send + Sync>,
 }
 #[allow(dead_code)]
-pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> VarlinkInterfaceProxy {
+pub fn new(inner: Box<dyn VarlinkInterface + Send + Sync>) -> VarlinkInterfaceProxy {
     VarlinkInterfaceProxy { inner }
 }
 impl varlink::Interface for VarlinkInterfaceProxy {
@@ -219,7 +219,7 @@ impl varlink::Interface for VarlinkInterfaceProxy {
     fn call_upgraded(
         &self,
         call: &mut varlink::Call,
-        bufreader: &mut BufRead,
+        bufreader: &mut dyn BufRead,
     ) -> varlink::Result<Vec<u8>> {
         self.inner.call_upgraded(call, bufreader)
     }
@@ -238,12 +238,12 @@ impl varlink::Interface for VarlinkInterfaceProxy {
                             );
                         }
                     };
-                    self.inner.ping(call as &mut Call_Ping, args.r#ping)
+                    self.inner.ping(call as &mut dyn Call_Ping, args.r#ping)
                 } else {
                     call.reply_invalid_parameter("parameters".into())
                 }
             }
-            "org.example.ping.Upgrade" => self.inner.upgrade(call as &mut Call_Upgrade),
+            "org.example.ping.Upgrade" => self.inner.upgrade(call as &mut dyn Call_Upgrade),
             m => call.reply_method_not_found(String::from(m)),
         }
     }

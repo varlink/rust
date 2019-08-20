@@ -3,6 +3,8 @@ use std::os::unix::io::{AsRawFd, RawFd};
 
 use libc::{self, c_int, c_void, ssize_t};
 
+use bitflags::bitflags;
+
 #[repr(i32)]
 #[allow(non_camel_case_types)]
 #[allow(dead_code)]
@@ -104,14 +106,11 @@ fn max_len() -> usize {
 
 pub struct WatchClose {
     fd: RawFd,
-    towatch: RawFd,
     efd: RawFd,
-    prev_block: bool,
 }
 
 impl Drop for WatchClose {
     fn drop(&mut self) {
-        let _ = self.set_nonblocking(self.prev_block);
         let _ = epoll_close(self.efd);
     }
 }
@@ -123,61 +122,39 @@ impl AsRawFd for WatchClose {
 }
 
 impl WatchClose {
-    pub fn new_read<P: AsRawFd, Q: AsRawFd>(fd: &P, towatch: &Q) -> Result<WatchClose> {
+    pub fn new_read<P: Read + AsRawFd + ?Sized, Q: AsRawFd + ?Sized>(
+        fd: &P,
+        towatch: &Q,
+    ) -> Result<WatchClose> {
         let fd = fd.as_raw_fd();
-        let mut wc = WatchClose {
+        let wc = WatchClose {
             fd: fd,
-            towatch: towatch.as_raw_fd(),
             efd: epoll_create(true)?,
-            prev_block: false,
         };
 
         epoll_ctl(
             wc.efd,
             ControlOptions::EPOLL_CTL_ADD,
-            wc.towatch,
-            Event::new(Events::EPOLLRDHUP, 1),
+            wc.fd,
+            Event::new(
+                Events::EPOLLIN | Events::EPOLLRDHUP | Events::EPOLLHUP | Events::EPOLLERR,
+                0,
+            ),
         )?;
-
         epoll_ctl(
             wc.efd,
             ControlOptions::EPOLL_CTL_ADD,
-            wc.fd,
-            Event::new(Events::EPOLLIN | Events::EPOLLRDHUP, 0),
+            towatch.as_raw_fd(),
+            Event::new(Events::EPOLLRDHUP | Events::EPOLLHUP | Events::EPOLLERR, 1),
         )?;
 
-        wc.prev_block = wc.set_nonblocking(true)?;
         Ok(wc)
-    }
-
-    pub fn set_nonblocking(&self, nonblocking: bool) -> Result<bool> {
-        unsafe {
-            let previous = cvt(libc::fcntl(self.fd, libc::F_GETFL))?;
-            let new = if nonblocking {
-                previous | libc::O_NONBLOCK
-            } else {
-                previous & !libc::O_NONBLOCK
-            };
-            if new != previous {
-                cvt(libc::fcntl(self.fd, libc::F_SETFL, new))?;
-            }
-            Ok((previous & libc::O_NONBLOCK) == 0)
-        }
     }
 }
 
 impl Read for WatchClose {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        let mut v = vec![
-            Event {
-                events: Events::EPOLLIN.bits(),
-                data: 0,
-            },
-            Event {
-                events: Events::EPOLLRDHUP.bits(),
-                data: 1,
-            },
-        ];
+        let mut v = vec![Event { events: 0, data: 0 }, Event { events: 0, data: 1 }];
 
         'outer: loop {
             let r = epoll_wait(self.efd, -1, &mut v[..])?;
@@ -191,6 +168,9 @@ impl Read for WatchClose {
             }
 
             for ev in v.iter().take(r) {
+                if ev.data != 0 {
+                    continue;
+                }
                 if Events::EPOLLIN.bits() & ev.events != 0 {
                     break 'outer;
                 }

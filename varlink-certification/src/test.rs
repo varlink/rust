@@ -4,7 +4,7 @@ use chainerror::*;
 
 use varlink::Connection;
 
-pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
+pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 fn run_self_test(address: String) -> Result<()> {
     let client_address = address.clone();
@@ -61,7 +61,7 @@ fn test_exec() -> Result<()> {
     }
 
     crate::run_client(Connection::with_activate(&format!(
-        "{} --varlink=$VARLINK_ADDRESS",
+        "{} --varlink=$VARLINK_ADDRESS --timeout 4",
         get_exec()?
     ))?)
 }

@@ -27,7 +27,7 @@ fn print_usage(program: &str, opts: &getopts::Options) {
     print!("{}", opts.usage(&brief));
 }
 
-fn main() -> std::result::Result<(), Box<std::error::Error>> {
+fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = env::args().collect();
     let program = args[0].clone();
 
@@ -51,7 +51,7 @@ fn main() -> std::result::Result<(), Box<std::error::Error>> {
 
     let tosource = !matches.opt_present("nosource");
 
-    let mut reader: Box<Read> = match matches.free.len() {
+    let mut reader: Box<dyn Read> = match matches.free.len() {
         0 => Box::new(io::stdin()),
         _ => {
             if matches.free[0] == "-" {
@@ -64,6 +64,6 @@ fn main() -> std::result::Result<(), Box<std::error::Error>> {
             }
         }
     };
-    let writer: &mut Write = &mut io::stdout();
+    let writer: &mut dyn Write = &mut io::stdout();
     generate(&mut reader, writer, tosource).map_err(|e| e.into())
 }

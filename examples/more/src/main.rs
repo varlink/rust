@@ -13,7 +13,7 @@ mod org_example_more;
 #[cfg(test)]
 mod test;
 
-pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
+pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 // Main
 
@@ -156,15 +156,15 @@ struct MyOrgExampleMore {
 }
 
 impl VarlinkInterface for MyOrgExampleMore {
-    fn ping(&self, call: &mut Call_Ping, ping: String) -> varlink::Result<()> {
+    fn ping(&self, call: &mut dyn Call_Ping, ping: String) -> varlink::Result<()> {
         call.reply(ping)
     }
 
-    fn stop_serving(&self, call: &mut Call_StopServing) -> varlink::Result<()> {
+    fn stop_serving(&self, call: &mut dyn Call_StopServing) -> varlink::Result<()> {
         call.reply()?;
         Err(varlink::ErrorKind::ConnectionClosed.into())
     }
-    fn test_more(&self, call: &mut Call_TestMore, n: i64) -> varlink::Result<()> {
+    fn test_more(&self, call: &mut dyn Call_TestMore, n: i64) -> varlink::Result<()> {
         if !call.wants_more() {
             return call.reply_test_more_error("called without more".into());
         }

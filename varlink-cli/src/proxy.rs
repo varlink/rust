@@ -7,14 +7,15 @@ use chainerror::*;
 use serde_json::{from_slice, from_value, to_string};
 
 use varlink::{
-    Call, Connection, ErrorKind, GetInterfaceDescriptionArgs, Reply, Request, VarlinkStream,
+    varlink_connect, Call, Connection, ErrorKind, GetInterfaceDescriptionArgs, Reply, Request,
+    VarlinkStream,
 };
 use varlink_stdinterfaces::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 
 use crate::watchclose_epoll::WatchClose;
 use crate::Result;
 
-pub fn handle<R, W>(resolver: &str, client_reader_o: R, mut client_writer: W) -> Result<bool>
+pub fn handle<R, W>(resolver: &str, client_reader: R, mut client_writer: W) -> Result<bool>
 where
     R: Read + AsRawFd + Send + 'static,
     W: Write + AsRawFd + Send + 'static,
@@ -22,8 +23,8 @@ where
     let conn = Connection::new(resolver)
         .map_err(mstrerr!("Failed to connect to resolver '{}'", resolver))?;
 
-    let mut client_reader = unsafe {
-        ::std::io::BufReader::new(::std::fs::File::from_raw_fd(client_reader_o.as_raw_fd()))
+    let mut client_bufreader = unsafe {
+        ::std::io::BufReader::new(::std::fs::File::from_raw_fd(client_reader.as_raw_fd()))
     };
 
     let mut resolver = VarlinkClient::new(conn);
@@ -36,7 +37,7 @@ where
     loop {
         if !upgraded {
             let mut buf = Vec::new();
-            match client_reader.read_until(b'\0', &mut buf) {
+            match client_bufreader.read_until(b'\0', &mut buf) {
                 Ok(0) => break,
                 Err(_e) => break,
                 _ => {}
@@ -87,7 +88,7 @@ where
                 last_iface = iface.clone();
             }
 
-            let mut stream = match VarlinkStream::connect(&address) {
+            let mut stream = match varlink_connect(&address) {
                 Ok((a, _)) => a,
                 _ => {
                     let mut call = Call::new(&mut client_writer, &req);
@@ -96,8 +97,9 @@ where
                 }
             };
 
-            let (_, mut service_writer) = stream.split()?;
-            let service_reader = WatchClose::new_read(&stream, &client_writer)?;
+            let service_writer = stream.try_clone()?;
+            let mut service_writer = service_writer;
+            let service_reader = WatchClose::new_read(stream.as_ref(), &client_writer)?;
             let mut service_bufreader = ::std::io::BufReader::new(service_reader);
 
             last_service_stream = Some(stream);
@@ -137,9 +139,11 @@ where
                 }
             }
         } else if let Some(ref mut service_stream) = last_service_stream {
-            let (_, service_writer) = service_stream.split()?;
-            let service_reader = WatchClose::new_read(service_stream, &client_writer)?;
-            let client_reader = WatchClose::new_read(&client_reader_o, service_stream)?;
+            // flush buffer
+            client_writer.write_all(client_bufreader.buffer())?;
+            let service_writer = service_stream.try_clone()?;
+            let service_reader = WatchClose::new_read(service_stream.as_ref(), &client_writer)?;
+            let client_reader = WatchClose::new_read(&client_reader, service_stream.as_ref())?;
 
             use std::sync::mpsc::channel;
             let (tx_end, rx_end) = channel();
@@ -222,14 +226,8 @@ where
     W: Write,
 {
     use std::io::ErrorKind;
-    use std::mem;
 
-    let mut buf = unsafe {
-        let mut buf: [u8; 8192] = mem::uninitialized();
-        //reader.initializer().initialize(&mut buf);
-        std::ptr::write_bytes(buf.as_mut_ptr(), 0, buf.len());
-        buf
-    };
+    let mut buf = vec![0u8; 8192];
 
     let mut written = 0;
     loop {
@@ -247,15 +245,13 @@ where
 
 pub fn handle_connect<R, W>(
     connection: Arc<RwLock<Connection>>,
-    client_reader_o: R,
+    client_reader: R,
     mut client_writer: W,
-) -> Result<bool>
+) -> Result<()>
 where
     R: Read + AsRawFd + Send + 'static,
     W: Write + AsRawFd + Send + 'static,
 {
-    let mut upgraded = false;
-
     let mut conn = connection.write().unwrap();
 
     if conn.stream.is_none() {
@@ -263,130 +259,109 @@ where
     }
 
     let mut stream = conn.stream.take().unwrap();
-    let mut service_writer = unsafe { ::std::fs::File::from_raw_fd(stream.as_raw_fd()) };
 
-    let mut service_reader =
-        ::std::io::BufReader::new(WatchClose::new_read(&stream, &client_writer)?);
-
-    let mut client_reader =
-        ::std::io::BufReader::new(WatchClose::new_read(&client_reader_o, &stream)?);
-
-    loop {
-        if !upgraded {
-            let mut buf = Vec::new();
-            match client_reader.read_until(b'\0', &mut buf) {
-                Ok(0) => break,
-                Err(_e) => break,
-                _ => {}
-            }
-
-            // pop the last zero byte
-            buf.pop();
-
-            let req: Request = from_slice(&buf)?;
-
-            {
-                buf.push(0);
-                service_writer.write_all(&buf)?;
-                service_writer.flush()?;
-            }
-
-            if req.oneway.unwrap_or(false) {
-                continue;
-            }
-
-            upgraded = req.upgrade.unwrap_or(false);
-
-            loop {
-                let mut buf = Vec::new();
-
-                if service_reader.read_until(0, &mut buf)? == 0 {
-                    break;
-                }
-                if buf.is_empty() {
-                    return Err(strerr!("Connection Closed!").into());
-                }
-
-                client_writer.write_all(&buf)?;
-                client_writer.flush()?;
-
-                buf.pop();
-
-                let reply: Reply = from_slice(&buf)?;
-
-                if upgraded || !reply.continues.unwrap_or(false) {
-                    break;
-                }
-            }
-        } else {
-            use std::sync::mpsc::channel;
-            let (tx_end, rx_end) = channel();
-
-            // Should copy back and forth, until someone disconnects.
-            {
-                let copy1 = thread::spawn({
-                    let tx_end = tx_end.clone();
-                    let mut client_reader = WatchClose::new_read(&client_reader_o, &stream)?;
-
-                    move || {
-                        let r = copy(&mut client_reader, &mut service_writer);
-                        tx_end.send(1).expect("channel should be open");
-                        r
-                    }
-                });
-
-                let copy2 = thread::spawn({
-                    let tx_end = tx_end.clone();
-                    let mut service_reader = WatchClose::new_read(&stream, &client_writer)?;
-
-                    move || {
-                        let r = copy(&mut service_reader, &mut client_writer);
-                        tx_end.send(2).expect("channel should be open");
-                        r
-                    }
-                });
-
-                let end_tid = rx_end.recv()?;
-
-                match end_tid {
-                    1 => {
-                        let r1 = copy1
-                            .join()
-                            .unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
-
-                        let _ = stream.shutdown();
-                        unsafe { libc::close(stream.as_raw_fd()) };
-                        r1?;
-
-                        let _ = rx_end.recv()?;
-                        let r2 = copy2
-                            .join()
-                            .unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
-
-                        r2?;
-                    }
-
-                    2 => {
-                        let r2 = copy2
-                            .join()
-                            .unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
-
-                        let _ = stream.shutdown();
-                        unsafe { libc::close(stream.as_raw_fd()) };
-                        r2?;
-
-                        let _ = rx_end.recv()?;
-                        let r1 = copy1
-                            .join()
-                            .unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
-
-                        r1?;
-                    }
-                    _ => panic!("Unknown"),
-                };
-            }
-            return Ok(true);
-        }
+    {
+        let _ = conn.reader.take();
+        let _ = conn.writer.take();
     }
-    Ok(upgraded)
+
+    let service_writer = stream.try_clone()?;
+
+    let mut service_reader = WatchClose::new_read(stream.as_ref(), &client_writer)?;
+    let mut client_reader = WatchClose::new_read(&client_reader, service_writer.as_ref())?;
+
+    use std::sync::mpsc::channel;
+    let (tx_end, rx_end) = channel();
+
+    let copy1 = thread::spawn({
+        let tx_end = tx_end.clone();
+        let mut service_writer = service_writer;
+        move || {
+            let r = copy(&mut client_reader, &mut service_writer);
+            tx_end.send(1).expect("channel should be open");
+
+            r
+        }
+    });
+
+    let copy2 = thread::spawn({
+        let tx_end = tx_end.clone();
+
+        move || {
+            let r = copy(&mut service_reader, &mut client_writer);
+            tx_end.send(2).expect("channel should be open");
+            r
+        }
+    });
+
+    let mut child = conn.child.take().unwrap();
+
+    let child_watch = thread::spawn({
+        let tx_end = tx_end.clone();
+
+        move || {
+            let r = child.wait();
+            tx_end.send(3).expect("channel should be open");
+            r
+        }
+    });
+
+    let end_tid = rx_end.recv()?;
+
+    match end_tid {
+        1 => {
+            let r1 = copy1
+                .join()
+                .unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+
+            let _ = stream.shutdown();
+
+            let _ = rx_end.recv()?;
+            let r2 = copy2
+                .join()
+                .unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+
+            r1?;
+            r2?;
+            return Ok(());
+        }
+
+        2 => {
+            let r2 = copy2
+                .join()
+                .unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+
+            let _ = stream.shutdown();
+
+            let _ = rx_end.recv()?;
+            let r1 = copy1
+                .join()
+                .unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+
+            r2?;
+            r1?;
+            return Ok(());
+        }
+        3 => {
+            let cr = child_watch
+                .join()
+                .unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+
+            let _ = stream.shutdown();
+
+            let _ = rx_end.recv()?;
+            let _ = copy1
+                .join()
+                .unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+
+            let _ = rx_end.recv()?;
+            let _ = copy2
+                .join()
+                .unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
+
+            cr?;
+            return Ok(());
+        }
+        _ => panic!("Unknown"),
+    };
 }

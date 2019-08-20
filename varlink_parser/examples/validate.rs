@@ -10,7 +10,7 @@ use std::process::exit;
 use std::result::Result;
 use varlink_parser::{FormatColored, IDL};
 
-fn main() -> Result<(), Box<Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
     let mut buffer = String::new();
     let args: Vec<_> = env::args().collect();
 

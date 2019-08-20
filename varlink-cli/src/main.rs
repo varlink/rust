@@ -15,10 +15,6 @@ use varlink::{
 use varlink_parser::{Format, FormatColored, IDL};
 use varlink_stdinterfaces::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 
-#[macro_use]
-extern crate bitflags;
-
-
 #[cfg(test)]
 mod test;
 
@@ -27,7 +23,7 @@ mod proxy;
 #[cfg(target_os = "linux")]
 mod watchclose_epoll;
 
-pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
+pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 fn varlink_format(filename: &str, line_len: Option<&str>, should_colorize: bool) -> Result<()> {
     let mut buffer = String::new();
@@ -377,10 +373,10 @@ fn varlink_bridge(
     use crate::proxy::{handle, handle_connect};
 
     let connection = match activate {
-        Some(activate) => Connection::with_activate(activate)
+        Some(activate) => Connection::with_activate_no_rw(activate)
             .map_err(mstrerr!("Failed to connect with activate '{}'", activate))?,
         None => match bridge {
-            Some(bridge) => Connection::with_bridge(bridge)
+            Some(bridge) => Connection::with_bridge_no_rw(bridge)
                 .map_err(mstrerr!("Failed to connect with bridge '{}'", bridge))?,
             None => {
                 if let Some(address) = address {
@@ -392,10 +388,10 @@ fn varlink_bridge(
                             Ok(r) => r.address.clone(),
                             _ => Err(strerr!("Interface '{}' not found", address))?,
                         };
-                        Connection::with_address(&address)
+                        Connection::with_address_no_rw(&address)
                             .map_err(mstrerr!("Failed to connect to '{}'", address))?
                     } else {
-                        Connection::with_address(&address)
+                        Connection::with_address_no_rw(&address)
                             .map_err(mstrerr!("Failed to connect to '{}'", address))?
                     }
                 } else {

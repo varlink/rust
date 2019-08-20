@@ -84,7 +84,7 @@ impl From<varlink::Error> for Error {
 impl Error {
     pub fn source_varlink_kind(&self) -> Option<&varlink::ErrorKind> {
         use std::error::Error as StdError;
-        let mut s: &StdError = self;
+        let mut s: &dyn StdError = self;
         while let Some(c) = s.source() {
             let k = self
                 .source()
@@ -182,13 +182,13 @@ pub trait Call_TestMore: VarlinkCallError {
 }
 impl<'a> Call_TestMore for varlink::Call<'a> {}
 pub trait VarlinkInterface {
-    fn ping(&self, call: &mut Call_Ping, r#ping: String) -> varlink::Result<()>;
-    fn stop_serving(&self, call: &mut Call_StopServing) -> varlink::Result<()>;
-    fn test_more(&self, call: &mut Call_TestMore, r#n: i64) -> varlink::Result<()>;
+    fn ping(&self, call: &mut dyn Call_Ping, r#ping: String) -> varlink::Result<()>;
+    fn stop_serving(&self, call: &mut dyn Call_StopServing) -> varlink::Result<()>;
+    fn test_more(&self, call: &mut dyn Call_TestMore, r#n: i64) -> varlink::Result<()>;
     fn call_upgraded(
         &self,
         _call: &mut varlink::Call,
-        _bufreader: &mut BufRead,
+        _bufreader: &mut dyn BufRead,
     ) -> varlink::Result<Vec<u8>> {
         Ok(Vec::new())
     }
@@ -233,10 +233,10 @@ impl VarlinkClientInterface for VarlinkClient {
 }
 #[allow(dead_code)]
 pub struct VarlinkInterfaceProxy {
-    inner: Box<VarlinkInterface + Send + Sync>,
+    inner: Box<dyn VarlinkInterface + Send + Sync>,
 }
 #[allow(dead_code)]
-pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> VarlinkInterfaceProxy {
+pub fn new(inner: Box<dyn VarlinkInterface + Send + Sync>) -> VarlinkInterfaceProxy {
     VarlinkInterfaceProxy { inner }
 }
 impl varlink::Interface for VarlinkInterfaceProxy {
@@ -249,7 +249,7 @@ impl varlink::Interface for VarlinkInterfaceProxy {
     fn call_upgraded(
         &self,
         call: &mut varlink::Call,
-        bufreader: &mut BufRead,
+        bufreader: &mut dyn BufRead,
     ) -> varlink::Result<Vec<u8>> {
         self.inner.call_upgraded(call, bufreader)
     }
@@ -268,13 +268,13 @@ impl varlink::Interface for VarlinkInterfaceProxy {
                             );
                         }
                     };
-                    self.inner.ping(call as &mut Call_Ping, args.r#ping)
+                    self.inner.ping(call as &mut dyn Call_Ping, args.r#ping)
                 } else {
                     call.reply_invalid_parameter("parameters".into())
                 }
             }
             "org.example.more.StopServing" => {
-                self.inner.stop_serving(call as &mut Call_StopServing)
+                self.inner.stop_serving(call as &mut dyn Call_StopServing)
             }
             "org.example.more.TestMore" => {
                 if let Some(args) = req.parameters.clone() {
@@ -288,7 +288,8 @@ impl varlink::Interface for VarlinkInterfaceProxy {
                             );
                         }
                     };
-                    self.inner.test_more(call as &mut Call_TestMore, args.r#n)
+                    self.inner
+                        .test_more(call as &mut dyn Call_TestMore, args.r#n)
                 } else {
                     call.reply_invalid_parameter("parameters".into())
                 }

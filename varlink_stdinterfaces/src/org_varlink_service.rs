@@ -260,16 +260,16 @@ pub trait Call_GetInterfaceDescription: varlink::CallTrait {
 impl<'a> Call_GetInterfaceDescription for varlink::Call<'a> {}
 
 pub trait VarlinkInterface {
-    fn get_info(&self, call: &mut Call_GetInfo) -> varlink::Result<()>;
+    fn get_info(&self, call: &mut dyn Call_GetInfo) -> varlink::Result<()>;
     fn get_interface_description(
         &self,
-        call: &mut Call_GetInterfaceDescription,
+        call: &mut dyn Call_GetInterfaceDescription,
         r#interface: String,
     ) -> varlink::Result<()>;
     fn call_upgraded(
         &self,
         _call: &mut varlink::Call,
-        _bufreader: &mut BufRead,
+        _bufreader: &mut dyn BufRead,
     ) -> varlink::Result<Vec<u8>> {
         Ok(Vec::new())
     }
@@ -314,11 +314,11 @@ impl VarlinkClientInterface for VarlinkClient {
 
 #[allow(dead_code)]
 pub struct VarlinkInterfaceProxy {
-    inner: Box<VarlinkInterface + Send + Sync>,
+    inner: Box<dyn VarlinkInterface + Send + Sync>,
 }
 
 #[allow(dead_code)]
-pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> VarlinkInterfaceProxy {
+pub fn new(inner: Box<dyn VarlinkInterface + Send + Sync>) -> VarlinkInterfaceProxy {
     VarlinkInterfaceProxy { inner }
 }
 
@@ -332,14 +332,14 @@ impl varlink::Interface for VarlinkInterfaceProxy {
     fn call_upgraded(
         &self,
         call: &mut varlink::Call,
-        bufreader: &mut BufRead,
+        bufreader: &mut dyn BufRead,
     ) -> varlink::Result<Vec<u8>> {
         self.inner.call_upgraded(call, bufreader)
     }
     fn call(&self, call: &mut varlink::Call) -> varlink::Result<()> {
         let req = call.request.unwrap();
         match req.method.as_ref() {
-            "org.varlink.service.GetInfo" => self.inner.get_info(call as &mut Call_GetInfo),
+            "org.varlink.service.GetInfo" => self.inner.get_info(call as &mut dyn Call_GetInfo),
             "org.varlink.service.GetInterfaceDescription" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: GetInterfaceDescription_Args = match serde_json::from_value(args) {
@@ -347,11 +347,13 @@ impl varlink::Interface for VarlinkInterfaceProxy {
                         Err(e) => {
                             let es = format!("{}", e);
                             let _ = call.reply_invalid_parameter(es.clone());
-                            return Err(varlink::context!(varlink::ErrorKind::SerdeJsonDe(es)).into());
+                            return Err(
+                                varlink::context!(varlink::ErrorKind::SerdeJsonDe(es)).into()
+                            );
                         }
                     };
                     self.inner.get_interface_description(
-                        call as &mut Call_GetInterfaceDescription,
+                        call as &mut dyn Call_GetInterfaceDescription,
                         args.r#interface,
                     )
                 } else {

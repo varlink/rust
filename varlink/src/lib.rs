@@ -236,11 +236,12 @@ use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tempfile::TempDir;
 
-
-pub use crate::client::VarlinkStream;
+pub use crate::client::varlink_connect;
 use crate::client::{varlink_bridge, varlink_exec};
+pub use crate::stream::Stream;
+pub type VarlinkStream = Box<dyn Stream>;
+pub type ServerStream = Box<dyn Stream>;
 
-pub use crate::server::Stream as ServerStream;
 pub use crate::server::{listen, Listener};
 
 #[macro_use]
@@ -249,6 +250,7 @@ pub use error::{Error, ErrorKind, Result};
 
 mod client;
 mod server;
+mod stream;
 #[cfg(test)]
 mod test;
 
@@ -349,7 +351,7 @@ impl ErrorKind {
 pub trait Interface {
     fn get_description(&self) -> &'static str;
     fn get_name(&self) -> &'static str;
-    fn call_upgraded(&self, call: &mut Call, bufreader: &mut BufRead) -> Result<Vec<u8>>;
+    fn call_upgraded(&self, call: &mut Call, bufreader: &mut dyn BufRead) -> Result<Vec<u8>>;
     fn call(&self, call: &mut Call) -> Result<()>;
 }
 
@@ -546,7 +548,7 @@ where
 /// # fn main() {}
 /// ```
 pub struct Call<'a> {
-    pub writer: &'a mut Write,
+    pub writer: &'a mut dyn Write,
     pub request: Option<&'a Request<'a>>,
     continues: bool,
     upgraded: bool,
@@ -746,7 +748,7 @@ impl<'a> CallTrait for Call<'a> {
 }
 
 impl<'a> Call<'a> {
-    pub fn new(writer: &'a mut Write, request: &'a Request<'a>) -> Self {
+    pub fn new(writer: &'a mut dyn Write, request: &'a Request<'a>) -> Self {
         Call {
             writer,
             request: Some(request),
@@ -754,7 +756,7 @@ impl<'a> Call<'a> {
             upgraded: false,
         }
     }
-    fn new_upgraded(writer: &'a mut Write) -> Self {
+    fn new_upgraded(writer: &'a mut dyn Write) -> Self {
         Call {
             writer,
             request: None,
@@ -792,11 +794,11 @@ impl<'a> Call<'a> {
 /// A client connection builder to a varlink service.
 #[derive(Default)]
 pub struct Connection {
-    pub reader: Option<BufReader<Box<Read + Send + Sync>>>,
-    pub writer: Option<Box<Write + Send + Sync>>,
+    pub reader: Option<BufReader<Box<dyn Read + Send + Sync>>>,
+    pub writer: Option<Box<dyn Write + Send + Sync>>,
     address: String,
     #[allow(dead_code)] // For the stream Drop()
-    pub stream: Option<client::VarlinkStream>,
+    pub stream: Option<Box<dyn stream::Stream>>,
     pub child: Option<Child>,
     pub tempdir: Option<TempDir>,
 }
@@ -828,12 +830,24 @@ impl Connection {
     /// let connection = Connection::with_address("tcp:127.0.0.1:12345");
     /// ```
     pub fn with_address<S: ?Sized + AsRef<str>>(address: &S) -> Result<Arc<RwLock<Self>>> {
-        let (mut stream, address) = client::VarlinkStream::connect(address)?;
+        let (mut stream, address) = varlink_connect(address)?;
         let (r, w) = stream.split()?;
         let bufreader = BufReader::new(r);
         Ok(Arc::new(RwLock::new(Connection {
             reader: Some(bufreader),
             writer: Some(w),
+            address,
+            stream: Some(stream),
+            child: None,
+            tempdir: None,
+        })))
+    }
+
+    pub fn with_address_no_rw<S: ?Sized + AsRef<str>>(address: &S) -> Result<Arc<RwLock<Self>>> {
+        let (stream, address) = varlink_connect(address)?;
+        Ok(Arc::new(RwLock::new(Connection {
+            reader: None,
+            writer: None,
             address,
             stream: Some(stream),
             child: None,
@@ -855,7 +869,7 @@ impl Connection {
     /// ```
     pub fn with_activate<S: ?Sized + AsRef<str>>(command: &S) -> Result<Arc<RwLock<Self>>> {
         let (child, unix_address, temp_dir) = varlink_exec(command)?;
-        let (mut stream, address) = client::VarlinkStream::connect(&unix_address)?;
+        let (mut stream, address) = varlink_connect(&unix_address)?;
         let (reader, writer) = stream.split()?;
         let bufreader = BufReader::new(reader);
         Ok(Arc::new(RwLock::new(Connection {
@@ -868,6 +882,18 @@ impl Connection {
         })))
     }
 
+    pub fn with_activate_no_rw<S: ?Sized + AsRef<str>>(command: &S) -> Result<Arc<RwLock<Self>>> {
+        let (child, unix_address, temp_dir) = varlink_exec(command)?;
+        let (stream, address) = varlink_connect(&unix_address)?;
+        Ok(Arc::new(RwLock::new(Connection {
+            reader: None,
+            writer: None,
+            address,
+            stream: Some(stream),
+            child: Some(child),
+            tempdir: temp_dir,
+        })))
+    }
     /// Create a connection to a service via stdin/stdout of a specified command.
     ///
     /// Create a "bridge" to e.g. another host via `ssh` or other connection commands.
@@ -897,6 +923,18 @@ impl Connection {
         })))
     }
 
+    pub fn with_bridge_no_rw<S: ?Sized + AsRef<str>>(command: &S) -> Result<Arc<RwLock<Self>>> {
+        let (child, stream) = varlink_bridge(command)?;
+        Ok(Arc::new(RwLock::new(Connection {
+            reader: None,
+            writer: None,
+            address: "bridge".into(),
+            stream: Some(stream),
+            child: Some(child),
+            tempdir: None,
+        })))
+    }
+
     /// Return the `address` used by the connection.
     ///
     /// Only useful, if you want to clone a connection built
@@ -917,11 +955,10 @@ impl Drop for Connection {
             let _res = child.wait();
         }
         */
-        if self.tempdir.is_some() {
-            if let Some(dir) = self.tempdir.take() {
-                use std::fs;
-                let _r = fs::remove_dir_all(dir);
-            }
+
+        if let Some(ref dir) = self.tempdir {
+            use std::fs;
+            let _r = fs::remove_dir_all(dir);
         }
     }
 }
@@ -935,8 +972,8 @@ where
     connection: Arc<RwLock<Connection>>,
     request: Option<MRequest>,
     method: Option<Cow<'static, str>>,
-    reader: Option<BufReader<Box<Read + Send + Sync>>>,
-    writer: Option<Box<Write + Send + Sync>>,
+    reader: Option<BufReader<Box<dyn Read + Send + Sync>>>,
+    writer: Option<Box<dyn Write + Send + Sync>>,
     continues: bool,
     phantom_reply: PhantomData<MReply>,
     phantom_error: PhantomData<MError>,
@@ -1028,9 +1065,7 @@ where
             w.write_all(b.as_bytes())
                 .map_err(map_context!())
                 .map_err(Error::from)?;
-            w.flush()
-                .map_err(map_context!())
-                .map_err(Error::from)?;
+            w.flush().map_err(map_context!()).map_err(Error::from)?;
             if oneway {
                 conn.writer = Some(w);
             } else {
@@ -1186,7 +1221,7 @@ impl OrgVarlinkServiceInterface for OrgVarlinkServiceClient {
 /// VarlinkService handles all the I/O and dispatches method calls to the registered interfaces.
 pub struct VarlinkService {
     info: ServiceInfo,
-    ifaces: HashMap<Cow<'static, str>, Box<Interface + Send + Sync>>,
+    ifaces: HashMap<Cow<'static, str>, Box<dyn Interface + Send + Sync>>,
 }
 
 impl Interface for VarlinkService {
@@ -1227,20 +1262,18 @@ error InvalidParameter (parameter: string)
         "org.varlink.service"
     }
 
-    fn call_upgraded(&self, call: &mut Call, _bufreader: &mut BufRead) -> Result<Vec<u8>> {
+    fn call_upgraded(&self, call: &mut Call, _bufreader: &mut dyn BufRead) -> Result<Vec<u8>> {
         call.upgraded = false;
         Ok(Vec::new())
     }
 
     fn call(&self, call: &mut Call) -> Result<()> {
         // call.request starts at least with "org.varlink.service."
-        let req = call.request.unwrap();
 
-        match req {
-            Request { method: ref m, .. } if m == "org.varlink.service.GetInfo" => call
-                .reply_parameters(
-                    serde_json::to_value(&self.info).map_err(map_context!())?,
-                ),
+        match call.request.as_ref().unwrap() {
+            Request { method: ref m, .. } if m == "org.varlink.service.GetInfo" => {
+                call.reply_parameters(serde_json::to_value(&self.info).map_err(map_context!())?)
+            }
 
             Request {
                 method: ref m,
@@ -1317,9 +1350,9 @@ impl VarlinkService {
         product: S,
         version: S,
         url: S,
-        interfaces: Vec<Box<Interface + Send + Sync>>,
+        interfaces: Vec<Box<dyn Interface + Send + Sync>>,
     ) -> Self {
-        let mut ifhashmap = HashMap::<Cow<'static, str>, Box<Interface + Send + Sync>>::new();
+        let mut ifhashmap = HashMap::<Cow<'static, str>, Box<dyn Interface + Send + Sync>>::new();
         for i in interfaces {
             ifhashmap.insert(i.get_name().into(), i);
         }
@@ -1355,7 +1388,7 @@ impl VarlinkService {
         &self,
         iface: &str,
         call: &mut Call,
-        bufreader: &mut BufRead,
+        bufreader: &mut dyn BufRead,
     ) -> Result<Vec<u8>> {
         match iface {
             "org.varlink.service" => self::Interface::call_upgraded(self, call, bufreader),
@@ -1374,8 +1407,8 @@ impl VarlinkService {
 pub trait ConnectionHandler {
     fn handle(
         &self,
-        bufreader: &mut BufRead,
-        writer: &mut Write,
+        bufreader: &mut dyn BufRead,
+        writer: &mut dyn Write,
         upgraded_iface: Option<String>,
     ) -> Result<(Vec<u8>, Option<String>)>;
 }
@@ -1414,8 +1447,8 @@ impl ConnectionHandler for VarlinkService {
     /// # fn main() {}
     fn handle(
         &self,
-        bufreader: &mut BufRead,
-        writer: &mut Write,
+        bufreader: &mut dyn BufRead,
+        writer: &mut dyn Write,
         upgraded_last_interface: Option<String>,
     ) -> Result<(Vec<u8>, Option<String>)> {
         let mut upgraded_iface = upgraded_last_interface.clone();

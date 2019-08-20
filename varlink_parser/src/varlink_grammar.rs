@@ -172,7 +172,7 @@ fn __parse_whitespace<'input>(
                 match if __input.len() > __pos {
                     let (__ch, __next) = char_range_at(__input, __pos);
                     match __ch {
-                        ' ' | '\t' | '\u{a0}' | '\u{feff}' | '\u{1680}' | '\u{180e}' | '\u{2000}'...'\u{200a}' | '\u{202f}' | '\u{205f}' | '\u{3000}' => Matched(__next, ()),
+                        ' ' | '\t' | '\u{a0}' | '\u{feff}' | '\u{1680}' | '\u{180e}' | '\u{2000}'..='\u{200a}' | '\u{202f}' | '\u{205f}' | '\u{3000}' => Matched(__next, ()),
                         _ => __state.mark_failure(__pos, "[ \t\u{a0}\u{feff}\u{1680}\u{180e}\u{2000}-\u{200a}\u{202f}\u{205f}\u{3000}]"),
                     }
                 } else {
@@ -472,7 +472,7 @@ fn __parse_field_name<'input>(
             let __seq_res = if __input.len() > __pos {
                 let (__ch, __next) = char_range_at(__input, __pos);
                 match __ch {
-                    'A'...'Z' | 'a'...'z' => Matched(__next, ()),
+                    'A'..='Z' | 'a'..='z' => Matched(__next, ()),
                     _ => __state.mark_failure(__pos, "[A-Za-z]"),
                 }
             } else {
@@ -501,7 +501,7 @@ fn __parse_field_name<'input>(
                                     if __input.len() > __pos {
                                         let (__ch, __next) = char_range_at(__input, __pos);
                                         match __ch {
-                                            'A'...'Z' | 'a'...'z' | '0'...'9' => {
+                                            'A'..='Z' | 'a'..='z' | '0'..='9' => {
                                                 Matched(__next, ())
                                             }
                                             _ => __state.mark_failure(__pos, "[A-Za-z0-9]"),
@@ -545,7 +545,7 @@ fn __parse_name<'input>(
             let __seq_res = if __input.len() > __pos {
                 let (__ch, __next) = char_range_at(__input, __pos);
                 match __ch {
-                    'A'...'Z' => Matched(__next, ()),
+                    'A'..='Z' => Matched(__next, ()),
                     _ => __state.mark_failure(__pos, "[A-Z]"),
                 }
             } else {
@@ -559,7 +559,7 @@ fn __parse_name<'input>(
                         let __step_res = if __input.len() > __pos {
                             let (__ch, __next) = char_range_at(__input, __pos);
                             match __ch {
-                                'A'...'Z' | 'a'...'z' | '0'...'9' => Matched(__next, ()),
+                                'A'..='Z' | 'a'..='z' | '0'..='9' => Matched(__next, ()),
                                 _ => __state.mark_failure(__pos, "[A-Za-z0-9]"),
                             }
                         } else {
@@ -600,7 +600,7 @@ fn __parse_interface_name<'input>(
                     let __seq_res = if __input.len() > __pos {
                         let (__ch, __next) = char_range_at(__input, __pos);
                         match __ch {
-                            'a'...'z' => Matched(__next, ()),
+                            'a'..='z' => Matched(__next, ()),
                             _ => __state.mark_failure(__pos, "[a-z]"),
                         }
                     } else {
@@ -644,7 +644,7 @@ fn __parse_interface_name<'input>(
                                                     let (__ch, __next) =
                                                         char_range_at(__input, __pos);
                                                     match __ch {
-                                                        'a'...'z' | '0'...'9' => {
+                                                        'a'..='z' | '0'..='9' => {
                                                             Matched(__next, ())
                                                         }
                                                         _ => {
@@ -683,7 +683,7 @@ fn __parse_interface_name<'input>(
                                                         let (__ch, __next) =
                                                             char_range_at(__input, __pos);
                                                         match __ch {
-                                                            'a'...'z' | '0'...'9' => {
+                                                            'a'..='z' | '0'..='9' => {
                                                                 Matched(__next, ())
                                                             }
                                                             _ => __state
@@ -741,7 +741,7 @@ fn __parse_interface_name<'input>(
                                                                                         __pos,
                                                                                     );
                                                                                 match __ch {
-                                                                                                    'a'...'z' | '0'...'9' => Matched(__next, ()),
+                                                                                                    'a'..='z' | '0'..='9' => Matched(__next, ()),
                                                                                                     _ => __state.mark_failure(__pos, "[a-z0-9]"),
                                                                                                 }
                                                                             } else {

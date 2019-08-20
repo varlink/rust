@@ -404,7 +404,7 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
             let in_field_names = in_field_names.iter();
             let in_field_types = in_field_types.iter();
             server_method_decls.extend(quote!(
-                fn #method_name (&self, call: &mut #call_name, #(#in_field_names: #in_field_types),*) ->
+                fn #method_name (&self, call: &mut dyn #call_name, #(#in_field_names: #in_field_types),*) ->
                 varlink::Result<()>;
             ));
         }
@@ -452,7 +452,7 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
                                     return Err(varlink::context!(varlink::ErrorKind::SerdeJsonDe(es)).into());
                                 }
                             };
-                            self.inner.#method_name(call as &mut #call_name, #(args.#in_field_names),*)
+                            self.inner.#method_name(call as &mut dyn #call_name, #(args.#in_field_names),*)
                         } else {
                             call.reply_invalid_parameter("parameters".into())
                         }
@@ -460,7 +460,7 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
                 ));
             } else {
                 server_method_impls.extend(quote!(
-                    #varlink_method_name => self.inner.#method_name(call as &mut #call_name),
+                    #varlink_method_name => self.inner.#method_name(call as &mut dyn #call_name),
                 ));
             }
         }
@@ -470,7 +470,7 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
         pub trait VarlinkInterface {
             #server_method_decls
 
-            fn call_upgraded(&self, _call: &mut varlink::Call, _bufreader: &mut BufRead) -> varlink::Result<Vec<u8>> {
+            fn call_upgraded(&self, _call: &mut varlink::Call, _bufreader: &mut dyn BufRead) -> varlink::Result<Vec<u8>> {
                 Ok(Vec::new())
             }
         }
@@ -498,11 +498,11 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
 
         #[allow(dead_code)]
         pub struct VarlinkInterfaceProxy {
-            inner: Box<VarlinkInterface + Send + Sync>,
+            inner: Box<dyn VarlinkInterface + Send + Sync>,
         }
 
         #[allow(dead_code)]
-        pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> VarlinkInterfaceProxy {
+        pub fn new(inner: Box<dyn VarlinkInterface + Send + Sync>) -> VarlinkInterfaceProxy {
             VarlinkInterfaceProxy { inner }
         }
 
@@ -515,7 +515,7 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
                 #iname
             }
 
-            fn call_upgraded(&self, call: &mut varlink::Call, bufreader: &mut BufRead) -> varlink::Result<Vec<u8>> {
+            fn call_upgraded(&self, call: &mut varlink::Call, bufreader: &mut dyn BufRead) -> varlink::Result<Vec<u8>> {
                 self.inner.call_upgraded(call, bufreader)
             }
 
@@ -678,7 +678,7 @@ fn generate_error_code(
         impl Error {
             pub fn source_varlink_kind(&self) -> Option<&varlink::ErrorKind> {
                 use std::error::Error as StdError;
-                let mut s: &StdError = self;
+                let mut s: &dyn StdError = self;
                 while let Some(c) = s.source() {
                     let k = self
                         .source()
@@ -798,7 +798,7 @@ pub fn compile(source: String) -> Result<TokenStream> {
 
 /// `generate` reads a varlink interface definition from `reader` and writes
 /// the rust code to `writer`.
-pub fn generate(reader: &mut Read, writer: &mut Write, tosource: bool) -> Result<()> {
+pub fn generate(reader: &mut dyn Read, writer: &mut dyn Write, tosource: bool) -> Result<()> {
     generate_with_options(
         reader,
         writer,
@@ -812,8 +812,8 @@ pub fn generate(reader: &mut Read, writer: &mut Write, tosource: bool) -> Result
 /// `generate_with_options` reads a varlink interface definition from `reader`
 /// and writes the rust code to `writer`.
 pub fn generate_with_options(
-    reader: &mut Read,
-    writer: &mut Write,
+    reader: &mut dyn Read,
+    writer: &mut dyn Write,
     options: &GeneratorOptions,
     tosource: bool,
 ) -> Result<()> {
@@ -955,7 +955,7 @@ where
             .join(input_path.file_name().unwrap())
             .with_extension("rs");
 
-        let writer: &mut Write = &mut (File::create(&rust_path).unwrap_or_else(|e| {
+        let writer: &mut dyn Write = &mut (File::create(&rust_path).unwrap_or_else(|e| {
             eprintln!(
                 "Could not open varlink output file `{}`: {}",
                 rust_path.display(),
@@ -964,7 +964,7 @@ where
             exit(1);
         }));
 
-        let reader: &mut Read = &mut (File::open(input_path).unwrap_or_else(|e| {
+        let reader: &mut dyn Read = &mut (File::open(input_path).unwrap_or_else(|e| {
             eprintln!(
                 "Could not read varlink input file `{}`: {}",
                 input_path.display(),
@@ -1077,7 +1077,7 @@ pub fn cargo_build_tosource_options<T: AsRef<Path> + ?Sized>(
         .unwrap()
         .join(Path::new(&newfilename).with_extension("rs"));
 
-    let writer: &mut Write = &mut (File::create(&rust_path).unwrap_or_else(|e| {
+    let writer: &mut dyn Write = &mut (File::create(&rust_path).unwrap_or_else(|e| {
         eprintln!(
             "Could not open varlink output file `{}`: {}",
             rust_path.display(),
@@ -1086,7 +1086,7 @@ pub fn cargo_build_tosource_options<T: AsRef<Path> + ?Sized>(
         exit(1);
     }));
 
-    let reader: &mut Read = &mut (File::open(input_path).unwrap_or_else(|e| {
+    let reader: &mut dyn Read = &mut (File::open(input_path).unwrap_or_else(|e| {
         eprintln!(
             "Could not read varlink input file `{}`: {}",
             input_path.display(),

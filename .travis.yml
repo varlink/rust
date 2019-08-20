@@ -13,9 +13,6 @@ cache:
   timeout: 1000
   cargo: true
 
-before_cache:
-- rm -rf target
-
 script:
 - cargo update
 - cargo build --all

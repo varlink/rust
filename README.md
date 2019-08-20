@@ -5,6 +5,7 @@
 [![Coverage Status](https://coveralls.io/repos/github/varlink/rust/badge.svg?branch=master)](https://coveralls.io/github/varlink/rust?branch=master)
 [![Crate](https://img.shields.io/crates/v/varlink.svg)](https://crates.io/crates/varlink)
 [![Rust Documentation](https://img.shields.io/badge/api-rustdoc-blue.svg)](https://docs.rs/varlink/)
+[![dependency status](https://deps.rs/repo/github/varlink/rust/status.svg)](https://deps.rs/repo/github/varlink/rust)
 
 See http://varlink.org for more information about varlink.
 

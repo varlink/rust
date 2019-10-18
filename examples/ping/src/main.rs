@@ -279,7 +279,9 @@ mod multiplex {
         listener.set_nonblocking(true)?;
 
         fds.push(libc::pollfd {
-            fd: listener.as_raw_fd(),
+            fd: listener
+                .as_raw_fd()
+                .ok_or_else(|| varlink::context!(varlink::error::ErrorKind::ConnectionClosed))?,
             revents: 0,
             events: libc::POLLIN,
         });

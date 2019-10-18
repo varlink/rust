@@ -162,11 +162,9 @@ impl Listener {
         use winapi::um::winsock2::{fd_set, select, timeval};
 
         if timeout > 0 {
-            let socket: usize = match self {
-                Listener::TCP(Some(l), _) => l.as_raw_socket(),
-                Listener::UNIX(Some(l), _) => l.as_raw_socket(),
-                _ => return Err(context!(ErrorKind::ConnectionClosed)),
-            } as usize;
+            let socket: usize =
+                self.as_raw_socket()
+                    .ok_or_else(|| context!(ErrorKind::ConnectionClosed))? as usize;
 
             unsafe {
                 let mut readfs: fd_set = mem::MaybeUninit::zeroed().assume_init();
@@ -174,14 +172,20 @@ impl Listener {
                     readfs.fd_count = 1;
                     readfs.fd_array[0] = socket;
 
-                    let mut writefds: fd_set = mem::MaybeUninit::zeroed().assume_init();
-                    let mut errorfds: fd_set = mem::MaybeUninit::zeroed().assume_init();
+                    let mut writefds = mem::MaybeUninit::zeroed();
+                    let mut errorfds = mem::MaybeUninit::zeroed();
                     let mut timeout = timeval {
                         tv_sec: timeout as i32,
                         tv_usec: 0,
                     };
 
-                    let ret = select(0, &mut readfs, &mut writefds, &mut errorfds, &mut timeout);
+                    let ret = select(
+                        0,
+                        &mut readfs,
+                        writefds.as_mut_ptr(),
+                        errorfds.as_mut_ptr(),
+                        &mut timeout,
+                    );
                     if ret != EINTR {
                         break;
                     }
@@ -211,11 +215,9 @@ impl Listener {
         use libc::{fd_set, select, time_t, timeval, EAGAIN, EINTR, FD_ISSET, FD_SET, FD_ZERO};
 
         if timeout > 0 {
-            let fd = match self {
-                Listener::TCP(Some(l), _) => l.as_raw_fd(),
-                Listener::UNIX(Some(l), _) => l.as_raw_fd(),
-                _ => return Err(Error::from(context!(ErrorKind::ConnectionClosed))),
-            };
+            let fd = self
+                .as_raw_fd()
+                .ok_or_else(|| context!(ErrorKind::ConnectionClosed))?;
 
             unsafe {
                 let mut readfs = mem::MaybeUninit::<fd_set>::uninit();
@@ -273,20 +275,20 @@ impl Listener {
     }
 
     #[cfg(unix)]
-    pub fn as_raw_fd(&self) -> RawFd {
+    pub fn as_raw_fd(&self) -> Option<RawFd> {
         match *self {
-            Listener::TCP(Some(ref l), _) => l.as_raw_fd(),
-            Listener::UNIX(Some(ref l), _) => l.as_raw_fd(),
-            _ => panic!("pattern `TCP(None, _)` not covered"),
+            Listener::TCP(Some(ref l), _) => Some(l.as_raw_fd()),
+            Listener::UNIX(Some(ref l), _) => Some(l.as_raw_fd()),
+            _ => None,
         }
     }
 
     #[cfg(windows)]
-    pub fn as_raw_socket(&self) -> RawSocket {
+    pub fn as_raw_socket(&self) -> Option<RawSocket> {
         match *self {
-            Listener::TCP(Some(ref l), _) => l.as_raw_socket(),
-            Listener::UNIX(Some(ref l), _) => l.as_raw_socket(),
-            _ => panic!("pattern `TCP(None, _)` not covered"),
+            Listener::TCP(Some(ref l), _) => Some(l.as_raw_socket()),
+            Listener::UNIX(Some(ref l), _) => Some(l.as_raw_socket()),
+            _ => None,
         }
     }
 }

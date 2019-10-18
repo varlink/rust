@@ -57,19 +57,19 @@
 //! # }
 //! # impl<'a> Call_Ping for varlink::Call<'a> {}
 //! # pub trait VarlinkInterface {
-//! #     fn ping(&self, call: &mut Call_Ping, ping: String) -> Result<()>;
-//! #     fn call_upgraded(&self, _call: &mut varlink::Call, bufreader: &mut io::BufRead) ->
+//! #     fn ping(&self, call: &mut dyn Call_Ping, ping: String) -> Result<()>;
+//! #     fn call_upgraded(&self, _call: &mut varlink::Call, bufreader: &mut dyn io::BufRead) ->
 //! # Result<Vec<u8>> {Ok(Vec::new())}
 //! # }
-//! # pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
-//! # pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
+//! # pub struct _InterfaceProxy {inner: Box<dyn VarlinkInterface + Send + Sync>}
+//! # pub fn new(inner: Box<dyn VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
 //! #     _InterfaceProxy { inner }
 //! # }
 //! # impl varlink::Interface for _InterfaceProxy {
 //! #     fn get_description(&self) -> &'static str { "interface org.example.ping\n\
 //! #                                                  method Ping(ping: string) -> (pong: string)" }
 //! #     fn get_name(&self) -> &'static str { "org.example.ping" }
-//! #     fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut io::BufRead) ->
+//! #     fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut dyn io::BufRead) ->
 //! # Result<Vec<u8>> { Ok(Vec::new()) }
 //! #     fn call(&self, call: &mut varlink::Call) -> Result<()> { Ok(()) }
 //! # }
@@ -77,7 +77,7 @@
 //! struct MyOrgExamplePing;
 //!
 //! impl VarlinkInterface for MyOrgExamplePing {
-//!     fn ping(&self, call: &mut Call_Ping, ping: String) -> Result<()> {
+//!     fn ping(&self, call: &mut dyn Call_Ping, ping: String) -> Result<()> {
 //!         return call.reply(ping);
 //!     }
 //! }
@@ -102,7 +102,7 @@
 //! # impl<'a> Call_TestMethod for varlink::Call<'a> {}
 //! # struct TestService;
 //! # impl TestService {
-//! fn test_method(&self, call: &mut Call_TestMethod, /* more arguments */) -> Result<()> {
+//! fn test_method(&self, call: &mut dyn Call_TestMethod, /* more arguments */) -> Result<()> {
 //!     /* ... */
 //! return call.reply( /* more arguments */ );
 //! }
@@ -129,19 +129,19 @@
 //! # }
 //! # impl<'a> Call_Ping for varlink::Call<'a> {}
 //! # pub trait VarlinkInterface {
-//! #     fn ping(&self, call: &mut Call_Ping, ping: String) -> Result<()>;
-//! #     fn call_upgraded(&self, _call: &mut varlink::Call, bufreader: &mut io::BufRead) ->
+//! #     fn ping(&self, call: &mut dyn Call_Ping, ping: String) -> Result<()>;
+//! #     fn call_upgraded(&self, _call: &mut varlink::Call, bufreader: &mut dyn io::BufRead) ->
 //! # Result<Vec<u8>> {Ok(Vec::new())}
 //! # }
-//! # pub struct _InterfaceProxy {inner: Box<VarlinkInterface + Send + Sync>}
-//! # pub fn new(inner: Box<VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
+//! # pub struct _InterfaceProxy {inner: Box<dyn VarlinkInterface + Send + Sync>}
+//! # pub fn new(inner: Box<dyn VarlinkInterface + Send + Sync>) -> _InterfaceProxy {
 //! #     _InterfaceProxy { inner }
 //! # }
 //! # impl varlink::Interface for _InterfaceProxy {
 //! #     fn get_description(&self) -> &'static str { "interface org.example.ping\n\
 //! #                                                  method Ping(ping: string) -> (pong: string)" }
 //! #     fn get_name(&self) -> &'static str { "org.example.ping" }
-//! #     fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut io::BufRead) ->
+//! #     fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut dyn io::BufRead) ->
 //! # Result<Vec<u8>> { Ok(Vec::new()) }
 //! #     fn call(&self, call: &mut varlink::Call) -> Result<()> { Ok(()) }
 //! # }}
@@ -150,7 +150,7 @@
 //! # struct MyOrgExamplePing;
 //! #
 //! # impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
-//! #     fn ping(&self, call: &mut Call_Ping, ping: String) -> varlink::Result<()> {
+//! #     fn ping(&self, call: &mut dyn Call_Ping, ping: String) -> varlink::Result<()> {
 //! #         return call.reply(ping);
 //! #     }
 //! # }
@@ -540,7 +540,7 @@ where
 /// # impl<'a> Call_TestMethod for varlink::Call<'a> {}
 /// # struct TestService;
 /// # impl TestService {
-/// fn test_method(&self, call: &mut Call_TestMethod, /* more arguments */) -> varlink::Result<()> {
+/// fn test_method(&self, call: &mut dyn Call_TestMethod, /* more arguments */) -> varlink::Result<()> {
 ///    /* ... */
 ///    return call.reply( /* more arguments */ );
 /// }
@@ -575,9 +575,9 @@ pub struct Call<'a> {
 /// # impl<'a> Call_TestMethod for varlink::Call<'a> {}
 /// # struct TestService;
 /// # impl TestService {
-/// fn test_method(&self, call: &mut Call_TestMethod, testparam: i64) -> varlink::Result<()> {
+/// fn test_method(&self, call: &mut dyn Call_TestMethod, testparam: i64) -> varlink::Result<()> {
 ///     match testparam {
-///         0 ... 100 => {}
+///         0 ..= 100 => {}
 ///         _ => {
 ///             return call.reply_invalid_parameter("testparam".into());
 ///         }
@@ -605,7 +605,7 @@ pub struct Call<'a> {
 /// # impl<'a> Call_TestMethodNotImplemented for varlink::Call<'a> {}
 /// # struct TestService;
 /// # impl TestService {
-/// fn test_method_not_implemented(&self, call: &mut Call_TestMethodNotImplemented)
+/// fn test_method_not_implemented(&self, call: &mut dyn Call_TestMethodNotImplemented)
 ///     -> varlink::Result<()> {
 ///     return call.reply_method_not_implemented("TestMethodNotImplemented".into());
 /// }
@@ -634,7 +634,7 @@ pub trait CallTrait {
     /// # impl<'a> Call_TestMethod for varlink::Call<'a> {}
     /// # struct TestService;
     /// # impl TestService {
-    /// fn test_method(&self, call: &mut Call_TestMethod) -> varlink::Result<()> {
+    /// fn test_method(&self, call: &mut dyn Call_TestMethod) -> varlink::Result<()> {
     ///     call.set_continues(true);
     ///     call.reply( /* more args*/ )?;
     ///     call.reply( /* more args*/ )?;
@@ -1323,7 +1323,7 @@ impl VarlinkService {
     /// # fn get_description(&self) -> &'static str {
     /// #                    "interface org.example.ping\nmethod Ping(ping: string) -> (pong: string)" }
     /// # fn get_name(&self) -> &'static str { "org.example.ping" }
-    /// # fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut io::BufRead) ->
+    /// # fn call_upgraded(&self, call: &mut varlink::Call, _bufreader: &mut dyn io::BufRead) ->
     /// # varlink::Result<Vec<u8>> { Ok(Vec::new()) }
     /// # fn call(&self, call: &mut varlink::Call) -> varlink::Result<()> { Ok(()) }
     /// # }

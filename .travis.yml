@@ -17,8 +17,8 @@ script:
 - cargo update
 - cargo build --all
 - cargo test --all
-- cargo build --all --all-features
-- cargo test --all --all-features
+- cargo build --all
+- cargo test --all
 matrix:
   allow_failures:
   - rust: nightly

@@ -23,10 +23,10 @@ name = "varlink"
 path = "src/lib.rs"
 
 [dependencies]
-serde = "1"
-serde_derive = "1"
-serde_json = "1"
-tempfile = "3"
+serde = "1.0.102"
+serde_derive = "1.0.102"
+serde_json = "1.0.41"
+tempfile = "3.1.0"
 
 [features]
 default = []

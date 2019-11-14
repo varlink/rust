@@ -19,8 +19,8 @@ build = "build.rs"
 travis-ci = { repository = "varlink/rust" }
 
 [dependencies]
-ansi_term = "0.12"
-chainerror = "0.4.2"
+ansi_term = "0.12.1"
+chainerror = "0.4.3"
 
 [features]
 default = []

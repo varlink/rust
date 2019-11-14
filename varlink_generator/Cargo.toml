@@ -24,11 +24,11 @@ path = "src/bin/varlink-rust-generator.rs"
 
 [dependencies]
 varlink_parser = { version = "4", path = "../varlink_parser" }
-quote = "1.0.0"
-proc-macro2 = "1.0.0"
-getopts = "0"
-syn = "1.0.1"
-chainerror = "0.4.2"
+quote = "1.0.2"
+proc-macro2 = "1.0.6"
+getopts = "0.2.21"
+syn = "1.0.8"
+chainerror = "0.4.3"
 
 [badges]
 travis-ci = { repository = "varlink/rust" }

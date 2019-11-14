@@ -1,6 +1,6 @@
 [package]
 name = "varlink"
-version = "9.0.1"
+version = "10.0.0"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 edition = "2018"
 

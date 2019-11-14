@@ -14,7 +14,7 @@ use std::os::unix::net::{UnixListener, UnixStream};
 #[cfg(windows)]
 use std::os::windows::io::{AsRawSocket, FromRawSocket, IntoRawSocket, RawSocket};
 use std::process;
-use std::sync::{mpsc, Arc, Mutex, RwLock};
+use std::sync::{mpsc, Arc, Mutex, RwLock, atomic::{AtomicBool, Ordering}};
 
 #[cfg(windows)]
 use uds_windows::UnixListener;
@@ -489,6 +489,7 @@ impl Worker {
 pub fn listen<S: ?Sized + AsRef<str>, H: crate::ConnectionHandler + Send + Sync + 'static>(
     handler: H,
     address: &S,
+    running: Arc<AtomicBool>,
     initial_worker_threads: usize,
     max_worker_threads: usize,
     idle_timeout: u64,
@@ -496,24 +497,35 @@ pub fn listen<S: ?Sized + AsRef<str>, H: crate::ConnectionHandler + Send + Sync 
     let handler = Arc::new(handler);
     let listener = Listener::new(address)?;
 
-    listener.set_nonblocking(false)?;
+    listener.set_nonblocking(true)?;
 
     let mut pool = ThreadPool::new(initial_worker_threads, max_worker_threads);
 
-    loop {
-        let mut stream = match listener.accept(idle_timeout) {
-            Err(e) => match e.kind() {
-                ErrorKind::Timeout => {
-                    if pool.num_busy() == 0 {
+    'respond: loop {
+        let mut stream;
+        loop {
+            match listener.accept(idle_timeout) {
+                Err(e) => match e.kind() {
+                    ErrorKind::Timeout => {
+                        if pool.num_busy() == 0 {
+                            return Err(e);
+                        }
+                        continue 'respond;
+                    },
+                    ErrorKind::Io(std::io::ErrorKind::WouldBlock) => {
+                        // Exit listener if running is set to false
+                        if !running.load(Ordering::SeqCst) { return Ok(()); }
+                    },
+                    _ => {
+                        println!("{:#?}", e);
                         return Err(e);
                     }
-                    continue;
-                }
-                _ => {
-                    return Err(e);
-                }
-            },
-            r => r?,
+                },
+                r => {
+                    stream = r?;
+                    break;
+                },
+            };
         };
         let handler = handler.clone();
 

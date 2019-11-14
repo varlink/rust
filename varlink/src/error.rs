@@ -85,7 +85,9 @@ impl From<ErrorKind> for Error {
 
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.1.as_ref().map(|e| e.as_ref() as &(dyn std::error::Error + 'static))
+        self.1
+            .as_ref()
+            .map(|e| e.as_ref() as &(dyn std::error::Error + 'static))
     }
 }
 
@@ -121,15 +123,29 @@ macro_rules! map_context {
 
 #[macro_export]
 macro_rules! context {
-    ( $k:expr ) => ({
+    ( $k:expr ) => {{
         $crate::error::Error($k, None, Some(concat!(file!(), ":", line!(), ": ")))
-    });
-    ( None, $k:expr ) => ({
+    }};
+    ( None, $k:expr ) => {{
         $crate::error::Error($k, None, Some(concat!(file!(), ":", line!(), ": ")))
-    });
-    ( $e:path, $k:expr ) => ({
-        $crate::error::Error($k, Some(Box::from($e)), Some(concat!(file!(), ":", line!(), ": ")))
-    });
+    }};
+    ( $e:path, $k:expr ) => {{
+        $crate::error::Error(
+            $k,
+            Some(Box::from($e)),
+            Some(concat!(file!(), ":", line!(), ": ")),
+        )
+    }};
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+#[cfg(test)]
+mod tests {
+    use static_assertions::assert_impl_all;
+
+    #[test]
+    fn error_is_sync_send() {
+        assert_impl_all!(crate::error::Error: Send, Sync);
+    }
+}

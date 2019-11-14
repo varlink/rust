@@ -614,7 +614,7 @@ fn generate_error_code(
         ts.extend(quote!(
         pub struct Error(
             pub ErrorKind,
-            pub Option<Box<dyn std::error::Error + 'static>>,
+            pub Option<Box<dyn std::error::Error + 'static + Send + Sync>>,
             pub Option<&'static str>,
         );
 
@@ -633,7 +633,7 @@ fn generate_error_code(
 
         impl std::error::Error for Error {
             fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-                self.1.as_ref().map(|e| e.as_ref())
+                self.1.as_ref().map(|e| e.as_ref() as &(dyn std::error::Error + 'static))
             }
         }
 

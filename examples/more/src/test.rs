@@ -1,4 +1,5 @@
 use crate::Result;
+use static_assertions::assert_impl_all;
 use std::{thread, time};
 use varlink::Connection;
 
@@ -36,4 +37,10 @@ fn test_unix() -> Result<()> {
 #[test]
 fn test_tcp() -> Result<()> {
     run_self_test("tcp:127.0.0.1:12345".into())
+}
+
+#[test]
+fn error_is_sync_send() {
+    use crate::org_example_more::Error;
+    assert_impl_all!(Error: Send, Sync);
 }

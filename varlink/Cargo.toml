@@ -1,6 +1,6 @@
 [package]
 name = "varlink"
-version = "9.0.0"
+version = "9.0.1"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 edition = "2018"
 
@@ -38,3 +38,6 @@ winapi = { version = "0.3", features = ["winuser", "winsock2"] }
 [target.'cfg(unix)'.dependencies]
 libc = { version = "0", default-features = false }
 unix_socket = "0.5"
+
+[dev-dependencies]
+static_assertions = "1.1.0"

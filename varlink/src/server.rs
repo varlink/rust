@@ -14,7 +14,10 @@ use std::os::unix::net::{UnixListener, UnixStream};
 #[cfg(windows)]
 use std::os::windows::io::{AsRawSocket, FromRawSocket, IntoRawSocket, RawSocket};
 use std::process;
-use std::sync::{mpsc, Arc, Mutex, RwLock};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    mpsc, Arc, Mutex, RwLock,
+};
 
 #[cfg(windows)]
 use uds_windows::UnixListener;
@@ -166,6 +169,11 @@ impl Listener {
                 self.as_raw_socket()
                     .ok_or_else(|| context!(ErrorKind::ConnectionClosed))? as usize;
 
+            let mut timeout = timeval {
+                tv_sec: (timeout / 1000u64) as _,
+                tv_usec: ((timeout % 1000u64) * 1000u64) as _,
+            };
+
             unsafe {
                 let mut readfs: fd_set = mem::MaybeUninit::zeroed().assume_init();
                 loop {
@@ -174,10 +182,6 @@ impl Listener {
 
                     let mut writefds = mem::MaybeUninit::zeroed();
                     let mut errorfds = mem::MaybeUninit::zeroed();
-                    let mut timeout = timeval {
-                        tv_sec: timeout as i32,
-                        tv_usec: 0,
-                    };
 
                     let ret = select(
                         0,
@@ -212,12 +216,17 @@ impl Listener {
 
     #[cfg(unix)]
     pub fn accept(&self, timeout: u64) -> Result<Box<dyn Stream>> {
-        use libc::{fd_set, select, time_t, timeval, EAGAIN, EINTR, FD_ISSET, FD_SET, FD_ZERO};
+        use libc::{fd_set, select, timeval, EAGAIN, EINTR, FD_ISSET, FD_SET, FD_ZERO};
 
         if timeout > 0 {
             let fd = self
                 .as_raw_fd()
                 .ok_or_else(|| context!(ErrorKind::ConnectionClosed))?;
+
+            let mut timeout = timeval {
+                tv_sec: (timeout / 1000u64) as _,
+                tv_usec: ((timeout % 1000u64) * 1000u64) as _,
+            };
 
             unsafe {
                 let mut readfs = mem::MaybeUninit::<fd_set>::uninit();
@@ -230,10 +239,6 @@ impl Listener {
                     let mut errorfds = mem::MaybeUninit::<fd_set>::uninit();
                     FD_ZERO(errorfds.as_mut_ptr());
                     errorfds.assume_init();
-                    let mut timeout = timeval {
-                        tv_sec: timeout as time_t,
-                        tv_usec: 0,
-                    };
 
                     FD_SET(fd, readfs.as_mut_ptr());
                     let ret = select(
@@ -458,9 +463,44 @@ impl Worker {
     }
 }
 
+/// `ListenConfig` specifies the configuration parameters for [`varlink::listen`]
+///
+/// Examples:
+///
+/// ```rust
+/// let l = varlink::ListenConfig::default();
+/// assert_eq!(l.initial_worker_threads, 1);
+/// assert_eq!(l.max_worker_threads, 100);
+/// assert_eq!(l.idle_timeout, 0);
+/// assert!(l.stop_listening.is_none());
+/// ```
+///
+/// [`varlink::listen`]: fn.listen.html
+pub struct ListenConfig {
+    /// The amount of initial worker threads
+    pub initial_worker_threads: usize,
+    /// The maximum amount of worker threads
+    pub max_worker_threads: usize,
+    /// Time in seconds for the server to quit, when it is idle
+    pub idle_timeout: u64,
+    /// An optional AtomicBool as a global flag, which lets the server stop accepting new connections, when set to `true`
+    pub stop_listening: Option<Arc<AtomicBool>>,
+}
+
+impl Default for ListenConfig {
+    fn default() -> Self {
+        ListenConfig {
+            initial_worker_threads: 1,
+            max_worker_threads: 100,
+            idle_timeout: 0,
+            stop_listening: None,
+        }
+    }
+}
+
 /// `listen` creates a server, with `num_worker` threads listening on `varlink_uri`.
 ///
-/// If an `idle_timeout` != 0 is specified, this function returns after the specified
+/// If an `listen_config.idle_timeout` != 0 is specified, this function returns after the specified
 /// amount of seconds, if no new connection is made in that time frame. It still waits for
 /// all pending connections to finish.
 ///
@@ -477,7 +517,14 @@ impl Worker {
 ///     vec![/* Your varlink interfaces go here */],
 /// );
 ///
-/// if let Err(e) = varlink::listen(service, "unix:test_listen_timeout", 1, 10, 1) {
+/// if let Err(e) = varlink::listen(
+///         service,
+///         "unix:test_listen_timeout",
+///         &varlink::ListenConfig {
+///             idle_timeout: 1,
+///             ..Default::default()
+///         },
+///     ) {
 ///     if *e.kind() != varlink::ErrorKind::Timeout {
 ///         panic!("Error listen: {:?}", e);
 ///     }
@@ -489,31 +536,55 @@ impl Worker {
 pub fn listen<S: ?Sized + AsRef<str>, H: crate::ConnectionHandler + Send + Sync + 'static>(
     handler: H,
     address: &S,
-    initial_worker_threads: usize,
-    max_worker_threads: usize,
-    idle_timeout: u64,
+    listen_config: &ListenConfig,
 ) -> Result<()> {
     let handler = Arc::new(handler);
     let listener = Listener::new(address)?;
 
     listener.set_nonblocking(false)?;
 
-    let mut pool = ThreadPool::new(initial_worker_threads, max_worker_threads);
+    let mut pool = ThreadPool::new(
+        listen_config.initial_worker_threads,
+        listen_config.max_worker_threads,
+    );
 
     loop {
-        let mut stream = match listener.accept(idle_timeout) {
-            Err(e) => match e.kind() {
-                ErrorKind::Timeout => {
-                    if pool.num_busy() == 0 {
+        let mut to_wait = listen_config.idle_timeout * 1000;
+        let wait_time = listen_config
+            .stop_listening
+            .as_ref()
+            .map(|_| 100)
+            .unwrap_or(to_wait);
+        let mut stream = loop {
+            match listener.accept(wait_time) {
+                Err(e) => match e.kind() {
+                    ErrorKind::Timeout => {
+                        if let Some(stop) = listen_config.stop_listening.as_ref() {
+                            if stop.load(Ordering::SeqCst) {
+                                return Ok(());
+                            }
+                            if listen_config.idle_timeout == 0 {
+                                continue;
+                            }
+                        }
+
+                        if to_wait <= wait_time {
+                            if pool.num_busy() == 0 {
+                                return Err(e);
+                            }
+                            to_wait = listen_config.idle_timeout * 1000;
+                        } else {
+                            to_wait -= wait_time;
+                        }
+
+                        continue;
+                    }
+                    _ => {
                         return Err(e);
                     }
-                    continue;
-                }
-                _ => {
-                    return Err(e);
-                }
-            },
-            r => r?,
+                },
+                r => break r?,
+            }
         };
         let handler = handler.clone();
 

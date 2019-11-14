@@ -13,7 +13,14 @@ fn test_listen() -> Result<()> {
             vec![], // Your varlink interfaces go here
         );
 
-        if let Err(e) = listen(service, &address, 1, 10, timeout) {
+        if let Err(e) = listen(
+            service,
+            &address,
+            &ListenConfig {
+                idle_timeout: timeout,
+                ..Default::default()
+            },
+        ) {
             if *e.kind() != ErrorKind::Timeout {
                 panic!("Error listen: {:#?}", e);
             }
@@ -187,8 +194,7 @@ fn test_handle() -> Result<()> {
 
     let reply = from_slice::<Reply>(&w).unwrap();
 
-    let si =
-        from_value::<ServiceInfo>(reply.parameters.unwrap()).map_err(map_context!())?;
+    let si = from_value::<ServiceInfo>(reply.parameters.unwrap()).map_err(map_context!())?;
 
     assert_eq!(
         si,

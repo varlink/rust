@@ -29,6 +29,7 @@ fn main() {
     opts.optflag("", "client", "run in client mode");
     opts.optopt("", "bridge", "bridge", "<bridge>");
     opts.optflag("m", "multiplex", "run in multiplex mode");
+    opts.optopt("t", "timeout", "server timeout", "<seconds>");
     opts.optflag("h", "help", "print this help menu");
 
     let matches = match opts.parse(&args[1..]) {
@@ -62,9 +63,17 @@ fn main() {
         };
         run_client(&connection).map_err(|e| e.into())
     } else if let Some(address) = matches.opt_str("varlink") {
-        run_server(&address, 1000, matches.opt_present("m"))
-            //            .map_err(mstrerr!("running server with address {}", address))
-            .map_err(|e| e.into())
+        let timeout = matches
+            .opt_str("timeout")
+            .unwrap_or("0".to_string())
+            .parse::<u64>()
+            .map_err(From::from);
+
+        timeout.and_then(|timeout| {
+            run_server(&address, timeout, matches.opt_present("m"))
+                //            .map_err(mstrerr!("running server with address {}", address))
+                .map_err(From::from)
+        })
     } else {
         print_usage(&program, &opts);
         eprintln!("Need varlink address in server mode.");
@@ -510,7 +519,30 @@ fn run_server(address: &str, timeout: u64, multiplex: bool) -> varlink::Result<(
             // Demonstrate a single process, single-threaded service
             multiplex::listen_multiplex(service, &address, timeout)?;
         } else {
-            varlink::listen(service, &address, 1, 10, timeout)?;
+            /*
+            use std::sync::atomic::Ordering;
+            use std::{thread, time};
+            let stop_listening = Arc::new(std::sync::atomic::AtomicBool::new(false));
+
+            let child = {
+                let stop_running = stop_listening.clone();
+                thread::spawn(move || {
+                    thread::sleep(time::Duration::from_secs(10));
+                    stop_running.store(true, Ordering::Relaxed);
+                })
+            };
+            */
+            varlink::listen(
+                service,
+                &address,
+                &varlink::ListenConfig {
+                    idle_timeout: timeout,
+                    // stop_listening: Some(stop_listening),
+                    ..Default::default()
+                },
+            )?;
+
+            //child.join().expect("Error joining thread");
         }
     }
     Ok(())

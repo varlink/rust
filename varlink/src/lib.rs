@@ -170,7 +170,12 @@
 //!     ],
 //! );
 //!
-//! varlink::listen(service, &args[1], 1, 10, 0);
+//! varlink::listen(service, &args[1],
+//!     &varlink::ListenConfig {
+//!         idle_timeout: 1,
+//!         ..Default::default()
+//!     },
+//! );
 //! # }
 //! # fn main() {}
 //! ```
@@ -242,7 +247,7 @@ pub use crate::stream::Stream;
 pub type VarlinkStream = Box<dyn Stream>;
 pub type ServerStream = Box<dyn Stream>;
 
-pub use crate::server::{listen, Listener};
+pub use crate::server::{listen, ListenConfig, Listener};
 
 #[macro_use]
 pub mod error;

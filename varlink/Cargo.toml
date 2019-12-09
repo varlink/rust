@@ -37,7 +37,6 @@ winapi = { version = "0.3", features = ["winuser", "winsock2"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = { version = "0", default-features = false }
-unix_socket = "0.5"
 
 [dev-dependencies]
 static_assertions = "1.1.0"

@@ -71,13 +71,9 @@ fn activation_listener() -> Result<Option<usize>> {
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 fn get_abstract_unixlistener(addr: &str) -> Result<UnixListener> {
-    // FIXME: abstract unix domains sockets still not in std
-    // FIXME: https://github.com/rust-lang/rust/issues/14194
-    use unix_socket::UnixListener as AbstractUnixListener;
-
     unsafe {
         Ok(UnixListener::from_raw_fd(
-            AbstractUnixListener::bind(addr)
+            UnixListener::bind(addr)
                 .map_err(map_context!())?
                 .into_raw_fd(),
         ))

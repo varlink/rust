@@ -56,12 +56,6 @@ pub use crate::format::{Format, FormatColored};
 #[cfg(test)]
 mod test;
 
-#[cfg(feature = "peg")]
-mod varlink_grammar {
-    include!(concat!(env!("OUT_DIR"), "/varlink_grammar.rs"));
-}
-
-#[cfg(not(feature = "peg"))]
 mod varlink_grammar;
 
 derive_str_cherr!(Error);
@@ -226,35 +220,31 @@ impl<'a> IDL<'a> {
 impl<'a> IDL<'a> {
     pub fn from_string(s: &'a str) -> ChainResult<Self, Error> {
         let interface = ParseInterface(s).map_err(|e| {
-            let line = s.split('\n').nth(e.line - 1).unwrap();
+            let line = s.split('\n').nth(e.location.line - 1).unwrap();
             cherr!(
                 e,
                 Error(format!(
                     "Varlink parse error\n{}\n{marker:>col$}",
                     line,
                     marker = "^",
-                    col = e.column
+                    col = e.location.column
                 ))
             )
         })?;
         if !interface.error.is_empty() {
-            let mut v : Vec<_> = interface.error.into_iter().collect();
+            let mut v: Vec<_> = interface.error.into_iter().collect();
             v.sort();
             let mut s = String::new();
-            let mut first : bool = true;
+            let mut first: bool = true;
             for i in v.iter() {
-                if ! first {
+                if !first {
                     s += "\n";
                 }
                 first = false;
                 s += &i.to_string();
             }
 
-            Err(strerr!(
-                Error,
-                "Interface definition error: '{}'\n",
-                s
-            ))
+            Err(strerr!(Error, "Interface definition error: '{}'\n", s))
         } else {
             Ok(interface)
         }

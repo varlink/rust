@@ -84,8 +84,11 @@ pub fn varlink(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn varlink_file(input: TokenStream) -> TokenStream {
     let (name, filename, _) = parse_varlink_filename_args(input);
-    let mut source =  Vec::<u8>::new();
-    std::fs::File::open(filename).unwrap().read_to_end(&mut source).unwrap();
+    let mut source = Vec::<u8>::new();
+    std::fs::File::open(filename)
+        .unwrap()
+        .read_to_end(&mut source)
+        .unwrap();
     expand_varlink(name, String::from_utf8_lossy(&source).to_string())
 }
 
@@ -117,7 +120,6 @@ fn parse_varlink_filename_args(input: TokenStream) -> (String, String, Span) {
     }
     (name, body_string, span)
 }
-
 
 // Parse a TokenStream of the form `name r#""#`
 fn parse_varlink_args(input: TokenStream) -> (String, String, Span) {

@@ -4,7 +4,7 @@
 
 use std::net::TcpStream;
 #[cfg(unix)]
-use std::os::unix::io::IntoRawFd;
+use std::os::unix::io::{AsRawFd, IntoRawFd};
 #[cfg(unix)]
 use std::os::unix::net::UnixStream;
 use std::process::Child;
@@ -90,7 +90,7 @@ pub fn varlink_exec<S: ?Sized + AsRef<str>>(
     let file_path = dir.path().join("varlink-socket");
 
     let listener = UnixListener::bind(file_path.clone()).map_err(map_context!())?;
-    let fd = listener.into_raw_fd();
+    let fd = listener.as_raw_fd();
 
     let child = unsafe {
         Command::new("sh")
@@ -101,8 +101,8 @@ pub fn varlink_exec<S: ?Sized + AsRef<str>>(
                 move || {
                     dup2(2, 1);
                     if fd != 3 {
-                        close(3);
                         dup2(fd, 3);
+                        close(fd);
                     }
                     env::set_var("VARLINK_ADDRESS", format!("unix:{}", file_path.display()));
                     env::set_var("LISTEN_FDS", "1");

@@ -1,6 +1,6 @@
 [package]
 name = "varlink-cli"
-version = "4.5.0"
+version = "4.5.1"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 edition = "2018"
 
@@ -15,7 +15,7 @@ name = "varlink"
 path = "src/main.rs"
 
 [dependencies]
-varlink = { version = "10", path = "../varlink" }
+varlink = { version = "11", path = "../varlink" }
 varlink_stdinterfaces = { version = "11", path = "../varlink_stdinterfaces" }
 varlink_parser = { version = "4", path = "../varlink_parser" }
 serde = "1.0.102"

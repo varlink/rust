@@ -47,7 +47,7 @@ use self::varlink_grammar::ParseInterface;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 
-use chainerror::*;
+use chainerror::prelude::v1::*;
 
 mod format;
 
@@ -58,7 +58,7 @@ mod test;
 
 mod varlink_grammar;
 
-derive_str_cherr!(Error);
+derive_str_context!(Error);
 
 pub enum VType<'a> {
     Bool,
@@ -219,32 +219,23 @@ impl<'a> IDL<'a> {
 
 impl<'a> IDL<'a> {
     pub fn from_string(s: &'a str) -> ChainResult<Self, Error> {
-        let interface = ParseInterface(s).map_err(|e| {
+        let interface = ParseInterface(s).map_context(|e| {
             let line = s.split('\n').nth(e.location.line - 1).unwrap();
-            cherr!(
-                e,
-                Error(format!(
-                    "Varlink parse error\n{}\n{marker:>col$}",
-                    line,
-                    marker = "^",
-                    col = e.location.column
-                ))
-            )
+            Error(format!(
+                "Varlink parse error\n{}\n{marker:>col$}",
+                line,
+                marker = "^",
+                col = e.location.column
+            ))
         })?;
+
         if !interface.error.is_empty() {
             let mut v: Vec<_> = interface.error.into_iter().collect();
             v.sort();
-            let mut s = String::new();
-            let mut first: bool = true;
-            for i in v.iter() {
-                if !first {
-                    s += "\n";
-                }
-                first = false;
-                s += &i.to_string();
-            }
+            let s = v.join("\n");
 
-            Err(strerr!(Error, "Interface definition error: '{}'\n", s))
+            Err("Interface definition error".to_string())
+                .context(Error(format!("Interface definition error: '{}'\n", s)))
         } else {
             Ok(interface)
         }

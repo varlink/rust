@@ -2,7 +2,7 @@ use std::env;
 use std::process::exit;
 use std::sync::{Arc, RwLock};
 
-use chainerror::*;
+use chainerror::prelude::v1::*;
 use varlink::{Connection, OrgVarlinkServiceInterface, VarlinkService};
 use varlink_derive;
 
@@ -84,7 +84,7 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
     {
         let info = iface
             .get_info()
-            .map_err(mstrerr!("Error calling get_info()"))?;
+            .context(format!("Error calling get_info()"))?;
         assert_eq!(&info.vendor, "org.varlink");
         assert_eq!(&info.product, "test service");
         assert_eq!(&info.version, "0.1");
@@ -93,7 +93,7 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
     }
     let description = iface
         .get_interface_description("org.example.network")
-        .map_err(mstrerr!("Error calling get_interface_description()"))?;
+        .context(format!("Error calling get_interface_description()"))?;
 
     assert!(description.description.is_some());
 

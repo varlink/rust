@@ -3,7 +3,7 @@ use std::os::unix::io::{AsRawFd, FromRawFd};
 use std::sync::{Arc, RwLock};
 use std::thread;
 
-use chainerror::*;
+use chainerror::prelude::v1::*;
 use serde_json::{from_slice, from_value, to_string};
 
 use varlink::{
@@ -21,7 +21,7 @@ where
     W: Write + AsRawFd + Send + 'static,
 {
     let conn = Connection::new(resolver)
-        .map_err(mstrerr!("Failed to connect to resolver '{}'", resolver))?;
+        .context(format!("Failed to connect to resolver '{}'", resolver))?;
 
     let mut client_bufreader = unsafe {
         ::std::io::BufReader::new(::std::fs::File::from_raw_fd(client_reader.as_raw_fd()))
@@ -46,7 +46,7 @@ where
             // pop the last zero byte
             buf.pop();
 
-            let mut req: Request = from_slice(&buf).map_err(mstrerr!("Error from slice"))?;
+            let mut req: Request = from_slice(&buf).context(format!("Error from slice"))?;
 
             if req.method == "org.varlink.service.GetInfo" {
                 req.method = "org.varlink.resolver.GetInfo".into();
@@ -124,7 +124,7 @@ where
                     break;
                 }
                 if buf.is_empty() {
-                    return Err(strerr!("Connection Closed").into());
+                    return Err(format!("Connection Closed").into());
                 }
 
                 client_writer.write_all(&buf)?;

@@ -19,7 +19,7 @@ use std::io;
 use std::io::{Read, Write};
 use std::path::Path;
 
-use chainerror::*;
+use chainerror::prelude::v1::*;
 use varlink_generator::generate;
 
 fn print_usage(program: &str, opts: &getopts::Options) {
@@ -40,7 +40,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         Err(f) => {
             eprintln!("{}", f.to_string());
             print_usage(&program, &opts);
-            return Err(strerr!("Invalid Arguments").into());
+            return Err("Invalid Arguments".into());
         }
     };
 
@@ -59,7 +59,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             } else {
                 Box::new(
                     File::open(Path::new(&matches.free[0]))
-                        .map_err(mstrerr!("Failed to open '{}'", &matches.free[0]))?,
+                        .context(format!("Failed to open '{}'", &matches.free[0]))?,
                 )
             }
         }

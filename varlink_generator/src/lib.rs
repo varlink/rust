@@ -39,13 +39,13 @@ use std::path::{Path, PathBuf};
 use std::process::{exit, Command};
 use std::str::FromStr;
 
-use chainerror::*;
+use chainerror::prelude::v1::*;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote};
 
 use varlink_parser::{Typedef, VEnum, VError, VStruct, VStructOrEnum, VType, VTypeExt, IDL};
 
-derive_str_cherr!(Error);
+derive_str_context!(Error);
 pub type Result<T> = ChainResult<T, Error>;
 
 trait ToRustString<'short, 'long: 'short> {
@@ -786,7 +786,7 @@ fn generate_error_code(
 }
 
 pub fn compile(source: String) -> Result<TokenStream> {
-    let idl = IDL::from_string(&source).map_err(mstrerr!(Error, "Error compiling varlink"))?;
+    let idl = IDL::from_string(&source).context(Error("Error compiling varlink".to_string()))?;
     varlink_to_rust(
         &idl,
         &GeneratorOptions {
@@ -821,14 +821,14 @@ pub fn generate_with_options(
 
     reader
         .read_to_string(&mut buffer)
-        .map_err(mstrerr!(Error, "Failed to read from buffer"))?;
+        .context(Error("Failed to read from buffer".to_string()))?;
 
-    let idl = IDL::from_string(&buffer).map_err(mstrerr!(Error, "Failed to parse"))?;
+    let idl = IDL::from_string(&buffer).context(Error("Failed to parse".to_string()))?;
 
     let ts = varlink_to_rust(&idl, options, tosource)?;
     writer
         .write_all(ts.to_string().as_bytes())
-        .map_err(mstrerr!(Error, "Failed to write to buffer"))?;
+        .context(Error("Failed to write to buffer".to_string()))?;
     Ok(())
 }
 

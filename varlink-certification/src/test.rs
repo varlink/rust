@@ -1,6 +1,6 @@
 use std::{thread, time};
 
-use chainerror::*;
+use chainerror::prelude::v1::*;
 
 use varlink::Connection;
 
@@ -26,7 +26,7 @@ fn run_self_test(address: String) -> Result<()> {
         panic!("error: {:?}", e);
     }
     if let Err(_) = child.join() {
-        Err(strerr!("Error joining thread").into())
+        Err(format!("Error joining thread").into())
     } else {
         Ok(())
     }
@@ -56,7 +56,7 @@ fn test_exec() -> Result<()> {
         let runner = CargoBuild::new()
             .current_release()
             .run()
-            .map_err(mstrerr!("Error running CargoBuild"))?;
+            .context(format!("Error running CargoBuild"))?;
         Ok(runner.path().to_owned().to_string_lossy().to_string())
     }
 

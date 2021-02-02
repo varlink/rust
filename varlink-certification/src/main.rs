@@ -6,7 +6,7 @@ use std::process::exit;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
-use chainerror::*;
+use chainerror::prelude::v1::*;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -73,7 +73,7 @@ fn main() -> Result<()> {
         let connection = match matches.opt_str("varlink") {
             None => match matches.opt_str("bridge") {
                 Some(bridge) => Connection::with_bridge(&bridge)
-                    .map_err(mstrerr!("Connection::with_bridge({})", bridge))?,
+                    .context(format!("Connection::with_bridge({})", bridge))?,
                 None => Connection::with_activate(&format!(
                     "{} \
                      --varlink=$VARLINK_ADDRESS",
@@ -81,7 +81,7 @@ fn main() -> Result<()> {
                 ))?,
             },
             Some(address) => Connection::with_address(&address)
-                .map_err(mstrerr!("Connection::with_address({})", address))?,
+                .context(format!("Connection::with_address({})", address))?,
         };
         run_client(connection)?
     } else if let Some(address) = matches.opt_str("varlink") {

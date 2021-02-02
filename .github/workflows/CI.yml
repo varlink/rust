@@ -24,7 +24,7 @@ jobs:
           windows-latest
         ]
         version:
-          - 1.38.0
+          - 1.47.0
           - stable
           - nightly
 

@@ -1,3 +1,4 @@
+use chainerror::prelude::v1::*;
 use std::env;
 use std::io::{BufRead, Read, Write};
 use std::process::exit;
@@ -49,36 +50,38 @@ fn main() {
     let client_mode = matches.opt_present("client");
     let bridge = matches.opt_str("bridge");
 
-    let ret: std::result::Result<(), Box<dyn std::error::Error>> = if client_mode {
-        let connection = if bridge.is_none() {
-            match matches.opt_str("varlink") {
-                None => {
-                    Connection::with_activate(&format!("{} --varlink=$VARLINK_ADDRESS", program))
-                        .unwrap()
+    let ret: std::result::Result<(), Box<dyn std::error::Error + 'static + Send + Sync>> =
+        if client_mode {
+            let connection = if bridge.is_none() {
+                match matches.opt_str("varlink") {
+                    None => Connection::with_activate(&format!(
+                        "{} --varlink=$VARLINK_ADDRESS",
+                        program
+                    ))
+                    .unwrap(),
+                    Some(address) => Connection::with_address(&address).unwrap(),
                 }
-                Some(address) => Connection::with_address(&address).unwrap(),
-            }
-        } else {
-            Connection::with_bridge(&bridge.unwrap()).unwrap()
-        };
-        run_client(&connection).map_err(|e| e.into())
-    } else if let Some(address) = matches.opt_str("varlink") {
-        let timeout = matches
-            .opt_str("timeout")
-            .unwrap_or("0".to_string())
-            .parse::<u64>()
-            .map_err(From::from);
+            } else {
+                Connection::with_bridge(&bridge.unwrap()).unwrap()
+            };
+            run_client(&connection).map_err(|e| e.into())
+        } else if let Some(address) = matches.opt_str("varlink") {
+            let timeout = matches
+                .opt_str("timeout")
+                .unwrap_or("0".to_string())
+                .parse::<u64>()
+                .map_err(From::from);
 
-        timeout.and_then(|timeout| {
-            run_server(&address, timeout, matches.opt_present("m"))
-                //            .map_err(mstrerr!("running server with address {}", address))
-                .map_err(From::from)
-        })
-    } else {
-        print_usage(&program, &opts);
-        eprintln!("Need varlink address in server mode.");
-        exit(1);
-    };
+            timeout.and_then(|timeout| {
+                run_server(&address, timeout, matches.opt_present("m"))
+                    .context(format!("running server with address {}", address))
+                    .map_err(From::from)
+            })
+        } else {
+            print_usage(&program, &opts);
+            eprintln!("Need varlink address in server mode.");
+            exit(1);
+        };
 
     exit(match ret {
         Ok(_) => 0,

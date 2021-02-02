@@ -3,7 +3,7 @@ use std::result::Result as StdResult;
 
 type Result<T> = StdResult<T, Box<dyn StdError>>;
 
-use chainerror::*;
+use chainerror::prelude::v1::*;
 use std::io::BufRead;
 use std::{thread, time};
 use varlink::Connection;
@@ -25,7 +25,7 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
 
     {
         let con = Connection::with_address(&address)
-            .map_err(mstrerr!("Could not connect to {}", address))?;
+            .context(format!("Could not connect to {}", address))?;
 
         let mut conn = con.write().unwrap();
         let mut writer = conn.writer.take().unwrap();
@@ -137,7 +137,7 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
 
     {
         let con = Connection::with_address(&address)
-            .map_err(mstrerr!("Could not connect to {}", address))?;
+            .context(format!("Could not connect to {}", address))?;
 
         let ret = crate::run_client(&con);
         if let Err(e) = ret {
@@ -147,7 +147,7 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
     eprintln!("run_client finished");
 
     if let Err(_) = child.join() {
-        Err(strerr!("Error joining thread").into())
+        Err(format!("Error joining thread").into())
     } else {
         Ok(())
     }

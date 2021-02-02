@@ -1,4 +1,3 @@
-use chainerror::*;
 use std::{thread, time};
 use varlink::Connection;
 
@@ -21,7 +20,7 @@ fn run_self_test(address: &'static str) -> Result<()> {
         panic!("error: {}", e);
     }
     if let Err(_) = child.join() {
-        Err(strerr!("Error joining thread").into())
+        Err(format!("Error joining thread").into())
     } else {
         Ok(())
     }

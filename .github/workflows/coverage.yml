@@ -1,23 +1,28 @@
-name:                           coverage
+name: coverage
 
-on:                             [ "push" , "pull_request" ]
+on: [ "push", "pull_request" ]
+
 jobs:
-  test:
-    name:                       coverage
-    runs-on:                    ubuntu-latest
-    container:
-      image:                    xd009642/tarpaulin
-      options:                  --security-opt seccomp=unconfined
+  check:
+    name: Rust project
+    runs-on: ubuntu-latest
     steps:
-      - name:                   Checkout repository
-        uses:                   actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-      - name:                   Generate code coverage
-        run: |
-          cargo build && \
-          cargo tarpaulin --verbose --all-features --workspace --timeout 600 --out Lcov --output-dir coverage
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
 
-      - name:                   Upload to coveralls
+      - name: Run cargo-tarpaulin
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          version: '0.15.0'
+          args: '--verbose --all-features --workspace --timeout 600 --out Lcov --output-dir coverage -- --test-threads 1'
+
+      - name: Upload to coveralls
         uses: coverallsapp/github-action@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

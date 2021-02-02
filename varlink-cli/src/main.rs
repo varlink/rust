@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
@@ -32,7 +33,7 @@ fn varlink_format(filename: &str, line_len: Option<&str>, should_colorize: bool)
         .read_to_string(&mut buffer)
         .context(format!("Failed to read '{}'", filename))?;
 
-    let idl = IDL::from_string(&buffer).map_context(|e| {
+    let idl = IDL::try_from(buffer.as_str()).map_context(|e| {
         let v: Vec<_> = e.iter().map(ToString::to_string).collect();
         v.join("\n")
     })?;
@@ -161,7 +162,7 @@ fn varlink_help(
             if should_colorize {
                 println!(
                     "{}",
-                    IDL::from_string(&desc)
+                    IDL::try_from(desc.as_str())
                         .context(format!("Can't parse '{}'", desc))?
                         .get_multiline_colored(
                             0,
@@ -171,7 +172,7 @@ fn varlink_help(
             } else {
                 println!(
                     "{}",
-                    IDL::from_string(&desc)
+                    IDL::try_from(desc.as_str())
                         .context(format!("Can't parse '{}'", desc))?
                         .get_multiline(0, columns.unwrap_or("80").parse::<usize>().unwrap_or(80))
                 );

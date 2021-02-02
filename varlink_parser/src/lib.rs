@@ -4,7 +4,8 @@
 //!
 //! ```rust
 //! use varlink_parser::IDL;
-//! let interface = IDL::from_string("
+//! use std::convert::TryFrom;
+//! let interface = IDL::try_from("
 //! ## The Varlink Service Interface is provided by every varlink service. It
 //! ## describes the service and the interfaces it implements.
 //! interface org.varlink.service
@@ -52,6 +53,7 @@ use chainerror::prelude::v1::*;
 mod format;
 
 pub use crate::format::{Format, FormatColored};
+use std::convert::TryFrom;
 
 #[cfg(test)]
 mod test;
@@ -217,10 +219,12 @@ impl<'a> IDL<'a> {
     }
 }
 
-impl<'a> IDL<'a> {
-    pub fn from_string(s: &'a str) -> ChainResult<Self, Error> {
-        let interface = ParseInterface(s).map_context(|e| {
-            let line = s.split('\n').nth(e.location.line - 1).unwrap();
+impl<'a> TryFrom<&'a str> for IDL<'a> {
+    type Error = ChainError<Error>;
+
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        let interface = ParseInterface(value).map_context(|e| {
+            let line = value.split('\n').nth(e.location.line - 1).unwrap();
             Error(format!(
                 "Varlink parse error\n{}\n{marker:>col$}",
                 line,

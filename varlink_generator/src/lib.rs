@@ -32,6 +32,7 @@
 )]
 
 use std::borrow::Cow;
+use std::convert::TryFrom;
 use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -786,7 +787,8 @@ fn generate_error_code(
 }
 
 pub fn compile(source: String) -> Result<TokenStream> {
-    let idl = IDL::from_string(&source).context(Error("Error compiling varlink".to_string()))?;
+    let idl =
+        IDL::try_from(source.as_str()).context(Error("Error compiling varlink".to_string()))?;
     varlink_to_rust(
         &idl,
         &GeneratorOptions {
@@ -823,7 +825,7 @@ pub fn generate_with_options(
         .read_to_string(&mut buffer)
         .context(Error("Failed to read from buffer".to_string()))?;
 
-    let idl = IDL::from_string(&buffer).context(Error("Failed to parse".to_string()))?;
+    let idl = IDL::try_from(buffer.as_str()).context(Error("Failed to parse".to_string()))?;
 
     let ts = varlink_to_rust(&idl, options, tosource)?;
     writer

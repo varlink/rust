@@ -1,5 +1,6 @@
 extern crate varlink_parser;
 
+use std::convert::TryFrom;
 use std::env;
 use std::error::Error;
 use std::fs::File;
@@ -19,7 +20,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         _ => File::open(Path::new(&args[1]))?.read_to_string(&mut buffer)?,
     };
 
-    let v = IDL::from_string(&buffer)?;
+    let v = IDL::try_from(buffer.as_str())?;
     println!("{}", v.get_multiline_colored(0, 80));
     exit(0);
 }

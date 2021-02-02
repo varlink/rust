@@ -96,6 +96,7 @@ bool: bool,
 int: int,
 float: float,
 string: string,
+array: ?[]string,
 enum: ( foo, bar, baz ),
 type: TypeEnum,
 anon: ( foo: bool, bar: int, baz: ( a: int, b: int) )
@@ -121,6 +122,7 @@ type TypeFoo (
   int: int,
   float: float,
   string: string,
+  array: ?[]string,
   enum: (foo, bar, baz),
   type: TypeEnum,
   anon: (foo: bool, bar: int, baz: (a: int, b: int))

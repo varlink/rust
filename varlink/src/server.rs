@@ -31,24 +31,24 @@ pub enum Listener {
     UNIX(Option<UnixListener>, bool),
 }
 
-fn activation_listener() -> Result<Option<usize>> {
+fn activation_listener() -> Option<usize> {
     let nfds: usize;
 
     match env::var("LISTEN_FDS") {
         Ok(ref n) => match n.parse::<usize>() {
             Ok(n) if n >= 1 => nfds = n,
-            _ => return Ok(None),
+            _ => return None,
         },
-        _ => return Ok(None),
+        _ => return None,
     }
 
     match env::var("LISTEN_PID") {
         Ok(ref pid) if pid.parse::<usize>() == Ok(process::id() as usize) => {}
-        _ => return Ok(None),
+        _ => return None,
     }
 
     if nfds == 1 {
-        return Ok(Some(3));
+        return Some(3);
     }
 
     let fdnames: String;
@@ -57,16 +57,16 @@ fn activation_listener() -> Result<Option<usize>> {
         Ok(n) => {
             fdnames = n;
         }
-        _ => return Ok(None),
+        _ => return None,
     }
 
     for (i, v) in fdnames.split(':').enumerate() {
         if v == "varlink" {
-            return Ok(Some(3 + i as usize));
+            return Some(3 + i as usize);
         }
     }
 
-    Ok(None)
+    None
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -93,7 +93,7 @@ impl Listener {
     #[allow(clippy::new_ret_no_self)]
     pub fn new<S: ?Sized + AsRef<str>>(address: &S) -> Result<Self> {
         let address = address.as_ref();
-        if let Some(l) = activation_listener()? {
+        if let Some(l) = activation_listener() {
             #[cfg(windows)]
             {
                 if address.starts_with("tcp:") {
@@ -131,22 +131,21 @@ impl Listener {
                         ));
                     }
                 } else {
-                    return Err(Error::from(context!(ErrorKind::InvalidAddress)));
+                    return Err(context!(ErrorKind::InvalidAddress));
                 }
             }
         }
 
-        if address.starts_with("tcp:") {
+        if let Some(addr) = address.strip_prefix("tcp:") {
             Ok(Listener::TCP(
-                Some(TcpListener::bind(&address[4..]).map_err(map_context!())?),
+                Some(TcpListener::bind(&addr).map_err(map_context!())?),
                 false,
             ))
-        } else if address.starts_with("unix:") {
-            let mut addr = String::from(address[5..].split(';').next().unwrap());
+        } else if let Some(addr) = address.strip_prefix("unix:") {
+            let mut addr = String::from(addr.split(';').next().unwrap());
             if addr.starts_with('@') {
                 addr = addr.replacen('@', "\0", 1);
-                return get_abstract_unixlistener(&addr)
-                    .and_then(|v| Ok(Listener::UNIX(Some(v), false)));
+                return get_abstract_unixlistener(&addr).map(|v| Listener::UNIX(Some(v), false));
             }
             // ignore error on non-existant file
             let _ = fs::remove_file(&*addr);
@@ -155,7 +154,7 @@ impl Listener {
                 false,
             ))
         } else {
-            Err(Error::from(context!(ErrorKind::InvalidAddress)))
+            Err(context!(ErrorKind::InvalidAddress))
         }
     }
 
@@ -167,9 +166,9 @@ impl Listener {
         if timeout > 0 {
             let socket: usize =
                 self.as_raw_socket()
-                    .ok_or_else(|| context!(ErrorKind::ConnectionClosed))? as usize;
+                    .ok_or(context!(ErrorKind::ConnectionClosed))? as usize;
 
-            let mut timeout = timeval {
+            let timeout = timeval {
                 tv_sec: (timeout / 1000u64) as _,
                 tv_usec: ((timeout % 1000u64) * 1000u64) as _,
             };
@@ -188,7 +187,7 @@ impl Listener {
                         &mut readfs,
                         writefds.as_mut_ptr(),
                         errorfds.as_mut_ptr(),
-                        &mut timeout,
+                        &timeout,
                     );
                     if ret != EINTR {
                         break;
@@ -221,7 +220,7 @@ impl Listener {
         if timeout > 0 {
             let fd = self
                 .as_raw_fd()
-                .ok_or_else(|| context!(ErrorKind::ConnectionClosed))?;
+                .ok_or(context!(ErrorKind::ConnectionClosed))?;
 
             let mut timeout = timeval {
                 tv_sec: (timeout / 1000u64) as _,
@@ -253,7 +252,7 @@ impl Listener {
                     }
                 }
                 if !FD_ISSET(fd, readfs.as_mut_ptr()) {
-                    return Err(Error::from(context!(ErrorKind::Timeout)));
+                    return Err(context!(ErrorKind::Timeout));
                 }
             }
         }
@@ -266,7 +265,7 @@ impl Listener {
                 let (s, _addr) = l.accept().map_err(map_context!())?;
                 Ok(Box::new(s))
             }
-            _ => Err(Error::from(context!(ErrorKind::ConnectionClosed))),
+            _ => Err(context!(ErrorKind::ConnectionClosed)),
         }
     }
 
@@ -274,7 +273,7 @@ impl Listener {
         match *self {
             Listener::TCP(Some(ref l), _) => l.set_nonblocking(b).map_err(map_context!())?,
             Listener::UNIX(Some(ref l), _) => l.set_nonblocking(b).map_err(map_context!())?,
-            _ => Err(context!(ErrorKind::ConnectionClosed))?,
+            _ => return Err(context!(ErrorKind::ConnectionClosed)),
         }
         Ok(())
     }
@@ -380,7 +379,7 @@ impl ThreadPool {
 
         let mut workers = Vec::with_capacity(initial_worker);
 
-        let num_busy = Arc::new(RwLock::new(0 as usize));
+        let num_busy = Arc::new(RwLock::new(0_usize));
 
         for _ in 0..initial_worker {
             workers.push(Worker::new(Arc::clone(&receiver), Arc::clone(&num_busy)));

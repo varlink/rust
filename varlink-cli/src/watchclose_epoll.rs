@@ -40,7 +40,7 @@ impl Event {
     pub fn new(events: Events, data: u64) -> Event {
         Event {
             events: events.bits(),
-            data: data,
+            data,
         }
     }
 }
@@ -128,7 +128,7 @@ impl WatchClose {
     ) -> Result<WatchClose> {
         let fd = fd.as_raw_fd();
         let wc = WatchClose {
-            fd: fd,
+            fd,
             efd: epoll_create(true)?,
         };
 

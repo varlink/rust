@@ -338,13 +338,13 @@ impl From<Reply> for ErrorKind {
 impl ErrorKind {
     pub fn is_error(r: &Reply) -> bool {
         match r.error {
-            Some(ref t) => match t.as_ref() {
-                "org.varlink.service.InvalidParameter" => true,
-                "org.varlink.service.InterfaceNotFound" => true,
-                "org.varlink.service.MethodNotFound" => true,
-                "org.varlink.service.MethodNotImplemented" => true,
-                _ => false,
-            },
+            Some(ref t) => matches!(
+                t.as_ref(),
+                "org.varlink.service.InvalidParameter"
+                    | "org.varlink.service.InterfaceNotFound"
+                    | "org.varlink.service.MethodNotFound"
+                    | "org.varlink.service.MethodNotImplemented"
+            ),
             _ => false,
         }
     }
@@ -652,6 +652,7 @@ pub trait CallTrait {
     /// ```
     fn set_continues(&mut self, cont: bool);
 
+    #[allow(clippy::wrong_self_convention)]
     fn to_upgraded(&mut self);
 
     /// True, if this request does not want a reply.
@@ -705,7 +706,7 @@ pub trait CallTrait {
 impl<'a> CallTrait for Call<'a> {
     fn reply_struct(&mut self, mut reply: Reply) -> Result<()> {
         if self.continues && (!self.wants_more()) {
-            Err(context!(ErrorKind::CallContinuesMismatch))?;
+            return Err(context!(ErrorKind::CallContinuesMismatch));
         }
         if self.continues {
             reply.continues = Some(true);
@@ -730,23 +731,26 @@ impl<'a> CallTrait for Call<'a> {
 
     /// True, if this request does not want a reply.
     fn is_oneway(&self) -> bool {
-        match self.request {
+        matches!(
+            self.request,
             Some(Request {
-                oneway: Some(true), ..
-            }) => true,
-            _ => false,
-        }
+                oneway: Some(true),
+                ..
+            })
+        )
     }
 
     /// True, if this request accepts more than one reply.
     fn wants_more(&self) -> bool {
-        match self.request {
+        matches!(
+            self.request,
             Some(Request {
-                more: Some(true), ..
-            }) => true,
-            _ => false,
-        }
+                more: Some(true),
+                ..
+            })
+        )
     }
+
     fn get_request(&self) -> Option<&Request> {
         self.request
     }
@@ -1036,14 +1040,12 @@ where
                     ),
                 ),
                 _ => {
-                    return Err(MError::from(Error::from(context!(
-                        ErrorKind::MethodCalledAlready
-                    ))));
+                    return Err(MError::from(context!(ErrorKind::MethodCalledAlready)));
                 }
             };
 
             if conn.reader.is_none() || conn.writer.is_none() {
-                return Err(Error::from(context!(ErrorKind::ConnectionBusy)).into());
+                return Err(context!(ErrorKind::ConnectionBusy).into());
             }
 
             if oneway {
@@ -1102,7 +1104,7 @@ where
 
     pub fn recv(&mut self) -> std::result::Result<MReply, MError> {
         if self.reader.is_none() || self.writer.is_none() {
-            return Err(Error::from(context!(ErrorKind::IteratorOldReply)).into());
+            return Err(context!(ErrorKind::IteratorOldReply).into());
         }
 
         let mut buf = Vec::new();
@@ -1114,7 +1116,7 @@ where
             .map_err(Error::from)?;
         self.reader = Some(reader);
         if buf.is_empty() {
-            return Err(Error::from(context!(ErrorKind::ConnectionClosed)).into());
+            return Err(context!(ErrorKind::ConnectionClosed).into());
         }
         buf.pop();
         let reply: Reply = serde_json::from_slice(&buf)
@@ -1130,7 +1132,7 @@ where
             }
         }
         if reply.error != None {
-            return Err(Error::from(context!(ErrorKind::from(reply))).into());
+            return Err(context!(ErrorKind::from(reply)).into());
         }
 
         match reply {
@@ -1456,7 +1458,7 @@ impl ConnectionHandler for VarlinkService {
         writer: &mut dyn Write,
         upgraded_last_interface: Option<String>,
     ) -> Result<(Vec<u8>, Option<String>)> {
-        let mut upgraded_iface = upgraded_last_interface.clone();
+        let mut upgraded_iface = upgraded_last_interface;
         loop {
             if let Some(iface) = upgraded_iface {
                 let mut call = Call::new_upgraded(writer);

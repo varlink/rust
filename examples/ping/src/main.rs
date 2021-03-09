@@ -52,7 +52,9 @@ fn main() {
 
     let ret: std::result::Result<(), Box<dyn std::error::Error + 'static + Send + Sync>> =
         if client_mode {
-            let connection = if bridge.is_none() {
+            let connection = if let Some(bridge) = bridge {
+                Connection::with_bridge(&bridge).unwrap()
+            } else {
                 match matches.opt_str("varlink") {
                     None => Connection::with_activate(&format!(
                         "{} --varlink=$VARLINK_ADDRESS",
@@ -61,14 +63,13 @@ fn main() {
                     .unwrap(),
                     Some(address) => Connection::with_address(&address).unwrap(),
                 }
-            } else {
-                Connection::with_bridge(&bridge.unwrap()).unwrap()
             };
+
             run_client(&connection).map_err(|e| e.into())
         } else if let Some(address) = matches.opt_str("varlink") {
             let timeout = matches
                 .opt_str("timeout")
-                .unwrap_or("0".to_string())
+                .unwrap_or_else(|| "0".to_string())
                 .parse::<u64>()
                 .map_err(From::from);
 
@@ -209,7 +210,7 @@ impl org_example_ping::VarlinkInterface for MyOrgExamplePing {
                 eprintln!("Server: upgraded got: none");
                 // incomplete data, in real life, store all bytes for the next call
                 // return Ok(buf.as_bytes().to_vec());
-                return Err(varlink::context!(varlink::ErrorKind::ConnectionClosed).into());
+                return Err(varlink::context!(varlink::ErrorKind::ConnectionClosed));
             }
             eprintln!("Server: upgraded got: {}", buf);
 
@@ -291,9 +292,9 @@ mod multiplex {
         listener.set_nonblocking(true)?;
 
         fds.push(libc::pollfd {
-            fd: listener
-                .as_raw_fd()
-                .ok_or_else(|| varlink::context!(varlink::error::ErrorKind::ConnectionClosed))?,
+            fd: listener.as_raw_fd().ok_or(varlink::context!(
+                varlink::error::ErrorKind::ConnectionClosed
+            ))?,
             revents: 0,
             events: libc::POLLIN,
         });
@@ -365,14 +366,13 @@ mod multiplex {
                                             break;
                                         }
                                     }
-                                    Err(e) => match e.kind() {
-                                        err => {
-                                            eprintln!("handler error: {}", err);
-                                            let _ = tracker.shutdown();
-                                            indices_to_remove.push(i);
-                                            break;
-                                        }
-                                    },
+                                    Err(e) => {
+                                        let err = e.kind();
+                                        eprintln!("handler error: {}", err);
+                                        let _ = tracker.shutdown();
+                                        indices_to_remove.push(i);
+                                        break;
+                                    }
                                 }
                             }
                             Err(e) => match e.kind() {
@@ -426,7 +426,7 @@ mod multiplex {
                                                     break;
                                                 }
                                                 Ok(buf) => {
-                                                    if buf.is_empty() & &unread.is_empty() {
+                                                    if buf.is_empty() & unread.is_empty() {
                                                         eprintln!("Upgraded end");
                                                         break;
                                                     }
@@ -483,9 +483,7 @@ mod multiplex {
                 for t in threads {
                     let _r = t.join();
                 }
-                return Err(Error::last_os_error())
-                    .map_err(varlink::map_context!())
-                    .map_err(|e| e.into());
+                return Err(Error::last_os_error()).map_err(varlink::map_context!());
             }
 
             if r == 0 && fds.len() == 1 && *upgraded_in_use.read().unwrap() == 0 {
@@ -494,7 +492,7 @@ mod multiplex {
                     let _r = t.join();
                 }
 
-                return Err(varlink::context!(varlink::ErrorKind::Timeout).into());
+                return Err(varlink::context!(varlink::ErrorKind::Timeout));
             }
         }
     }

@@ -2,7 +2,6 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 use serde_derive::{Deserialize, Serialize};
-use serde_json;
 use std::io::BufRead;
 use std::sync::{Arc, RwLock};
 use varlink::{self, CallTrait};
@@ -91,7 +90,7 @@ impl Error {
             let k = self
                 .source()
                 .and_then(|e| e.downcast_ref::<varlink::Error>())
-                .and_then(|e| Some(e.kind()));
+                .map(|e| e.kind());
             if k.is_some() {
                 return k;
             }
@@ -235,9 +234,7 @@ impl varlink::Interface for VarlinkInterfaceProxy {
                         Err(e) => {
                             let es = format!("{}", e);
                             let _ = call.reply_invalid_parameter(es.clone());
-                            return Err(
-                                varlink::context!(varlink::ErrorKind::SerdeJsonDe(es)).into()
-                            );
+                            return Err(varlink::context!(varlink::ErrorKind::SerdeJsonDe(es)));
                         }
                     };
                     self.inner.ping(call as &mut dyn Call_Ping, args.r#ping)

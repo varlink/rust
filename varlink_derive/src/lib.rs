@@ -110,7 +110,7 @@ fn parse_varlink_filename_args(input: TokenStream) -> (String, String, Span) {
         Some(other) => panic!("Expected raw string literal, found {}", other),
         None => panic!("Unexpected end of macro input"),
     };
-    if !body_literal.starts_with("\"") || !body_literal.ends_with("\"") {
+    if !body_literal.starts_with('\"') || !body_literal.ends_with('\"') {
         panic!("Expected raw string literal (`r#\"...\"#`)");
     }
     let body_string = body_literal[1..body_literal.len() - 1].to_string();
@@ -159,7 +159,7 @@ fn expand_varlink(name: String, source: String) -> TokenStream {
                 s += &i.to_string();
                 s += "\n";
             }
-            panic!(s)
+            panic!("{}", s)
         }
     };
 

@@ -6,7 +6,6 @@ use std::io::BufRead;
 use std::sync::{Arc, RwLock};
 
 use serde_derive::{Deserialize, Serialize};
-use serde_json;
 
 use varlink::{self, CallTrait};
 
@@ -349,9 +348,7 @@ impl varlink::Interface for VarlinkInterfaceProxy {
                         Err(e) => {
                             let es = format!("{}", e);
                             let _ = call.reply_invalid_parameter(es.clone());
-                            return Err(
-                                varlink::context!(varlink::ErrorKind::SerdeJsonDe(es)).into()
-                            );
+                            return Err(varlink::context!(varlink::ErrorKind::SerdeJsonDe(es)));
                         }
                     };
                     self.inner.get_interface_description(

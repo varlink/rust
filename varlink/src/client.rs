@@ -18,21 +18,22 @@ use uds_windows::UnixStream;
 use crate::error::*;
 use crate::stream::Stream;
 
+#[allow(clippy::try_err)]
 pub fn varlink_connect<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Box<dyn Stream>, String)> {
     let address = address.as_ref();
     let new_address: String = address.into();
 
-    if new_address.starts_with("tcp:") {
+    if let Some(addr) = new_address.strip_prefix("tcp:") {
         Ok((
-            Box::new(TcpStream::connect(&new_address[4..]).map_err(map_context!())?),
+            Box::new(TcpStream::connect(&addr).map_err(map_context!())?),
             new_address,
         ))
-    } else if new_address.starts_with("unix:") {
-        let mut addr = String::from(new_address[5..].split(';').next().unwrap());
+    } else if let Some(addr) = new_address.strip_prefix("unix:") {
+        let mut addr = String::from(addr.split(';').next().unwrap());
         if addr.starts_with('@') {
             addr = addr.replacen('@', "\0", 1);
             return get_abstract_unixstream(&addr)
-                .and_then(|v| Ok((Box::new(v) as Box<dyn Stream>, new_address)));
+                .map(|v| (Box::new(v) as Box<dyn Stream>, new_address));
         }
         Ok((
             Box::new(UnixStream::connect(addr).map_err(map_context!())?),
@@ -68,9 +69,9 @@ fn get_abstract_unixstream(_addr: &str) -> Result<UnixStream> {
 pub fn varlink_exec<S: ?Sized + AsRef<str>>(
     _address: &S,
 ) -> Result<(Child, String, Option<TempDir>)> {
-    return Err(context!(ErrorKind::MethodNotImplemented(
+    Err(context!(ErrorKind::MethodNotImplemented(
         "varlink_exec".into()
-    )));
+    )))
 }
 
 #[cfg(unix)]

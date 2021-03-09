@@ -38,8 +38,8 @@ jobs:
       uses: actions-rs/toolchain@v1
       with:
         toolchain: ${{ matrix.version }}
-        default: true
-        profile: minimal
+        override: true
+        components: rustfmt, clippy
     - name: Build
       run: cargo build --verbose
     - name: Run tests

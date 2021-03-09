@@ -30,6 +30,10 @@ getopts = "0.2.21"
 syn = "1.0.8"
 chainerror = "0.7.0"
 
+[dev-dependencies]
+unified-diff = "0.2.1"
+tempdir = "0.3.7"
+
 [badges]
 travis-ci = { repository = "varlink/rust" }
 coveralls = { repository = "varlink/rust", branch = "master", service = "github" }

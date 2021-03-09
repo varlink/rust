@@ -1,6 +1,6 @@
 [package]
 name = "ping"
-version = "2.0.1"
+version = "2.0.2"
 authors = ["Harald Hoyer <harald@redhat.com>"]
 build = "build.rs"
 edition = "2018"
@@ -16,4 +16,4 @@ libc = "0.2.65"
 chainerror = "0.7.0"
 
 [build-dependencies]
-varlink_generator = { version = "9", path = "../../varlink_generator" }
+varlink_generator = { version = "10", path = "../../varlink_generator" }

@@ -217,6 +217,11 @@ impl<'a> IDL<'a> {
 
         i
     }
+
+    #[deprecated(since = "4.1.0", note = "please use `IDL::try_from` instead")]
+    pub fn from_string(s: &'a str) -> ChainResult<Self, Error> {
+        IDL::try_from(s)
+    }
 }
 
 impl<'a> TryFrom<&'a str> for IDL<'a> {

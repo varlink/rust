@@ -78,8 +78,8 @@ fn varlink_info(
                         .context(format!("Failed to connect with resolver '{}'", resolver))?;
                     let mut resolver = VarlinkClient::new(conn);
                     let address = match resolver.resolve(address.into()).call() {
-                        Ok(r) => r.address.clone(),
-                        _ => Err(format!("Interface '{}' not found", address))?,
+                        Ok(r) => r.address,
+                        _ => return Err(format!("Interface '{}' not found", address).into()),
                     };
                     Connection::with_address(&address)
                         .context(format!("Failed to connect to '{}'", address))?
@@ -92,7 +92,9 @@ fn varlink_info(
     };
 
     let mut call = OrgVarlinkServiceClient::new(connection);
-    let info = call.get_info().context(format!("Cannot call GetInfo()"))?;
+    let info = call
+        .get_info()
+        .context("Cannot call GetInfo()".to_string())?;
 
     println!("{} {}", bold("Vendor:"), info.vendor);
     println!("{} {}", bold("Product:"), info.product);
@@ -135,8 +137,8 @@ fn varlink_help(
                         .context(format!("Failed to connect with resolver '{}'", resolver))?;
                     let mut resolver = VarlinkClient::new(conn);
                     let address = match resolver.resolve(interface.into()).call() {
-                        Ok(r) => r.address.clone(),
-                        _ => Err(format!("Interface '{}' not found", interface))?,
+                        Ok(r) => r.address,
+                        _ => return Err(format!("Interface '{}' not found", interface).into()),
                     };
                     Connection::with_address(&address)
                         .context(format!("Failed to connect to '{}'", address))?
@@ -146,7 +148,7 @@ fn varlink_help(
     };
 
     if interface.find('.') == None {
-        Err(format!("Invalid address {}", url))?
+        return Err(format!("Invalid address {}", url).into());
     }
 
     let mut call = OrgVarlinkServiceClient::new(connection);
@@ -178,7 +180,7 @@ fn varlink_help(
                 );
             }
         }
-        _ => Err(format!("No description for {}", url))?,
+        _ => return Err(format!("No description for {}", url).into()),
     };
 
     Ok(())
@@ -232,10 +234,10 @@ fn varlink_call(
                     let mut resolver = VarlinkClient::new(conn);
                     address = match resolver.resolve(interface.into()).call() {
                         Ok(r) => {
-                            resolved_address = r.address.clone();
+                            resolved_address = r.address;
                             resolved_address.as_ref()
                         }
-                        _ => Err(format!("Interface '{}' not found", interface))?,
+                        _ => return Err(format!("Interface '{}' not found", interface).into()),
                     };
                 }
                 Connection::with_address(address)
@@ -251,7 +253,7 @@ fn varlink_call(
     };
 
     let mut call = MethodCall::<serde_json::Value, serde_json::Value, varlink::Error>::new(
-        connection.clone(),
+        connection,
         String::from(method),
         args.clone(),
     );
@@ -374,8 +376,8 @@ fn varlink_bridge(
                             .context(format!("Failed to connect with resolver '{}'", resolver))?;
                         let mut resolver = VarlinkClient::new(conn);
                         let address = match resolver.resolve(address.into()).call() {
-                            Ok(r) => r.address.clone(),
-                            _ => Err(format!("Interface '{}' not found", address))?,
+                            Ok(r) => r.address,
+                            _ => return Err(format!("Interface '{}' not found", address).into()),
                         };
                         Connection::with_address_no_rw(&address)
                             .context(format!("Failed to connect to '{}'", address))?
@@ -386,7 +388,7 @@ fn varlink_bridge(
                 } else {
                     let stdin = ::std::io::stdin();
                     let stdout = ::std::io::stdout();
-                    handle(resolver, stdin, stdout).context(format!("Bridging"))?;
+                    handle(resolver, stdin, stdout).context("Bridging".to_string())?;
                     return Ok(());
                 }
             }
@@ -405,7 +407,7 @@ fn varlink_bridge(
             }
         }
     }
-    r.context(format!("Bridging"))?;
+    r.context("Bridging".to_string())?;
 
     Ok(())
 }
@@ -417,10 +419,7 @@ fn varlink_bridge(
     _activate: Option<&str>,
     _bridge: Option<&str>,
 ) -> Result<()> {
-    Err(format!(
-        "Not implemented for this architecture. Waiting for a stable rust async interface."
-    )
-    .into())
+    Err("Not implemented for this architecture. Waiting for a stable rust async interface.".into())
 }
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -630,9 +629,10 @@ fn do_main(app: &mut App) -> Result<()> {
         ("info", Some(sub_matches)) => {
             let address = sub_matches.value_of("ADDRESS");
             if address.is_none() && activate.is_none() && bridge.is_none() {
-                app.print_help().context(format!("Couldn't print help"))?;
+                app.print_help()
+                    .context("Couldn't print help".to_string())?;
                 println!();
-                Err(format!("No ADDRESS or activation or bridge"))?
+                return Err("No ADDRESS or activation or bridge".to_string().into());
             }
 
             varlink_info(address, resolver, activate, bridge, should_colorize)?
@@ -662,7 +662,8 @@ fn do_main(app: &mut App) -> Result<()> {
             )?
         }
         (_, _) => {
-            app.print_help().context(format!("Couldn't print help"))?;
+            app.print_help()
+                .context("Couldn't print help".to_string())?;
             println!();
         }
     }

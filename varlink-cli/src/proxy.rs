@@ -46,7 +46,7 @@ where
             // pop the last zero byte
             buf.pop();
 
-            let mut req: Request = from_slice(&buf).context(format!("Error from slice"))?;
+            let mut req: Request = from_slice(&buf).context("Error from slice".to_string())?;
 
             if req.method == "org.varlink.service.GetInfo" {
                 req.method = "org.varlink.resolver.GetInfo".into();
@@ -124,7 +124,7 @@ where
                     break;
                 }
                 if buf.is_empty() {
-                    return Err(format!("Connection Closed").into());
+                    return Err("Connection Closed".to_string().into());
                 }
 
                 client_writer.write_all(&buf)?;
@@ -163,7 +163,7 @@ where
                 });
 
                 let copy2 = thread::spawn({
-                    let tx_end = tx_end.clone();
+                    let tx_end = tx_end;
                     let mut service_reader = service_reader;
 
                     move || {
@@ -297,7 +297,7 @@ where
     let mut child = conn.child.take().unwrap();
 
     let child_watch = thread::spawn({
-        let tx_end = tx_end.clone();
+        let tx_end = tx_end;
 
         move || {
             let r = child.wait();
@@ -323,7 +323,7 @@ where
 
             r1?;
             r2?;
-            return Ok(());
+            Ok(())
         }
 
         2 => {
@@ -340,7 +340,7 @@ where
 
             r2?;
             r1?;
-            return Ok(());
+            Ok(())
         }
         3 => {
             let cr = child_watch
@@ -360,8 +360,8 @@ where
                 .unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
 
             cr?;
-            return Ok(());
+            Ok(())
         }
         _ => panic!("Unknown"),
-    };
+    }
 }

@@ -277,6 +277,8 @@ impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VError<'long> {
     }
 }
 
+#[allow(clippy::unknown_clippy_lints)]
+#[allow(clippy::unnecessary_wraps)]
 fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Result<TokenStream> {
     let mut ts = TokenStream::new();
 
@@ -290,7 +292,6 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
 
     ts.extend(quote!(
         use serde_derive::{Deserialize, Serialize};
-        use serde_json;
         use std::io::BufRead;
         use std::sync::{Arc, RwLock};
         use varlink::{self, CallTrait};
@@ -450,7 +451,7 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
                                 Err(e) => {
                                     let es = format!("{}", e);
                                     let _ = call.reply_invalid_parameter(es.clone());
-                                    return Err(varlink::context!(varlink::ErrorKind::SerdeJsonDe(es)).into());
+                                    return Err(varlink::context!(varlink::ErrorKind::SerdeJsonDe(es)));
                                 }
                             };
                             self.inner.#method_name(call as &mut dyn #call_name, #(args.#in_field_names),*)
@@ -684,7 +685,7 @@ fn generate_error_code(
                     let k = self
                         .source()
                         .and_then(|e| e.downcast_ref::<varlink::Error>())
-                        .and_then(|e| Some(e.kind()));
+                        .map(|e| e.kind());
 
                     if k.is_some() {
                         return k;

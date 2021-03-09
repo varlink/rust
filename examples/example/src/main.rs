@@ -4,7 +4,6 @@ use std::sync::{Arc, RwLock};
 
 use chainerror::prelude::v1::*;
 use varlink::{Connection, OrgVarlinkServiceInterface, VarlinkService};
-use varlink_derive;
 
 use crate::org_example_network::VarlinkClientInterface;
 
@@ -84,7 +83,7 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
     {
         let info = iface
             .get_info()
-            .context(format!("Error calling get_info()"))?;
+            .context("Error calling get_info()".to_string())?;
         assert_eq!(&info.vendor, "org.varlink");
         assert_eq!(&info.product, "test service");
         assert_eq!(&info.version, "0.1");
@@ -93,7 +92,7 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
     }
     let description = iface
         .get_interface_description("org.example.network")
-        .context(format!("Error calling get_interface_description()"))?;
+        .context("Error calling get_interface_description()".to_string())?;
 
     assert!(description.description.is_some());
 

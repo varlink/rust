@@ -154,7 +154,7 @@ fn run_client(connection: Arc<RwLock<varlink::Connection>>) -> Result<()> {
 
     iface.test11(client_id.clone(), ret_array).oneway()?;
 
-    let ret = iface.end(client_id.clone()).call()?;
+    let ret = iface.end(client_id).call()?;
     eprintln!("{:#?}", ret);
 
     Ok(())
@@ -794,7 +794,7 @@ pub fn run_server(address: &str, timeout: u64) -> varlink::Result<()> {
     ) {
         match e.kind() {
             ::varlink::ErrorKind::Timeout => {}
-            _ => Err(e)?,
+            _ => return Err(e),
         }
     }
     Ok(())

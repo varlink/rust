@@ -16,9 +16,6 @@ use varlink::{
 use varlink_parser::{Format, FormatColored, IDL};
 use varlink_stdinterfaces::org_varlink_resolver::{VarlinkClient, VarlinkClientInterface};
 
-#[cfg(test)]
-mod test;
-
 #[cfg(target_os = "linux")]
 mod proxy;
 #[cfg(target_os = "linux")]

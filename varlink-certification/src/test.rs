@@ -1,7 +1,5 @@
 use std::{thread, time};
 
-use chainerror::prelude::v1::*;
-
 use varlink::Connection;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -46,24 +44,6 @@ fn test_unix_abstract() -> Result<()> {
 #[test]
 fn test_tcp() -> Result<()> {
     run_self_test("tcp:127.0.0.1:23456".into())
-}
-
-#[cfg(unix)]
-#[test]
-fn test_exec() -> Result<()> {
-    use escargot::CargoBuild;
-    fn get_exec() -> Result<String> {
-        let runner = CargoBuild::new()
-            .current_release()
-            .run()
-            .context(format!("Error running CargoBuild"))?;
-        Ok(runner.path().to_owned().to_string_lossy().to_string())
-    }
-
-    crate::run_client(Connection::with_activate(&format!(
-        "{} --varlink=$VARLINK_ADDRESS --timeout 4",
-        get_exec()?
-    ))?)
 }
 
 #[test]

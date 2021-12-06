@@ -244,8 +244,9 @@ fn varlink_call(
     };
 
     let args = match args {
-        Some(args) => serde_json::from_str(args)
-            .context(format!("Failed to parse JSON for '{}'", args.to_string()))?,
+        Some(args) => {
+            serde_json::from_str(args).context(format!("Failed to parse JSON for '{}'", args))?
+        }
         None => serde_json::Value::Null,
     };
 
@@ -336,7 +337,7 @@ fn print_call_ret(
             }) => format!(
                 "Call failed with error: {}\n{}",
                 red(error),
-                cf.to_colored_json(&parameters, color_mode).unwrap()
+                cf.to_colored_json(parameters, color_mode).unwrap()
             ),
             _ => format!("Failed to call method '{}({})'", &method, &args),
         }

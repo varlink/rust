@@ -1363,8 +1363,7 @@ impl VarlinkService {
         for i in interfaces {
             ifhashmap.insert(i.get_name().into(), i);
         }
-        let mut ifnames: Vec<Cow<'static, str>> = Vec::new();
-        ifnames.push("org.varlink.service".into());
+        let mut ifnames: Vec<Cow<'static, str>> = vec!["org.varlink.service".into()];
         ifnames.extend(ifhashmap.keys().cloned());
         VarlinkService {
             info: ServiceInfo {

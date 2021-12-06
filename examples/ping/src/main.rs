@@ -36,7 +36,7 @@ fn main() {
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
         Err(f) => {
-            eprintln!("{}", f.to_string());
+            eprintln!("{}", f);
             print_usage(&program, &opts);
             return;
         }
@@ -344,7 +344,7 @@ mod multiplex {
                                 tracker.chain_buffer(&mut readbuf[0..len].to_vec());
                                 eprintln!(
                                     "Handling: {}",
-                                    String::from_utf8_lossy(&tracker.buf_as_slice())
+                                    String::from_utf8_lossy(tracker.buf_as_slice())
                                 );
 
                                 match handler.handle(&mut tracker.buf_as_slice(), &mut out, None) {
@@ -442,7 +442,7 @@ mod multiplex {
                                                     if !buf.is_empty() {
                                                         eprintln!(
                                                             "fill_buf(): {}",
-                                                            String::from_utf8_lossy(&buf)
+                                                            String::from_utf8_lossy(buf)
                                                         );
                                                     }
                                                 }

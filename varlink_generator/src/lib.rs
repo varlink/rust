@@ -277,8 +277,6 @@ impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VError<'long> {
     }
 }
 
-#[allow(clippy::unknown_clippy_lints)]
-#[allow(clippy::unnecessary_wraps)]
 fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Result<TokenStream> {
     let mut ts = TokenStream::new();
 
@@ -301,7 +299,7 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
         ts.extend(v.clone());
     }
 
-    generate_error_code(options, &idl, &mut ts);
+    generate_error_code(options, idl, &mut ts);
 
     for t in idl.typedefs.values() {
         t.to_tokenstream("", &mut ts, options);
@@ -540,7 +538,7 @@ fn generate_anon_struct(
     name: &str,
     vstruct: &VStruct,
     options: &GeneratorOptions,
-    mut ts: &mut TokenStream,
+    ts: &mut TokenStream,
     field_types: &mut Vec<TokenStream>,
     field_names: &mut Vec<Ident>,
     anot: &mut Vec<TokenStream>,
@@ -556,7 +554,7 @@ fn generate_anon_struct(
         field_types.push(
             TokenStream::from_str(
                 e.vtype
-                    .to_rust_string(format!("{}_{}", name, e.name).as_ref(), &mut ts, options)
+                    .to_rust_string(format!("{}_{}", name, e.name).as_ref(), ts, options)
                     .as_ref(),
             )
             .unwrap(),
@@ -597,6 +595,7 @@ fn generate_error_code(
             ts.extend(quote!(
                 #[allow(dead_code)]
                 #[derive(Clone, PartialEq, Debug)]
+                #[allow(clippy::enum_variant_names)]
                 pub enum ErrorKind {
                     Varlink_Error,
                     VarlinkReply_Error,

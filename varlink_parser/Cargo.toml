@@ -13,7 +13,6 @@ readme = "README.md"
 
 keywords = ["parser", "varlink", "ipc", "rpc", "protocol"]
 categories = ["parsing", "development-tools"]
-build = "build.rs"
 
 [badges]
 travis-ci = { repository = "varlink/rust" }
@@ -21,4 +20,4 @@ travis-ci = { repository = "varlink/rust" }
 [dependencies]
 ansi_term = "0.12.1"
 chainerror = "0.7.0"
-peg = "0.6"
+peg = "0.6.3"

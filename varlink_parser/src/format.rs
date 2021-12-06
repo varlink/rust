@@ -354,7 +354,7 @@ impl<'a> Format for IDL<'a> {
         let mut f = String::new();
 
         if !self.doc.is_empty() {
-            f += &self.doc;
+            f += self.doc;
             f += "\n";
         }
         f += &format!("{} {}\n", "interface", self.name);
@@ -362,7 +362,7 @@ impl<'a> Format for IDL<'a> {
         for t in self.typedef_keys.iter().map(|k| &self.typedefs[k]) {
             f += "\n";
             if !t.doc.is_empty() {
-                f += &t.doc;
+                f += t.doc;
                 f += "\n";
             }
 
@@ -372,7 +372,7 @@ impl<'a> Format for IDL<'a> {
         for m in self.method_keys.iter().map(|k| &self.methods[k]) {
             f += "\n";
             if !m.doc.is_empty() {
-                f += &m.doc;
+                f += m.doc;
                 f += "\n";
             }
 
@@ -389,7 +389,7 @@ impl<'a> Format for IDL<'a> {
         for t in self.error_keys.iter().map(|k| &self.errors[k]) {
             f += "\n";
             if !t.doc.is_empty() {
-                f += &t.doc;
+                f += t.doc;
                 f += "\n";
             }
 

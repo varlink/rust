@@ -51,7 +51,7 @@ fn main() -> Result<()> {
         Ok(m) => m,
         Err(f) => {
             print_usage(&program, &opts);
-            eprintln!("{}", f.to_string());
+            eprintln!("{}", f);
             exit(1);
         }
     };

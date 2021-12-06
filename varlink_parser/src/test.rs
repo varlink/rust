@@ -218,12 +218,12 @@ fn test_domainnames() {
     assert!(IDL::try_from("interface com.-example.leadinghyphen\nmethod F()->()").is_err());
     assert!(IDL::try_from("interface xn--lgbbat1ad8j.example.algeria\nmethod F()->()").is_ok());
     assert!(IDL::try_from("interface com.example-.danglinghyphen-\nmethod F()->()").is_err());
-    assert!(IDL::try_from("interface Com.example.uppercase-toplevel\nmethod F()->()").is_err());
-    assert!(IDL::try_from("interface Co9.example.number-toplevel\nmethod F()->()").is_err());
     assert!(IDL::try_from("interface 1om.example.number-toplevel\nmethod F()->()").is_err());
-    assert!(IDL::try_from("interface com.Example\nmethod F()->()").is_err());
+    assert!(IDL::try_from("interface com.Example\nmethod F()->()").is_ok());
+    assert!(IDL::try_from("interface Com.example.uppercase-toplevel\nmethod F()->()").is_ok());
     assert!(IDL::try_from("interface a.b\nmethod F()->()").is_ok());
     assert!(IDL::try_from("interface a.b.c\nmethod F()->()").is_ok());
+    assert!(IDL::try_from("interface co9.example.number-toplevel\nmethod F()->()").is_ok());
     assert!(IDL::try_from("interface a1.b1.c1\nmethod F()->()").is_ok());
     assert!(IDL::try_from("interface a1.b--1.c--1\nmethod F()->()").is_ok());
     assert!(IDL::try_from("interface a--1.b--1.c--1\nmethod F()->()").is_ok());

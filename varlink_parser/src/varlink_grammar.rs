@@ -37,8 +37,8 @@ peg::parser! {
             = $( ['A'..='Z']['a'..='z' | 'A'..='Z' | '0'..='9']* )
 
         rule interface_name() -> &'input str /* no hyphen at begin and end */
-            = quiet! { $( ['a'..='z'] ( ['-']*['a'..='z' | '0'..='9'] )* ( ['.']['a'..='z' | '0'..='9'] (['-']*['a'..='z' | '0'..='9'])* )+ ) }
-              / expected!("<reverse domain name>")
+            = quiet! { $( ['A'..='Z' | 'a'..='z'] ( ['a'..='z' | '0'..='9' | '-' ] )* ( ['.']['A'..='Z' | 'a'..='z' | '0'..='9'] (['-']*['A'..='Z' | 'a'..='z' | '0'..='9'])* )+ ) }
+            / expected!("<reverse domain name>")
 
         rule array() -> ()
             = "[]"

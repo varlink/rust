@@ -25,6 +25,3 @@ colored_json = "2.1.0"
 chainerror = "0.7.0"
 libc = { version = "0", default-features = false }
 bitflags = "1.2.1"
-
-[dev-dependencies]
-escargot = "0.5.0"

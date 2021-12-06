@@ -18,5 +18,4 @@ chainerror = "0.7.0"
 varlink_generator = { version = "10", path = "../varlink_generator" }
 
 [dev-dependencies]
-escargot = "0.5.0"
 chainerror = "0.7.0"

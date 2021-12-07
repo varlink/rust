@@ -16,4 +16,4 @@ libc = "0.2.65"
 chainerror = "0.7.0"
 
 [build-dependencies]
-varlink_generator = { version = "10", path = "../../varlink_generator" }
+varlink_generator = { path = "../../varlink_generator" }

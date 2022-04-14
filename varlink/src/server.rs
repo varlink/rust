@@ -51,14 +51,10 @@ fn activation_listener() -> Option<usize> {
         return Some(3);
     }
 
-    let fdnames: String;
-
-    match env::var("LISTEN_FDNAMES") {
-        Ok(n) => {
-            fdnames = n;
-        }
+    let fdnames = match env::var("LISTEN_FDNAMES") {
+        Ok(n) => n,
         _ => return None,
-    }
+    };
 
     for (i, v) in fdnames.split(':').enumerate() {
         if v == "varlink" {

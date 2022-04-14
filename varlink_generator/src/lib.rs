@@ -1073,7 +1073,7 @@ pub fn cargo_build_tosource_options<T: AsRef<Path> + ?Sized>(
         .unwrap()
         .to_str()
         .unwrap()
-        .replace(".", "_");
+        .replace('.', "_");
     let rust_path = input_path
         .parent()
         .unwrap()

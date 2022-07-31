@@ -36,7 +36,7 @@ uds_windows = { version="1.0.1" }
 winapi = { version = "0.3", features = ["winuser", "winsock2"] }
 
 [target.'cfg(unix)'.dependencies]
-libc = { version = "0", default-features = false }
+libc = { version = "0.2.126", default-features = false }
 unix_socket = "0.5"
 
 [dev-dependencies]

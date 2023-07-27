@@ -1,7 +1,7 @@
 [package]
 name = "varlink_stdinterfaces"
 version = "11.0.2"
-authors = ["Harald Hoyer <harald@redhat.com>"]
+authors = ["Harald Hoyer <harald@hoyer.xyz>"]
 edition = "2018"
 
 license = "MIT OR Apache-2.0"

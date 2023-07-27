@@ -1131,7 +1131,7 @@ where
                 conn.writer = self.writer.take();
             }
         }
-        if reply.error != None {
+        if reply.error.is_some() {
             return Err(context!(ErrorKind::from(reply)).into());
         }
 

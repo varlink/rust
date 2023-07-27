@@ -45,7 +45,7 @@ error InvalidParameter (parameter: string)
          "
     );
     assert_eq!(
-        v.methods.get("GetInterfaceDescription".into()).unwrap().doc,
+        v.methods.get("GetInterfaceDescription").unwrap().doc,
         "# Get the description of an interface that is implemented by this service."
     );
     //println!("{}", v.to_string());
@@ -109,7 +109,7 @@ error ErrorFoo (a: (b: bool, c: int), foo: TypeFoo)
     )
     .unwrap();
     assert_eq!(v.name, "org.example.complex");
-    println!("{}", v.to_string());
+    println!("{}", v);
     assert_eq!(
         v.to_string(),
         "\
@@ -160,7 +160,7 @@ error ErrorFoo1 (a: (foo: bool, bar: int, baz: (a: int, b: int), b: (beee: int))
     .unwrap();
     assert_eq!(v.name, "org.example.format");
     println!("{}", v.get_oneline());
-    println!("{}", v.to_string());
+    println!("{}", v);
     assert_eq!(
         v.to_string(),
         "\

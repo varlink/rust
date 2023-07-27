@@ -374,12 +374,12 @@ impl org_varlink_certification::VarlinkInterface for CertInterface {
                 | Some(&varlink::Request {
                     oneway: Some(true), ..
                 }) => false,
-                Some(&varlink::Request {
-                    method: ref m,
-                    parameters: ref p,
+                Some(varlink::Request {
+                    method: m,
+                    parameters: p,
                     ..
                 }) if m == "org.varlink.certification.Start"
-                    && (*p == None
+                    && (p.is_none()
                         || *p == Some(serde_json::Value::Object(serde_json::Map::new()))) =>
                 {
                     true
@@ -717,7 +717,7 @@ impl ClientIds {
             let pop = match self.lifetimes.front() {
                 None => false,
 
-                Some(&(ref instant, ref client_id)) => {
+                Some((instant, client_id)) => {
                     if instant.elapsed().as_secs() > self.max_lifetime {
                         self.contexts.remove(client_id);
                         true

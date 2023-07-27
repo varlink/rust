@@ -172,7 +172,7 @@ fn test_handle() -> Result<()> {
                 panic!("Unexpected handle return value {}", iface);
             }
             (v, None) => {
-                if v.len() == 0 {
+                if v.is_empty() {
                     break;
                 }
                 //eprintln!("unhandled: {}", String::from_utf8_lossy(&v));

@@ -51,14 +51,11 @@ fn activation_listener() -> Option<usize> {
         return Some(3);
     }
 
-    let fdnames = match env::var("LISTEN_FDNAMES") {
-        Ok(n) => n,
-        _ => return None,
-    };
+    let fdnames = env::var("LISTEN_FDNAMES").ok()?;
 
     for (i, v) in fdnames.split(':').enumerate() {
         if v == "varlink" {
-            return Some(3 + i as usize);
+            return Some(3 + i);
         }
     }
 
@@ -134,7 +131,7 @@ impl Listener {
 
         if let Some(addr) = address.strip_prefix("tcp:") {
             Ok(Listener::TCP(
-                Some(TcpListener::bind(&addr).map_err(map_context!())?),
+                Some(TcpListener::bind(addr).map_err(map_context!())?),
                 false,
             ))
         } else if let Some(addr) = address.strip_prefix("unix:") {

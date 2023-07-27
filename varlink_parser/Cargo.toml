@@ -1,6 +1,6 @@
 [package]
 name = "varlink_parser"
-version = "4.2.0"
+version = "4.3.0"
 authors = ["Harald Hoyer <harald@hoyer.xyz>"]
 edition = "2018"
 

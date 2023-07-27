@@ -1,6 +1,6 @@
 [package]
 name = "ping"
-version = "2.0.2"
+version = "2.0.3"
 authors = ["Harald Hoyer <harald@hoyer.xyz>"]
 build = "build.rs"
 edition = "2018"

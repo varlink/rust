@@ -7,14 +7,14 @@
 [![Crate](https://img.shields.io/crates/v/varlink.svg)](https://crates.io/crates/varlink)
 [![Rust Documentation](https://img.shields.io/badge/api-rustdoc-blue.svg)](https://docs.rs/varlink/)
 [![dependency status](https://deps.rs/repo/github/varlink/rust/status.svg)](https://deps.rs/repo/github/varlink/rust)
-![Rust Version 1.47+](https://img.shields.io/badge/rustc-v1.47%2B-blue.svg)
+![Rust Version 1.63+](https://img.shields.io/badge/rustc-v1.63%2B-blue.svg)
 
 
 See http://varlink.org for more information about varlink.
 
 ## Example usage
 Look into the examples directory. ```build.rs``` contains the magic, which will build rust bindings for the varlink interface definition file.
-
+Or use `varlink_derive` to generate the bindings at compile time.
 ## More Info
 
 * [Git Repo](https://github.com/varlink/rust)

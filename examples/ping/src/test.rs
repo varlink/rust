@@ -42,7 +42,7 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
             let b = &br[10..20];
             let c = &br[20..];
 
-            for i in vec![a, b, c] {
+            for i in &[a, b, c] {
                 assert!(writer.write_all(i).is_ok());
                 assert!(writer.flush().is_ok());
                 thread::sleep(time::Duration::from_millis(500));
@@ -86,7 +86,7 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
             let b = &br[10..20];
             let c = &br[20..];
 
-            for i in vec![a, b, c] {
+            for i in &[a, b, c] {
                 assert!(writer.write_all(i).is_ok());
                 assert!(writer.flush().is_ok());
                 thread::sleep(time::Duration::from_millis(500));
@@ -115,7 +115,7 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
             let b = &br[10..20];
             let c = &br[20..];
 
-            for i in vec![a, b, c] {
+            for i in &[a, b, c] {
                 assert!(writer.write_all(i).is_ok());
                 assert!(writer.flush().is_ok());
                 thread::sleep(time::Duration::from_millis(500));
@@ -146,11 +146,10 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
     }
     eprintln!("run_client finished");
 
-    if let Err(_) = child.join() {
-        Err(format!("Error joining thread").into())
-    } else {
-        Ok(())
-    }
+    child
+        .join()
+        .map_err(|_| "Error joining thread".to_string())?;
+    Ok(())
 }
 
 #[cfg(target_os = "not_working")]

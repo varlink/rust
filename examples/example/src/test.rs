@@ -19,11 +19,10 @@ fn run_self_test(address: &'static str) -> Result<()> {
     if let Err(e) = ret {
         panic!("error: {}", e);
     }
-    if let Err(_) = child.join() {
-        Err(format!("Error joining thread").into())
-    } else {
-        Ok(())
-    }
+    child
+        .join()
+        .map_err(|_| "Error joining thread".to_string())?;
+    Ok(())
 }
 
 #[test]

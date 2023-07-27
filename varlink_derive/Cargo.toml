@@ -1,9 +1,9 @@
 [package]
 name = "varlink_derive"
 version = "10.1.0"
-authors = ["Harald Hoyer <harald@redhat.com>"]
+authors = ["Harald Hoyer <harald@hoyer.xyz>"]
 edition = "2018"
-license = "MIT/Apache-2.0"
+license = "MIT OR Apache-2.0"
 documentation = "https://github.com/varlink/rust/blob/master/varlink/README.md"
 homepage = "https://github.com/varlink/rust/blob/master/varlink_derive"
 repository = "https://github.com/varlink/rust"

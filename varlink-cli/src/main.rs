@@ -144,7 +144,7 @@ fn varlink_help(
         }
     };
 
-    if interface.find('.') == None {
+    if interface.find('.').is_none() {
         return Err(format!("Invalid address {}", url).into());
     }
 
@@ -213,14 +213,14 @@ fn varlink_call(
                 if let Some(del) = url.rfind('/') {
                     address = &url[0..del];
                     method = &url[(del + 1)..];
-                    if method.find('.') == None {
+                    if method.find('.').is_none() {
                         return Err(format!("Invalid address {}", url).into());
                     }
                 } else {
                     if let Some(del) = url.rfind('.') {
                         interface = &url[0..del];
                         method = url;
-                        if method.find('.') == None {
+                        if method.find('.').is_none() {
                             return Err(format!("Invalid address {}", url).into());
                         }
                     } else {

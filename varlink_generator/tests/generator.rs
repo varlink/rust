@@ -27,9 +27,9 @@ fn test_generate() {
                     1,
                 ))
                 .unwrap();
-            return false;
+            false
         } else {
-            return true;
+            true
         }
     }
 

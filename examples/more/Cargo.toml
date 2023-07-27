@@ -1,7 +1,7 @@
 [package]
 name = "more"
 version = "2.0.2"
-authors = ["Harald Hoyer <harald@redhat.com>"]
+authors = ["Harald Hoyer <harald@hoyer.xyz>"]
 build = "build.rs"
 edition = "2018"
 publish = false

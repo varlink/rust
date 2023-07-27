@@ -23,11 +23,11 @@ fn run_self_test(address: String) -> Result<()> {
     if let Err(e) = ret {
         panic!("error: {:?}", e);
     }
-    if let Err(_) = child.join() {
-        Err(format!("Error joining thread").into())
-    } else {
-        Ok(())
-    }
+
+    child
+        .join()
+        .map_err(|_| "Error joining thread".to_string())?;
+    Ok(())
 }
 
 #[test]
@@ -48,5 +48,5 @@ fn test_tcp() -> Result<()> {
 
 #[test]
 fn test_wrong_address_1() {
-    assert!(crate::run_server("tcpd:0.0.0.0:12345".into(), 1).is_err());
+    assert!(crate::run_server("tcpd:0.0.0.0:12345", 1).is_err());
 }

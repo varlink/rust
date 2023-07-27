@@ -25,7 +25,7 @@ pub fn varlink_connect<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Box<dyn S
 
     if let Some(addr) = new_address.strip_prefix("tcp:") {
         Ok((
-            Box::new(TcpStream::connect(&addr).map_err(map_context!())?),
+            Box::new(TcpStream::connect(addr).map_err(map_context!())?),
             new_address,
         ))
     } else if let Some(addr) = new_address.strip_prefix("unix:") {

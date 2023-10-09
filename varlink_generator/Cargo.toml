@@ -27,7 +27,7 @@ varlink_parser = { version = "4.3", path = "../varlink_parser" }
 quote = "1.0.2"
 proc-macro2 = "1.0.6"
 getopts = "0.2.21"
-syn = "1.0.8"
+syn = "2.0.38"
 chainerror = "0.8.0"
 
 [dev-dependencies]

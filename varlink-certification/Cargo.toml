@@ -5,6 +5,7 @@ authors = ["Harald Hoyer <harald@hoyer.xyz>"]
 build = "build.rs"
 edition = "2018"
 publish = false
+rust-version = "1.70.0"
 
 [dependencies]
 varlink = { path = "../varlink" }

@@ -154,7 +154,7 @@ impl WatchClose {
 
 impl Read for WatchClose {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        let mut v = vec![Event { events: 0, data: 0 }, Event { events: 0, data: 1 }];
+        let mut v = [Event { events: 0, data: 0 }, Event { events: 0, data: 1 }];
 
         'outer: loop {
             let r = epoll_wait(self.efd, -1, &mut v[..])?;

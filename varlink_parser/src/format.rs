@@ -1,4 +1,4 @@
-use ansi_term::Colour;
+use colored::Colorize;
 use std::fmt;
 
 use crate::*;
@@ -49,41 +49,33 @@ impl<'a> Format for VTypeExt<'a> {
 impl<'a> FormatColored for VTypeExt<'a> {
     fn get_oneline_colored(&self) -> String {
         match *self {
-            VTypeExt::Plain(VType::Bool) => Colour::Cyan.paint("bool").to_string(),
-            VTypeExt::Plain(VType::Int) => Colour::Cyan.paint("int").to_string(),
-            VTypeExt::Plain(VType::Float) => Colour::Cyan.paint("float").to_string(),
-            VTypeExt::Plain(VType::String) => Colour::Cyan.paint("string").to_string(),
-            VTypeExt::Plain(VType::Object) => Colour::Cyan.paint("object").to_string(),
-            VTypeExt::Plain(VType::Typename(ref v)) => {
-                Colour::Cyan.paint(v.to_string()).to_string()
-            }
+            VTypeExt::Plain(VType::Bool) => "bool".cyan().to_string(),
+            VTypeExt::Plain(VType::Int) => "int".cyan().to_string(),
+            VTypeExt::Plain(VType::Float) => "float".cyan().to_string(),
+            VTypeExt::Plain(VType::String) => "string".cyan().to_string(),
+            VTypeExt::Plain(VType::Object) => "object".cyan().to_string(),
+            VTypeExt::Plain(VType::Typename(ref v)) => v.to_string().cyan().to_string(),
             VTypeExt::Plain(VType::Struct(ref v)) => v.get_oneline_colored(),
             VTypeExt::Plain(VType::Enum(ref v)) => v.get_oneline_colored(),
             VTypeExt::Array(ref v) => format!("[]{}", v.get_oneline_colored()),
-            VTypeExt::Dict(ref v) => format!(
-                "[{}]{}",
-                Colour::Cyan.paint("string"),
-                v.get_oneline_colored()
-            ),
+            VTypeExt::Dict(ref v) => format!("[{}]{}", "string".cyan(), v.get_oneline_colored()),
             VTypeExt::Option(ref v) => format!("?{}", v.get_oneline_colored()),
         }
     }
     fn get_multiline_colored(&self, indent: usize, max: usize) -> String {
         match *self {
-            VTypeExt::Plain(VType::Bool) => Colour::Cyan.paint("bool").to_string(),
-            VTypeExt::Plain(VType::Int) => Colour::Cyan.paint("int").to_string(),
-            VTypeExt::Plain(VType::Float) => Colour::Cyan.paint("float").to_string(),
-            VTypeExt::Plain(VType::String) => Colour::Cyan.paint("string").to_string(),
-            VTypeExt::Plain(VType::Object) => Colour::Cyan.paint("object").to_string(),
-            VTypeExt::Plain(VType::Typename(ref v)) => {
-                Colour::Cyan.paint(v.to_string()).to_string()
-            }
+            VTypeExt::Plain(VType::Bool) => "bool".cyan().to_string(),
+            VTypeExt::Plain(VType::Int) => "int".cyan().to_string(),
+            VTypeExt::Plain(VType::Float) => "float".cyan().to_string(),
+            VTypeExt::Plain(VType::String) => "string".cyan().to_string(),
+            VTypeExt::Plain(VType::Object) => "object".cyan().to_string(),
+            VTypeExt::Plain(VType::Typename(ref v)) => v.to_string().cyan().to_string(),
             VTypeExt::Plain(VType::Struct(ref v)) => v.get_multiline_colored(indent, max),
             VTypeExt::Plain(VType::Enum(ref v)) => v.get_multiline_colored(indent, max),
             VTypeExt::Array(ref v) => format!("[]{}", v.get_multiline_colored(indent, max)),
             VTypeExt::Dict(ref v) => format!(
                 "[{}]{}",
-                Colour::Cyan.paint("string"),
+                "string".cyan(),
                 v.get_multiline_colored(indent, max)
             ),
             VTypeExt::Option(ref v) => format!("?{}", v.get_multiline_colored(indent, max)),
@@ -555,22 +547,22 @@ impl<'a> FormatColored for IDL<'a> {
         let mut f = String::new();
 
         if !self.doc.is_empty() {
-            f += &Colour::Blue.paint(self.doc);
+            f += &self.doc.blue();
             f += "\n";
         }
-        f += &format!("{} {}\n", Colour::Purple.paint("interface"), self.name);
+        f += &format!("{} {}\n", "interface", self.name.purple());
 
         for t in self.typedef_keys.iter().map(|k| &self.typedefs[k]) {
             f += "\n";
             if !t.doc.is_empty() {
-                f += &Colour::Blue.paint(t.doc);
+                f += &t.doc.blue();
                 f += "\n";
             }
 
             f += &format!(
                 "{} {} {}\n",
-                Colour::Purple.paint("type"),
-                Colour::Cyan.paint(t.name),
+                "type".purple(),
+                t.name.cyan(),
                 t.elt.get_oneline_colored()
             );
         }
@@ -578,30 +570,30 @@ impl<'a> FormatColored for IDL<'a> {
         for m in self.method_keys.iter().map(|k| &self.methods[k]) {
             f += "\n";
             if !m.doc.is_empty() {
-                f += &Colour::Blue.paint(m.doc);
+                f += &m.doc.blue();
                 f += "\n";
             }
 
             f += &format!(
                 "{} {}{} {} {}\n",
-                Colour::Purple.paint("method"),
-                Colour::Green.paint(m.name),
+                "method".purple(),
+                m.name.green(),
                 m.input.get_oneline_colored(),
-                Colour::Purple.paint("->"),
+                "->".purple(),
                 m.output.get_oneline_colored()
             );
         }
         for t in self.error_keys.iter().map(|k| &self.errors[k]) {
             f += "\n";
             if !t.doc.is_empty() {
-                f += &Colour::Blue.paint(t.doc);
+                f += &t.doc.blue();
                 f += "\n";
             }
 
             f += &format!(
                 "{} {} {}\n",
-                Colour::Purple.paint("error"),
-                Colour::Cyan.paint(t.name),
+                "error".purple(),
+                t.name.cyan(),
                 t.parm.get_oneline_colored()
             );
         }
@@ -615,7 +607,7 @@ impl<'a> FormatColored for IDL<'a> {
             f += &self
                 .doc
                 .split('\n')
-                .map(|s| format!("{:indent$}{}", "", Colour::Blue.paint(s), indent = indent))
+                .map(|s| format!("{:indent$}{}", "", s.blue(), indent = indent))
                 .collect::<Vec<String>>()
                 .join("\n");
             f += "\n";
@@ -623,7 +615,7 @@ impl<'a> FormatColored for IDL<'a> {
         f += &format!(
             "{:indent$}{} {}\n",
             "",
-            Colour::Purple.paint("interface"),
+            "interface".purple(),
             self.name,
             indent = indent
         );
@@ -635,7 +627,7 @@ impl<'a> FormatColored for IDL<'a> {
                     .doc
                     .to_string()
                     .split('\n')
-                    .map(|s| format!("{:indent$}{}", "", Colour::Blue.paint(s), indent = indent))
+                    .map(|s| format!("{:indent$}{}", "", s.blue(), indent = indent))
                     .collect::<Vec<String>>()
                     .join("\n");
                 f += "\n";
@@ -647,8 +639,8 @@ impl<'a> FormatColored for IDL<'a> {
                 f += &format!(
                     "{:indent$}{} {} {}\n",
                     "",
-                    Colour::Purple.paint("type"),
-                    Colour::Cyan.paint(t.name),
+                    "type".purple(),
+                    t.name.cyan(),
                     t.elt.get_oneline_colored(),
                     indent = indent
                 );
@@ -656,8 +648,8 @@ impl<'a> FormatColored for IDL<'a> {
                 f += &format!(
                     "{:indent$}{} {} {}\n",
                     "",
-                    Colour::Purple.paint("type"),
-                    Colour::Cyan.paint(t.name),
+                    "type".purple(),
+                    t.name.cyan(),
                     t.elt.get_multiline_colored(indent, max),
                     indent = indent
                 );
@@ -671,7 +663,7 @@ impl<'a> FormatColored for IDL<'a> {
                     .doc
                     .to_string()
                     .split('\n')
-                    .map(|s| format!("{:indent$}{}", "", Colour::Blue.paint(s), indent = indent))
+                    .map(|s| format!("{:indent$}{}", "", s.blue(), indent = indent))
                     .collect::<Vec<String>>()
                     .join("\n");
 
@@ -687,10 +679,10 @@ impl<'a> FormatColored for IDL<'a> {
                 f += &format!(
                     "{:indent$}{} {}{} {} {}\n",
                     "",
-                    Colour::Purple.paint("method"),
-                    Colour::Green.paint(m.name),
+                    "method".purple(),
+                    m.name.green(),
                     m.input.get_oneline_colored(),
-                    Colour::Purple.paint("->"),
+                    "->".purple(),
                     m.output.get_oneline_colored(),
                     indent = indent
                 );
@@ -698,10 +690,10 @@ impl<'a> FormatColored for IDL<'a> {
                 f += &format!(
                     "{:indent$}{} {}{} {} {}\n",
                     "",
-                    Colour::Purple.paint("method"),
-                    Colour::Green.paint(m.name),
+                    "method".purple(),
+                    m.name.green(),
                     m.input.get_oneline_colored(),
-                    Colour::Purple.paint("->"),
+                    "->".purple(),
                     m.output.get_multiline_colored(indent, max),
                     indent = indent
                 );
@@ -709,10 +701,10 @@ impl<'a> FormatColored for IDL<'a> {
                 f += &format!(
                     "{:indent$}{} {}{} {} {}\n",
                     "",
-                    Colour::Purple.paint("method"),
-                    Colour::Green.paint(m.name),
+                    "method".purple(),
+                    m.name.green(),
                     m.input.get_multiline_colored(indent, max),
-                    Colour::Purple.paint("->"),
+                    "->".purple(),
                     m.output.get_oneline_colored(),
                     indent = indent
                 );
@@ -720,10 +712,10 @@ impl<'a> FormatColored for IDL<'a> {
                 f += &format!(
                     "{:indent$}{} {}{} {} {}\n",
                     "",
-                    Colour::Purple.paint("method"),
-                    Colour::Green.paint(m.name),
+                    "method".purple(),
+                    m.name.green(),
                     m.input.get_multiline_colored(indent, max),
-                    Colour::Purple.paint("->"),
+                    "->".purple(),
                     m.output.get_multiline_colored(indent, max),
                     indent = indent
                 );
@@ -736,7 +728,7 @@ impl<'a> FormatColored for IDL<'a> {
                     .doc
                     .to_string()
                     .split('\n')
-                    .map(|s| format!("{:indent$}{}", "", Colour::Blue.paint(s), indent = indent))
+                    .map(|s| format!("{:indent$}{}", "", s.blue(), indent = indent))
                     .collect::<Vec<String>>()
                     .join("\n");
 
@@ -749,8 +741,8 @@ impl<'a> FormatColored for IDL<'a> {
                 f += &format!(
                     "{:indent$}{} {} {}\n",
                     "",
-                    Colour::Purple.paint("error"),
-                    Colour::Cyan.paint(t.name),
+                    "error".purple(),
+                    t.name.cyan(),
                     t.parm.get_oneline_colored(),
                     indent = indent
                 );
@@ -758,8 +750,8 @@ impl<'a> FormatColored for IDL<'a> {
                 f += &format!(
                     "{:indent$}{} {} {}\n",
                     "",
-                    Colour::Purple.paint("error"),
-                    Colour::Cyan.paint(t.name),
+                    "error".purple(),
+                    t.name.cyan(),
                     t.parm.get_multiline_colored(indent, max),
                     indent = indent
                 );

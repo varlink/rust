@@ -590,7 +590,7 @@ pub fn listen<S: ?Sized + AsRef<str>, H: crate::ConnectionHandler + Send + Sync 
                         iface = i;
                         match br.fill_buf() {
                             Err(_) => break,
-                            Ok(buf) if buf.is_empty() => break,
+                            Ok([]) => break,
                             _ => {}
                         }
                     }

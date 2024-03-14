@@ -7,7 +7,7 @@
 [![Crate](https://img.shields.io/crates/v/varlink.svg)](https://crates.io/crates/varlink)
 [![Rust Documentation](https://img.shields.io/badge/api-rustdoc-blue.svg)](https://docs.rs/varlink/)
 [![dependency status](https://deps.rs/repo/github/varlink/rust/status.svg)](https://deps.rs/repo/github/varlink/rust)
-![Rust Version 1.63+](https://img.shields.io/badge/rustc-v1.63%2B-blue.svg)
+![Rust Version 1.70+](https://img.shields.io/badge/rustc-v1.70%2B-blue.svg)
 
 
 See http://varlink.org for more information about varlink.

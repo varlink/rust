@@ -19,6 +19,6 @@ categories = ["parsing", "development-tools"]
 travis-ci = { repository = "varlink/rust" }
 
 [dependencies]
-ansi_term = "0.12.1"
+colored = "2.1.0"
 chainerror = "0.8.0"
 peg = "0.6.3"

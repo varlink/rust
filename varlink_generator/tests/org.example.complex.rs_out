@@ -147,6 +147,7 @@ pub enum r#ErrorFoo_Args_bar {
     r#if,
     r#let,
 }
+#[allow(dead_code)]
 pub trait VarlinkCallError: varlink::CallTrait {
     fn reply_error_bar(&mut self) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::error("org.example.complex.ErrorBar", None))
@@ -256,6 +257,7 @@ pub struct Bar_Reply {}
 impl varlink::VarlinkReply for Bar_Reply {}
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Bar_Args {}
+#[allow(dead_code)]
 pub trait Call_Bar: VarlinkCallError {
     fn reply(&mut self) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::parameters(None))
@@ -285,6 +287,7 @@ pub struct Foo_Args {
     pub r#foo: TypeFoo,
     pub r#interface: Interface,
 }
+#[allow(dead_code)]
 pub trait Call_Foo: VarlinkCallError {
     fn reply(
         &mut self,
@@ -303,6 +306,7 @@ pub trait Call_Foo: VarlinkCallError {
     }
 }
 impl<'a> Call_Foo for varlink::Call<'a> {}
+#[allow(dead_code)]
 pub trait VarlinkInterface {
     fn bar(&self, call: &mut dyn Call_Bar) -> varlink::Result<()>;
     fn foo(
@@ -320,6 +324,7 @@ pub trait VarlinkInterface {
         Ok(Vec::new())
     }
 }
+#[allow(dead_code)]
 pub trait VarlinkClientInterface {
     fn bar(&mut self) -> varlink::MethodCall<Bar_Args, Bar_Reply, Error>;
     fn foo(

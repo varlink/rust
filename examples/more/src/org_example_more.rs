@@ -120,6 +120,7 @@ impl From<&varlink::Reply> for ErrorKind {
         }
     }
 }
+#[allow(dead_code)]
 pub trait VarlinkCallError: varlink::CallTrait {
     fn reply_test_more_error(&mut self, r#reason: String) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::error(
@@ -151,6 +152,7 @@ impl varlink::VarlinkReply for Ping_Reply {}
 pub struct Ping_Args {
     pub r#ping: String,
 }
+#[allow(dead_code)]
 pub trait Call_Ping: VarlinkCallError {
     fn reply(&mut self, r#pong: String) -> varlink::Result<()> {
         self.reply_struct(Ping_Reply { r#pong }.into())
@@ -162,6 +164,7 @@ pub struct StopServing_Reply {}
 impl varlink::VarlinkReply for StopServing_Reply {}
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct StopServing_Args {}
+#[allow(dead_code)]
 pub trait Call_StopServing: VarlinkCallError {
     fn reply(&mut self) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::parameters(None))
@@ -177,12 +180,14 @@ impl varlink::VarlinkReply for TestMore_Reply {}
 pub struct TestMore_Args {
     pub r#n: i64,
 }
+#[allow(dead_code)]
 pub trait Call_TestMore: VarlinkCallError {
     fn reply(&mut self, r#state: State) -> varlink::Result<()> {
         self.reply_struct(TestMore_Reply { r#state }.into())
     }
 }
 impl<'a> Call_TestMore for varlink::Call<'a> {}
+#[allow(dead_code)]
 pub trait VarlinkInterface {
     fn ping(&self, call: &mut dyn Call_Ping, r#ping: String) -> varlink::Result<()>;
     fn stop_serving(&self, call: &mut dyn Call_StopServing) -> varlink::Result<()>;
@@ -195,6 +200,7 @@ pub trait VarlinkInterface {
         Ok(Vec::new())
     }
 }
+#[allow(dead_code)]
 pub trait VarlinkClientInterface {
     fn ping(&mut self, r#ping: String) -> varlink::MethodCall<Ping_Args, Ping_Reply, Error>;
     fn stop_serving(&mut self) -> varlink::MethodCall<StopServing_Args, StopServing_Reply, Error>;

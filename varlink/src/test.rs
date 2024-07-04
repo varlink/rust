@@ -38,7 +38,7 @@ fn test_listen() -> Result<()> {
             assert_eq!(&info.version, "0.1");
             assert_eq!(&info.url, "http://varlink.org");
             assert_eq!(
-                info.interfaces.get(0).unwrap().as_ref(),
+                info.interfaces.first().unwrap().as_ref(),
                 "org.varlink.service"
             );
         }
@@ -161,13 +161,14 @@ fn test_handle() -> Result<()> {
 
     let mut buf = Vec::<u8>::new();
 
-    for mut i in vec![a, b, c] {
+    for mut i in [a, b, c] {
         buf.append(&mut i);
 
-        match {
+        let res = {
             let mut br = buf.as_slice();
             service.handle(&mut br, &mut w, None)?
-        } {
+        };
+        match res {
             (_, Some(iface)) => {
                 panic!("Unexpected handle return value {}", iface);
             }

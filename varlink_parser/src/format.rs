@@ -625,7 +625,6 @@ impl<'a> FormatColored for IDL<'a> {
             if !t.doc.is_empty() {
                 f += &t
                     .doc
-                    .to_string()
                     .split('\n')
                     .map(|s| format!("{:indent$}{}", "", s.blue(), indent = indent))
                     .collect::<Vec<String>>()
@@ -661,7 +660,6 @@ impl<'a> FormatColored for IDL<'a> {
             if !m.doc.is_empty() {
                 f += &m
                     .doc
-                    .to_string()
                     .split('\n')
                     .map(|s| format!("{:indent$}{}", "", s.blue(), indent = indent))
                     .collect::<Vec<String>>()
@@ -726,7 +724,6 @@ impl<'a> FormatColored for IDL<'a> {
             if !t.doc.is_empty() {
                 f += &t
                     .doc
-                    .to_string()
                     .split('\n')
                     .map(|s| format!("{:indent$}{}", "", s.blue(), indent = indent))
                     .collect::<Vec<String>>()

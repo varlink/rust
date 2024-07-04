@@ -98,9 +98,9 @@ fn cvt<T: IsMinusOne>(t: T) -> crate::io::Result<T> {
 
 fn max_len() -> usize {
     if cfg!(target_os = "macos") {
-        <c_int>::max_value() as usize - 1
+        <c_int>::MAX as usize - 1
     } else {
-        <ssize_t>::max_value() as usize
+        <ssize_t>::MAX as usize
     }
 }
 

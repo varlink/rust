@@ -120,6 +120,7 @@ impl From<&varlink::Reply> for ErrorKind {
         }
     }
 }
+#[allow(dead_code)]
 pub trait VarlinkCallError: varlink::CallTrait {
     fn reply_ping_error(&mut self, r#parameter: i64) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::error(
@@ -145,6 +146,7 @@ impl varlink::VarlinkReply for Ping_Reply {}
 pub struct Ping_Args {
     pub r#ping: String,
 }
+#[allow(dead_code)]
 pub trait Call_Ping: VarlinkCallError {
     fn reply(&mut self, r#pong: String) -> varlink::Result<()> {
         self.reply_struct(Ping_Reply { r#pong }.into())
@@ -156,12 +158,14 @@ pub struct Upgrade_Reply {}
 impl varlink::VarlinkReply for Upgrade_Reply {}
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Upgrade_Args {}
+#[allow(dead_code)]
 pub trait Call_Upgrade: VarlinkCallError {
     fn reply(&mut self) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::parameters(None))
     }
 }
 impl<'a> Call_Upgrade for varlink::Call<'a> {}
+#[allow(dead_code)]
 pub trait VarlinkInterface {
     fn ping(&self, call: &mut dyn Call_Ping, r#ping: String) -> varlink::Result<()>;
     fn upgrade(&self, call: &mut dyn Call_Upgrade) -> varlink::Result<()>;
@@ -173,6 +177,7 @@ pub trait VarlinkInterface {
         Ok(Vec::new())
     }
 }
+#[allow(dead_code)]
 pub trait VarlinkClientInterface {
     fn ping(&mut self, r#ping: String) -> varlink::MethodCall<Ping_Args, Ping_Reply, Error>;
     fn upgrade(&mut self) -> varlink::MethodCall<Upgrade_Args, Upgrade_Reply, Error>;

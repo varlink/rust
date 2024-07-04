@@ -378,6 +378,7 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
             let field_types_1 = out_field_types.iter();
             if !t.output.elts.is_empty() {
                 ts.extend(quote!(
+                #[allow(dead_code)]
                 pub trait #call_name: VarlinkCallError {
                     fn reply(&mut self, #(#field_names_1: #field_types_1),*) -> varlink::Result<()> {
                         self.reply_struct(#out_struct_name { #(#field_names_2),* }.into())
@@ -386,6 +387,7 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
             ));
             } else {
                 ts.extend(quote!(
+                    #[allow(dead_code)]
                     pub trait #call_name: VarlinkCallError {
                         fn reply(&mut self) -> varlink::Result<()> {
                             self.reply_struct(varlink::Reply::parameters(None))
@@ -467,6 +469,7 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
     }
 
     ts.extend(quote!(
+        #[allow(dead_code)]
         pub trait VarlinkInterface {
             #server_method_decls
 
@@ -474,6 +477,8 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
                 Ok(Vec::new())
             }
         }
+
+        #[allow(dead_code)]
         pub trait VarlinkClientInterface {
             #client_method_decls
         }
@@ -776,6 +781,7 @@ fn generate_error_code(
         }
         ts.extend(quote!(
             #error_structs_and_enums
+            #[allow(dead_code)]
             pub trait VarlinkCallError: varlink::CallTrait {
                 #funcs
             }
@@ -880,7 +886,7 @@ pub fn cargo_build<T: AsRef<Path> + ?Sized>(input_path: &T) {
 /// }
 /// ```
 ///
-pub fn cargo_build_many<T: AsRef<Path> + ?Sized>(input_paths: &[T])
+pub fn cargo_build_many<T>(input_paths: &[T])
 where
     T: std::marker::Sized,
     T: AsRef<Path>,

@@ -85,7 +85,7 @@ where
                         }
                     };
                 }
-                last_iface = iface.clone();
+                last_iface.clone_from(&iface);
             }
 
             let mut stream = match varlink_connect(&address) {
@@ -220,10 +220,10 @@ where
     Ok(upgraded)
 }
 
-pub fn copy<R: ?Sized, W: ?Sized>(reader: &mut R, writer: &mut W) -> io::Result<u64>
+pub fn copy<R, W>(reader: &mut R, writer: &mut W) -> io::Result<u64>
 where
-    R: Read,
-    W: Write,
+    R: Read + ?Sized,
+    W: Write + ?Sized,
 {
     use std::io::ErrorKind;
 

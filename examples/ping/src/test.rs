@@ -3,7 +3,7 @@ use std::result::Result as StdResult;
 
 type Result<T> = StdResult<T, Box<dyn StdError>>;
 
-use chainerror::prelude::v1::*;
+use anyhow::Context;
 use std::io::BufRead;
 use std::{thread, time};
 use varlink::Connection;

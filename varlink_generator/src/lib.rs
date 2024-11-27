@@ -40,14 +40,14 @@ use std::path::{Path, PathBuf};
 use std::process::{exit, Command};
 use std::str::FromStr;
 
-use chainerror::prelude::v1::*;
+use chainerror::Context;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote};
 
 use varlink_parser::{Typedef, VEnum, VError, VStruct, VStructOrEnum, VType, VTypeExt, IDL};
 
-derive_str_context!(Error);
-pub type Result<T> = ChainResult<T, Error>;
+chainerror::str_context!(Error);
+pub type Result<T> = chainerror::Result<T, Error>;
 
 trait ToRustString<'short, 'long: 'short> {
     fn to_rust_string(

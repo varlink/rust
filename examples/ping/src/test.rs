@@ -152,7 +152,6 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
     Ok(())
 }
 
-#[cfg(target_os = "not_working")]
 #[test]
 fn test_unix_multiplex() -> Result<()> {
     run_self_test("unix:org.example.ping_multiplex".into(), true)

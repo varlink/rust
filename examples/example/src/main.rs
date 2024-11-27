@@ -2,7 +2,7 @@ use std::env;
 use std::process::exit;
 use std::sync::{Arc, RwLock};
 
-use chainerror::prelude::v1::*;
+use anyhow::Context;
 use varlink::{Connection, OrgVarlinkServiceInterface, VarlinkService};
 
 use crate::org_example_network::VarlinkClientInterface;

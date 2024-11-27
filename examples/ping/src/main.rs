@@ -1,9 +1,9 @@
-use chainerror::prelude::v1::*;
 use std::env;
 use std::io::{BufRead, Read, Write};
 use std::process::exit;
 use std::sync::{Arc, RwLock};
 
+use anyhow::Context;
 use varlink::{Call, Connection, VarlinkService};
 
 use crate::org_example_ping::*;

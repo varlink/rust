@@ -44,11 +44,11 @@
     html_favicon_url = "https://varlink.org/images/varlink-small.png"
 )]
 
+use chainerror::Context;
+
 use self::varlink_grammar::ParseInterface;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
-
-use chainerror::prelude::v1::*;
 
 mod format;
 
@@ -60,7 +60,7 @@ mod test;
 
 mod varlink_grammar;
 
-derive_str_context!(Error);
+chainerror::str_context!(Error);
 
 pub enum VType<'a> {
     Bool,
@@ -219,13 +219,13 @@ impl<'a> IDL<'a> {
     }
 
     #[deprecated(since = "4.1.0", note = "please use `IDL::try_from` instead")]
-    pub fn from_string(s: &'a str) -> ChainResult<Self, Error> {
+    pub fn from_string(s: &'a str) -> chainerror::Result<Self, Error> {
         IDL::try_from(s)
     }
 }
 
 impl<'a> TryFrom<&'a str> for IDL<'a> {
-    type Error = ChainError<Error>;
+    type Error = chainerror::Error<Error>;
 
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
         let interface = ParseInterface(value).map_context(|e| {

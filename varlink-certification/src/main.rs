@@ -6,10 +6,9 @@ use std::process::exit;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
-use chainerror::prelude::v1::*;
-
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
+use chainerror::Context;
 use varlink::{Connection, StringHashMap, StringHashSet, VarlinkService};
 
 mod org_varlink_certification {
@@ -685,13 +684,13 @@ impl org_varlink_certification::VarlinkInterface for CertInterface {
     }
 }
 
-struct Context {
+struct TestContext {
     test: String,
 }
 
 struct ClientIds {
     lifetimes: VecDeque<(Instant, String)>,
-    contexts: StringHashMap<Context>,
+    contexts: StringHashMap<TestContext>,
     max_lifetime: u64,
 }
 
@@ -741,7 +740,7 @@ impl ClientIds {
         let client_id = format!("{:x}", hasher.finish());
         self.contexts.insert(
             client_id.clone(),
-            Context {
+            TestContext {
                 test: "Test01".into(),
             },
         );

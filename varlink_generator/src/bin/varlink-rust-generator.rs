@@ -19,7 +19,7 @@ use std::io;
 use std::io::{Read, Write};
 use std::path::Path;
 
-use chainerror::prelude::v1::*;
+use chainerror::Context;
 use varlink_generator::generate;
 
 fn print_usage(program: &str, opts: &getopts::Options) {

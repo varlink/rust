@@ -151,17 +151,7 @@ fn parse_varlink_args(input: TokenStream) -> (String, String, Span) {
 }
 
 fn expand_varlink(name: String, source: String) -> TokenStream {
-    let code = match varlink_generator::compile(source) {
-        Ok(code) => code,
-        Err(e) => {
-            let mut s = String::new();
-            for i in e.iter() {
-                s += &i.to_string();
-                s += "\n";
-            }
-            panic!("{}", s)
-        }
-    };
+    let code = varlink_generator::compile(source).unwrap();
 
     format!("mod {} {{ {} }}", name, code).parse().unwrap()
 }

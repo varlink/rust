@@ -8,7 +8,6 @@ use std::time::Instant;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-use chainerror::Context;
 use varlink::{Connection, StringHashMap, StringHashSet, VarlinkService};
 
 mod org_varlink_certification {
@@ -72,7 +71,7 @@ fn main() -> Result<()> {
         let connection = match matches.opt_str("varlink") {
             None => match matches.opt_str("bridge") {
                 Some(bridge) => Connection::with_bridge(&bridge)
-                    .context(format!("Connection::with_bridge({})", bridge))?,
+                    .map_err(|e| format!("Connection::with_bridge({bridge}): {e}"))?,
                 None => Connection::with_activate(&format!(
                     "{} \
                      --varlink=$VARLINK_ADDRESS",
@@ -80,7 +79,7 @@ fn main() -> Result<()> {
                 ))?,
             },
             Some(address) => Connection::with_address(&address)
-                .context(format!("Connection::with_address({})", address))?,
+                .map_err(|e| format!("Connection::with_address({address}): {e}"))?,
         };
         run_client(connection)?
     } else if let Some(address) = matches.opt_str("varlink") {

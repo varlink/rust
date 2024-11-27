@@ -19,7 +19,6 @@ use std::io;
 use std::io::{Read, Write};
 use std::path::Path;
 
-use chainerror::Context;
 use varlink_generator::generate;
 
 fn print_usage(program: &str, opts: &getopts::Options) {
@@ -59,7 +58,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             } else {
                 Box::new(
                     File::open(Path::new(&matches.free[0]))
-                        .context(format!("Failed to open '{}'", &matches.free[0]))?,
+                        .map_err(|e| format!("Failed to open '{}': {e}", &matches.free[0]))?,
                 )
             }
         }

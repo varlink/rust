@@ -1457,11 +1457,12 @@ impl ConnectionHandler for VarlinkService {
         writer: &mut dyn Write,
         upgraded_last_interface: Option<String>,
     ) -> Result<(Vec<u8>, Option<String>)> {
+        let mut bufreader = BufReader::new(bufreader);
         let mut upgraded_iface = upgraded_last_interface;
         loop {
             if let Some(iface) = upgraded_iface {
                 let mut call = Call::new_upgraded(writer);
-                let unread = self.call_upgraded(&iface, &mut call, bufreader)?;
+                let unread = self.call_upgraded(&iface, &mut call, &mut bufreader)?;
                 return Ok((unread, Some(iface)));
             }
 
@@ -1510,10 +1511,7 @@ impl ConnectionHandler for VarlinkService {
                 break;
             }
         }
-        #[cfg(any(feature = "bufreader_buffer", feature = "nightly"))]
-        return Ok((bufreader.buffer(), upgraded_iface));
 
-        #[cfg(not(any(feature = "bufreader_buffer", feature = "nightly")))]
-        return Ok((Vec::new(), upgraded_iface));
+        return Ok((bufreader.buffer().to_vec(), upgraded_iface));
     }
 }

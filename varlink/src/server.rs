@@ -151,6 +151,13 @@ impl Listener {
         }
     }
 
+    pub const fn is_already_accepted(&self) -> bool {
+        match *self {
+            Self::TCP(_, value) => value,
+            Self::UNIX(_, value) => value,
+        }
+    }
+
     #[cfg(windows)]
     pub fn accept(&self, timeout: u64) -> Result<Box<dyn Stream>> {
         use winapi::um::winsock2::WSAEINTR as EINTR;
@@ -194,13 +201,21 @@ impl Listener {
         }
 
         match self {
-            &Listener::TCP(Some(ref l), _) => {
-                let (s, _addr) = l.accept().map_err(map_context!())?;
-                Ok(Box::new(s))
+            &Listener::TCP(Some(ref l), accepted) => {
+                if accepted {
+                    unsafe { Ok(Box::new(TcpStream::from_raw_fd(l.as_raw_fd()))) }
+                } else {
+                    let (s, _addr) = l.accept().map_err(map_context!())?;
+                    Ok(Box::new(s))
+                }
             }
-            Listener::UNIX(Some(ref l), _) => {
-                let (s, _addr) = l.accept().map_err(map_context!())?;
-                Ok(Box::new(s))
+            Listener::UNIX(Some(ref l), accepted) => {
+                if *accepted {
+                    unsafe { Ok(Box::new(UnixStream::from_raw_fd(l.as_raw_fd()))) }
+                } else {
+                    let (s, _addr) = l.accept().map_err(map_context!())?;
+                    Ok(Box::new(s))
+                }
             }
             _ => Err(context!(ErrorKind::ConnectionClosed)),
         }
@@ -250,13 +265,21 @@ impl Listener {
             }
         }
         match self {
-            &Listener::TCP(Some(ref l), _) => {
-                let (s, _addr) = l.accept().map_err(map_context!())?;
-                Ok(Box::new(s))
+            &Listener::TCP(Some(ref l), accepted) => {
+                if accepted {
+                    unsafe { Ok(Box::new(TcpStream::from_raw_fd(l.as_raw_fd()))) }
+                } else {
+                    let (s, _addr) = l.accept().map_err(map_context!())?;
+                    Ok(Box::new(s))
+                }
             }
-            Listener::UNIX(Some(ref l), _) => {
-                let (s, _addr) = l.accept().map_err(map_context!())?;
-                Ok(Box::new(s))
+            Listener::UNIX(Some(ref l), accepted) => {
+                if *accepted {
+                    unsafe { Ok(Box::new(UnixStream::from_raw_fd(l.as_raw_fd()))) }
+                } else {
+                    let (s, _addr) = l.accept().map_err(map_context!())?;
+                    Ok(Box::new(s))
+                }
             }
             _ => Err(context!(ErrorKind::ConnectionClosed)),
         }
@@ -607,5 +630,9 @@ pub fn listen<S: ?Sized + AsRef<str>, H: crate::ConnectionHandler + Send + Sync 
                 }
             }
         });
+
+        if listener.is_already_accepted() {
+            return Ok(());
+        }
     }
 }

@@ -16,5 +16,4 @@ name = "varlink_derive"
 path = "src/lib.rs"
 
 [dependencies]
-varlink_generator = { version = "10.1", path = "../varlink_generator" }
-
+varlink_generator = { version = "11.0", path = "../varlink_generator" }

@@ -18,7 +18,7 @@ path = "src/main.rs"
 [dependencies]
 varlink = { version = "11", path = "../varlink" }
 varlink_stdinterfaces = { version = "11", path = "../varlink_stdinterfaces" }
-varlink_parser = { version = "4.3", path = "../varlink_parser" }
+varlink_parser = { version = "5.0", path = "../varlink_parser" }
 serde = "1.0.102"
 serde_json = "1.0.41"
 clap = "2.33.0"

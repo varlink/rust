@@ -1,6 +1,6 @@
 [package]
 name = "varlink_generator"
-version = "10.1.1"
+version = "11.0.0"
 authors = ["Harald Hoyer <harald@hoyer.xyz>"]
 edition = "2018"
 rust-version = "1.70.0"
@@ -24,7 +24,7 @@ name = "varlink-rust-generator"
 path = "src/bin/varlink-rust-generator.rs"
 
 [dependencies]
-varlink_parser = { version = "4.3", path = "../varlink_parser" }
+varlink_parser = { version = "5.0", path = "../varlink_parser" }
 quote = "1.0.2"
 proc-macro2 = "1.0.6"
 getopts = "0.2.21"

@@ -44,8 +44,6 @@
     html_favicon_url = "https://varlink.org/images/varlink-small.png"
 )]
 
-use chainerror::Context;
-
 use self::varlink_grammar::ParseInterface;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
@@ -60,7 +58,13 @@ mod test;
 
 mod varlink_grammar;
 
-chainerror::str_context!(Error);
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Varlink parse error\n{line}\n{marker:>column$}", marker = "^")]
+    Parse { line: String, column: usize },
+    #[error("Interface definition error: {0}")]
+    Idl(String),
+}
 
 pub enum VType<'a> {
     Bool,
@@ -219,32 +223,30 @@ impl<'a> IDL<'a> {
     }
 
     #[deprecated(since = "4.1.0", note = "please use `IDL::try_from` instead")]
-    pub fn from_string(s: &'a str) -> chainerror::Result<Self, Error> {
+    pub fn from_string(s: &'a str) -> Result<Self, Error> {
         IDL::try_from(s)
     }
 }
 
 impl<'a> TryFrom<&'a str> for IDL<'a> {
-    type Error = chainerror::Error<Error>;
+    type Error = Error;
 
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        let interface = ParseInterface(value).map_context(|e| {
+        let interface = ParseInterface(value).map_err(|e| {
             let line = value.split('\n').nth(e.location.line - 1).unwrap();
-            Error(format!(
-                "Varlink parse error\n{}\n{marker:>col$}",
-                line,
-                marker = "^",
-                col = e.location.column
-            ))
+            Error::Parse {
+                line: line.to_string(),
+                column: e.location.column,
+            }
         })?;
 
         if !interface.error.is_empty() {
             let mut v: Vec<_> = interface.error.into_iter().collect();
             v.sort();
-            let s = v.join("\n");
+            let mut s = v.join("\n");
+            s.push('\n');
 
-            Err("Interface definition error".to_string())
-                .context(Error(format!("Interface definition error: '{}'\n", s)))
+            Err(Error::Idl(s))
         } else {
             Ok(interface)
         }

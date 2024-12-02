@@ -40,14 +40,20 @@ use std::path::{Path, PathBuf};
 use std::process::{exit, Command};
 use std::str::FromStr;
 
-use chainerror::Context;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote};
 
 use varlink_parser::{Typedef, VEnum, VError, VStruct, VStructOrEnum, VType, VTypeExt, IDL};
 
-chainerror::str_context!(Error);
-pub type Result<T> = chainerror::Result<T, Error>;
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("{0}")]
+    Parse(varlink_parser::Error),
+    #[error("I/O error: {0}")]
+    Io(std::io::Error),
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 trait ToRustString<'short, 'long: 'short> {
     fn to_rust_string(
@@ -793,8 +799,7 @@ fn generate_error_code(
 }
 
 pub fn compile(source: String) -> Result<TokenStream> {
-    let idl =
-        IDL::try_from(source.as_str()).context(Error("Error compiling varlink".to_string()))?;
+    let idl = IDL::try_from(source.as_str()).map_err(Error::Parse)?;
     varlink_to_rust(
         &idl,
         &GeneratorOptions {
@@ -827,17 +832,14 @@ pub fn generate_with_options(
 ) -> Result<()> {
     let mut buffer = String::new();
 
-    reader
-        .read_to_string(&mut buffer)
-        .context(Error("Failed to read from buffer".to_string()))?;
+    reader.read_to_string(&mut buffer).map_err(Error::Io)?;
 
-    let idl = IDL::try_from(buffer.as_str()).context(Error("Failed to parse".to_string()))?;
-
+    let idl = IDL::try_from(buffer.as_str()).map_err(Error::Parse)?;
     let ts = varlink_to_rust(&idl, options, tosource)?;
+
     writer
         .write_all(ts.to_string().as_bytes())
-        .context(Error("Failed to write to buffer".to_string()))?;
-    Ok(())
+        .map_err(Error::Io)
 }
 
 /// cargo build helper function
@@ -982,15 +984,10 @@ where
         }));
 
         if let Err(e) = generate_with_options(reader, writer, options, false) {
-            let mut s = String::new();
-            for i in e.iter() {
-                s += &i.to_string();
-                s += "\n";
-            }
             eprintln!(
                 "Could not generate rust code from varlink file `{}`: {}",
                 input_path.display(),
-                s
+                e,
             );
 
             exit(1);
@@ -1104,15 +1101,10 @@ pub fn cargo_build_tosource_options<T: AsRef<Path> + ?Sized>(
     }));
 
     if let Err(e) = generate_with_options(reader, writer, options, true) {
-        let mut s = String::new();
-        for i in e.iter() {
-            s += &i.to_string();
-            s += "\n";
-        }
         eprintln!(
             "Could not generate rust code from varlink file `{}`: {}",
             input_path.display(),
-            s
+            e,
         );
         exit(1);
     }

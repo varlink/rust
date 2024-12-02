@@ -238,7 +238,7 @@ pub trait Call_GetInfo: varlink::CallTrait {
     }
 }
 
-impl<'a> Call_GetInfo for varlink::Call<'a> {}
+impl Call_GetInfo for varlink::Call<'_> {}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct GetInterfaceDescription_Reply {
@@ -258,7 +258,7 @@ pub trait Call_GetInterfaceDescription: varlink::CallTrait {
     }
 }
 
-impl<'a> Call_GetInterfaceDescription for varlink::Call<'a> {}
+impl Call_GetInterfaceDescription for varlink::Call<'_> {}
 
 pub trait VarlinkInterface {
     fn get_info(&self, call: &mut dyn Call_GetInfo) -> varlink::Result<()>;

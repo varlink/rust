@@ -404,7 +404,7 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
         }
 
         ts.extend(quote!(
-            impl<'a> #call_name for varlink::Call<'a> {}
+            impl #call_name for varlink::Call<'_> {}
         ));
 
         // #server_method_decls
@@ -794,7 +794,7 @@ fn generate_error_code(
         ));
     }
     ts.extend(quote!(
-        impl<'a> VarlinkCallError for varlink::Call<'a> {}
+        impl VarlinkCallError for varlink::Call<'_> {}
     ));
 }
 

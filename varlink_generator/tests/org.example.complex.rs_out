@@ -173,7 +173,7 @@ pub trait VarlinkCallError: varlink::CallTrait {
         ))
     }
 }
-impl<'a> VarlinkCallError for varlink::Call<'a> {}
+impl VarlinkCallError for varlink::Call<'_> {}
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum r#Enum {
     r#enum,
@@ -263,7 +263,7 @@ pub trait Call_Bar: VarlinkCallError {
         self.reply_struct(varlink::Reply::parameters(None))
     }
 }
-impl<'a> Call_Bar for varlink::Call<'a> {}
+impl Call_Bar for varlink::Call<'_> {}
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct r#Foo_Args_enum {
     pub r#b: bool,
@@ -305,7 +305,7 @@ pub trait Call_Foo: VarlinkCallError {
         )
     }
 }
-impl<'a> Call_Foo for varlink::Call<'a> {}
+impl Call_Foo for varlink::Call<'_> {}
 #[allow(dead_code)]
 pub trait VarlinkInterface {
     fn bar(&self, call: &mut dyn Call_Bar) -> varlink::Result<()>;

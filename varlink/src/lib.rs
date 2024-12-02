@@ -703,7 +703,7 @@ pub trait CallTrait {
     }
 }
 
-impl<'a> CallTrait for Call<'a> {
+impl CallTrait for Call<'_> {
     fn reply_struct(&mut self, mut reply: Reply) -> Result<()> {
         if self.continues && (!self.wants_more()) {
             return Err(context!(ErrorKind::CallContinuesMismatch));
@@ -1512,6 +1512,6 @@ impl ConnectionHandler for VarlinkService {
             }
         }
 
-        return Ok((bufreader.buffer().to_vec(), upgraded_iface));
+        Ok((bufreader.buffer().to_vec(), upgraded_iface))
     }
 }

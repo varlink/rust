@@ -35,10 +35,9 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Install toolchain
-      uses: actions-rs/toolchain@v1
+      uses: dtolnay/rust-toolchain@master
       with:
         toolchain: ${{ matrix.version }}
-        override: true
         components: rustfmt, clippy
     - name: Build
       run: cargo build --verbose

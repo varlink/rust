@@ -132,7 +132,7 @@ pub trait VarlinkCallError: varlink::CallTrait {
         ))
     }
 }
-impl<'a> VarlinkCallError for varlink::Call<'a> {}
+impl VarlinkCallError for varlink::Call<'_> {}
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct PingError_Args {
     pub r#parameter: i64,
@@ -152,7 +152,7 @@ pub trait Call_Ping: VarlinkCallError {
         self.reply_struct(Ping_Reply { r#pong }.into())
     }
 }
-impl<'a> Call_Ping for varlink::Call<'a> {}
+impl Call_Ping for varlink::Call<'_> {}
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Upgrade_Reply {}
 impl varlink::VarlinkReply for Upgrade_Reply {}
@@ -164,7 +164,7 @@ pub trait Call_Upgrade: VarlinkCallError {
         self.reply_struct(varlink::Reply::parameters(None))
     }
 }
-impl<'a> Call_Upgrade for varlink::Call<'a> {}
+impl Call_Upgrade for varlink::Call<'_> {}
 #[allow(dead_code)]
 pub trait VarlinkInterface {
     fn ping(&self, call: &mut dyn Call_Ping, r#ping: String) -> varlink::Result<()>;

@@ -13,7 +13,7 @@ pub trait FormatColored {
     fn get_multiline_colored(&self, indent: usize, max: usize) -> String;
 }
 
-impl<'a> Format for VTypeExt<'a> {
+impl Format for VTypeExt<'_> {
     fn get_oneline(&self) -> String {
         match *self {
             VTypeExt::Plain(VType::Bool) => "bool".into(),
@@ -46,7 +46,7 @@ impl<'a> Format for VTypeExt<'a> {
     }
 }
 
-impl<'a> FormatColored for VTypeExt<'a> {
+impl FormatColored for VTypeExt<'_> {
     fn get_oneline_colored(&self) -> String {
         match *self {
             VTypeExt::Plain(VType::Bool) => "bool".cyan().to_string(),
@@ -83,13 +83,13 @@ impl<'a> FormatColored for VTypeExt<'a> {
     }
 }
 
-impl<'a> fmt::Display for VTypeExt<'a> {
+impl fmt::Display for VTypeExt<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(&self.get_oneline())
     }
 }
 
-impl<'a> Format for VStructOrEnum<'a> {
+impl Format for VStructOrEnum<'_> {
     fn get_oneline(&self) -> String {
         match *self {
             VStructOrEnum::VStruct(ref v) => v.get_oneline(),
@@ -105,7 +105,7 @@ impl<'a> Format for VStructOrEnum<'a> {
     }
 }
 
-impl<'a> FormatColored for VStructOrEnum<'a> {
+impl FormatColored for VStructOrEnum<'_> {
     fn get_oneline_colored(&self) -> String {
         match *self {
             VStructOrEnum::VStruct(ref v) => v.get_oneline_colored(),
@@ -121,13 +121,13 @@ impl<'a> FormatColored for VStructOrEnum<'a> {
     }
 }
 
-impl<'a> fmt::Display for VStructOrEnum<'a> {
+impl fmt::Display for VStructOrEnum<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(&self.get_oneline())
     }
 }
 
-impl<'a> Format for Argument<'a> {
+impl Format for Argument<'_> {
     fn get_oneline(&self) -> String {
         format!("{}: {}", self.name, self.vtype)
     }
@@ -137,7 +137,7 @@ impl<'a> Format for Argument<'a> {
     }
 }
 
-impl<'a> FormatColored for Argument<'a> {
+impl FormatColored for Argument<'_> {
     fn get_oneline_colored(&self) -> String {
         format!("{}: {}", self.name, self.vtype.get_oneline_colored())
     }
@@ -151,13 +151,13 @@ impl<'a> FormatColored for Argument<'a> {
     }
 }
 
-impl<'a> fmt::Display for Argument<'a> {
+impl fmt::Display for Argument<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(&self.get_oneline())
     }
 }
 
-impl<'a> fmt::Display for VStruct<'a> {
+impl fmt::Display for VStruct<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "(")?;
         let mut iter = self.elts.iter();
@@ -171,7 +171,7 @@ impl<'a> fmt::Display for VStruct<'a> {
     }
 }
 
-impl<'a> Format for VStruct<'a> {
+impl Format for VStruct<'_> {
     fn get_oneline(&self) -> String {
         let mut f = String::new();
 
@@ -224,7 +224,7 @@ impl<'a> Format for VStruct<'a> {
     }
 }
 
-impl<'a> FormatColored for VStruct<'a> {
+impl FormatColored for VStruct<'_> {
     fn get_oneline_colored(&self) -> String {
         let mut f = String::new();
 
@@ -287,13 +287,13 @@ impl<'a> FormatColored for VStruct<'a> {
     }
 }
 
-impl<'a> fmt::Display for VEnum<'a> {
+impl fmt::Display for VEnum<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(&self.get_oneline())
     }
 }
 
-impl<'a> Format for VEnum<'a> {
+impl Format for VEnum<'_> {
     fn get_oneline(&self) -> String {
         let mut f = String::new();
 
@@ -325,7 +325,7 @@ impl<'a> Format for VEnum<'a> {
     }
 }
 
-impl<'a> FormatColored for VEnum<'a> {
+impl FormatColored for VEnum<'_> {
     fn get_oneline_colored(&self) -> String {
         self.get_oneline()
     }
@@ -335,13 +335,13 @@ impl<'a> FormatColored for VEnum<'a> {
     }
 }
 
-impl<'a> fmt::Display for IDL<'a> {
+impl fmt::Display for IDL<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(&self.get_multiline(0, 80))
     }
 }
 
-impl<'a> Format for IDL<'a> {
+impl Format for IDL<'_> {
     fn get_oneline(&self) -> String {
         let mut f = String::new();
 
@@ -542,7 +542,7 @@ impl<'a> Format for IDL<'a> {
     }
 }
 
-impl<'a> FormatColored for IDL<'a> {
+impl FormatColored for IDL<'_> {
     fn get_oneline_colored(&self) -> String {
         let mut f = String::new();
 

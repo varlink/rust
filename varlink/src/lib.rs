@@ -180,7 +180,7 @@
 //! # fn main() {}
 //! ```
 //!
-//! where args[1] would follow the varlink
+//! where `args[1]` would follow the varlink
 //! [address specification](https://github.com/varlink/documentation/wiki#address).
 //!
 //! Currently supported address URIs are:

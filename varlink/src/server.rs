@@ -129,12 +129,12 @@ impl Listener {
                 false,
             ))
         } else if let Some(addr) = address.strip_prefix("unix:@") {
-            let addr = String::from(addr.split(';').next().unwrap());
-            get_abstract_unixlistener(&addr).map(|v| Listener::UNIX(Some(v), false))
+            get_abstract_unixlistener(addr.split(';').next().unwrap_or(addr))
+                .map(|v| Listener::UNIX(Some(v), false))
         } else if let Some(addr) = address.strip_prefix("unix:") {
-            let addr = String::from(addr.split(';').next().unwrap());
-            // ignore error on non-existant file
-            let _ = fs::remove_file(&*addr);
+            let addr = addr.split(';').next().unwrap_or(addr);
+            // ignore error on non-existent file
+            _ = fs::remove_file(addr);
             Ok(Listener::UNIX(
                 Some(UnixListener::bind(addr).map_err(map_context!())?),
                 false,

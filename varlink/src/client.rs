@@ -29,10 +29,10 @@ pub fn varlink_connect<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Box<dyn S
             new_address,
         ))
     } else if let Some(addr) = new_address.strip_prefix("unix:@") {
-        let addr = String::from(addr.split(';').next().unwrap());
-        get_abstract_unixstream(&addr).map(|v| (Box::new(v) as Box<dyn Stream>, new_address))
+        let addr = addr.split(';').next().unwrap_or(addr);
+        get_abstract_unixstream(addr).map(|v| (Box::new(v) as Box<dyn Stream>, new_address))
     } else if let Some(addr) = new_address.strip_prefix("unix:") {
-        let addr = String::from(addr.split(';').next().unwrap());
+        let addr = addr.split(';').next().unwrap_or(addr);
         Ok((
             Box::new(UnixStream::connect(addr).map_err(map_context!())?),
             new_address,

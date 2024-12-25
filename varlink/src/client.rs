@@ -6,7 +6,7 @@ use std::net::TcpStream;
 #[cfg(unix)]
 use std::os::unix::io::{AsRawFd, IntoRawFd};
 #[cfg(unix)]
-use std::os::unix::net::UnixStream;
+use std::os::unix::net::{UnixListener, UnixStream};
 use std::process::Child;
 
 #[cfg(unix)]
@@ -28,13 +28,11 @@ pub fn varlink_connect<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Box<dyn S
             Box::new(TcpStream::connect(addr).map_err(map_context!())?),
             new_address,
         ))
+    } else if let Some(addr) = new_address.strip_prefix("unix:@") {
+        let addr = addr.split(';').next().unwrap_or(addr);
+        get_abstract_unixstream(addr).map(|v| (Box::new(v) as Box<dyn Stream>, new_address))
     } else if let Some(addr) = new_address.strip_prefix("unix:") {
-        let mut addr = String::from(addr.split(';').next().unwrap());
-        if addr.starts_with('@') {
-            addr = addr.replacen('@', "\0", 1);
-            return get_abstract_unixstream(&addr)
-                .map(|v| (Box::new(v) as Box<dyn Stream>, new_address));
-        }
+        let addr = addr.split(';').next().unwrap_or(addr);
         Ok((
             Box::new(UnixStream::connect(addr).map_err(map_context!())?),
             new_address,
@@ -46,18 +44,11 @@ pub fn varlink_connect<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Box<dyn S
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 fn get_abstract_unixstream(addr: &str) -> Result<UnixStream> {
-    // FIXME: abstract unix domains sockets still not in std
-    // FIXME: https://github.com/rust-lang/rust/issues/14194
-    use std::os::unix::io::FromRawFd;
-    use unix_socket::UnixStream as AbstractStream;
+    use std::os::linux::net::SocketAddrExt;
+    use std::os::unix::net::SocketAddr;
 
-    unsafe {
-        Ok(UnixStream::from_raw_fd(
-            AbstractStream::connect(addr)
-                .map_err(map_context!())?
-                .into_raw_fd(),
-        ))
-    }
+    let addr = SocketAddr::from_abstract_name(addr).map_err(map_context!())?;
+    UnixStream::connect_addr(&addr).map_err(map_context!())
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -84,8 +75,6 @@ pub fn varlink_exec<S: ?Sized + AsRef<str>>(
     use tempfile::tempdir;
 
     let executable = String::from("exec ") + address.as_ref();
-
-    use unix_socket::UnixListener;
 
     let dir = tempdir().map_err(map_context!())?;
     let file_path = dir.path().join("varlink-socket");
@@ -153,7 +142,6 @@ pub fn varlink_bridge<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Child, Box
     use std::process::Command;
 
     let executable = address.as_ref();
-    // use unix_socket::UnixStream;
     let (stream0, stream1) = UnixStream::pair().map_err(map_context!())?;
     let fd = stream1.into_raw_fd();
     let childin = unsafe { ::std::fs::File::from_raw_fd(fd) };

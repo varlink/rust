@@ -64,17 +64,11 @@ fn activation_listener() -> Option<usize> {
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 fn get_abstract_unixlistener(addr: &str) -> Result<UnixListener> {
-    // FIXME: abstract unix domains sockets still not in std
-    // FIXME: https://github.com/rust-lang/rust/issues/14194
-    use unix_socket::UnixListener as AbstractUnixListener;
+    use std::os::linux::net::SocketAddrExt;
+    use std::os::unix::net::SocketAddr;
 
-    unsafe {
-        Ok(UnixListener::from_raw_fd(
-            AbstractUnixListener::bind(addr)
-                .map_err(map_context!())?
-                .into_raw_fd(),
-        ))
-    }
+    let addr = SocketAddr::from_abstract_name(addr).map_err(map_context!())?;
+    UnixListener::bind_addr(&addr).map_err(map_context!())
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -134,14 +128,13 @@ impl Listener {
                 Some(TcpListener::bind(addr).map_err(map_context!())?),
                 false,
             ))
+        } else if let Some(addr) = address.strip_prefix("unix:@") {
+            get_abstract_unixlistener(addr.split(';').next().unwrap_or(addr))
+                .map(|v| Listener::UNIX(Some(v), false))
         } else if let Some(addr) = address.strip_prefix("unix:") {
-            let mut addr = String::from(addr.split(';').next().unwrap());
-            if addr.starts_with('@') {
-                addr = addr.replacen('@', "\0", 1);
-                return get_abstract_unixlistener(&addr).map(|v| Listener::UNIX(Some(v), false));
-            }
-            // ignore error on non-existant file
-            let _ = fs::remove_file(&*addr);
+            let addr = addr.split(';').next().unwrap_or(addr);
+            // ignore error on non-existent file
+            _ = fs::remove_file(addr);
             Ok(Listener::UNIX(
                 Some(UnixListener::bind(addr).map_err(map_context!())?),
                 false,

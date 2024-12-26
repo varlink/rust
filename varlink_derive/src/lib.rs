@@ -25,7 +25,7 @@
 //!
 //! varlink_derive::varlink_file!(
 //!    org_example_network,
-//!    "examples/example/src/org.example.network.varlink"
+//!    "../examples/example/src/org.example.network.varlink"
 //! );
 //!
 //! use crate::org_example_network::VarlinkClientInterface;
@@ -66,7 +66,7 @@ pub fn varlink(input: TokenStream) -> TokenStream {
 
 /// Generates a module from a varlink interface definition file
 ///
-/// `varlink!(<modulename>, "<varlink interface definition file path relative to the workspace>")`
+/// `varlink!(<modulename>, "<varlink interface definition file path relative to the directory containing the manifest of your package.>")`
 ///
 /// Examples:
 ///
@@ -75,7 +75,7 @@ pub fn varlink(input: TokenStream) -> TokenStream {
 ///
 /// varlink_derive::varlink_file!(
 ///    org_example_network,
-///    "examples/example/src/org.example.network.varlink"
+///    "../examples/example/src/org.example.network.varlink"
 ///);
 ///
 /// use crate::org_example_network::VarlinkClientInterface;
@@ -85,7 +85,14 @@ pub fn varlink(input: TokenStream) -> TokenStream {
 pub fn varlink_file(input: TokenStream) -> TokenStream {
     let (name, filename, _) = parse_varlink_filename_args(input);
     let mut source = Vec::<u8>::new();
-    std::fs::File::open(filename)
+
+    let path = if let Some(manifest_dir) = std::env::var_os("CARGO_MANIFEST_DIR") {
+        std::borrow::Cow::Owned(std::path::Path::new(&manifest_dir).join(filename))
+    } else {
+        std::borrow::Cow::Borrowed(std::path::Path::new(&filename))
+    };
+
+    std::fs::File::open(&path)
         .unwrap()
         .read_to_end(&mut source)
         .unwrap();

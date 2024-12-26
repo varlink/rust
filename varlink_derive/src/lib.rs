@@ -93,9 +93,22 @@ pub fn varlink_file(input: TokenStream) -> TokenStream {
     };
 
     std::fs::File::open(&path)
-        .unwrap()
+        .unwrap_or_else(|err| {
+            panic!(
+                "varlink_file! expansion failed. Could not open file {}: {}",
+                path.display(),
+                err
+            )
+        })
         .read_to_end(&mut source)
-        .unwrap();
+        .unwrap_or_else(|err| {
+            panic!(
+                "varlink_file! expansion failed. Could not read file {}: {}",
+                path.display(),
+                err
+            )
+        });
+
     expand_varlink(name, String::from_utf8_lossy(&source).to_string())
 }
 

@@ -1,9 +1,16 @@
-//! Macro for generating modules from a varlink interface definition
+//! Macros for generating modules from a varlink interface definition
 //!
-//! It has the drawback, that most IDEs don't execute this and thus
+//! This crate provides two procedural macros for generating a Rust module out of an interface
+//! definition:
+//!
+//! - The [`varlink!`] macro takes as argument the interface as a string literal.
+//! - The [`varlink_file!`] macro takes as argument the path to the varlink interface definition
+//!   _relative_ to the directory containing the manifest of your package.
+//!
+//! They have the drawback that most IDEs don't execute this and thus
 //! offer no code completion.
 //!
-//! Examples:
+//! # Examples
 //!
 //! ```rust,ignore
 //! use varlink_derive;
@@ -40,9 +47,14 @@ use std::io::Read;
 
 /// Generates a module from a varlink interface definition
 ///
-/// `varlink!(<modulename>, r#"<varlink interface definition>"#)`
+/// # Usage
 ///
-/// Examples:
+/// The macro takes two arguments:
+///
+/// 1. The module name that will be generated. It must be a valid Rust identifier.
+/// 2. A string literal containing the the varlink interface definition.
+///
+/// # Examples
 ///
 /// ```rust,ignore
 /// use varlink_derive;
@@ -66,9 +78,15 @@ pub fn varlink(input: TokenStream) -> TokenStream {
 
 /// Generates a module from a varlink interface definition file
 ///
-/// `varlink!(<modulename>, "<varlink interface definition file path relative to the directory containing the manifest of your package.>")`
+/// # Usage
 ///
-/// Examples:
+/// The macro takes two arguments:
+///
+/// 1. The module name that will be generated. It must be a valid Rust identifier.
+/// 2. A string literal containing the file path of the varlink interface definition. The path
+///    **must** be relative to the directory containing the manifest of your package.
+///
+/// # Examples
 ///
 /// ```rust,ignore
 /// use varlink_derive;

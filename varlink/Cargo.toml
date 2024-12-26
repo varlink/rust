@@ -41,3 +41,5 @@ libc = { version = "0.2.126", default-features = false }
 
 [dev-dependencies]
 static_assertions = "1.1.0"
+varlink_derive = { version = "10.1", path = "../varlink_derive" }
+varlink_generator = { version = "11.0", path = "../varlink_generator" }

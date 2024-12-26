@@ -12,30 +12,32 @@
 //!
 //! # Examples
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use varlink_derive;
+//! extern crate serde_derive;
 //!
 //! varlink_derive::varlink!(org_example_ping, r#"
-//! # Example service
+//! ## Example service
 //! interface org.example.ping
 //!
-//! # Returns the same string
+//! ## Returns the same string
 //! method Ping(ping: string) -> (pong: string)
 //! "#);
 //!
-//! use crate::org_example_ping::VarlinkClientInterface;
+//! use org_example_ping::VarlinkClientInterface;
 //! /* ... */
 //! ```
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use varlink_derive;
+//! extern crate serde_derive;
 //!
 //! varlink_derive::varlink_file!(
 //!    org_example_network,
 //!    "../examples/example/src/org.example.network.varlink"
 //! );
 //!
-//! use crate::org_example_network::VarlinkClientInterface;
+//! use org_example_network::VarlinkClientInterface;
 //! /* ... */
 //! ```
 
@@ -56,18 +58,19 @@ use std::io::Read;
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// use varlink_derive;
-//
+/// extern crate serde_derive;
+///
 /// varlink_derive::varlink!(org_example_ping, r#"
-/// # Example service
+/// ## Example service
 /// interface org.example.ping
 ///
-/// # Returns the same string
+/// ## Returns the same string
 /// method Ping(ping: string) -> (pong: string)
 /// "#);
 ///
-/// use crate::org_example_ping::VarlinkClientInterface;
+/// use org_example_ping::VarlinkClientInterface;
 /// /* ... */
 /// ```
 #[proc_macro]
@@ -88,15 +91,16 @@ pub fn varlink(input: TokenStream) -> TokenStream {
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// use varlink_derive;
+/// extern crate serde_derive;
 ///
 /// varlink_derive::varlink_file!(
 ///    org_example_network,
 ///    "../examples/example/src/org.example.network.varlink"
 ///);
 ///
-/// use crate::org_example_network::VarlinkClientInterface;
+/// use org_example_network::VarlinkClientInterface;
 /// /* ... */
 /// ```
 #[proc_macro]

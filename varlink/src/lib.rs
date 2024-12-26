@@ -15,7 +15,7 @@
 //!
 //! Then create a `build.rs` file in your project directory:
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! extern crate varlink_generator;
 //!
 //! fn main() {
@@ -196,13 +196,28 @@
 //!
 //! In your `main.rs` you can then use:
 //!
-//! ```rust,ignore
-//! mod org_example_ping;
-//! use org_example_ping;
+//! ```rust,no_run
+//! extern crate serde_derive;
+//!
+//! use varlink_derive;
+//! use varlink::Connection;
+//!
+//! varlink_derive::varlink!(org_example_ping, r#"
+//! ## Example service
+//! interface org.example.ping
+//!
+//! ## Returns the same string
+//! method Ping(ping: string) -> (pong: string)
+//! "#);
+//! use org_example_ping::VarlinkClientInterface;
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let connection = Connection::with_address("unix:/tmp/org.example.ping").unwrap();
 //! let mut ping_service = org_example_ping::VarlinkClient::new(connection);
 //! let reply = ping_service.ping(String::from("Test")).call()?;
 //! assert_eq!(String::from("Test"), reply.pong);
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! A connection can be established via the [`connection builder`] functions.
@@ -834,7 +849,8 @@ impl Connection {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
+    /// # use varlink::Connection;
     /// let connection = Connection::with_address("unix:/tmp/org.example.myservice");
     /// let connection = Connection::with_address("tcp:127.0.0.1:12345");
     /// ```
@@ -873,7 +889,8 @@ impl Connection {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
+    /// # use varlink::Connection;
     /// let connection = Connection::with_activate("myservice --varlink=$VARLINK_ADDRESS");
     /// ```
     pub fn with_activate<S: ?Sized + AsRef<str>>(command: &S) -> Result<Arc<RwLock<Self>>> {
@@ -915,7 +932,8 @@ impl Connection {
     ///
     /// # Examples
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
+    /// # use varlink::Connection;
     /// let connection = Connection::with_bridge("ssh my.example.org -- varlink bridge");
     /// ```
     pub fn with_bridge<S: ?Sized + AsRef<str>>(command: &S) -> Result<Arc<RwLock<Self>>> {

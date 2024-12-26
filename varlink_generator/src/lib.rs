@@ -15,7 +15,7 @@
 //!
 //! Then create a `build.rs` file in your project directory using [`varlink_generator::cargo_build_tosource`]:
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! extern crate varlink_generator;
 //!
 //! fn main() {

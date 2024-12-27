@@ -21,4 +21,4 @@ travis-ci = { repository = "varlink/rust" }
 [dependencies]
 colored = "2.1.0"
 thiserror = "2.0.3"
-peg = "0.6.3"
+peg = "0.8.4"

@@ -3,11 +3,11 @@
 //!
 //! # Usage
 //!
-//! ~~~norun
+//! ```shell
 //! $ varlink-rust-generator `[<varlink_file>]`
-//! ~~~
+//! ```
 //!
-//! If <varlink_file> is omitted, input is expected to come from stdin.
+//! If `<varlink_file>` is omitted, input is expected to come from stdin.
 //!
 //! Output is sent to stdout.
 

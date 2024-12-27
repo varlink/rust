@@ -10,10 +10,7 @@ use crate::org_example_network::VarlinkClientInterface;
 // Using the `varlink_derive::varlink_file!` macro has the drawback,
 // that most IDEs don't execute this and thus offer no code completion.
 // Better use a `build.rs` as the other examples.
-varlink_derive::varlink_file!(
-    org_example_network,
-    "examples/example/src/org.example.network.varlink"
-);
+varlink_derive::varlink_file!(org_example_network, "src/org.example.network.varlink");
 
 #[cfg(test)]
 mod test;

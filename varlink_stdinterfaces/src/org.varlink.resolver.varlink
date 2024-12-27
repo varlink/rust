@@ -1,5 +1,5 @@
 # Interface to resolve reverse-domain interface names to
-# service adresses
+# service addresses
 interface org.varlink.resolver
 
 # Get a list of all resolvable interfaces and information

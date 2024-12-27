@@ -17,3 +17,9 @@ path = "src/lib.rs"
 
 [dependencies]
 varlink_generator = { version = "11.0", path = "../varlink_generator" }
+
+[dev-dependencies]
+serde = "1.0.102"
+serde_derive = "1.0.102"
+serde_json = "1.0.41"
+varlink = { version = "11.0", path = "../varlink" }

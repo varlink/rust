@@ -1,34 +1,43 @@
-//! Macro for generating modules from a varlink interface definition
+//! Macros for generating modules from a varlink interface definition
 //!
-//! It has the drawback, that most IDEs don't execute this and thus
+//! This crate provides two procedural macros for generating a Rust module out of an interface
+//! definition:
+//!
+//! - The [`varlink!`] macro takes as argument the interface as a string literal.
+//! - The [`varlink_file!`] macro takes as argument the path to the varlink interface definition
+//!   _relative_ to the directory containing the manifest of your package.
+//!
+//! They have the drawback that most IDEs don't execute this and thus
 //! offer no code completion.
 //!
-//! Examples:
+//! # Examples
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use varlink_derive;
+//! extern crate serde_derive;
 //!
 //! varlink_derive::varlink!(org_example_ping, r#"
-//! # Example service
+//! ## Example service
 //! interface org.example.ping
 //!
-//! # Returns the same string
+//! ## Returns the same string
 //! method Ping(ping: string) -> (pong: string)
 //! "#);
 //!
-//! use crate::org_example_ping::VarlinkClientInterface;
+//! use org_example_ping::VarlinkClientInterface;
 //! /* ... */
 //! ```
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use varlink_derive;
+//! extern crate serde_derive;
 //!
 //! varlink_derive::varlink_file!(
 //!    org_example_network,
-//!    "examples/example/src/org.example.network.varlink"
+//!    "../examples/example/src/org.example.network.varlink"
 //! );
 //!
-//! use crate::org_example_network::VarlinkClientInterface;
+//! use org_example_network::VarlinkClientInterface;
 //! /* ... */
 //! ```
 
@@ -40,22 +49,28 @@ use std::io::Read;
 
 /// Generates a module from a varlink interface definition
 ///
-/// `varlink!(<modulename>, r#"<varlink interface definition>"#)`
+/// # Usage
 ///
-/// Examples:
+/// The macro takes two arguments:
 ///
-/// ```rust,ignore
+/// 1. The module name that will be generated. It must be a valid Rust identifier.
+/// 2. A string literal containing the the varlink interface definition.
+///
+/// # Examples
+///
+/// ```rust,no_run
 /// use varlink_derive;
-//
+/// extern crate serde_derive;
+///
 /// varlink_derive::varlink!(org_example_ping, r#"
-/// # Example service
+/// ## Example service
 /// interface org.example.ping
 ///
-/// # Returns the same string
+/// ## Returns the same string
 /// method Ping(ping: string) -> (pong: string)
 /// "#);
 ///
-/// use crate::org_example_ping::VarlinkClientInterface;
+/// use org_example_ping::VarlinkClientInterface;
 /// /* ... */
 /// ```
 #[proc_macro]
@@ -66,29 +81,56 @@ pub fn varlink(input: TokenStream) -> TokenStream {
 
 /// Generates a module from a varlink interface definition file
 ///
-/// `varlink!(<modulename>, "<varlink interface definition file path relative to the workspace>")`
+/// # Usage
 ///
-/// Examples:
+/// The macro takes two arguments:
 ///
-/// ```rust,ignore
+/// 1. The module name that will be generated. It must be a valid Rust identifier.
+/// 2. A string literal containing the file path of the varlink interface definition. The path
+///    **must** be relative to the directory containing the manifest of your package.
+///
+/// # Examples
+///
+/// ```rust,no_run
 /// use varlink_derive;
+/// extern crate serde_derive;
 ///
 /// varlink_derive::varlink_file!(
 ///    org_example_network,
-///    "examples/example/src/org.example.network.varlink"
+///    "../examples/example/src/org.example.network.varlink"
 ///);
 ///
-/// use crate::org_example_network::VarlinkClientInterface;
+/// use org_example_network::VarlinkClientInterface;
 /// /* ... */
 /// ```
 #[proc_macro]
 pub fn varlink_file(input: TokenStream) -> TokenStream {
     let (name, filename, _) = parse_varlink_filename_args(input);
     let mut source = Vec::<u8>::new();
-    std::fs::File::open(filename)
-        .unwrap()
+
+    let path = if let Some(manifest_dir) = std::env::var_os("CARGO_MANIFEST_DIR") {
+        std::borrow::Cow::Owned(std::path::Path::new(&manifest_dir).join(filename))
+    } else {
+        std::borrow::Cow::Borrowed(std::path::Path::new(&filename))
+    };
+
+    std::fs::File::open(&path)
+        .unwrap_or_else(|err| {
+            panic!(
+                "varlink_file! expansion failed. Could not open file {}: {}",
+                path.display(),
+                err
+            )
+        })
         .read_to_end(&mut source)
-        .unwrap();
+        .unwrap_or_else(|err| {
+            panic!(
+                "varlink_file! expansion failed. Could not read file {}: {}",
+                path.display(),
+                err
+            )
+        });
+
     expand_varlink(name, String::from_utf8_lossy(&source).to_string())
 }
 

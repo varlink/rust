@@ -104,18 +104,18 @@ impl From<&varlink::Reply> for ErrorKind {
     #[allow(unused_variables)]
     fn from(e: &varlink::Reply) -> Self {
         match e {
-            varlink::Reply {
-                error: Some(ref t), ..
-            } if t == "org.example.more.TestMoreError" => match e {
-                varlink::Reply {
-                    parameters: Some(p),
-                    ..
-                } => match serde_json::from_value(p.clone()) {
-                    Ok(v) => ErrorKind::TestMoreError(v),
-                    Err(_) => ErrorKind::TestMoreError(None),
-                },
-                _ => ErrorKind::TestMoreError(None),
-            },
+            varlink::Reply { error: Some(t), .. } if t == "org.example.more.TestMoreError" => {
+                match e {
+                    varlink::Reply {
+                        parameters: Some(p),
+                        ..
+                    } => match serde_json::from_value(p.clone()) {
+                        Ok(v) => ErrorKind::TestMoreError(v),
+                        Err(_) => ErrorKind::TestMoreError(None),
+                    },
+                    _ => ErrorKind::TestMoreError(None),
+                }
+            }
             _ => ErrorKind::VarlinkReply_Error,
         }
     }

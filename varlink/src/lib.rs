@@ -1051,11 +1051,7 @@ where
             let mut req = match (self.method.take(), self.request.take()) {
                 (Some(method), Some(request)) => Request::create(
                     method,
-                    Some(
-                        serde_json::to_value(request)
-                            .map_err(map_context!())
-                            .map_err(Error::from)?,
-                    ),
+                    Some(serde_json::to_value(request).map_err(map_context!())?),
                 ),
                 _ => {
                     return Err(MError::from(context!(ErrorKind::MethodCalledAlready)));
@@ -1082,15 +1078,10 @@ where
 
             let mut w = conn.writer.take().unwrap();
 
-            let b = serde_json::to_string(&req)
-                .map_err(map_context!())
-                .map_err(Error::from)?
-                + "\0";
+            let b = serde_json::to_string(&req).map_err(map_context!())? + "\0";
 
-            w.write_all(b.as_bytes())
-                .map_err(map_context!())
-                .map_err(Error::from)?;
-            w.flush().map_err(map_context!()).map_err(Error::from)?;
+            w.write_all(b.as_bytes()).map_err(map_context!())?;
+            w.flush().map_err(map_context!())?;
             if oneway {
                 conn.writer = Some(w);
             } else {
@@ -1128,18 +1119,13 @@ where
         let mut buf = Vec::new();
 
         let mut reader = self.reader.take().unwrap();
-        reader
-            .read_until(0, &mut buf)
-            .map_err(map_context!())
-            .map_err(Error::from)?;
+        reader.read_until(0, &mut buf).map_err(map_context!())?;
         self.reader = Some(reader);
         if buf.is_empty() {
             return Err(context!(ErrorKind::ConnectionClosed).into());
         }
         buf.pop();
-        let reply: Reply = serde_json::from_slice(&buf)
-            .map_err(map_context!())
-            .map_err(Error::from)?;
+        let reply: Reply = serde_json::from_slice(&buf).map_err(map_context!())?;
         match reply.continues {
             Some(true) => self.continues = true,
             _ => {
@@ -1158,9 +1144,7 @@ where
                 parameters: Some(p),
                 ..
             } => {
-                let mreply: MReply = serde_json::from_value(p)
-                    .map_err(map_context!())
-                    .map_err(Error::from)?;
+                let mreply: MReply = serde_json::from_value(p).map_err(map_context!())?;
                 Ok(mreply)
             }
             Reply {
@@ -1168,8 +1152,7 @@ where
             } => {
                 let mreply: MReply =
                     serde_json::from_value(serde_json::Value::Object(serde_json::Map::new()))
-                        .map_err(map_context!())
-                        .map_err(Error::from)?;
+                        .map_err(map_context!())?;
                 Ok(mreply)
             }
         }

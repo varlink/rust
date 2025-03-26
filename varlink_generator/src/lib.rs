@@ -713,7 +713,7 @@ fn generate_error_code(
                 let error_name = format!("{iname}.{ename}", iname = idl.name, ename = t.name);
                 let ename = TokenStream::from_str(&format!("ErrorKind::{}", t.name)).unwrap();
                 arms.extend(quote!(
-                    varlink::Reply { error: Some(ref t), .. } if t == #error_name => {
+                    varlink::Reply { error: Some(t), .. } if t == #error_name => {
                         match e {
                            varlink::Reply {
                                parameters: Some(p),

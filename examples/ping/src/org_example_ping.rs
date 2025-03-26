@@ -104,9 +104,7 @@ impl From<&varlink::Reply> for ErrorKind {
     #[allow(unused_variables)]
     fn from(e: &varlink::Reply) -> Self {
         match e {
-            varlink::Reply {
-                error: Some(ref t), ..
-            } if t == "org.example.ping.PingError" => match e {
+            varlink::Reply { error: Some(t), .. } if t == "org.example.ping.PingError" => match e {
                 varlink::Reply {
                     parameters: Some(p),
                     ..

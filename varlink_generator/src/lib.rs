@@ -80,6 +80,7 @@ pub struct GeneratorOptions {
     pub float_type: Option<&'static str>,
     pub string_type: Option<&'static str>,
     pub preamble: Option<TokenStream>,
+    pub fmt_style_edition: Option<&'static str>,
 }
 
 impl<'short, 'long: 'short> ToRustString<'short, 'long> for VType<'long> {
@@ -1059,6 +1060,7 @@ pub fn cargo_build_tosource<T: AsRef<Path> + ?Sized>(input_path: &T, rustfmt: bo
 ///         true,
 ///         &varlink_generator::GeneratorOptions {
 ///             int_type: Some("i128"),
+///             fmt_style_edition: Some("2024"),
 ///             ..Default::default()
 ///         },
 ///     );
@@ -1110,10 +1112,13 @@ pub fn cargo_build_tosource_options<T: AsRef<Path> + ?Sized>(
     }
 
     if rustfmt {
-        if let Err(e) = Command::new("rustfmt")
-            .arg(rust_path.to_str().unwrap())
-            .output()
-        {
+        let mut cmd = Command::new("rustfmt");
+
+        if let Some(ref v) = options.fmt_style_edition {
+            cmd.args(["--style-edition", v]);
+        }
+
+        if let Err(e) = cmd.arg(rust_path.to_str().unwrap()).output() {
             eprintln!(
                 "Could not run rustfmt on file `{}` {}",
                 rust_path.display(),

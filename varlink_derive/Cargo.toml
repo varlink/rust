@@ -16,10 +16,10 @@ name = "varlink_derive"
 path = "src/lib.rs"
 
 [dependencies]
-varlink_generator = { version = "11.0", path = "../varlink_generator" }
+varlink_generator = { workspace = true }
 
 [dev-dependencies]
-serde = "1.0.102"
-serde_derive = "1.0.102"
-serde_json = "1.0.41"
-varlink = { version = "11.0", path = "../varlink" }
+serde = { workspace = true }
+serde_derive = { workspace = true }
+serde_json = { workspace = true }
+varlink = { workspace = true }

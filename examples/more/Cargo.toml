@@ -8,14 +8,14 @@ publish = false
 rust-version = "1.70.0"
 
 [dependencies]
-varlink = { path = "../../varlink" }
-serde = "1.0.102"
-serde_derive = "1.0.102"
-serde_json = "1.0.41"
-getopts = "0.2.21"
+varlink = { workspace = true }
+serde = { workspace = true }
+serde_derive = { workspace = true }
+serde_json = { workspace = true }
+getopts = { workspace = true }
 
 [build-dependencies]
-varlink_generator = { path = "../../varlink_generator" }
+varlink_generator = { workspace = true }
 
 [dev-dependencies]
-static_assertions = "1.1.0"
+static_assertions = { workspace = true }

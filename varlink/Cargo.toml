@@ -24,19 +24,12 @@ name = "varlink"
 path = "src/lib.rs"
 
 [dependencies]
-serde = "1.0.102"
-serde_derive = "1.0.102"
-serde_json = "1.0.41"
-tempfile = "3.1.0"
-
-[dependencies.tokio]
-version = "1"
-features = ["net", "io-util", "rt", "sync", "time"]
-optional = true
-
-[dependencies.async-trait]
-version = "0.1"
-optional = true
+serde = { workspace = true }
+serde_derive = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+tokio= { workspace = true, features = ["net", "io-util", "rt", "sync", "time"], optional = true }
+async-trait= { workspace = true, optional = true }
 
 [features]
 default = []
@@ -50,6 +43,6 @@ winapi = { version = "0.3", features = ["winuser", "winsock2"] }
 libc = { version = "0.2.126", default-features = false }
 
 [dev-dependencies]
-static_assertions = "1.1.0"
-varlink_derive = { version = "10.1", path = "../varlink_derive" }
-varlink_generator = { version = "11.0", path = "../varlink_generator" }
+static_assertions = { workspace = true }
+varlink_derive = { workspace = true }
+varlink_generator = { workspace = true }

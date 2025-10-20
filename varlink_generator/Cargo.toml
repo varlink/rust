@@ -24,16 +24,16 @@ name = "varlink-rust-generator"
 path = "src/bin/varlink-rust-generator.rs"
 
 [dependencies]
-varlink_parser = { version = "5.0", path = "../varlink_parser" }
-quote = "1.0.2"
-proc-macro2 = "1.0.6"
-getopts = "0.2.21"
-syn = "2.0"
-thiserror = "2.0.3"
+varlink_parser = { workspace = true }
+quote = { workspace = true }
+proc-macro2 = { workspace = true }
+getopts = { workspace = true }
+syn = { workspace = true }
+thiserror = { workspace = true }
 
 [dev-dependencies]
-unified-diff = "0.2.1"
-tempdir = "0.3.7"
+unified-diff = { workspace = true }
+tempdir = { workspace = true }
 
 [badges]
 travis-ci = { repository = "varlink/rust" }

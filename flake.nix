@@ -26,6 +26,7 @@
             cargo
             rustc
             cargo-release
+            cargo-autoinherit
             rustfmt
           ];
 

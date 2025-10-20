@@ -7,10 +7,10 @@ publish = false
 rust-version = "1.70.0"
 
 [dependencies]
-anyhow = "1"
-varlink = { path = "../../varlink" }
-serde = "1.0.102"
-serde_derive = "1.0.102"
-serde_json = "1.0.41"
-getopts = "0.2.21"
-varlink_derive = { path = "../../varlink_derive" }
+anyhow = { workspace = true }
+varlink = { workspace = true }
+serde = { workspace = true }
+serde_derive = { workspace = true }
+serde_json = { workspace = true }
+getopts = { workspace = true }
+varlink_derive = { workspace = true }

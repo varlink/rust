@@ -19,10 +19,10 @@ use std::io;
 use std::io::{Read, Write};
 use std::path::Path;
 
-use varlink_generator::generate;
+use varlink_generator::{generate_with_options, GeneratorOptions};
 
 fn print_usage(program: &str, opts: &getopts::Options) {
-    let brief = format!("Usage: {} [VARLINK FILE]", program);
+    let brief = format!("Usage: {} [OPTIONS] [VARLINK FILE]", program);
     print!("{}", opts.usage(&brief));
 }
 
@@ -33,6 +33,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let mut opts = getopts::Options::new();
     opts.optflag("h", "help", "print this help menu");
     opts.optflag("", "nosource", "don't print doc header and allow");
+    opts.optflag("", "async", "generate async code");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
@@ -49,6 +50,12 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     }
 
     let tosource = !matches.opt_present("nosource");
+    let generate_async = matches.opt_present("async");
+
+    let options = GeneratorOptions {
+        generate_async,
+        ..Default::default()
+    };
 
     let mut reader: Box<dyn Read> = match matches.free.len() {
         0 => Box::new(io::stdin()),
@@ -64,5 +71,5 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         }
     };
     let writer: &mut dyn Write = &mut io::stdout();
-    generate(&mut reader, writer, tosource).map_err(|e| e.into())
+    generate_with_options(&mut reader, writer, &options, tosource).map_err(|e| e.into())
 }

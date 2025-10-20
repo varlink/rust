@@ -269,8 +269,20 @@ pub mod error;
 pub use error::{Error, ErrorKind, Result};
 
 mod client;
+pub mod sansio;
 mod server;
 mod stream;
+
+#[cfg(feature = "tokio")]
+pub mod server_async;
+#[cfg(feature = "tokio")]
+pub use server_async::{listen_async, AsyncConnectionHandler, ListenAsyncConfig};
+
+#[cfg(feature = "tokio")]
+pub mod client_async;
+#[cfg(feature = "tokio")]
+pub use client_async::{AsyncConnection, AsyncMethodCall};
+
 #[cfg(test)]
 mod test;
 
@@ -676,7 +688,7 @@ pub trait CallTrait {
     /// True, if this request accepts more than one reply.
     fn wants_more(&self) -> bool;
 
-    fn get_request(&self) -> Option<&Request>;
+    fn get_request(&self) -> Option<&Request<'_>>;
 
     /// reply with the standard varlink `org.varlink.service.MethodNotFound` error
     fn reply_method_not_found(&mut self, method_name: String) -> Result<()> {
@@ -726,12 +738,10 @@ impl CallTrait for Call<'_> {
         if self.continues {
             reply.continues = Some(true);
         }
-        // serde_json::to_writer(&mut *self.writer, &reply)?;
-        let b = serde_json::to_string(&reply).map_err(map_context!())? + "\0";
+        // Use sans-io protocol serialization
+        let b = crate::sansio::protocol::serialize_reply(&reply)?;
 
-        self.writer
-            .write_all(b.as_bytes())
-            .map_err(map_context!())?;
+        self.writer.write_all(&b).map_err(map_context!())?;
         self.writer.flush().map_err(map_context!())?;
         Ok(())
     }
@@ -766,7 +776,7 @@ impl CallTrait for Call<'_> {
         )
     }
 
-    fn get_request(&self) -> Option<&Request> {
+    fn get_request(&self) -> Option<&Request<'_>> {
         self.request
     }
 }
@@ -804,12 +814,10 @@ impl<'a> Call<'a> {
 
     fn reply_parameters(&mut self, parameters: Value) -> Result<()> {
         let reply = Reply::parameters(Some(parameters));
-        //serde_json::to_writer(&mut *self.writer, &reply)?;
-        let b = serde_json::to_string(&reply).map_err(map_context!())? + "\0";
+        // Use sans-io protocol serialization
+        let b = crate::sansio::protocol::serialize_reply(&reply)?;
 
-        self.writer
-            .write_all(b.as_bytes())
-            .map_err(map_context!())?;
+        self.writer.write_all(&b).map_err(map_context!())?;
         self.writer.flush().map_err(map_context!())?;
         Ok(())
     }
@@ -1078,9 +1086,10 @@ where
 
             let mut w = conn.writer.take().unwrap();
 
-            let b = serde_json::to_string(&req).map_err(map_context!())? + "\0";
+            // Use sans-io protocol serialization
+            let b = crate::sansio::protocol::serialize_request(&req)?;
 
-            w.write_all(b.as_bytes()).map_err(map_context!())?;
+            w.write_all(&b).map_err(map_context!())?;
             w.flush().map_err(map_context!())?;
             if oneway {
                 conn.writer = Some(w);
@@ -1124,8 +1133,20 @@ where
         if buf.is_empty() {
             return Err(context!(ErrorKind::ConnectionClosed).into());
         }
-        buf.pop();
-        let reply: Reply = serde_json::from_slice(&buf).map_err(map_context!())?;
+
+        // Use sans-io protocol parsing
+        use crate::sansio::types::ParseResult;
+        let reply: Reply = match crate::sansio::protocol::parse_message(&buf) {
+            ParseResult::Complete { message, .. } => {
+                crate::sansio::protocol::parse_reply(&message)?
+            }
+            ParseResult::Incomplete { .. } => {
+                return Err(context!(ErrorKind::ConnectionClosed).into());
+            }
+            ParseResult::Invalid { error } => {
+                return Err(context!(ErrorKind::InvalidParameter(error)).into());
+            }
+        };
         match reply.continues {
             Some(true) => self.continues = true,
             _ => {
@@ -1482,15 +1503,19 @@ impl ConnectionHandler for VarlinkService {
                 return Ok((buf, None));
             }
 
-            // pop the last zero byte
-            buf.pop();
-
-            let req: Request = serde_json::from_slice(&buf).map_err(|e| {
-                context!(
-                    e,
-                    ErrorKind::SerdeJsonDe(String::from_utf8_lossy(&buf).to_string())
-                )
-            })?;
+            // Use sans-io protocol parsing
+            use crate::sansio::types::ParseResult;
+            let req: Request = match crate::sansio::protocol::parse_message(&buf) {
+                ParseResult::Complete { message, .. } => {
+                    crate::sansio::protocol::parse_request(&message)?
+                }
+                ParseResult::Incomplete { .. } => {
+                    return Ok((buf, None));
+                }
+                ParseResult::Invalid { error } => {
+                    return Err(context!(ErrorKind::InvalidParameter(error)));
+                }
+            };
 
             let n: usize = match req.method.rfind('.') {
                 None => {
@@ -1514,5 +1539,154 @@ impl ConnectionHandler for VarlinkService {
         }
 
         Ok((bufreader.buffer().to_vec(), upgraded_iface))
+    }
+}
+
+#[cfg(feature = "tokio")]
+#[async_trait::async_trait]
+impl server_async::AsyncConnectionHandler for VarlinkService {
+    async fn handle(
+        &self,
+        server: &mut crate::sansio::Server,
+        upgraded_iface: Option<String>,
+    ) -> Result<Option<String>> {
+        use crate::sansio::ServerEvent;
+
+        // If already upgraded, we don't handle that in this async implementation yet
+        if upgraded_iface.is_some() {
+            return Ok(upgraded_iface);
+        }
+
+        // Process events from the sans-io server
+        while let Some(event) = server.poll_event() {
+            match event {
+                ServerEvent::Request { request } => {
+                    // Extract the interface name from the method
+                    let n: usize = match request.method.rfind('.') {
+                        None => {
+                            // No interface specified, send error
+                            let reply = Reply {
+                                parameters: None,
+                                continues: None,
+                                error: Some(
+                                    format!(
+                                        "org.varlink.service.InterfaceNotFound: {}",
+                                        request.method
+                                    )
+                                    .into(),
+                                ),
+                            };
+                            server.send_reply(reply)?;
+                            return Ok(None);
+                        }
+                        Some(x) => x,
+                    };
+
+                    let iface = String::from(&request.method[..n]);
+
+                    // Handle the request based on the interface
+                    if iface == "org.varlink.service" {
+                        // Handle built-in service methods
+                        match request.method.as_ref() {
+                            "org.varlink.service.GetInfo" => {
+                                let reply = Reply {
+                                    parameters: Some(
+                                        serde_json::to_value(&self.info).map_err(map_context!())?,
+                                    ),
+                                    continues: None,
+                                    error: None,
+                                };
+                                server.send_reply(reply)?;
+                            }
+                            "org.varlink.service.GetInterfaceDescription" => {
+                                if let Some(params) = request.parameters {
+                                    let args: GetInterfaceDescriptionArgs =
+                                        serde_json::from_value(params).map_err(map_context!())?;
+                                    let description = match args.interface.as_ref() {
+                                        "org.varlink.service" => {
+                                            Some(self.get_description().to_string())
+                                        }
+                                        key if self.ifaces.contains_key(key) => {
+                                            Some(self.ifaces[key].get_description().to_string())
+                                        }
+                                        _ => {
+                                            let reply = Reply {
+                                                parameters: None,
+                                                continues: None,
+                                                error: Some(
+                                                    format!("org.varlink.service.InvalidParameter: interface").into()
+                                                ),
+                                            };
+                                            server.send_reply(reply)?;
+                                            continue;
+                                        }
+                                    };
+                                    let reply = Reply {
+                                        parameters: Some(
+                                            serde_json::json!({"description": description}),
+                                        ),
+                                        continues: None,
+                                        error: None,
+                                    };
+                                    server.send_reply(reply)?;
+                                } else {
+                                    let reply = Reply {
+                                        parameters: None,
+                                        continues: None,
+                                        error: Some(
+                                            "org.varlink.service.InvalidParameter: parameters"
+                                                .into(),
+                                        ),
+                                    };
+                                    server.send_reply(reply)?;
+                                }
+                            }
+                            _ => {
+                                let reply = Reply {
+                                    parameters: None,
+                                    continues: None,
+                                    error: Some(
+                                        format!(
+                                            "org.varlink.service.MethodNotFound: {}",
+                                            request.method
+                                        )
+                                        .into(),
+                                    ),
+                                };
+                                server.send_reply(reply)?;
+                            }
+                        }
+                    } else if self.ifaces.contains_key(iface.as_str()) {
+                        // Interface exists, but we can't call it directly from async context
+                        // This would require the Interface trait to be async-aware
+                        // For now, send a MethodNotImplemented error
+                        let reply = Reply {
+                            parameters: None,
+                            continues: None,
+                            error: Some(
+                                format!("org.varlink.service.MethodNotImplemented: {} (async interfaces not yet supported)", request.method).into()
+                            ),
+                        };
+                        server.send_reply(reply)?;
+                    } else {
+                        // Interface not found
+                        let reply = Reply {
+                            parameters: None,
+                            continues: None,
+                            error: Some(
+                                format!("org.varlink.service.InterfaceNotFound: {}", iface).into(),
+                            ),
+                        };
+                        server.send_reply(reply)?;
+                    }
+                }
+                ServerEvent::Upgrade { interface } => {
+                    // Upgrade requested
+                    return Ok(Some(interface));
+                }
+            }
+        }
+
+        Ok(None)
     }
 }

@@ -41,6 +41,7 @@ fn test_generate() {
     path.push("org.example.complex.rs");
 
     let status = Command::new("rustfmt")
+        .arg("--edition=2018")
         .arg("--emit")
         .arg("files")
         .arg(path.to_str().unwrap())

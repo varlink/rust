@@ -10,4 +10,6 @@ members = [
     "examples/example",
     "examples/more",
     "examples/ping",
+    "examples/async_ping",
+    "examples/async_example",
 ]

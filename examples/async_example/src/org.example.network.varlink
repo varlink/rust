@@ -1,0 +1,22 @@
+# Provides information about network state
+#
+interface org.example.network
+
+type NetdevInfo (
+  ifindex: int,
+  ifname: string
+)
+
+type Netdev (
+  ifindex: int,
+  ifname: string
+)
+
+# Returns information about a network device
+method Info(ifindex: int) -> (info: NetdevInfo)
+
+# Lists all network devices
+method List() -> (netdevs: []Netdev)
+
+error UnknownNetworkIfIndex (ifindex: int)
+error UnknownError (text: string)

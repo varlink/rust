@@ -166,7 +166,7 @@ fn test_handle() -> Result<()> {
 
         let res = {
             let mut br = buf.as_slice();
-            service.handle(&mut br, &mut w, None)?
+            ConnectionHandler::handle(&service, &mut br, &mut w, None)?
         };
         match res {
             (_, Some(iface)) => {

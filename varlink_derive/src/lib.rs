@@ -134,6 +134,101 @@ pub fn varlink_file(input: TokenStream) -> TokenStream {
     expand_varlink(name, String::from_utf8_lossy(&source).to_string())
 }
 
+/// Generates a module with async client support from a varlink interface definition
+///
+/// # Usage
+///
+/// The macro takes two arguments:
+///
+/// 1. The module name that will be generated. It must be a valid Rust identifier.
+/// 2. A string literal containing the the varlink interface definition.
+///
+/// This macro generates ONLY async client code (exclusive mode). The generated code requires
+/// the `tokio` feature to be enabled in the varlink crate. For sync code, use `varlink!` instead.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use varlink_derive;
+/// extern crate serde_derive;
+///
+/// varlink_derive::varlink_async!(org_example_ping, r#"
+/// ## Example service
+/// interface org.example.ping
+///
+/// ## Returns the same string
+/// method Ping(ping: string) -> (pong: string)
+/// "#);
+///
+/// use org_example_ping::VarlinkClientInterface;
+/// // Uses async client API with .call().await
+/// /* ... */
+/// ```
+#[proc_macro]
+pub fn varlink_async(input: TokenStream) -> TokenStream {
+    let (name, source, _) = parse_varlink_args(input);
+    expand_varlink_async(name, source)
+}
+
+/// Generates a module with async client support from a varlink interface definition file
+///
+/// # Usage
+///
+/// The macro takes two arguments:
+///
+/// 1. The module name that will be generated. It must be a valid Rust identifier.
+/// 2. A string literal containing the file path of the varlink interface definition. The path
+///    **must** be relative to the directory containing the manifest of your package.
+///
+/// This macro generates ONLY async client code (exclusive mode). The generated code requires
+/// the `tokio` feature to be enabled in the varlink crate. For sync code, use `varlink_file!` instead.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use varlink_derive;
+/// extern crate serde_derive;
+///
+/// varlink_derive::varlink_file_async!(
+///    org_example_network,
+///    "../examples/example/src/org.example.network.varlink"
+///);
+///
+/// use org_example_network::VarlinkClientInterface;
+/// // Uses async client API with .call().await
+/// /* ... */
+/// ```
+#[proc_macro]
+pub fn varlink_file_async(input: TokenStream) -> TokenStream {
+    let (name, filename, _) = parse_varlink_filename_args(input);
+    let mut source = Vec::<u8>::new();
+
+    let path = if let Some(manifest_dir) = std::env::var_os("CARGO_MANIFEST_DIR") {
+        std::borrow::Cow::Owned(std::path::Path::new(&manifest_dir).join(filename))
+    } else {
+        std::borrow::Cow::Borrowed(std::path::Path::new(&filename))
+    };
+
+    std::fs::File::open(&path)
+        .unwrap_or_else(|err| {
+            panic!(
+                "varlink_file_async! expansion failed. Could not open file {}: {}",
+                path.display(),
+                err
+            )
+        })
+        .read_to_end(&mut source)
+        .unwrap_or_else(|err| {
+            panic!(
+                "varlink_file_async! expansion failed. Could not read file {}: {}",
+                path.display(),
+                err
+            )
+        });
+
+    expand_varlink_async(name, String::from_utf8_lossy(&source).to_string())
+}
+
 // Parse a TokenStream of the form `name r#""#`
 fn parse_varlink_filename_args(input: TokenStream) -> (String, String, Span) {
     let mut iter = input.into_iter();
@@ -194,6 +289,19 @@ fn parse_varlink_args(input: TokenStream) -> (String, String, Span) {
 
 fn expand_varlink(name: String, source: String) -> TokenStream {
     let code = varlink_generator::compile(source).unwrap();
+
+    format!("mod {} {{ {} }}", name, code).parse().unwrap()
+}
+
+fn expand_varlink_async(name: String, source: String) -> TokenStream {
+    let code = varlink_generator::compile_with_options(
+        source,
+        &varlink_generator::GeneratorOptions {
+            generate_async: true,
+            ..Default::default()
+        },
+    )
+    .unwrap();
 
     format!("mod {} {{ {} }}", name, code).parse().unwrap()
 }

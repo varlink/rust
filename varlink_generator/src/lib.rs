@@ -80,6 +80,7 @@ pub struct GeneratorOptions {
     pub float_type: Option<&'static str>,
     pub string_type: Option<&'static str>,
     pub preamble: Option<TokenStream>,
+    pub generate_async: bool,
 }
 
 impl<'short, 'long: 'short> ToRustString<'short, 'long> for VType<'long> {
@@ -294,12 +295,23 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
         ));
     }
 
-    ts.extend(quote!(
-        use serde_derive::{Deserialize, Serialize};
-        use std::io::BufRead;
-        use std::sync::{Arc, RwLock};
-        use varlink::{self, CallTrait};
-    ));
+    // Imports differ between sync and async modes
+    if options.generate_async {
+        ts.extend(quote!(
+            use async_trait::async_trait;
+            use serde_derive::{Deserialize, Serialize};
+            use std::io::BufRead;
+            use std::sync::Arc;
+            use varlink::{self, CallTrait};
+        ));
+    } else {
+        ts.extend(quote!(
+            use serde_derive::{Deserialize, Serialize};
+            use std::io::BufRead;
+            use std::sync::{Arc, RwLock};
+            use varlink::{self, CallTrait};
+        ));
+    }
 
     if let Some(ref v) = options.preamble {
         ts.extend(v.clone());
@@ -319,6 +331,8 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
     let mut client_method_decls = TokenStream::new();
     let mut server_method_impls = TokenStream::new();
     let mut client_method_impls = TokenStream::new();
+    let mut async_client_method_decls = TokenStream::new();
+    let mut async_client_method_impls = TokenStream::new();
     let iname = idl.name;
     let description = idl.description;
 
@@ -382,10 +396,15 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
             let field_names_1 = out_field_names.iter();
             let field_names_2 = out_field_names.iter();
             let field_types_1 = out_field_types.iter();
+            let send_bound = if options.generate_async {
+                quote!(+ Send)
+            } else {
+                quote!()
+            };
             if !t.output.elts.is_empty() {
                 ts.extend(quote!(
                 #[allow(dead_code)]
-                pub trait #call_name: VarlinkCallError {
+                pub trait #call_name: VarlinkCallError #send_bound {
                     fn reply(&mut self, #(#field_names_1: #field_types_1),*) -> varlink::Result<()> {
                         self.reply_struct(#out_struct_name { #(#field_names_2),* }.into())
                     }
@@ -394,7 +413,7 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
             } else {
                 ts.extend(quote!(
                     #[allow(dead_code)]
-                    pub trait #call_name: VarlinkCallError {
+                    pub trait #call_name: VarlinkCallError #send_bound {
                         fn reply(&mut self) -> varlink::Result<()> {
                             self.reply_struct(varlink::Reply::parameters(None))
                         }
@@ -403,28 +422,46 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
             }
         }
 
-        ts.extend(quote!(
-            impl #call_name for varlink::Call<'_> {}
-        ));
+        if options.generate_async {
+            // No impl for async mode - will be added later for AsyncCall
+        } else {
+            ts.extend(quote!(
+                impl #call_name for varlink::Call<'_> {}
+            ));
+        }
 
         // #server_method_decls
         {
             let in_field_names = in_field_names.iter();
             let in_field_types = in_field_types.iter();
-            server_method_decls.extend(quote!(
-                fn #method_name (&self, call: &mut dyn #call_name, #(#in_field_names: #in_field_types),*) ->
-                varlink::Result<()>;
-            ));
+            if options.generate_async {
+                server_method_decls.extend(quote!(
+                    async fn #method_name (&self, call: &mut dyn #call_name, #(#in_field_names: #in_field_types),*) ->
+                    varlink::Result<()>;
+                ));
+            } else {
+                server_method_decls.extend(quote!(
+                    fn #method_name (&self, call: &mut dyn #call_name, #(#in_field_names: #in_field_types),*) ->
+                    varlink::Result<()>;
+                ));
+            }
         }
 
         // #client_method_decls
         {
             let in_field_names = in_field_names.iter();
             let in_field_types = in_field_types.iter();
-            client_method_decls.extend(quote!(
-                fn #method_name(&mut self, #(#in_field_names: #in_field_types),*) ->
-                varlink::MethodCall<#in_struct_name, #out_struct_name, Error>;
-            ));
+            if options.generate_async {
+                client_method_decls.extend(quote!(
+                    fn #method_name(&self, #(#in_field_names: #in_field_types),*) ->
+                    varlink::AsyncMethodCall<#in_struct_name, #out_struct_name, Error>;
+                ));
+            } else {
+                client_method_decls.extend(quote!(
+                    fn #method_name(&mut self, #(#in_field_names: #in_field_types),*) ->
+                    varlink::MethodCall<#in_struct_name, #out_struct_name, Error>;
+                ));
+            }
         }
 
         // #client_method_impls
@@ -433,10 +470,49 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
             let in_field_names = in_field_names.iter();
             let in_field_types = in_field_types.iter();
 
-            client_method_impls.extend(quote!(
-            fn #method_name(&mut self, #(#in_field_names: #in_field_types),*) -> varlink::MethodCall<#in_struct_name, #out_struct_name,
+            if options.generate_async {
+                client_method_impls.extend(quote!(
+                fn #method_name(&self, #(#in_field_names: #in_field_types),*) -> varlink::AsyncMethodCall<#in_struct_name, #out_struct_name,
+                Error> {
+                 varlink::AsyncMethodCall::<#in_struct_name, #out_struct_name, Error>::new(
+                    self.connection.clone(),
+                    #varlink_method_name,
+                    #in_struct_name {#(#in_field_names_2),*})
+                 }
+                ));
+            } else {
+                client_method_impls.extend(quote!(
+                fn #method_name(&mut self, #(#in_field_names: #in_field_types),*) -> varlink::MethodCall<#in_struct_name, #out_struct_name,
+                Error> {
+                 varlink::MethodCall::<#in_struct_name, #out_struct_name, Error>::new(
+                    self.connection.clone(),
+                    #varlink_method_name,
+                    #in_struct_name {#(#in_field_names_2),*})
+                 }
+                ));
+            }
+        }
+
+        // #async_client_method_decls (tokio feature)
+        {
+            let in_field_names = in_field_names.iter();
+            let in_field_types = in_field_types.iter();
+            async_client_method_decls.extend(quote!(
+                fn #method_name(&self, #(#in_field_names: #in_field_types),*) ->
+                varlink::AsyncMethodCall<#in_struct_name, #out_struct_name, Error>;
+            ));
+        }
+
+        // #async_client_method_impls (tokio feature)
+        {
+            let in_field_names_2 = in_field_names.iter();
+            let in_field_names = in_field_names.iter();
+            let in_field_types = in_field_types.iter();
+
+            async_client_method_impls.extend(quote!(
+            fn #method_name(&self, #(#in_field_names: #in_field_types),*) -> varlink::AsyncMethodCall<#in_struct_name, #out_struct_name,
             Error> {
-             varlink::MethodCall::<#in_struct_name, #out_struct_name, Error>::new(
+             varlink::AsyncMethodCall::<#in_struct_name, #out_struct_name, Error>::new(
                 self.connection.clone(),
                 #varlink_method_name,
                 #in_struct_name {#(#in_field_names_2),*})
@@ -474,73 +550,255 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
         }
     }
 
-    ts.extend(quote!(
-        #[allow(dead_code)]
-        pub trait VarlinkInterface {
-            #server_method_decls
+    // Generate server and client traits/structs differently for sync vs async
+    if options.generate_async {
+        // Build async dispatch arms for the handler
+        let mut async_dispatch_arms = TokenStream::new();
+        let mut async_call_impls = TokenStream::new();
 
-            fn call_upgraded(&self, _call: &mut varlink::Call, _bufreader: &mut dyn BufRead) -> varlink::Result<Vec<u8>> {
-                Ok(Vec::new())
+        for t in idl.methods.values() {
+            let method_name = Ident::new(&to_snake_case(t.name), Span::call_site());
+            let varlink_method_name = format!("{}.{}", idl.name, t.name);
+            let call_name = Ident::new(&format!("Call_{}", t.name), Span::call_site());
+            let in_struct_name = Ident::new(&format!("{}_Args", t.name), Span::call_site());
+
+            // Add impl for AsyncCall
+            async_call_impls.extend(quote!(
+                impl #call_name for AsyncCall {}
+            ));
+
+            let mut in_field_names = Vec::new();
+            for e in &t.input.elts {
+                let ename_ident: Ident = syn::parse_str(&(String::from("r#") + e.name)).unwrap();
+                in_field_names.push(ename_ident);
+            }
+
+            if !t.input.elts.is_empty() {
+                let in_field_names_iter = in_field_names.iter();
+                async_dispatch_arms.extend(quote!(
+                    #varlink_method_name => {
+                        if let Some(args) = request.parameters {
+                            let args: #in_struct_name = serde_json::from_value(args).map_err(|e| {
+                                varlink::Error(
+                                    varlink::ErrorKind::InvalidParameter(e.to_string()),
+                                    None,
+                                    None,
+                                )
+                            })?;
+                            self.inner.#method_name(&mut call as &mut dyn #call_name, #(args.#in_field_names_iter),*).await?;
+                        } else {
+                            call.reply_invalid_parameter("parameters".into())?;
+                        }
+                    }
+                ));
+            } else {
+                async_dispatch_arms.extend(quote!(
+                    #varlink_method_name => {
+                        self.inner.#method_name(&mut call as &mut dyn #call_name).await?;
+                    }
+                ));
             }
         }
 
-        #[allow(dead_code)]
-        pub trait VarlinkClientInterface {
-            #client_method_decls
-        }
-
-        #[allow(dead_code)]
-        pub struct VarlinkClient {
-            connection: Arc<RwLock<varlink::Connection>>,
-        }
-
-        impl VarlinkClient {
+        ts.extend(quote!(
+            // AsyncCall: A Send-safe call wrapper for async contexts
             #[allow(dead_code)]
-            pub fn new(connection: Arc<RwLock<varlink::Connection>>) -> Self {
-                VarlinkClient {
-                    connection,
+            pub struct AsyncCall {
+                reply: Option<varlink::Reply>,
+            }
+
+            impl AsyncCall {
+                pub fn new() -> Self {
+                    AsyncCall { reply: None }
+                }
+
+                pub fn take_reply(&mut self) -> Option<varlink::Reply> {
+                    self.reply.take()
                 }
             }
-        }
 
-        impl VarlinkClientInterface for VarlinkClient {
-            #client_method_impls
-        }
+            impl varlink::CallTrait for AsyncCall {
+                fn reply_struct(&mut self, reply: varlink::Reply) -> varlink::Result<()> {
+                    self.reply = Some(reply);
+                    Ok(())
+                }
 
-        #[allow(dead_code)]
-        pub struct VarlinkInterfaceProxy {
-            inner: Box<dyn VarlinkInterface + Send + Sync>,
-        }
+                fn set_continues(&mut self, _cont: bool) {
+                    // Not supported in async mode yet
+                }
 
-        #[allow(dead_code)]
-        pub fn new(inner: Box<dyn VarlinkInterface + Send + Sync>) -> VarlinkInterfaceProxy {
-            VarlinkInterfaceProxy { inner }
-        }
+                fn to_upgraded(&mut self) {
+                    // Not supported in async mode yet
+                }
 
-        impl varlink::Interface for VarlinkInterfaceProxy {
-            fn get_description(&self) -> &'static str {
-                #description
+                fn is_oneway(&self) -> bool {
+                    false
+                }
+
+                fn wants_more(&self) -> bool {
+                    false
+                }
+
+                fn get_request(&self) -> Option<&varlink::Request<'_>> {
+                    None
+                }
             }
 
-            fn get_name(&self) -> &'static str {
-                #iname
+            impl VarlinkCallError for AsyncCall {}
+
+            #async_call_impls
+
+            #[async_trait]
+            #[allow(dead_code)]
+            pub trait VarlinkInterface {
+                #server_method_decls
+
+                fn call_upgraded(&self, _call: &mut varlink::Call, _bufreader: &mut dyn BufRead) -> varlink::Result<Vec<u8>> {
+                    Ok(Vec::new())
+                }
             }
 
-            fn call_upgraded(&self, call: &mut varlink::Call, bufreader: &mut dyn BufRead) -> varlink::Result<Vec<u8>> {
-                self.inner.call_upgraded(call, bufreader)
+            #[allow(dead_code)]
+            pub trait VarlinkClientInterface {
+                #client_method_decls
             }
 
-            fn call(&self, call: &mut varlink::Call) -> varlink::Result<()> {
-                let req = call.request.unwrap();
-                match req.method.as_ref() {
-                    #server_method_impls
-                    m => {
-                        call.reply_method_not_found(String::from(m))
+            #[allow(dead_code)]
+            pub struct VarlinkClient {
+                connection: Arc<varlink::AsyncConnection>,
+            }
+
+            impl VarlinkClient {
+                #[allow(dead_code)]
+                pub fn new(connection: Arc<varlink::AsyncConnection>) -> Self {
+                    VarlinkClient {
+                        connection,
                     }
                 }
             }
-        }
-    ));
+
+            impl VarlinkClientInterface for VarlinkClient {
+                #client_method_impls
+            }
+
+            // Async handler adapter
+            #[allow(dead_code)]
+            pub struct VarlinkInterfaceHandler {
+                inner: Arc<dyn VarlinkInterface + Send + Sync>,
+            }
+
+            #[allow(dead_code)]
+            pub fn new(inner: Arc<dyn VarlinkInterface + Send + Sync>) -> VarlinkInterfaceHandler {
+                VarlinkInterfaceHandler { inner }
+            }
+
+            #[async_trait]
+            impl varlink::AsyncConnectionHandler for VarlinkInterfaceHandler {
+                async fn handle(
+                    &self,
+                    server: &mut varlink::sansio::Server,
+                    _upgraded_iface: Option<String>,
+                ) -> varlink::Result<Option<String>> {
+                    while let Some(event) = server.poll_event() {
+                        match event {
+                            varlink::sansio::ServerEvent::Request { request } => {
+                                let mut call = AsyncCall::new();
+
+                                match request.method.as_ref() {
+                                    #async_dispatch_arms
+                                    method => {
+                                        call.reply_method_not_found(method.to_string())?;
+                                    }
+                                }
+
+                                // Send the collected reply
+                                if let Some(reply) = call.take_reply() {
+                                    server.send_reply(reply)?;
+                                }
+                            }
+                            varlink::sansio::ServerEvent::Upgrade { interface } => {
+                                return Ok(Some(interface));
+                            }
+                        }
+                    }
+                    Ok(None)
+                }
+            }
+        ));
+    } else {
+        ts.extend(quote!(
+            #[allow(dead_code)]
+            pub trait VarlinkInterface {
+                #server_method_decls
+
+                fn call_upgraded(&self, _call: &mut varlink::Call, _bufreader: &mut dyn BufRead) -> varlink::Result<Vec<u8>> {
+                    Ok(Vec::new())
+                }
+            }
+
+            #[allow(dead_code)]
+            pub trait VarlinkClientInterface {
+                #client_method_decls
+            }
+
+            #[allow(dead_code)]
+            pub struct VarlinkClient {
+                connection: Arc<RwLock<varlink::Connection>>,
+            }
+
+            impl VarlinkClient {
+                #[allow(dead_code)]
+                pub fn new(connection: Arc<RwLock<varlink::Connection>>) -> Self {
+                    VarlinkClient {
+                        connection,
+                    }
+                }
+            }
+
+            impl VarlinkClientInterface for VarlinkClient {
+                #client_method_impls
+            }
+        ));
+    }
+
+    // VarlinkInterfaceProxy is only generated for sync mode (used with old listen() API)
+    if !options.generate_async {
+        ts.extend(quote!(
+            #[allow(dead_code)]
+            pub struct VarlinkInterfaceProxy {
+                inner: Box<dyn VarlinkInterface + Send + Sync>,
+            }
+
+            #[allow(dead_code)]
+            pub fn new(inner: Box<dyn VarlinkInterface + Send + Sync>) -> VarlinkInterfaceProxy {
+                VarlinkInterfaceProxy { inner }
+            }
+
+            impl varlink::Interface for VarlinkInterfaceProxy {
+                fn get_description(&self) -> &'static str {
+                    #description
+                }
+
+                fn get_name(&self) -> &'static str {
+                    #iname
+                }
+
+                fn call_upgraded(&self, call: &mut varlink::Call, bufreader: &mut dyn BufRead) -> varlink::Result<Vec<u8>> {
+                    self.inner.call_upgraded(call, bufreader)
+                }
+
+                fn call(&self, call: &mut varlink::Call) -> varlink::Result<()> {
+                    let req = call.request.unwrap();
+                    match req.method.as_ref() {
+                        #server_method_impls
+                        m => {
+                            call.reply_method_not_found(String::from(m))
+                        }
+                    }
+                }
+            }
+        ));
+    }
 
     Ok(ts)
 }
@@ -799,14 +1057,17 @@ fn generate_error_code(
 }
 
 pub fn compile(source: String) -> Result<TokenStream> {
-    let idl = IDL::try_from(source.as_str()).map_err(Error::Parse)?;
-    varlink_to_rust(
-        &idl,
+    compile_with_options(
+        source,
         &GeneratorOptions {
             ..Default::default()
         },
-        true,
     )
+}
+
+pub fn compile_with_options(source: String, options: &GeneratorOptions) -> Result<TokenStream> {
+    let idl = IDL::try_from(source.as_str()).map_err(Error::Parse)?;
+    varlink_to_rust(&idl, options, true)
 }
 
 /// `generate` reads a varlink interface definition from `reader` and writes
@@ -1111,6 +1372,7 @@ pub fn cargo_build_tosource_options<T: AsRef<Path> + ?Sized>(
 
     if rustfmt {
         if let Err(e) = Command::new("rustfmt")
+            .arg("--edition=2018")
             .arg(rust_path.to_str().unwrap())
             .output()
         {

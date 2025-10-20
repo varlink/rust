@@ -232,7 +232,7 @@ impl<'a> TryFrom<&'a str> for IDL<'a> {
     type Error = Error;
 
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        let interface = ParseInterface(value).map_err(|e| {
+        let interface = ParseInterface(value, value).map_err(|e| {
             let line = value.split('\n').nth(e.location.line - 1).unwrap();
             Error::Parse {
                 line: line.to_string(),

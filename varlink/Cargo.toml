@@ -1,6 +1,6 @@
 [package]
 name = "varlink"
-version = "12.0.1"
+version = "13.0.0"
 authors = ["Harald Hoyer <harald@hoyer.xyz>"]
 edition = "2018"
 rust-version = "1.73.0"

@@ -1,6 +1,6 @@
 [package]
 name = "varlink-cli"
-version = "4.5.6"
+version = "5.0.0"
 authors = ["Harald Hoyer <harald@hoyer.xyz>"]
 edition = "2018"
 rust-version = "1.73.0"

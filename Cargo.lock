@@ -30,7 +30,7 @@ dependencies = [
 
 [[package]]
 name = "async_example"
-version = "1.0.1"
+version = "2.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -45,7 +45,7 @@ dependencies = [
 
 [[package]]
 name = "async_ping"
-version = "1.0.1"
+version = "2.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -154,7 +154,7 @@ dependencies = [
 
 [[package]]
 name = "example"
-version = "3.0.4"
+version = "4.0.0"
 dependencies = [
  "anyhow",
  "getopts",
@@ -268,7 +268,7 @@ dependencies = [
 
 [[package]]
 name = "more"
-version = "2.0.3"
+version = "3.0.0"
 dependencies = [
  "getopts",
  "serde",
@@ -343,7 +343,7 @@ checksum = "3b3cff922bd51709b605d9ead9aa71031d81447142d828eb4a6eba76fe619f9b"
 
 [[package]]
 name = "ping"
-version = "2.0.4"
+version = "3.0.0"
 dependencies = [
  "anyhow",
  "getopts",
@@ -669,7 +669,7 @@ dependencies = [
 
 [[package]]
 name = "varlink"
-version = "12.0.1"
+version = "13.0.0"
 dependencies = [
  "async-trait",
  "libc",
@@ -687,7 +687,7 @@ dependencies = [
 
 [[package]]
 name = "varlink-certification"
-version = "2.0.6"
+version = "3.0.0"
 dependencies = [
  "getopts",
  "serde",
@@ -700,7 +700,7 @@ dependencies = [
 
 [[package]]
 name = "varlink-cli"
-version = "4.5.6"
+version = "5.0.0"
 dependencies = [
  "anyhow",
  "bitflags 2.10.0",
@@ -716,7 +716,7 @@ dependencies = [
 
 [[package]]
 name = "varlink_derive"
-version = "12.0.1"
+version = "13.0.0"
 dependencies = [
  "serde",
  "serde_derive",
@@ -727,7 +727,7 @@ dependencies = [
 
 [[package]]
 name = "varlink_generator"
-version = "12.0.1"
+version = "13.0.0"
 dependencies = [
  "getopts",
  "proc-macro2",
@@ -741,7 +741,7 @@ dependencies = [
 
 [[package]]
 name = "varlink_parser"
-version = "5.0.1"
+version = "6.0.0"
 dependencies = [
  "colored",
  "peg",
@@ -750,7 +750,7 @@ dependencies = [
 
 [[package]]
 name = "varlink_stdinterfaces"
-version = "12.0.1"
+version = "13.0.0"
 dependencies = [
  "async-trait",
  "serde",

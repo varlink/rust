@@ -207,7 +207,8 @@ fn test_one_method() {
 
 #[test]
 fn test_one_method_no_type() {
-    assert!(ParseInterface("interface foo.bar\nmethod Foo()->(b:)").is_err());
+    let input = "interface foo.bar\nmethod Foo()->(b:)";
+    assert!(ParseInterface(input, input).is_err());
 }
 
 #[test]

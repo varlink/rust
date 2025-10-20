@@ -13,3 +13,11 @@ members = [
     "examples/async_ping",
     "examples/async_example",
 ]
+resolver = "1"
+
+[workspace.metadata.release]
+# Shared release configuration for all crates
+allow-branch = ["master", "main"]
+sign-commit = false
+sign-tag = false
+push-remote = "origin"

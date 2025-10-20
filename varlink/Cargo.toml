@@ -1,6 +1,6 @@
 [package]
 name = "varlink"
-version = "11.0.1"
+version = "12.0.0"
 authors = ["Harald Hoyer <harald@hoyer.xyz>"]
 edition = "2018"
 rust-version = "1.70.0"
@@ -28,15 +28,15 @@ serde = { workspace = true }
 serde_derive = { workspace = true }
 serde_json = { workspace = true }
 tempfile = { workspace = true }
-tokio= { workspace = true, features = ["net", "io-util", "rt", "sync", "time"], optional = true }
-async-trait= { workspace = true, optional = true }
+tokio = { workspace = true, features = ["net", "io-util", "rt", "sync", "time"], optional = true }
+async-trait = { workspace = true, optional = true }
 
 [features]
 default = []
 tokio = ["dep:tokio", "dep:async-trait"]
 
 [target.'cfg(windows)'.dependencies]
-uds_windows = { version="1.0.1" }
+uds_windows = { version = "1.0.1" }
 winapi = { version = "0.3", features = ["winuser", "winsock2"] }
 
 [target.'cfg(unix)'.dependencies]

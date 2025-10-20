@@ -45,7 +45,7 @@ thiserror = "2.0.3"
 tokio = "1"
 unified-diff = "0.2.1"
 varlink_parser = { version = "5.0", path = "varlink_parser" }
-varlink_stdinterfaces = { version = "11", path = "varlink_stdinterfaces" }
-varlink_derive = { version = "10", path = "varlink_derive" }
-varlink_generator = { version = "11", path = "varlink_generator" }
-varlink = { version = "11", path = "varlink" }
+varlink_stdinterfaces = { version = "12", path = "varlink_stdinterfaces" }
+varlink_derive = { version = "12", path = "varlink_derive" }
+varlink_generator = { version = "12", path = "varlink_generator" }
+varlink = { version = "12", path = "varlink" }

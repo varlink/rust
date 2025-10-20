@@ -4,13 +4,6 @@
 # Disable automatic pushing (you can push manually after review)
 push = false
 
-# Don't publish dev-dependencies (examples)
-dev-version = false
-
-# Pre-release checks
-pre-release-commit-message = "chore: Release {{crate_name}} version {{version}}"
-pre-release-replacements = []
-
 # Tag configuration
 tag-prefix = "v"
 tag-message = "Release {{crate_name}} {{version}}"
@@ -18,35 +11,3 @@ tag = true
 
 # Enable publishing to crates.io
 publish = true
-
-# Don't push tags automatically (manual control)
-push-options = []
-
-# Package-specific configurations
-[[package]]
-name = "varlink_parser"
-# First to publish (no dependencies)
-
-[[package]]
-name = "varlink_generator"
-# Depends on varlink_parser
-
-[[package]]
-name = "varlink_derive"
-# Independent
-
-[[package]]
-name = "varlink"
-# Core crate
-
-[[package]]
-name = "varlink_stdinterfaces"
-# Depends on varlink and varlink_generator
-
-[[package]]
-name = "varlink-cli"
-# Utility crate
-
-[[package]]
-name = "varlink-certification"
-# Utility crate

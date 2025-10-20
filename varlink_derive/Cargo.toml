@@ -8,7 +8,7 @@ documentation = "https://github.com/varlink/rust/blob/master/varlink/README.md"
 homepage = "https://github.com/varlink/rust/blob/master/varlink_derive"
 repository = "https://github.com/varlink/rust"
 description = "Rust code generator macro for the varlink protocol."
-rust-version = "1.70.0"
+rust-version = "1.73.0"
 
 [lib]
 proc-macro = true

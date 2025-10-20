@@ -4,7 +4,7 @@ version = "1.0.1"
 authors = ["Harald Hoyer <harald@hoyer.xyz>"]
 edition = "2021"
 publish = false
-rust-version = "1.70.0"
+rust-version = "1.73.0"
 
 [dependencies]
 anyhow = { workspace = true }

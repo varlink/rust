@@ -3,7 +3,7 @@ name = "varlink_parser"
 version = "5.0.1"
 authors = ["Harald Hoyer <harald@hoyer.xyz>"]
 edition = "2018"
-rust-version = "1.70.0"
+rust-version = "1.73.0"
 
 license = "MIT OR Apache-2.0"
 documentation = "https://docs.rs/varlink_parser/"

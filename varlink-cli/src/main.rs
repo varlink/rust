@@ -5,7 +5,8 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::str;
 
-use clap::{App, Arg, SubCommand};
+use clap::{Arg, Command};
+use clap_complete::{generate, Shell};
 use colored_json::{
     Color, ColorMode, ColoredFormatter, Output, Paint, PrettyFormatter, Style, Styler,
 };
@@ -426,48 +427,52 @@ fn varlink_bridge(
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
-    let mut app = App::new("varlink")
+    let mut app = Command::new("varlink")
         .version(VERSION)
+        .disable_help_subcommand(true)
         /*
                 .arg(
-                    Arg::with_name("timeout")
-                        .short("t")
+                    Arg::new("timeout")
+                        .short('t')
                         .long("timeout")
                         .value_name("SECONDS")
                         .help("time in seconds to wait for a reply")
-                        .takes_value(true),
+                        .num_args(1),
                 )
         */
-        .arg(Arg::with_name("debug").long("debug").help("print debug"))
         .arg(
-            Arg::with_name("color")
+            Arg::new("debug")
+                .long("debug")
+                .help("print debug")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("color")
                 .long("color")
-                .possible_values(&["on", "off", "auto"])
+                .value_parser(["on", "off", "auto"])
                 .default_value("auto")
                 .help("colorize output"),
         )
         .arg(
-            Arg::with_name("resolver")
-                .short("R")
+            Arg::new("resolver")
+                .short('R')
                 .long("resolver")
                 .value_name("ADDRESS")
                 .help("address of the resolver")
-                .takes_value(true)
-                .required(false)
+                .num_args(1)
                 .default_value("unix:/run/org.varlink.resolver"),
         )
         .arg(
-            Arg::with_name("bridge")
-                .short("b")
+            Arg::new("bridge")
+                .short('b')
                 .long("bridge")
                 .value_name("COMMAND")
                 .help("Command to execute and connect to")
-                .takes_value(true)
-                .required(false),
+                .num_args(1),
         )
         .arg(
-            Arg::with_name("activate")
-                .short("A")
+            Arg::new("activate")
+                .short('A')
                 .long("activate")
                 .value_name("COMMAND")
                 .help("Service to socket-activate and connect to")
@@ -475,11 +480,10 @@ fn main() {
                     "Service to socket-activate and connect to. The temporary UNIX socket \
                      address is exported as $VARLINK_ADDRESS.",
                 )
-                .takes_value(true)
-                .required(false),
+                .num_args(1),
         )
         .subcommand(
-            SubCommand::with_name("bridge")
+            Command::new("bridge")
                 .version(VERSION)
                 .about("Bridge varlink messages from stdio to services on this machine")
                 .long_about(
@@ -487,92 +491,90 @@ fn main() {
                      machine.",
                 )
                 .arg(
-                    Arg::with_name("connect")
-                        .short("C")
+                    Arg::new("connect")
+                        .short('C')
                         .long("connect")
                         .value_name("ADDRESS")
                         .help("connect directly to ADDRESS")
-                        .required(false)
-                        .takes_value(true),
+                        .num_args(1),
                 ),
         )
         .subcommand(
-            SubCommand::with_name("call")
+            Command::new("call")
                 .version(VERSION)
                 .about("Call a method")
                 .long_about("Call METHOD on INTERFACE at ADDRESS. ARGUMENTS must be valid JSON.")
                 .arg(
-                    Arg::with_name("more")
-                        .short("m")
+                    Arg::new("more")
+                        .short('m')
                         .long("more")
-                        .help("wait for multiple method returns if supported"),
+                        .help("wait for multiple method returns if supported")
+                        .action(clap::ArgAction::SetTrue),
                 )
                 .arg(
-                    Arg::with_name("METHOD")
+                    Arg::new("METHOD")
                         .value_name("[ADDRESS/]INTERFACE.METHOD")
                         .required(true),
                 )
-                .arg(Arg::with_name("ARGUMENTS").required(false)),
+                .arg(Arg::new("ARGUMENTS")),
         )
         .subcommand(
-            SubCommand::with_name("format")
+            Command::new("format")
                 .version(VERSION)
                 .about("Format a varlink service file")
                 .arg(
-                    Arg::with_name("COLUMNS")
-                        .short("c")
+                    Arg::new("COLUMNS")
+                        .short('c')
                         .long("cols")
                         .help("maximum width of the output")
-                        .required(false)
-                        .takes_value(true),
+                        .num_args(1),
                 )
                 .arg(
-                    Arg::with_name("FILE")
+                    Arg::new("FILE")
                         .required(true)
                         .help("The varlink interface definition file to format"),
                 ),
         )
         .subcommand(
-            SubCommand::with_name("info")
+            Command::new("info")
                 .version(VERSION)
                 .about("Print information about a service")
                 .long_about("Prints information about the service running at ADDRESS.")
-                .arg(Arg::with_name("ADDRESS").required(false)),
+                .arg(Arg::new("ADDRESS")),
         )
         .subcommand(
-            SubCommand::with_name("help")
+            Command::new("help")
                 .version(VERSION)
                 .about("Print interface description or service information")
                 .long_about("Prints information about INTERFACE.")
                 .arg(
-                    Arg::with_name("INTERFACE")
+                    Arg::new("INTERFACE")
                         .value_name("[ADDRESS/]INTERFACE")
                         .required(true),
                 )
                 .arg(
-                    Arg::with_name("COLUMNS")
-                        .short("c")
+                    Arg::new("COLUMNS")
+                        .short('c')
                         .long("cols")
                         .help("maximum width of the output")
-                        .required(false)
-                        .takes_value(true),
+                        .num_args(1),
                 ),
         )
         .subcommand(
-            SubCommand::with_name("resolve")
+            Command::new("resolve")
                 .version(VERSION)
                 .about("Resolve an interface name to a varlink address")
                 .long_about("Resolve INTERFACE to the varlink address that implements it.")
-                .arg(Arg::with_name("INTERFACE").required(true)),
+                .arg(Arg::new("INTERFACE").required(true)),
         )
         .subcommand(
-            SubCommand::with_name("completions")
+            Command::new("completions")
                 .version(VERSION)
                 .about("Generates completion scripts for your shell")
                 .arg(
-                    Arg::with_name("SHELL")
+                    Arg::new("SHELL")
                         .required(true)
-                        .possible_values(&["bash", "fish", "zsh"])
+                        .value_parser(["bash", "fish", "zsh"])
                         .help("The shell to generate the script for"),
                 ),
         );
@@ -580,8 +582,8 @@ fn main() {
     if let Err(e) = do_main(&mut app) {
         let matches = app.get_matches();
 
-        let color = matches.value_of("color").unwrap();
-        let color_bool = match color {
+        let color = matches.get_one::<String>("color").unwrap();
+        let color_bool = match color.as_str() {
             "on" => true,
             "off" => false,
             _ => ColorMode::should_colorize(Output::StdOut),
@@ -592,7 +594,7 @@ fn main() {
             |w| w.to_string()
         };
 
-        if matches.is_present("debug") {
+        if matches.get_flag("debug") {
             eprintln!("{:?}", e);
         } else {
             eprintln!("{} {}", red_bold("Error:"), e);
@@ -601,12 +603,12 @@ fn main() {
     }
 }
 
-fn do_main(app: &mut App) -> Result<()> {
+fn do_main(app: &mut Command) -> Result<()> {
     let matches = app.clone().get_matches();
-    let resolver = matches.value_of("resolver").unwrap();
-    let bridge = matches.value_of("bridge");
-    let activate = matches.value_of("activate");
-    let color = matches.value_of("color").unwrap();
+    let resolver = matches.get_one::<String>("resolver").unwrap().as_str();
+    let bridge = matches.get_one::<String>("bridge").map(|s| s.as_str());
+    let activate = matches.get_one::<String>("activate").map(|s| s.as_str());
+    let color = matches.get_one::<String>("color").unwrap().as_str();
     let should_colorize = match color {
         "on" => true,
         "off" => false,
@@ -614,18 +616,19 @@ fn do_main(app: &mut App) -> Result<()> {
     };
 
     match matches.subcommand() {
-        ("completions", Some(sub_matches)) => {
-            let shell = sub_matches.value_of("SHELL").unwrap();
-            app.gen_completions_to("varlink", shell.parse().unwrap(), &mut io::stdout());
+        Some(("completions", sub_matches)) => {
+            let shell = sub_matches.get_one::<String>("SHELL").unwrap().as_str();
+            let shell: Shell = shell.parse().map_err(|e| format!("Invalid shell: {e}"))?;
+            generate(shell, app, "varlink", &mut io::stdout());
         }
-        ("format", Some(sub_matches)) => {
-            let filename = sub_matches.value_of("FILE").unwrap();
-            let cols = sub_matches.value_of("COLUMNS");
+        Some(("format", sub_matches)) => {
+            let filename = sub_matches.get_one::<String>("FILE").unwrap().as_str();
+            let cols = sub_matches.get_one::<String>("COLUMNS").map(|s| s.as_str());
 
             varlink_format(filename, cols, should_colorize)?
         }
-        ("info", Some(sub_matches)) => {
-            let address = sub_matches.value_of("ADDRESS");
+        Some(("info", sub_matches)) => {
+            let address = sub_matches.get_one::<String>("ADDRESS").map(|s| s.as_str());
             if address.is_none() && activate.is_none() && bridge.is_none() {
                 app.print_help()
                     .map_err(|e| format!("Couldn't print help: {e}"))?;
@@ -635,19 +638,21 @@ fn do_main(app: &mut App) -> Result<()> {
 
             varlink_info(address, resolver, activate, bridge, should_colorize)?
         }
-        ("bridge", Some(sub_matches)) => {
-            let address = sub_matches.value_of("connect");
+        Some(("bridge", sub_matches)) => {
+            let address = sub_matches.get_one::<String>("connect").map(|s| s.as_str());
             varlink_bridge(address, resolver, activate, bridge)?
         }
-        ("help", Some(sub_matches)) => {
-            let interface = sub_matches.value_of("INTERFACE").unwrap();
-            let cols = sub_matches.value_of("COLUMNS");
+        Some(("help", sub_matches)) => {
+            let interface = sub_matches.get_one::<String>("INTERFACE").unwrap().as_str();
+            let cols = sub_matches.get_one::<String>("COLUMNS").map(|s| s.as_str());
             varlink_help(interface, resolver, activate, bridge, cols, should_colorize)?
         }
-        ("call", Some(sub_matches)) => {
-            let method = sub_matches.value_of("METHOD").unwrap();
-            let args = sub_matches.value_of("ARGUMENTS");
-            let more = sub_matches.is_present("more");
+        Some(("call", sub_matches)) => {
+            let method = sub_matches.get_one::<String>("METHOD").unwrap().as_str();
+            let args = sub_matches
+                .get_one::<String>("ARGUMENTS")
+                .map(|s| s.as_str());
+            let more = sub_matches.get_flag("more");
 
             varlink_call(
                 method,
@@ -659,7 +664,7 @@ fn do_main(app: &mut App) -> Result<()> {
                 should_colorize,
             )?
         }
-        (_, _) => {
+        _ => {
             app.print_help()
                 .map_err(|e| format!("Couldn't print help: {e}"))?;
             println!();

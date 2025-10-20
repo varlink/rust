@@ -1,6 +1,6 @@
 [package]
 name = "varlink_parser"
-version = "5.0.0"
+version = "5.0.1"
 authors = ["Harald Hoyer <harald@hoyer.xyz>"]
 edition = "2018"
 rust-version = "1.70.0"

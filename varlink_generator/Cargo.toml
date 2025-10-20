@@ -1,6 +1,6 @@
 [package]
 name = "varlink_generator"
-version = "12.0.0"
+version = "12.0.1"
 authors = ["Harald Hoyer <harald@hoyer.xyz>"]
 edition = "2018"
 rust-version = "1.70.0"

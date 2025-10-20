@@ -81,6 +81,7 @@ pub struct GeneratorOptions {
     pub string_type: Option<&'static str>,
     pub preamble: Option<TokenStream>,
     pub generate_async: bool,
+    pub fmt_edition: Option<&'static str>,
 }
 
 impl<'short, 'long: 'short> ToRustString<'short, 'long> for VType<'long> {
@@ -1317,6 +1318,7 @@ pub fn cargo_build_tosource<T: AsRef<Path> + ?Sized>(input_path: &T, rustfmt: bo
 ///         true,
 ///         &varlink_generator::GeneratorOptions {
 ///             int_type: Some("i128"),
+///             fmt_edition: Some("2021"),
 ///             ..Default::default()
 ///         },
 ///     );
@@ -1368,8 +1370,10 @@ pub fn cargo_build_tosource_options<T: AsRef<Path> + ?Sized>(
     }
 
     if rustfmt {
+        let edition = options.fmt_edition.unwrap_or("2018");
         if let Err(e) = Command::new("rustfmt")
-            .arg("--edition=2018")
+            .arg("--edition")
+            .arg(edition)
             .arg(rust_path.to_str().unwrap())
             .output()
         {

@@ -120,8 +120,8 @@ impl Server {
                         // Extract interface name from method
                         let interface = request
                             .method
-                            .rsplitn(2, '.')
-                            .nth(1)
+                            .rsplit_once('.')
+                            .map(|x| x.0)
                             .unwrap_or(&request.method)
                             .to_string();
 
@@ -145,9 +145,7 @@ impl Server {
                     self.state = ServerState::Error {
                         message: error.clone(),
                     };
-                    return Err(crate::context!(crate::ErrorKind::InvalidParameter(
-                        error.into()
-                    )));
+                    return Err(crate::context!(crate::ErrorKind::InvalidParameter(error)));
                 }
             }
         }
@@ -173,13 +171,8 @@ impl Server {
         self.send_buf.push_back(Transmit::new(payload));
 
         // If this is the last reply (continues = false or None), go back to receiving
-        if !reply.continues.unwrap_or(false) {
-            match &self.state {
-                ServerState::Processing => {
-                    self.state = ServerState::Receiving;
-                }
-                _ => {}
-            }
+        if !reply.continues.unwrap_or(false) && self.state == ServerState::Processing {
+            self.state = ServerState::Receiving;
         }
 
         Ok(())

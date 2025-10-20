@@ -603,15 +603,12 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
         ts.extend(quote!(
             // AsyncCall: A Send-safe call wrapper for async contexts
             #[allow(dead_code)]
+            #[derive(Default)]
             pub struct AsyncCall {
                 reply: Option<varlink::Reply>,
             }
 
             impl AsyncCall {
-                pub fn new() -> Self {
-                    AsyncCall { reply: None }
-                }
-
                 pub fn take_reply(&mut self) -> Option<varlink::Reply> {
                     self.reply.take()
                 }
@@ -702,7 +699,7 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
                     while let Some(event) = server.poll_event() {
                         match event {
                             varlink::sansio::ServerEvent::Request { request } => {
-                                let mut call = AsyncCall::new();
+                                let mut call = AsyncCall::default();
 
                                 match request.method.as_ref() {
                                     #async_dispatch_arms

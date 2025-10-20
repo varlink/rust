@@ -10,8 +10,6 @@ fn main() {
 
     // Generate async versions when tokio feature is enabled
     if env::var("CARGO_FEATURE_TOKIO").is_ok() {
-        println!("cargo:warning=Generating async variants with tokio feature");
-
         // Generate async version for org.varlink.resolver
         generate_async(
             "src/org.varlink.resolver.varlink",

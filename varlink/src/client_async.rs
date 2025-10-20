@@ -30,11 +30,12 @@ use crate::error::*;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::marker::PhantomData;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 #[cfg(unix)]
 use tokio::net::UnixStream;
+use tokio::sync::RwLock;
 
 /// Async stream trait for varlink connections
 pub trait AsyncVarlinkStream: AsyncReadExt + AsyncWriteExt + Send + Sync + Unpin {}
@@ -239,7 +240,7 @@ where
 
         // Get stream and write
         let stream_lock = self.connection.stream.clone();
-        let mut stream_guard = stream_lock.write().unwrap();
+        let mut stream_guard = stream_lock.write().await;
         let stream = stream_guard
             .as_mut()
             .ok_or_else(|| MError::from(context!(ErrorKind::ConnectionClosed)))?;
@@ -273,7 +274,7 @@ where
 
         // Get stream and read
         let stream_lock = self.connection.stream.clone();
-        let mut stream_guard = stream_lock.write().unwrap();
+        let mut stream_guard = stream_lock.write().await;
         let stream = stream_guard
             .as_mut()
             .ok_or_else(|| MError::from(context!(ErrorKind::ConnectionClosed)))?;

@@ -213,9 +213,7 @@ impl Client {
                     self.state = ClientState::Error {
                         message: error.clone(),
                     };
-                    return Err(crate::context!(crate::ErrorKind::InvalidParameter(
-                        error.into()
-                    )));
+                    return Err(crate::context!(crate::ErrorKind::InvalidParameter(error)));
                 }
             }
         }

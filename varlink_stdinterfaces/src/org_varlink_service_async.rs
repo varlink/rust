@@ -282,13 +282,11 @@ pub trait Call_GetInterfaceDescription: VarlinkCallError + Send {
     }
 }
 #[allow(dead_code)]
+#[derive(Default)]
 pub struct AsyncCall {
     reply: Option<varlink::Reply>,
 }
 impl AsyncCall {
-    pub fn new() -> Self {
-        AsyncCall { reply: None }
-    }
     pub fn take_reply(&mut self) -> Option<varlink::Reply> {
         self.reply.take()
     }
@@ -382,7 +380,7 @@ impl varlink::AsyncConnectionHandler for VarlinkInterfaceHandler {
         while let Some(event) = server.poll_event() {
             match event {
                 varlink::sansio::ServerEvent::Request { request } => {
-                    let mut call = AsyncCall::new();
+                    let mut call = AsyncCall::default();
                     match request.method.as_ref() {
                         "org.varlink.service.GetInfo" => {
                             self.inner

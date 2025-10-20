@@ -1614,7 +1614,7 @@ impl server_async::AsyncConnectionHandler for VarlinkService {
                                                 parameters: None,
                                                 continues: None,
                                                 error: Some(
-                                                    format!("org.varlink.service.InvalidParameter: interface").into()
+                                                    "org.varlink.service.InvalidParameter: interface".to_string().into()
                                                 ),
                                             };
                                             server.send_reply(reply)?;

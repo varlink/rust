@@ -174,7 +174,7 @@ pub fn parse_request(message: &[u8]) -> Result<Request<'static>> {
 ///
 /// A `Result` containing the parsed reply
 pub fn parse_reply(message: &[u8]) -> Result<Reply> {
-    Ok(serde_json::from_slice(message).map_err(crate::map_context!())?)
+    serde_json::from_slice(message).map_err(crate::map_context!())
 }
 
 #[cfg(test)]

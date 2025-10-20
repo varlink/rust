@@ -5,3 +5,4 @@ Cargo.lock
 .idea
 .project
 /varlink-certification/src/org_varlink_certification.rs
+/.direnv

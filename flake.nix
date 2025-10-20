@@ -28,6 +28,7 @@
             cargo-release
             cargo-autoinherit
             rustfmt
+            rustup
           ];
 
           shellHook = ''

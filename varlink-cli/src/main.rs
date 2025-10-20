@@ -6,7 +6,9 @@ use std::path::Path;
 use std::str;
 
 use clap::{App, Arg, SubCommand};
-use colored_json::{ColorMode, ColoredFormatter, Colour, Output, PrettyFormatter, Style, Styler};
+use colored_json::{
+    Color, ColorMode, ColoredFormatter, Output, Paint, PrettyFormatter, Style, Styler,
+};
 
 use varlink::{
     Connection, GetInterfaceDescriptionReply, MethodCall, OrgVarlinkServiceClient,
@@ -54,7 +56,8 @@ fn varlink_info(
     should_colorize: bool,
 ) -> Result<()> {
     let bold: fn(w: &str) -> String = if should_colorize {
-        |w| Style::new().bold().paint(w).to_string()
+        static BOLD: Style = Style::new().bold();
+        |w| w.paint(BOLD).to_string()
     } else {
         |w| w.to_string()
     };
@@ -265,13 +268,14 @@ fn varlink_call(
         Styler {
             array_brackets: Style::new(),
             object_brackets: Style::new(),
-            key: Colour::Cyan.normal(),
-            string_value: Colour::Purple.normal(),
-            integer_value: Colour::Purple.normal(),
-            float_value: Colour::Purple.normal(),
-            bool_value: Colour::Purple.normal(),
-            nil_value: Colour::Purple.normal(),
+            key: Color::Cyan.foreground(),
+            string_value: Color::Magenta.foreground(),
+            integer_value: Color::Magenta.foreground(),
+            float_value: Color::Magenta.foreground(),
+            bool_value: Color::Magenta.foreground(),
+            nil_value: Color::Magenta.foreground(),
             string_include_quotation: false,
+            object_colon: Default::default(),
         },
     );
 
@@ -299,7 +303,7 @@ fn print_call_ret(
     args: &serde_json::Value,
 ) -> Result<()> {
     let red: fn(w: &str) -> String = if should_colorize {
-        |w| Colour::Red.normal().paint(w).to_string()
+        |w| w.paint(Color::Red.foreground()).to_string()
     } else {
         |w| w.to_string()
     };
@@ -586,7 +590,7 @@ fn main() {
             _ => ColorMode::should_colorize(Output::StdOut),
         };
         let red_bold: fn(w: &str) -> String = if color_bool {
-            |w| Colour::Red.bold().paint(w).to_string()
+            |w| w.paint(Color::Red.bold()).to_string()
         } else {
             |w| w.to_string()
         };

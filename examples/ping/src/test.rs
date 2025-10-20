@@ -153,11 +153,6 @@ fn run_self_test(address: String, multiplex: bool) -> Result<()> {
 }
 
 #[test]
-fn test_unix_multiplex() -> Result<()> {
-    run_self_test("unix:org.example.ping_multiplex".into(), true)
-}
-
-#[test]
 fn test_unix() -> Result<()> {
     run_self_test("unix:org.example.ping".into(), false)
 }

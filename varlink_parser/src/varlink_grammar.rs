@@ -116,9 +116,9 @@ peg::parser! {
             / e:error() { MethodOrTypedefOrError::Error(e) }
 
         use crate::IDL;
-        pub rule ParseInterface() -> IDL<'input>
-            = d:$(wce()*) "interface" wce()+ n:$interface_name() eol() mt:(member()++ eol()) wce()*  {
-                IDL::from_token(__input, n, mt, trim_doc(d))
+        pub rule ParseInterface(full_input: &'input str) -> IDL<'input>
+            = d:$(wce()*) "interface" wce()+ n:$interface_name() eol() mt:(member()++ eol()) wce()* {
+                IDL::from_token(full_input, n, mt, trim_doc(d))
              }
 
     }

@@ -218,6 +218,20 @@ impl Server {
     pub fn is_upgraded(&self) -> bool {
         matches!(self.state, ServerState::Upgraded { .. })
     }
+
+    /// Push a request back to the front of the event queue.
+    ///
+    /// This is useful when routing requests between handlers - a dispatcher
+    /// can pull a request, examine it, then push it back for another handler
+    /// to process.
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - The request to push back to the front of the queue
+    pub fn push_request(&mut self, request: crate::Request<'static>) {
+        self.pending_events
+            .push_front(ServerEvent::Request { request });
+    }
 }
 
 impl Default for Server {

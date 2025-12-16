@@ -96,6 +96,7 @@ dependencies = [
  "tokio",
  "varlink",
  "varlink_generator",
+ "varlink_stdinterfaces",
 ]
 
 [[package]]

@@ -722,6 +722,16 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
                     Ok(None)
                 }
             }
+
+            impl varlink::AsyncInterface for VarlinkInterfaceHandler {
+                fn get_name(&self) -> &'static str {
+                    #iname
+                }
+
+                fn get_description(&self) -> &'static str {
+                    #description
+                }
+            }
         ));
     } else {
         ts.extend(quote!(

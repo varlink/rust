@@ -276,7 +276,9 @@ mod stream;
 #[cfg(feature = "tokio")]
 pub mod server_async;
 #[cfg(feature = "tokio")]
-pub use server_async::{listen_async, AsyncConnectionHandler, ListenAsyncConfig};
+pub use server_async::{
+    listen_async, AsyncConnectionHandler, AsyncInterface, AsyncVarlinkService, ListenAsyncConfig,
+};
 
 #[cfg(feature = "tokio")]
 pub mod client_async;

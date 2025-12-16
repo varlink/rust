@@ -175,10 +175,12 @@ varlink-rust-generator --async src/org.example.ping.varlink > org_example_ping_a
 
 #### Server Implementation
 
+Use `AsyncVarlinkService` to create an async server with full introspection support (`org.varlink.service.GetInfo` and `GetInterfaceDescription`):
+
 ```rust
 use async_trait::async_trait;
 use std::sync::Arc;
-use varlink::{listen_async, ListenAsyncConfig};
+use varlink::{listen_async, AsyncVarlinkService, ListenAsyncConfig};
 
 // Include generated code
 mod org_example_ping;
@@ -204,8 +206,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let service = Arc::new(PingService);
     let handler = Arc::new(org_example_ping::new(service));
 
+    // Create service with introspection support
+    let varlink_service = Arc::new(AsyncVarlinkService::new(
+        "org.example",           // vendor
+        "My Ping Service",       // product
+        "1.0",                   // version
+        "https://example.org",   // url
+        vec![handler],           // list of interface handlers
+    ));
+
     listen_async(
-        handler,
+        varlink_service,
         "tcp:127.0.0.1:12345",
         &ListenAsyncConfig::default(),
     )

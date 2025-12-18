@@ -268,3 +268,11 @@ impl varlink::AsyncConnectionHandler for VarlinkInterfaceHandler {
         Ok(None)
     }
 }
+impl varlink::AsyncInterface for VarlinkInterfaceHandler {
+    fn get_name(&self) -> &'static str {
+        "org.example.ping"
+    }
+    fn get_description(&self) -> &'static str {
+        "# Example async service\ninterface org.example.ping\n\n# Returns the same string\nmethod Ping(ping: string) -> (pong: string)\n\nerror PingError(parameter: int)\n"
+    }
+}

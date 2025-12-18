@@ -15,6 +15,7 @@ tokio = []
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 varlink = { workspace = true, features = ["tokio"] }
+varlink_stdinterfaces = { workspace = true, features = ["tokio"] }
 serde = { workspace = true }
 serde_derive = { workspace = true }
 serde_json = { workspace = true }

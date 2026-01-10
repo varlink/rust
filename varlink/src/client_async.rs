@@ -169,8 +169,15 @@ async fn async_varlink_exec<S: ?Sized + AsRef<str>>(
 
                     // Move fd to 3 if needed
                     if fd != 3 {
-                        libc::dup2(fd, 3);
+                        if libc::dup2(fd, 3) == -1 {
+                            return Err(std::io::Error::last_os_error());
+                        }
                         libc::close(fd);
+                    }
+
+                    // Clear CLOEXEC flag on fd 3 to ensure it survives exec
+                    if libc::fcntl(3, libc::F_SETFD, 0) == -1 {
+                        return Err(std::io::Error::last_os_error());
                     }
 
                     Ok(())

@@ -111,9 +111,18 @@ impl AsyncListener {
     fn from_activation_fd(fd: usize, address: &str) -> Result<Self> {
         use std::os::unix::io::FromRawFd;
 
+        let fd = fd as std::os::unix::io::RawFd;
+
+        // Validate that the fd is actually open before taking ownership
+        // This prevents IO Safety violations if the fd wasn't properly inherited
+        unsafe {
+            if libc::fcntl(fd, libc::F_GETFD) == -1 {
+                return Err(context!(ErrorKind::Io(std::io::ErrorKind::InvalidInput)));
+            }
+        }
+
         if address.starts_with("tcp:") {
-            let std_listener =
-                unsafe { std::net::TcpListener::from_raw_fd(fd as std::os::unix::io::RawFd) };
+            let std_listener = unsafe { std::net::TcpListener::from_raw_fd(fd) };
             std_listener
                 .set_nonblocking(true)
                 .map_err(|e| context!(ErrorKind::Io(e.kind())))?;
@@ -121,9 +130,7 @@ impl AsyncListener {
                 .map_err(|e| context!(ErrorKind::Io(e.kind())))?;
             Ok(AsyncListener::TCP(listener))
         } else if address.starts_with("unix:") {
-            let std_listener = unsafe {
-                std::os::unix::net::UnixListener::from_raw_fd(fd as std::os::unix::io::RawFd)
-            };
+            let std_listener = unsafe { std::os::unix::net::UnixListener::from_raw_fd(fd) };
             std_listener
                 .set_nonblocking(true)
                 .map_err(|e| context!(ErrorKind::Io(e.kind())))?;

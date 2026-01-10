@@ -193,9 +193,8 @@ async fn run_client(addr: &str, n: i64) -> Result<()> {
 }
 
 /// Run server using socket activation (LISTEN_FDS environment variable)
-async fn run_server_activated(sleep_ms: u64) -> Result<()> {
-    let addr = std::env::var("VARLINK_ADDRESS").unwrap_or_else(|_| "tcp:127.0.0.1:9997".into());
-    println!("Server: Listening on {} (activated mode)", addr);
+async fn run_server_activated(addr: &str, sleep_ms: u64) -> Result<()> {
+    println!("Server: Listening on {}", addr);
 
     let more_service = Arc::new(MoreService {
         sleep_duration: Duration::from_millis(sleep_ms),
@@ -219,10 +218,11 @@ async fn run_server_activated(sleep_ms: u64) -> Result<()> {
 async fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
 
-    // Check for --varlink argument (activation mode)
+    // Check for --varlink argument (server mode)
     if args.len() > 1 && args[1].starts_with("--varlink=") {
-        // Running in activation mode - just serve
-        return run_server_activated(10).await;
+        // Extract address from command line argument
+        let addr = args[1].strip_prefix("--varlink=").unwrap();
+        return run_server_activated(addr, 10).await;
     }
 
     let addr = "127.0.0.1:9997";
@@ -357,13 +357,10 @@ mod tests {
     }
 
     // Integration tests for with_activate and with_bridge
-    // These tests spawn subprocesses and may be flaky in some environments.
-    // They are marked as #[ignore] and can be run manually with:
-    //   cargo test -p async_more -- --ignored
+    // These tests spawn subprocesses and test socket activation and bridge functionality.
 
     #[cfg(unix)]
     #[tokio::test]
-    #[ignore = "Integration test - requires subprocess spawning"]
     async fn test_with_activate() {
         // Build the binary first to make sure it's available
         let status = std::process::Command::new("cargo")
@@ -399,7 +396,6 @@ mod tests {
 
     #[cfg(unix)]
     #[tokio::test]
-    #[ignore = "Integration test - requires subprocess spawning"]
     async fn test_with_bridge() {
         // Build the varlink-cli binary for bridge support
         let status = std::process::Command::new("cargo")

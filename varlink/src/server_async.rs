@@ -6,6 +6,8 @@
 use crate::error::*;
 use crate::sansio::Server;
 use async_trait::async_trait;
+use std::env;
+use std::process;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -13,6 +15,39 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 #[cfg(unix)]
 use tokio::net::{UnixListener, UnixStream};
+
+/// Check for systemd socket activation environment variables
+///
+/// Returns the file descriptor number if socket activation is detected.
+/// Checks LISTEN_FDS, LISTEN_PID, and optionally LISTEN_FDNAMES.
+fn activation_listener() -> Option<usize> {
+    let nfds: usize = match env::var("LISTEN_FDS") {
+        Ok(ref n) => match n.parse::<usize>() {
+            Ok(n) if n >= 1 => n,
+            _ => return None,
+        },
+        _ => return None,
+    };
+
+    match env::var("LISTEN_PID") {
+        Ok(ref pid) if pid.parse::<usize>() == Ok(process::id() as usize) => {}
+        _ => return None,
+    }
+
+    if nfds == 1 {
+        return Some(3);
+    }
+
+    let fdnames = env::var("LISTEN_FDNAMES").ok()?;
+
+    for (i, v) in fdnames.split(':').enumerate() {
+        if v == "varlink" {
+            return Some(3 + i);
+        }
+    }
+
+    None
+}
 
 /// Async listener for varlink connections
 #[derive(Debug)]
@@ -46,6 +81,11 @@ impl AsyncListener {
     pub async fn new<S: AsRef<str>>(address: S) -> Result<Self> {
         let address = address.as_ref();
 
+        // Check for socket activation first
+        if let Some(fd) = activation_listener() {
+            return Self::from_activation_fd(fd, address);
+        }
+
         if let Some(addr) = address.strip_prefix("tcp:") {
             let listener = TcpListener::bind(addr)
                 .await
@@ -64,6 +104,42 @@ impl AsyncListener {
         } else {
             Err(context!(ErrorKind::InvalidAddress))
         }
+    }
+
+    /// Create an async listener from a socket activation file descriptor
+    #[cfg(unix)]
+    fn from_activation_fd(fd: usize, address: &str) -> Result<Self> {
+        use std::os::unix::io::FromRawFd;
+
+        if address.starts_with("tcp:") {
+            let std_listener =
+                unsafe { std::net::TcpListener::from_raw_fd(fd as std::os::unix::io::RawFd) };
+            std_listener
+                .set_nonblocking(true)
+                .map_err(|e| context!(ErrorKind::Io(e.kind())))?;
+            let listener = TcpListener::from_std(std_listener)
+                .map_err(|e| context!(ErrorKind::Io(e.kind())))?;
+            Ok(AsyncListener::TCP(listener))
+        } else if address.starts_with("unix:") {
+            let std_listener = unsafe {
+                std::os::unix::net::UnixListener::from_raw_fd(fd as std::os::unix::io::RawFd)
+            };
+            std_listener
+                .set_nonblocking(true)
+                .map_err(|e| context!(ErrorKind::Io(e.kind())))?;
+            let listener = UnixListener::from_std(std_listener)
+                .map_err(|e| context!(ErrorKind::Io(e.kind())))?;
+            Ok(AsyncListener::UNIX(listener))
+        } else {
+            Err(context!(ErrorKind::InvalidAddress))
+        }
+    }
+
+    #[cfg(not(unix))]
+    fn from_activation_fd(_fd: usize, _address: &str) -> Result<Self> {
+        Err(context!(ErrorKind::MethodNotImplemented(
+            "socket activation".into()
+        )))
     }
 
     #[cfg(unix)]

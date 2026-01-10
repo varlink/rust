@@ -192,8 +192,39 @@ async fn run_client(addr: &str, n: i64) -> Result<()> {
     Ok(())
 }
 
+/// Run server using socket activation (LISTEN_FDS environment variable)
+async fn run_server_activated(sleep_ms: u64) -> Result<()> {
+    let addr = std::env::var("VARLINK_ADDRESS").unwrap_or_else(|_| "tcp:127.0.0.1:9997".into());
+    println!("Server: Listening on {} (activated mode)", addr);
+
+    let more_service = Arc::new(MoreService {
+        sleep_duration: Duration::from_millis(sleep_ms),
+    });
+    let more_handler = Arc::new(org_example_more::new(more_service));
+
+    let service = Arc::new(AsyncVarlinkService::new(
+        "org.example",
+        "Async More Example",
+        "1.0",
+        "https://github.com/varlink/rust",
+        vec![more_handler],
+    ));
+
+    listen_async(service, &addr, &ListenAsyncConfig::default())
+        .await
+        .map_err(|e| anyhow::anyhow!("Server error: {:?}", e))
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
+    let args: Vec<String> = std::env::args().collect();
+
+    // Check for --varlink argument (activation mode)
+    if args.len() > 1 && args[1].starts_with("--varlink=") {
+        // Running in activation mode - just serve
+        return run_server_activated(10).await;
+    }
+
     let addr = "127.0.0.1:9997";
     let n = 5; // Number of progress steps
 
@@ -322,6 +353,124 @@ mod tests {
         // Signal server to stop
         stop.store(true, Ordering::SeqCst);
         tokio::time::sleep(Duration::from_millis(200)).await;
+        server_handle.abort();
+    }
+
+    // Integration tests for with_activate and with_bridge
+    // These tests spawn subprocesses and may be flaky in some environments.
+    // They are marked as #[ignore] and can be run manually with:
+    //   cargo test -p async_more -- --ignored
+
+    #[cfg(unix)]
+    #[tokio::test]
+    #[ignore = "Integration test - requires subprocess spawning"]
+    async fn test_with_activate() {
+        // Build the binary first to make sure it's available
+        let status = std::process::Command::new("cargo")
+            .args(["build", "--package", "async_more"])
+            .current_dir(env!("CARGO_MANIFEST_DIR"))
+            .status()
+            .expect("Failed to build async_more");
+        assert!(status.success(), "Failed to build async_more binary");
+
+        // Get the path to the built binary
+        let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let target_dir = manifest_dir
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("target/debug/async_more");
+
+        // Connect using with_activate - this spawns the server as a subprocess
+        let cmd = format!("{} --varlink=$VARLINK_ADDRESS", target_dir.display());
+
+        let connection = varlink::AsyncConnection::with_activate(&cmd)
+            .await
+            .expect("with_activate failed");
+
+        let client = org_example_more::VarlinkClient::new(connection);
+
+        // Test a simple ping
+        let reply = client.ping("hello".into()).call().await;
+        assert!(reply.is_ok(), "Ping failed: {:?}", reply.err());
+        assert_eq!(reply.unwrap().pong, "hello");
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    #[ignore = "Integration test - requires subprocess spawning"]
+    async fn test_with_bridge() {
+        // Build the varlink-cli binary for bridge support
+        let status = std::process::Command::new("cargo")
+            .args(["build", "--package", "varlink-cli"])
+            .current_dir(env!("CARGO_MANIFEST_DIR"))
+            .status()
+            .expect("Failed to build varlink-cli");
+        assert!(status.success(), "Failed to build varlink binary");
+
+        let addr = "127.0.0.1:9993";
+
+        // Start a server first
+        let stop = Arc::new(AtomicBool::new(false));
+        let stop_clone = Arc::clone(&stop);
+
+        let server_handle = tokio::spawn(async move {
+            let more_service = Arc::new(MoreService {
+                sleep_duration: Duration::from_millis(10),
+            });
+            let more_handler = Arc::new(org_example_more::new(more_service));
+
+            let service = Arc::new(AsyncVarlinkService::new(
+                "org.example",
+                "Bridge Test",
+                "1.0",
+                "https://github.com/varlink/rust",
+                vec![more_handler],
+            ));
+
+            let config = ListenAsyncConfig {
+                idle_timeout: Duration::ZERO,
+                stop_listening: Some(stop_clone),
+            };
+            listen_async(service, format!("tcp:{}", addr), &config)
+                .await
+                .ok();
+        });
+
+        // Give server time to start
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        // Get the path to the varlink binary
+        let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let varlink_bin = manifest_dir
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("target/debug/varlink");
+
+        // Connect using with_bridge through the varlink bridge command
+        let cmd = format!("{} bridge --connect=tcp:{}", varlink_bin.display(), addr);
+
+        let connection = varlink::AsyncConnection::with_bridge(&cmd)
+            .await
+            .expect("with_bridge failed");
+
+        let client = org_example_more::VarlinkClient::new(connection);
+
+        // Test a simple ping through the bridge
+        let reply = client.ping("bridge-test".into()).call().await;
+        assert!(
+            reply.is_ok(),
+            "Ping through bridge failed: {:?}",
+            reply.err()
+        );
+        assert_eq!(reply.unwrap().pong, "bridge-test");
+
+        // Clean up
+        stop.store(true, Ordering::SeqCst);
+        tokio::time::sleep(Duration::from_millis(100)).await;
         server_handle.abort();
     }
 }

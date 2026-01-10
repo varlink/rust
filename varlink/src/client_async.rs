@@ -31,10 +31,13 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use tempfile::TempDir;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 #[cfg(unix)]
 use tokio::net::UnixStream;
+#[cfg(unix)]
+use tokio::process::Child;
 use tokio::sync::RwLock;
 
 /// Async stream trait for varlink connections
@@ -118,10 +121,120 @@ pub async fn async_varlink_connect<S: AsRef<str>>(address: S) -> Result<(AsyncSt
     }
 }
 
+/// Execute a command with socket activation and return the child process
+///
+/// Creates a temporary unix socket, starts the command with VARLINK_ADDRESS,
+/// LISTEN_FDS, LISTEN_FDNAMES, and LISTEN_PID environment variables set.
+#[cfg(unix)]
+async fn async_varlink_exec<S: ?Sized + AsRef<str>>(
+    command: &S,
+) -> Result<(Child, String, Option<TempDir>)> {
+    use std::os::unix::io::AsRawFd;
+    use std::os::unix::net::UnixListener as StdUnixListener;
+    use std::process::Stdio;
+    use tempfile::tempdir;
+    use tokio::process::Command;
+
+    let executable = String::from("exec ") + command.as_ref();
+
+    let dir = tempdir().map_err(map_context!())?;
+    let file_path = dir.path().join("varlink-socket");
+    let file_path_str = file_path.display().to_string();
+
+    // Create a standard UnixListener first (tokio doesn't support pre_exec well)
+    let listener = StdUnixListener::bind(&file_path).map_err(map_context!())?;
+    let fd = listener.as_raw_fd();
+
+    let child = unsafe {
+        Command::new("sh")
+            .arg("-c")
+            .arg(&executable)
+            .pre_exec({
+                let file_path_str = file_path_str.clone();
+                move || {
+                    // Redirect stdout to stderr
+                    libc::dup2(2, 1);
+                    // Move fd to 3 if needed
+                    if fd != 3 {
+                        libc::dup2(fd, 3);
+                        libc::close(fd);
+                    }
+                    std::env::set_var("VARLINK_ADDRESS", format!("unix:{}", file_path_str));
+                    std::env::set_var("LISTEN_FDS", "1");
+                    std::env::set_var("LISTEN_FDNAMES", "varlink");
+                    std::env::set_var("LISTEN_PID", format!("{}", libc::getpid()));
+                    Ok(())
+                }
+            })
+            .stdin(Stdio::null())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .spawn()
+            .map_err(map_context!())?
+    };
+
+    // Drop the listener in parent - child has its own reference via fd 3
+    drop(listener);
+
+    // Give the child process time to start and begin accepting connections
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+
+    Ok((child, format!("unix:{}", file_path_str), Some(dir)))
+}
+
+/// Create a bridge connection via stdin/stdout of a command
+#[cfg(unix)]
+async fn async_varlink_bridge<S: ?Sized + AsRef<str>>(command: &S) -> Result<(Child, AsyncStream)> {
+    use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd};
+    use std::os::unix::net::UnixStream as StdUnixStream;
+    use std::process::Stdio;
+    use tokio::process::Command;
+
+    let executable = command.as_ref();
+
+    // Create a socket pair
+    let (stream0, stream1) = StdUnixStream::pair().map_err(map_context!())?;
+
+    // Get the raw fd for the child's stdin/stdout
+    // We need two separate fds - one for stdin and one for stdout
+    // Duplicate the fd so we have two independent handles
+    let fd = stream1.as_raw_fd();
+    let fd_dup = unsafe { libc::dup(fd) };
+    if fd_dup < 0 {
+        return Err(context!(ErrorKind::Io(std::io::ErrorKind::Other)));
+    }
+    // Now consume stream1 and use its fd for stdin, use the dup'd fd for stdout
+    let fd_stdin = stream1.into_raw_fd();
+    let childin = unsafe { std::fs::File::from_raw_fd(fd_stdin) };
+    let childout = unsafe { std::fs::File::from_raw_fd(fd_dup) };
+
+    let child = Command::new("sh")
+        .arg("-c")
+        .arg(executable)
+        .stdin(Stdio::from(childin))
+        .stdout(Stdio::from(childout))
+        .spawn()
+        .map_err(map_context!())?;
+
+    // Convert the client end to async
+    stream0.set_nonblocking(true).map_err(map_context!())?;
+    let async_stream =
+        UnixStream::from_std(stream0).map_err(|e| context!(ErrorKind::Io(e.kind())))?;
+
+    Ok((child, AsyncStream::UNIX(async_stream)))
+}
+
 /// An async client connection to a varlink service
 pub struct AsyncConnection {
     address: String,
     stream: Arc<RwLock<Option<AsyncStream>>>,
+    /// Child process for activated or bridge connections (kept for RAII cleanup)
+    #[cfg(unix)]
+    #[allow(dead_code)]
+    child: Option<Child>,
+    /// Temp directory for socket (kept for RAII cleanup)
+    #[allow(dead_code)]
+    tempdir: Option<TempDir>,
 }
 
 impl AsyncConnection {
@@ -148,7 +261,80 @@ impl AsyncConnection {
         Ok(Arc::new(AsyncConnection {
             address,
             stream: Arc::new(RwLock::new(Some(stream))),
+            #[cfg(unix)]
+            child: None,
+            tempdir: None,
         }))
+    }
+
+    /// Create a connection to a service started via socket activation
+    ///
+    /// The command should contain `$VARLINK_ADDRESS` which will be replaced
+    /// with a temporary unix socket path. The service will receive socket
+    /// activation environment variables (LISTEN_FDS, LISTEN_PID, LISTEN_FDNAMES).
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # #[cfg(feature = "tokio")]
+    /// # use varlink::AsyncConnection;
+    /// # #[tokio::main]
+    /// # async fn main() -> varlink::Result<()> {
+    /// let connection = AsyncConnection::with_activate("myservice --varlink=$VARLINK_ADDRESS").await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[cfg(unix)]
+    pub async fn with_activate<S: ?Sized + AsRef<str>>(command: &S) -> Result<Arc<Self>> {
+        let (child, unix_address, temp_dir) = async_varlink_exec(command).await?;
+        let (stream, address) = async_varlink_connect(&unix_address).await?;
+        Ok(Arc::new(AsyncConnection {
+            address,
+            stream: Arc::new(RwLock::new(Some(stream))),
+            child: Some(child),
+            tempdir: temp_dir,
+        }))
+    }
+
+    #[cfg(not(unix))]
+    pub async fn with_activate<S: ?Sized + AsRef<str>>(_command: &S) -> Result<Arc<Self>> {
+        Err(context!(ErrorKind::MethodNotImplemented(
+            "with_activate".into()
+        )))
+    }
+
+    /// Create a connection via stdin/stdout of a bridge command
+    ///
+    /// Useful for connecting through SSH or other transport commands.
+    /// On the remote side `varlink bridge` is typically started.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # #[cfg(feature = "tokio")]
+    /// # use varlink::AsyncConnection;
+    /// # #[tokio::main]
+    /// # async fn main() -> varlink::Result<()> {
+    /// let connection = AsyncConnection::with_bridge("ssh my.example.org -- varlink bridge").await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[cfg(unix)]
+    pub async fn with_bridge<S: ?Sized + AsRef<str>>(command: &S) -> Result<Arc<Self>> {
+        let (child, stream) = async_varlink_bridge(command).await?;
+        Ok(Arc::new(AsyncConnection {
+            address: "bridge".into(),
+            stream: Arc::new(RwLock::new(Some(stream))),
+            child: Some(child),
+            tempdir: None,
+        }))
+    }
+
+    #[cfg(not(unix))]
+    pub async fn with_bridge<S: ?Sized + AsRef<str>>(_command: &S) -> Result<Arc<Self>> {
+        Err(context!(ErrorKind::MethodNotImplemented(
+            "with_bridge".into()
+        )))
     }
 
     /// Return the address used by the connection
@@ -160,6 +346,8 @@ impl AsyncConnection {
 impl Drop for AsyncConnection {
     fn drop(&mut self) {
         // Stream cleanup happens automatically
+        // Child process cleanup is handled by tokio::process::Child's Drop
+        // Temp directory cleanup is handled by TempDir's Drop
     }
 }
 

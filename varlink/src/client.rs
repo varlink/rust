@@ -4,7 +4,7 @@
 
 use std::net::TcpStream;
 #[cfg(unix)]
-use std::os::unix::io::{AsRawFd, IntoRawFd};
+use std::os::unix::io::AsRawFd;
 #[cfg(unix)]
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::process::Child;
@@ -138,14 +138,23 @@ pub fn varlink_bridge<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Child, Box
 
 #[cfg(unix)]
 pub fn varlink_bridge<S: ?Sized + AsRef<str>>(address: &S) -> Result<(Child, Box<dyn Stream>)> {
-    use std::os::unix::io::FromRawFd;
+    use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd};
     use std::process::Command;
 
     let executable = address.as_ref();
     let (stream0, stream1) = UnixStream::pair().map_err(map_context!())?;
-    let fd = stream1.into_raw_fd();
-    let childin = unsafe { ::std::fs::File::from_raw_fd(fd) };
-    let childout = unsafe { ::std::fs::File::from_raw_fd(fd) };
+
+    // We need two separate fds - one for stdin and one for stdout
+    // Duplicate the fd so we have two independent handles
+    let fd = stream1.as_raw_fd();
+    let fd_dup = unsafe { libc::dup(fd) };
+    if fd_dup < 0 {
+        return Err(context!(ErrorKind::Io(std::io::ErrorKind::Other)));
+    }
+    // Now consume stream1 and use its fd for stdin, use the dup'd fd for stdout
+    let fd_stdin = stream1.into_raw_fd();
+    let childin = unsafe { ::std::fs::File::from_raw_fd(fd_stdin) };
+    let childout = unsafe { ::std::fs::File::from_raw_fd(fd_dup) };
 
     let child = Command::new("sh")
         .arg("-c")

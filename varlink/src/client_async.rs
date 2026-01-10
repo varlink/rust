@@ -129,7 +129,7 @@ pub async fn async_varlink_connect<S: AsRef<str>>(address: S) -> Result<(AsyncSt
 async fn async_varlink_exec<S: ?Sized + AsRef<str>>(
     command: &S,
 ) -> Result<(Child, String, Option<TempDir>)> {
-    use std::os::unix::io::AsRawFd;
+    use std::os::unix::io::IntoRawFd;
     use std::os::unix::net::UnixListener as StdUnixListener;
     use std::process::Stdio;
     use tempfile::tempdir;
@@ -141,7 +141,8 @@ async fn async_varlink_exec<S: ?Sized + AsRef<str>>(
 
     // Create a standard UnixListener first (tokio doesn't support pre_exec well)
     let listener = StdUnixListener::bind(&file_path).map_err(map_context!())?;
-    let fd = listener.as_raw_fd();
+    // Take ownership of the fd - listener is consumed and won't close it on drop
+    let fd = listener.into_raw_fd();
 
     // Set up environment variables before spawn
     let varlink_address = format!("unix:{}", file_path_str);
@@ -182,8 +183,11 @@ async fn async_varlink_exec<S: ?Sized + AsRef<str>>(
             .map_err(map_context!())?
     };
 
-    // Drop the listener in parent - child has its own reference via fd 3
-    drop(listener);
+    // Close the fd in the parent - child has its own copy via fd 3
+    // SAFETY: We own this fd (via into_raw_fd) and child has inherited it
+    unsafe {
+        libc::close(fd);
+    }
 
     Ok((child, format!("unix:{}", file_path_str), Some(dir)))
 }

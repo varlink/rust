@@ -135,8 +135,6 @@ async fn async_varlink_exec<S: ?Sized + AsRef<str>>(
     use tempfile::tempdir;
     use tokio::process::Command;
 
-    let executable = String::from("exec ") + command.as_ref();
-
     let dir = tempdir().map_err(map_context!())?;
     let file_path = dir.path().join("varlink-socket");
     let file_path_str = file_path.display().to_string();
@@ -145,24 +143,35 @@ async fn async_varlink_exec<S: ?Sized + AsRef<str>>(
     let listener = StdUnixListener::bind(&file_path).map_err(map_context!())?;
     let fd = listener.as_raw_fd();
 
+    // Set up environment variables before spawn
+    let varlink_address = format!("unix:{}", file_path_str);
+
+    // We need to get the child's PID in pre_exec, but we can't safely set env vars there
+    // (std::env::set_var can deadlock, and libc::setenv may not be inherited after exec
+    // if Command uses envp). So we use a workaround: pass the PID via a shell variable.
+    // The shell will substitute $$ with its PID (which equals the child's PID after exec).
+
+    // Build the command so the shell sets LISTEN_PID itself
+    let shell_cmd = format!("export LISTEN_PID=$$; exec {}", command.as_ref());
+
     let child = unsafe {
         Command::new("sh")
             .arg("-c")
-            .arg(&executable)
+            .arg(&shell_cmd)
+            .env("VARLINK_ADDRESS", &varlink_address)
+            .env("LISTEN_FDS", "1")
+            .env("LISTEN_FDNAMES", "varlink")
             .pre_exec({
-                let file_path_str = file_path_str.clone();
                 move || {
                     // Redirect stdout to stderr
                     libc::dup2(2, 1);
+
                     // Move fd to 3 if needed
                     if fd != 3 {
                         libc::dup2(fd, 3);
                         libc::close(fd);
                     }
-                    std::env::set_var("VARLINK_ADDRESS", format!("unix:{}", file_path_str));
-                    std::env::set_var("LISTEN_FDS", "1");
-                    std::env::set_var("LISTEN_FDNAMES", "varlink");
-                    std::env::set_var("LISTEN_PID", format!("{}", libc::getpid()));
+
                     Ok(())
                 }
             })
@@ -175,9 +184,6 @@ async fn async_varlink_exec<S: ?Sized + AsRef<str>>(
 
     // Drop the listener in parent - child has its own reference via fd 3
     drop(listener);
-
-    // Give the child process time to start and begin accepting connections
-    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
     Ok((child, format!("unix:{}", file_path_str), Some(dir)))
 }
@@ -287,13 +293,35 @@ impl AsyncConnection {
     #[cfg(unix)]
     pub async fn with_activate<S: ?Sized + AsRef<str>>(command: &S) -> Result<Arc<Self>> {
         let (child, unix_address, temp_dir) = async_varlink_exec(command).await?;
-        let (stream, address) = async_varlink_connect(&unix_address).await?;
-        Ok(Arc::new(AsyncConnection {
-            address,
-            stream: Arc::new(RwLock::new(Some(stream))),
-            child: Some(child),
-            tempdir: temp_dir,
-        }))
+
+        // Retry connection with exponential backoff - the child process may take
+        // some time to start accepting connections
+        let mut delay = std::time::Duration::from_millis(50);
+        let max_delay = std::time::Duration::from_secs(2);
+        let max_attempts = 20;
+        let mut last_error = None;
+
+        for attempt in 0..max_attempts {
+            match async_varlink_connect(&unix_address).await {
+                Ok((stream, address)) => {
+                    return Ok(Arc::new(AsyncConnection {
+                        address,
+                        stream: Arc::new(RwLock::new(Some(stream))),
+                        child: Some(child),
+                        tempdir: temp_dir,
+                    }));
+                }
+                Err(e) => {
+                    last_error = Some(e);
+                    if attempt + 1 < max_attempts {
+                        tokio::time::sleep(delay).await;
+                        delay = std::cmp::min(delay * 2, max_delay);
+                    }
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| context!(ErrorKind::ConnectionClosed)))
     }
 
     #[cfg(not(unix))]

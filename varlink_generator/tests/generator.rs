@@ -3,7 +3,7 @@ extern crate varlink_generator;
 use std::fs;
 use std::io::prelude::*;
 use std::process::Command;
-use tempdir::TempDir;
+use tempfile::TempDir;
 use unified_diff::diff;
 
 #[cfg(unix)]
@@ -33,7 +33,7 @@ fn test_generate() {
         }
     }
 
-    let tmpdir = TempDir::new("test_generate").unwrap();
+    let tmpdir = TempDir::with_prefix("test_generate").unwrap();
 
     std::env::set_var("OUT_DIR", tmpdir.path().as_os_str());
     varlink_generator::cargo_build("tests/org.example.complex.varlink");

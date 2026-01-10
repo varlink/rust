@@ -373,8 +373,14 @@ impl AsyncConnection {
 
 impl Drop for AsyncConnection {
     fn drop(&mut self) {
+        // Kill child process if we spawned one
+        // Note: tokio::process::Child's Drop does NOT kill the child,
+        // it just drops the handle leaving the process running as an orphan
+        #[cfg(unix)]
+        if let Some(ref mut child) = self.child {
+            let _ = child.start_kill();
+        }
         // Stream cleanup happens automatically
-        // Child process cleanup is handled by tokio::process::Child's Drop
         // Temp directory cleanup is handled by TempDir's Drop
     }
 }

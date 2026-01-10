@@ -31,7 +31,7 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 #[cfg(unix)]
 use tokio::net::UnixStream;
@@ -177,6 +177,7 @@ where
     request: Option<MRequest>,
     method: Option<String>,
     continues: bool,
+    recv_buf: Vec<u8>,
     phantom_reply: PhantomData<MReply>,
     phantom_error: PhantomData<MError>,
 }
@@ -198,6 +199,7 @@ where
             request: Some(parameters),
             method: Some(method.into()),
             continues: false,
+            recv_buf: Vec::new(),
             phantom_reply: PhantomData,
             phantom_error: PhantomData,
         }
@@ -270,80 +272,85 @@ where
 
     /// Receive a reply from the server
     pub async fn recv(&mut self) -> std::result::Result<MReply, MError> {
-        let mut buf = Vec::new();
-
-        // Get stream and read
-        let stream_lock = self.connection.stream.clone();
-        let mut stream_guard = stream_lock.write().await;
-        let stream = stream_guard
-            .as_mut()
-            .ok_or_else(|| MError::from(context!(ErrorKind::ConnectionClosed)))?;
-
-        // Read until null terminator
-        let n = match stream {
-            AsyncStream::TCP(s) => {
-                let mut reader = BufReader::new(s);
-                reader
-                    .read_until(0, &mut buf)
-                    .await
-                    .map_err(|_| MError::from(context!(ErrorKind::ConnectionClosed)))?
-            }
-            #[cfg(unix)]
-            AsyncStream::UNIX(s) => {
-                let mut reader = BufReader::new(s);
-                reader
-                    .read_until(0, &mut buf)
-                    .await
-                    .map_err(|_| MError::from(context!(ErrorKind::ConnectionClosed)))?
-            }
-        };
-
-        if n == 0 || buf.is_empty() {
-            return Err(MError::from(context!(ErrorKind::ConnectionClosed)));
-        }
-
-        // Parse reply using sans-io
         use crate::sansio::types::ParseResult;
-        let reply: crate::Reply = match crate::sansio::protocol::parse_message(&buf) {
-            ParseResult::Complete { message, .. } => {
-                crate::sansio::protocol::parse_reply(&message)?
+
+        // Keep reading until we have a complete message
+        loop {
+            // First, check if we already have a complete message in the buffer
+            match crate::sansio::protocol::parse_message(&self.recv_buf) {
+                ParseResult::Complete { message, consumed } => {
+                    // Remove the consumed bytes from the buffer
+                    self.recv_buf.drain(..consumed);
+
+                    // Parse the reply
+                    let reply: crate::Reply = crate::sansio::protocol::parse_reply(&message)?;
+
+                    // Check for continues
+                    match reply.continues {
+                        Some(true) => self.continues = true,
+                        _ => self.continues = false,
+                    }
+
+                    // Check for error
+                    if reply.error.is_some() {
+                        return Err(MError::from(context!(ErrorKind::from(reply))));
+                    }
+
+                    // Parse reply parameters
+                    return match reply {
+                        crate::Reply {
+                            parameters: Some(p),
+                            ..
+                        } => {
+                            let mreply: MReply =
+                                serde_json::from_value(p).map_err(map_context!())?;
+                            Ok(mreply)
+                        }
+                        crate::Reply {
+                            parameters: None, ..
+                        } => {
+                            let mreply: MReply = serde_json::from_value(serde_json::Value::Object(
+                                serde_json::Map::new(),
+                            ))
+                            .map_err(map_context!())?;
+                            Ok(mreply)
+                        }
+                    };
+                }
+                ParseResult::Incomplete { .. } => {
+                    // Need more data, continue to read below
+                }
+                ParseResult::Invalid { error } => {
+                    return Err(MError::from(context!(ErrorKind::InvalidParameter(error))));
+                }
             }
-            ParseResult::Incomplete { .. } => {
+
+            // Read more data from the stream
+            let stream_lock = self.connection.stream.clone();
+            let mut stream_guard = stream_lock.write().await;
+            let stream = stream_guard
+                .as_mut()
+                .ok_or_else(|| MError::from(context!(ErrorKind::ConnectionClosed)))?;
+
+            let mut tmp_buf = [0u8; 4096];
+            let n = match stream {
+                AsyncStream::TCP(s) => s
+                    .read(&mut tmp_buf)
+                    .await
+                    .map_err(|_| MError::from(context!(ErrorKind::ConnectionClosed)))?,
+                #[cfg(unix)]
+                AsyncStream::UNIX(s) => s
+                    .read(&mut tmp_buf)
+                    .await
+                    .map_err(|_| MError::from(context!(ErrorKind::ConnectionClosed)))?,
+            };
+
+            if n == 0 {
                 return Err(MError::from(context!(ErrorKind::ConnectionClosed)));
             }
-            ParseResult::Invalid { error } => {
-                return Err(MError::from(context!(ErrorKind::InvalidParameter(error))));
-            }
-        };
 
-        // Check for continues
-        match reply.continues {
-            Some(true) => self.continues = true,
-            _ => self.continues = false,
-        }
-
-        // Check for error
-        if reply.error.is_some() {
-            return Err(MError::from(context!(ErrorKind::from(reply))));
-        }
-
-        // Parse reply parameters
-        match reply {
-            crate::Reply {
-                parameters: Some(p),
-                ..
-            } => {
-                let mreply: MReply = serde_json::from_value(p).map_err(map_context!())?;
-                Ok(mreply)
-            }
-            crate::Reply {
-                parameters: None, ..
-            } => {
-                let mreply: MReply =
-                    serde_json::from_value(serde_json::Value::Object(serde_json::Map::new()))
-                        .map_err(map_context!())?;
-                Ok(mreply)
-            }
+            // Append to our persistent buffer
+            self.recv_buf.extend_from_slice(&tmp_buf[..n]);
         }
     }
 
@@ -384,5 +391,14 @@ where
     pub async fn upgrade(&mut self) -> std::result::Result<MReply, MError> {
         self.send(false, false, true).await?;
         self.recv().await
+    }
+
+    /// Returns true if the server indicated more replies are coming
+    ///
+    /// After calling `more()` and receiving replies with `recv()`, this method
+    /// indicates whether the server set `continues: true` on the last received reply.
+    /// Use this to determine when to stop receiving replies in a multi-reply sequence.
+    pub fn continues(&self) -> bool {
+        self.continues
     }
 }

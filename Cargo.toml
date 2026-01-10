@@ -12,6 +12,7 @@ members = [
     "examples/ping",
     "examples/async_ping",
     "examples/async_example",
+    "examples/async_more",
 ]
 resolver = "1"
 

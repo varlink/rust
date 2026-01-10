@@ -359,7 +359,7 @@ mod tests {
     // Integration tests for with_activate and with_bridge
     // These tests spawn subprocesses and test socket activation and bridge functionality.
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[tokio::test]
     async fn test_with_activate() {
         // Build the binary first to make sure it's available
@@ -394,7 +394,7 @@ mod tests {
         assert_eq!(reply.unwrap().pong, "hello");
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[tokio::test]
     async fn test_with_bridge() {
         // Build the varlink-cli binary for bridge support

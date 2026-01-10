@@ -606,35 +606,55 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
             #[allow(dead_code)]
             #[derive(Default)]
             pub struct AsyncCall {
-                reply: Option<varlink::Reply>,
+                continues: bool,
+                more: bool,
+                oneway: bool,
+                replies: Vec<varlink::Reply>,
             }
 
             impl AsyncCall {
-                pub fn take_reply(&mut self) -> Option<varlink::Reply> {
-                    self.reply.take()
+                pub fn new(more: bool, oneway: bool) -> Self {
+                    AsyncCall {
+                        continues: false,
+                        more,
+                        oneway,
+                        replies: Vec::new(),
+                    }
+                }
+
+                pub fn take_replies(&mut self) -> Vec<varlink::Reply> {
+                    std::mem::take(&mut self.replies)
                 }
             }
 
             impl varlink::CallTrait for AsyncCall {
-                fn reply_struct(&mut self, reply: varlink::Reply) -> varlink::Result<()> {
-                    self.reply = Some(reply);
+                fn reply_struct(&mut self, mut reply: varlink::Reply) -> varlink::Result<()> {
+                    if self.continues {
+                        // Check consistency: if continues is set but client didn't want more
+                        if !self.more {
+                            return Err(varlink::context!(varlink::ErrorKind::CallContinuesMismatch));
+                        }
+                        // Set continues flag on reply
+                        reply.continues = Some(true);
+                    }
+                    self.replies.push(reply);
                     Ok(())
                 }
 
-                fn set_continues(&mut self, _cont: bool) {
-                    // Not supported in async mode yet
+                fn set_continues(&mut self, cont: bool) {
+                    self.continues = cont;
                 }
 
                 fn to_upgraded(&mut self) {
-                    // Not supported in async mode yet
+                    // TODO: implement upgrade support
                 }
 
                 fn is_oneway(&self) -> bool {
-                    false
+                    self.oneway
                 }
 
                 fn wants_more(&self) -> bool {
-                    false
+                    self.more
                 }
 
                 fn get_request(&self) -> Option<&varlink::Request<'_>> {
@@ -700,7 +720,9 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
                     while let Some(event) = server.poll_event() {
                         match event {
                             varlink::sansio::ServerEvent::Request { request } => {
-                                let mut call = AsyncCall::default();
+                                let more = request.more.unwrap_or(false);
+                                let oneway = request.oneway.unwrap_or(false);
+                                let mut call = AsyncCall::new(more, oneway);
 
                                 match request.method.as_ref() {
                                     #async_dispatch_arms
@@ -709,8 +731,8 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
                                     }
                                 }
 
-                                // Send the collected reply
-                                if let Some(reply) = call.take_reply() {
+                                // Send all collected replies
+                                for reply in call.take_replies() {
                                     server.send_reply(reply)?;
                                 }
                             }

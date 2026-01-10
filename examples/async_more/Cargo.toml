@@ -1,0 +1,25 @@
+[package]
+name = "async_more"
+version = "1.0.0"
+authors = ["Harald Hoyer <harald@hoyer.xyz>"]
+build = "build.rs"
+edition = "2021"
+publish = false
+rust-version = "1.80.0"
+
+[features]
+default = ["tokio"]
+tokio = []
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+varlink = { workspace = true, features = ["tokio"] }
+varlink_stdinterfaces = { workspace = true, features = ["tokio"] }
+serde = { workspace = true }
+serde_derive = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+
+[build-dependencies]
+varlink_generator = { workspace = true }

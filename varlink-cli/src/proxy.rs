@@ -294,16 +294,18 @@ where
         }
     });
 
-    let mut child = conn.child.take().unwrap();
+    // Only spawn child watching thread if there's a child process
+    // (there won't be one when using --connect mode)
+    let child_watch = conn.child.take().map(|mut child| {
+        thread::spawn({
+            let tx_end = tx_end;
 
-    let child_watch = thread::spawn({
-        let tx_end = tx_end;
-
-        move || {
-            let r = child.wait();
-            tx_end.send(3).expect("channel should be open");
-            r
-        }
+            move || {
+                let r = child.wait();
+                tx_end.send(3).expect("channel should be open");
+                r
+            }
+        })
     });
 
     let end_tid = rx_end.recv()?;
@@ -343,7 +345,9 @@ where
             Ok(())
         }
         3 => {
+            // This case only happens when there's a child process that exited
             let cr = child_watch
+                .expect("child_watch should exist if we received end_tid 3")
                 .join()
                 .unwrap_or_else(|_| Err(io::Error::from(io::ErrorKind::BrokenPipe)));
 

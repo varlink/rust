@@ -12,14 +12,14 @@ use varlink::{self, CallTrait};
 pub enum ErrorKind {
     Varlink_Error,
     VarlinkReply_Error,
-    PingError(Option<PingError_Args>),
+    TestMoreError(Option<TestMoreError_Args>),
 }
 impl ::std::fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         match self {
             ErrorKind::Varlink_Error => write!(f, "Varlink Error"),
             ErrorKind::VarlinkReply_Error => write!(f, "Varlink error reply"),
-            ErrorKind::PingError(v) => write!(f, "org.example.ping.PingError: {:#?}", v),
+            ErrorKind::TestMoreError(v) => write!(f, "org.example.more.TestMoreError: {:#?}", v),
         }
     }
 }
@@ -105,27 +105,29 @@ impl From<&varlink::Reply> for ErrorKind {
     #[allow(unused_variables)]
     fn from(e: &varlink::Reply) -> Self {
         match e {
-            varlink::Reply { error: Some(t), .. } if t == "org.example.ping.PingError" => match e {
-                varlink::Reply {
-                    parameters: Some(p),
-                    ..
-                } => match serde_json::from_value(p.clone()) {
-                    Ok(v) => ErrorKind::PingError(v),
-                    Err(_) => ErrorKind::PingError(None),
-                },
-                _ => ErrorKind::PingError(None),
-            },
+            varlink::Reply { error: Some(t), .. } if t == "org.example.more.TestMoreError" => {
+                match e {
+                    varlink::Reply {
+                        parameters: Some(p),
+                        ..
+                    } => match serde_json::from_value(p.clone()) {
+                        Ok(v) => ErrorKind::TestMoreError(v),
+                        Err(_) => ErrorKind::TestMoreError(None),
+                    },
+                    _ => ErrorKind::TestMoreError(None),
+                }
+            }
             _ => ErrorKind::VarlinkReply_Error,
         }
     }
 }
 #[allow(dead_code)]
 pub trait VarlinkCallError: varlink::CallTrait {
-    fn reply_ping_error(&mut self, r#parameter: i64) -> varlink::Result<()> {
+    fn reply_test_more_error(&mut self, r#reason: String) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::error(
-            "org.example.ping.PingError",
+            "org.example.more.TestMoreError",
             Some(
-                serde_json::to_value(PingError_Args { r#parameter })
+                serde_json::to_value(TestMoreError_Args { r#reason })
                     .map_err(varlink::map_context!())?,
             ),
         ))
@@ -133,8 +135,14 @@ pub trait VarlinkCallError: varlink::CallTrait {
 }
 impl VarlinkCallError for varlink::Call<'_> {}
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct PingError_Args {
-    pub r#parameter: i64,
+pub struct r#State {
+    pub r#start: Option<bool>,
+    pub r#progress: Option<i64>,
+    pub r#end: Option<bool>,
+}
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct TestMoreError_Args {
+    pub r#reason: String,
 }
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Ping_Reply {
@@ -149,6 +157,32 @@ pub struct Ping_Args {
 pub trait Call_Ping: VarlinkCallError + Send {
     fn reply(&mut self, r#pong: String) -> varlink::Result<()> {
         self.reply_struct(Ping_Reply { r#pong }.into())
+    }
+}
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct StopServing_Reply {}
+impl varlink::VarlinkReply for StopServing_Reply {}
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct StopServing_Args {}
+#[allow(dead_code)]
+pub trait Call_StopServing: VarlinkCallError + Send {
+    fn reply(&mut self) -> varlink::Result<()> {
+        self.reply_struct(varlink::Reply::parameters(None))
+    }
+}
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct TestMore_Reply {
+    pub r#state: State,
+}
+impl varlink::VarlinkReply for TestMore_Reply {}
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct TestMore_Args {
+    pub r#n: i64,
+}
+#[allow(dead_code)]
+pub trait Call_TestMore: VarlinkCallError + Send {
+    fn reply(&mut self, r#state: State) -> varlink::Result<()> {
+        self.reply_struct(TestMore_Reply { r#state }.into())
     }
 }
 #[allow(dead_code)]
@@ -199,10 +233,14 @@ impl varlink::CallTrait for AsyncCall {
 }
 impl VarlinkCallError for AsyncCall {}
 impl Call_Ping for AsyncCall {}
+impl Call_StopServing for AsyncCall {}
+impl Call_TestMore for AsyncCall {}
 #[async_trait]
 #[allow(dead_code)]
 pub trait VarlinkInterface {
     async fn ping(&self, call: &mut dyn Call_Ping, r#ping: String) -> varlink::Result<()>;
+    async fn stop_serving(&self, call: &mut dyn Call_StopServing) -> varlink::Result<()>;
+    async fn test_more(&self, call: &mut dyn Call_TestMore, r#n: i64) -> varlink::Result<()>;
     fn call_upgraded(
         &self,
         _call: &mut varlink::Call,
@@ -214,6 +252,9 @@ pub trait VarlinkInterface {
 #[allow(dead_code)]
 pub trait VarlinkClientInterface {
     fn ping(&self, r#ping: String) -> varlink::AsyncMethodCall<Ping_Args, Ping_Reply, Error>;
+    fn stop_serving(&self) -> varlink::AsyncMethodCall<StopServing_Args, StopServing_Reply, Error>;
+    fn test_more(&self, r#n: i64)
+        -> varlink::AsyncMethodCall<TestMore_Args, TestMore_Reply, Error>;
 }
 #[allow(dead_code)]
 pub struct VarlinkClient {
@@ -229,8 +270,25 @@ impl VarlinkClientInterface for VarlinkClient {
     fn ping(&self, r#ping: String) -> varlink::AsyncMethodCall<Ping_Args, Ping_Reply, Error> {
         varlink::AsyncMethodCall::<Ping_Args, Ping_Reply, Error>::new(
             self.connection.clone(),
-            "org.example.ping.Ping",
+            "org.example.more.Ping",
             Ping_Args { r#ping },
+        )
+    }
+    fn stop_serving(&self) -> varlink::AsyncMethodCall<StopServing_Args, StopServing_Reply, Error> {
+        varlink::AsyncMethodCall::<StopServing_Args, StopServing_Reply, Error>::new(
+            self.connection.clone(),
+            "org.example.more.StopServing",
+            StopServing_Args {},
+        )
+    }
+    fn test_more(
+        &self,
+        r#n: i64,
+    ) -> varlink::AsyncMethodCall<TestMore_Args, TestMore_Reply, Error> {
+        varlink::AsyncMethodCall::<TestMore_Args, TestMore_Reply, Error>::new(
+            self.connection.clone(),
+            "org.example.more.TestMore",
+            TestMore_Args { r#n },
         )
     }
 }
@@ -256,7 +314,7 @@ impl varlink::AsyncConnectionHandler for VarlinkInterfaceHandler {
                     let oneway = request.oneway.unwrap_or(false);
                     let mut call = AsyncCall::new(more, oneway);
                     match request.method.as_ref() {
-                        "org.example.ping.Ping" => {
+                        "org.example.more.Ping" => {
                             if let Some(args) = request.parameters {
                                 let args: Ping_Args =
                                     serde_json::from_value(args).map_err(|e| {
@@ -268,6 +326,28 @@ impl varlink::AsyncConnectionHandler for VarlinkInterfaceHandler {
                                     })?;
                                 self.inner
                                     .ping(&mut call as &mut dyn Call_Ping, args.r#ping)
+                                    .await?;
+                            } else {
+                                call.reply_invalid_parameter("parameters".into())?;
+                            }
+                        }
+                        "org.example.more.StopServing" => {
+                            self.inner
+                                .stop_serving(&mut call as &mut dyn Call_StopServing)
+                                .await?;
+                        }
+                        "org.example.more.TestMore" => {
+                            if let Some(args) = request.parameters {
+                                let args: TestMore_Args =
+                                    serde_json::from_value(args).map_err(|e| {
+                                        varlink::Error(
+                                            varlink::ErrorKind::InvalidParameter(e.to_string()),
+                                            None,
+                                            None,
+                                        )
+                                    })?;
+                                self.inner
+                                    .test_more(&mut call as &mut dyn Call_TestMore, args.r#n)
                                     .await?;
                             } else {
                                 call.reply_invalid_parameter("parameters".into())?;
@@ -291,9 +371,9 @@ impl varlink::AsyncConnectionHandler for VarlinkInterfaceHandler {
 }
 impl varlink::AsyncInterface for VarlinkInterfaceHandler {
     fn get_name(&self) -> &'static str {
-        "org.example.ping"
+        "org.example.more"
     }
     fn get_description(&self) -> &'static str {
-        "# Example async service\ninterface org.example.ping\n\n# Returns the same string\nmethod Ping(ping: string) -> (pong: string)\n\nerror PingError(parameter: int)\n"
+        "# Example Varlink service\ninterface org.example.more\n\n# Enum, returning either start, progress or end\n# progress: [0-100]\ntype State (\n  start: ?bool,\n  progress: ?int,\n  end: ?bool\n)\n\n# Returns the same string\nmethod Ping(ping: string) -> (pong: string)\n\n# Dummy progress method\n# n: number of progress steps\nmethod TestMore(n: int) -> (state: State)\n\n# Stop serving\nmethod StopServing() -> ()\n\n# Something failed in TestMore\nerror TestMoreError (reason: string)\n"
     }
 }

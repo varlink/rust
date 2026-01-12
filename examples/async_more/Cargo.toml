@@ -1,6 +1,6 @@
 [package]
-name = "async_ping"
-version = "2.0.0"
+name = "async_more"
+version = "1.0.0"
 authors = ["Harald Hoyer <harald@hoyer.xyz>"]
 build = "build.rs"
 edition = "2021"

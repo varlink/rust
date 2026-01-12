@@ -31,10 +31,13 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+use tempfile::TempDir;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 #[cfg(unix)]
 use tokio::net::UnixStream;
+#[cfg(unix)]
+use tokio::process::Child;
 use tokio::sync::RwLock;
 
 /// Async stream trait for varlink connections
@@ -118,10 +121,137 @@ pub async fn async_varlink_connect<S: AsRef<str>>(address: S) -> Result<(AsyncSt
     }
 }
 
+/// Execute a command with socket activation and return the child process
+///
+/// Creates a temporary unix socket, starts the command with VARLINK_ADDRESS,
+/// LISTEN_FDS, LISTEN_FDNAMES, and LISTEN_PID environment variables set.
+#[cfg(unix)]
+async fn async_varlink_exec<S: ?Sized + AsRef<str>>(
+    command: &S,
+) -> Result<(Child, String, Option<TempDir>)> {
+    use std::os::unix::io::IntoRawFd;
+    use std::os::unix::net::UnixListener as StdUnixListener;
+    use std::process::Stdio;
+    use tempfile::tempdir;
+    use tokio::process::Command;
+
+    let dir = tempdir().map_err(map_context!())?;
+    let file_path = dir.path().join("varlink-socket");
+    let file_path_str = file_path.display().to_string();
+
+    // Create a standard UnixListener first (tokio doesn't support pre_exec well)
+    let listener = StdUnixListener::bind(&file_path).map_err(map_context!())?;
+    // Take ownership of the fd - listener is consumed and won't close it on drop
+    let fd = listener.into_raw_fd();
+
+    // Set up environment variables before spawn
+    let varlink_address = format!("unix:{}", file_path_str);
+
+    // We need to get the child's PID in pre_exec, but we can't safely set env vars there
+    // (std::env::set_var can deadlock, and libc::setenv may not be inherited after exec
+    // if Command uses envp). So we use a workaround: pass the PID via a shell variable.
+    // The shell will substitute $$ with its PID (which equals the child's PID after exec).
+
+    // Build the command so the shell sets LISTEN_PID itself
+    let shell_cmd = format!("export LISTEN_PID=$$; exec {}", command.as_ref());
+
+    let child = unsafe {
+        Command::new("sh")
+            .arg("-c")
+            .arg(&shell_cmd)
+            .env("VARLINK_ADDRESS", &varlink_address)
+            .env("LISTEN_FDS", "1")
+            .env("LISTEN_FDNAMES", "varlink")
+            .pre_exec({
+                move || {
+                    // Redirect stdout to stderr
+                    libc::dup2(2, 1);
+
+                    // Move fd to 3 if needed
+                    if fd != 3 {
+                        if libc::dup2(fd, 3) == -1 {
+                            return Err(std::io::Error::last_os_error());
+                        }
+                        libc::close(fd);
+                    }
+
+                    // Clear CLOEXEC flag on fd 3 to ensure it survives exec
+                    if libc::fcntl(3, libc::F_SETFD, 0) == -1 {
+                        return Err(std::io::Error::last_os_error());
+                    }
+
+                    Ok(())
+                }
+            })
+            .stdin(Stdio::null())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .spawn()
+            .map_err(map_context!())?
+    };
+
+    // Close the fd in the parent - child has its own copy via fd 3
+    // SAFETY: We own this fd (via into_raw_fd) and child has inherited it
+    unsafe {
+        libc::close(fd);
+    }
+
+    Ok((child, format!("unix:{}", file_path_str), Some(dir)))
+}
+
+/// Create a bridge connection via stdin/stdout of a command
+#[cfg(unix)]
+async fn async_varlink_bridge<S: ?Sized + AsRef<str>>(command: &S) -> Result<(Child, AsyncStream)> {
+    use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd};
+    use std::os::unix::net::UnixStream as StdUnixStream;
+    use std::process::Stdio;
+    use tokio::process::Command;
+
+    let executable = command.as_ref();
+
+    // Create a socket pair
+    let (stream0, stream1) = StdUnixStream::pair().map_err(map_context!())?;
+
+    // Get the raw fd for the child's stdin/stdout
+    // We need two separate fds - one for stdin and one for stdout
+    // Duplicate the fd so we have two independent handles
+    let fd = stream1.as_raw_fd();
+    let fd_dup = unsafe { libc::dup(fd) };
+    if fd_dup < 0 {
+        return Err(context!(ErrorKind::Io(std::io::ErrorKind::Other)));
+    }
+    // Now consume stream1 and use its fd for stdin, use the dup'd fd for stdout
+    let fd_stdin = stream1.into_raw_fd();
+    let childin = unsafe { std::fs::File::from_raw_fd(fd_stdin) };
+    let childout = unsafe { std::fs::File::from_raw_fd(fd_dup) };
+
+    let child = Command::new("sh")
+        .arg("-c")
+        .arg(executable)
+        .stdin(Stdio::from(childin))
+        .stdout(Stdio::from(childout))
+        .spawn()
+        .map_err(map_context!())?;
+
+    // Convert the client end to async
+    stream0.set_nonblocking(true).map_err(map_context!())?;
+    let async_stream =
+        UnixStream::from_std(stream0).map_err(|e| context!(ErrorKind::Io(e.kind())))?;
+
+    Ok((child, AsyncStream::UNIX(async_stream)))
+}
+
 /// An async client connection to a varlink service
 pub struct AsyncConnection {
     address: String,
     stream: Arc<RwLock<Option<AsyncStream>>>,
+    /// Child process for activated or bridge connections (kept for RAII cleanup)
+    #[cfg(unix)]
+    #[allow(dead_code)]
+    child: Option<Child>,
+    /// Temp directory for socket (kept for RAII cleanup)
+    #[allow(dead_code)]
+    tempdir: Option<TempDir>,
 }
 
 impl AsyncConnection {
@@ -148,7 +278,102 @@ impl AsyncConnection {
         Ok(Arc::new(AsyncConnection {
             address,
             stream: Arc::new(RwLock::new(Some(stream))),
+            #[cfg(unix)]
+            child: None,
+            tempdir: None,
         }))
+    }
+
+    /// Create a connection to a service started via socket activation
+    ///
+    /// The command should contain `$VARLINK_ADDRESS` which will be replaced
+    /// with a temporary unix socket path. The service will receive socket
+    /// activation environment variables (LISTEN_FDS, LISTEN_PID, LISTEN_FDNAMES).
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # #[cfg(feature = "tokio")]
+    /// # use varlink::AsyncConnection;
+    /// # #[tokio::main]
+    /// # async fn main() -> varlink::Result<()> {
+    /// let connection = AsyncConnection::with_activate("myservice --varlink=$VARLINK_ADDRESS").await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[cfg(unix)]
+    pub async fn with_activate<S: ?Sized + AsRef<str>>(command: &S) -> Result<Arc<Self>> {
+        let (child, unix_address, temp_dir) = async_varlink_exec(command).await?;
+
+        // Retry connection with exponential backoff - the child process may take
+        // some time to start accepting connections
+        let mut delay = std::time::Duration::from_millis(50);
+        let max_delay = std::time::Duration::from_secs(2);
+        let max_attempts = 20;
+        let mut last_error = None;
+
+        for attempt in 0..max_attempts {
+            match async_varlink_connect(&unix_address).await {
+                Ok((stream, address)) => {
+                    return Ok(Arc::new(AsyncConnection {
+                        address,
+                        stream: Arc::new(RwLock::new(Some(stream))),
+                        child: Some(child),
+                        tempdir: temp_dir,
+                    }));
+                }
+                Err(e) => {
+                    last_error = Some(e);
+                    if attempt + 1 < max_attempts {
+                        tokio::time::sleep(delay).await;
+                        delay = std::cmp::min(delay * 2, max_delay);
+                    }
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| context!(ErrorKind::ConnectionClosed)))
+    }
+
+    #[cfg(not(unix))]
+    pub async fn with_activate<S: ?Sized + AsRef<str>>(_command: &S) -> Result<Arc<Self>> {
+        Err(context!(ErrorKind::MethodNotImplemented(
+            "with_activate".into()
+        )))
+    }
+
+    /// Create a connection via stdin/stdout of a bridge command
+    ///
+    /// Useful for connecting through SSH or other transport commands.
+    /// On the remote side `varlink bridge` is typically started.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # #[cfg(feature = "tokio")]
+    /// # use varlink::AsyncConnection;
+    /// # #[tokio::main]
+    /// # async fn main() -> varlink::Result<()> {
+    /// let connection = AsyncConnection::with_bridge("ssh my.example.org -- varlink bridge").await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[cfg(unix)]
+    pub async fn with_bridge<S: ?Sized + AsRef<str>>(command: &S) -> Result<Arc<Self>> {
+        let (child, stream) = async_varlink_bridge(command).await?;
+        Ok(Arc::new(AsyncConnection {
+            address: "bridge".into(),
+            stream: Arc::new(RwLock::new(Some(stream))),
+            child: Some(child),
+            tempdir: None,
+        }))
+    }
+
+    #[cfg(not(unix))]
+    pub async fn with_bridge<S: ?Sized + AsRef<str>>(_command: &S) -> Result<Arc<Self>> {
+        Err(context!(ErrorKind::MethodNotImplemented(
+            "with_bridge".into()
+        )))
     }
 
     /// Return the address used by the connection
@@ -159,7 +384,15 @@ impl AsyncConnection {
 
 impl Drop for AsyncConnection {
     fn drop(&mut self) {
+        // Kill child process if we spawned one
+        // Note: tokio::process::Child's Drop does NOT kill the child,
+        // it just drops the handle leaving the process running as an orphan
+        #[cfg(unix)]
+        if let Some(ref mut child) = self.child {
+            let _ = child.start_kill();
+        }
         // Stream cleanup happens automatically
+        // Temp directory cleanup is handled by TempDir's Drop
     }
 }
 
@@ -177,6 +410,7 @@ where
     request: Option<MRequest>,
     method: Option<String>,
     continues: bool,
+    recv_buf: Vec<u8>,
     phantom_reply: PhantomData<MReply>,
     phantom_error: PhantomData<MError>,
 }
@@ -198,6 +432,7 @@ where
             request: Some(parameters),
             method: Some(method.into()),
             continues: false,
+            recv_buf: Vec::new(),
             phantom_reply: PhantomData,
             phantom_error: PhantomData,
         }
@@ -270,80 +505,85 @@ where
 
     /// Receive a reply from the server
     pub async fn recv(&mut self) -> std::result::Result<MReply, MError> {
-        let mut buf = Vec::new();
-
-        // Get stream and read
-        let stream_lock = self.connection.stream.clone();
-        let mut stream_guard = stream_lock.write().await;
-        let stream = stream_guard
-            .as_mut()
-            .ok_or_else(|| MError::from(context!(ErrorKind::ConnectionClosed)))?;
-
-        // Read until null terminator
-        let n = match stream {
-            AsyncStream::TCP(s) => {
-                let mut reader = BufReader::new(s);
-                reader
-                    .read_until(0, &mut buf)
-                    .await
-                    .map_err(|_| MError::from(context!(ErrorKind::ConnectionClosed)))?
-            }
-            #[cfg(unix)]
-            AsyncStream::UNIX(s) => {
-                let mut reader = BufReader::new(s);
-                reader
-                    .read_until(0, &mut buf)
-                    .await
-                    .map_err(|_| MError::from(context!(ErrorKind::ConnectionClosed)))?
-            }
-        };
-
-        if n == 0 || buf.is_empty() {
-            return Err(MError::from(context!(ErrorKind::ConnectionClosed)));
-        }
-
-        // Parse reply using sans-io
         use crate::sansio::types::ParseResult;
-        let reply: crate::Reply = match crate::sansio::protocol::parse_message(&buf) {
-            ParseResult::Complete { message, .. } => {
-                crate::sansio::protocol::parse_reply(&message)?
+
+        // Keep reading until we have a complete message
+        loop {
+            // First, check if we already have a complete message in the buffer
+            match crate::sansio::protocol::parse_message(&self.recv_buf) {
+                ParseResult::Complete { message, consumed } => {
+                    // Remove the consumed bytes from the buffer
+                    self.recv_buf.drain(..consumed);
+
+                    // Parse the reply
+                    let reply: crate::Reply = crate::sansio::protocol::parse_reply(&message)?;
+
+                    // Check for continues
+                    match reply.continues {
+                        Some(true) => self.continues = true,
+                        _ => self.continues = false,
+                    }
+
+                    // Check for error
+                    if reply.error.is_some() {
+                        return Err(MError::from(context!(ErrorKind::from(reply))));
+                    }
+
+                    // Parse reply parameters
+                    return match reply {
+                        crate::Reply {
+                            parameters: Some(p),
+                            ..
+                        } => {
+                            let mreply: MReply =
+                                serde_json::from_value(p).map_err(map_context!())?;
+                            Ok(mreply)
+                        }
+                        crate::Reply {
+                            parameters: None, ..
+                        } => {
+                            let mreply: MReply = serde_json::from_value(serde_json::Value::Object(
+                                serde_json::Map::new(),
+                            ))
+                            .map_err(map_context!())?;
+                            Ok(mreply)
+                        }
+                    };
+                }
+                ParseResult::Incomplete { .. } => {
+                    // Need more data, continue to read below
+                }
+                ParseResult::Invalid { error } => {
+                    return Err(MError::from(context!(ErrorKind::InvalidParameter(error))));
+                }
             }
-            ParseResult::Incomplete { .. } => {
+
+            // Read more data from the stream
+            let stream_lock = self.connection.stream.clone();
+            let mut stream_guard = stream_lock.write().await;
+            let stream = stream_guard
+                .as_mut()
+                .ok_or_else(|| MError::from(context!(ErrorKind::ConnectionClosed)))?;
+
+            let mut tmp_buf = [0u8; 4096];
+            let n = match stream {
+                AsyncStream::TCP(s) => s
+                    .read(&mut tmp_buf)
+                    .await
+                    .map_err(|_| MError::from(context!(ErrorKind::ConnectionClosed)))?,
+                #[cfg(unix)]
+                AsyncStream::UNIX(s) => s
+                    .read(&mut tmp_buf)
+                    .await
+                    .map_err(|_| MError::from(context!(ErrorKind::ConnectionClosed)))?,
+            };
+
+            if n == 0 {
                 return Err(MError::from(context!(ErrorKind::ConnectionClosed)));
             }
-            ParseResult::Invalid { error } => {
-                return Err(MError::from(context!(ErrorKind::InvalidParameter(error))));
-            }
-        };
 
-        // Check for continues
-        match reply.continues {
-            Some(true) => self.continues = true,
-            _ => self.continues = false,
-        }
-
-        // Check for error
-        if reply.error.is_some() {
-            return Err(MError::from(context!(ErrorKind::from(reply))));
-        }
-
-        // Parse reply parameters
-        match reply {
-            crate::Reply {
-                parameters: Some(p),
-                ..
-            } => {
-                let mreply: MReply = serde_json::from_value(p).map_err(map_context!())?;
-                Ok(mreply)
-            }
-            crate::Reply {
-                parameters: None, ..
-            } => {
-                let mreply: MReply =
-                    serde_json::from_value(serde_json::Value::Object(serde_json::Map::new()))
-                        .map_err(map_context!())?;
-                Ok(mreply)
-            }
+            // Append to our persistent buffer
+            self.recv_buf.extend_from_slice(&tmp_buf[..n]);
         }
     }
 
@@ -384,5 +624,14 @@ where
     pub async fn upgrade(&mut self) -> std::result::Result<MReply, MError> {
         self.send(false, false, true).await?;
         self.recv().await
+    }
+
+    /// Returns true if the server indicated more replies are coming
+    ///
+    /// After calling `more()` and receiving replies with `recv()`, this method
+    /// indicates whether the server set `continues: true` on the last received reply.
+    /// Use this to determine when to stop receiving replies in a multi-reply sequence.
+    pub fn continues(&self) -> bool {
+        self.continues
     }
 }

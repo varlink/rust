@@ -27,7 +27,7 @@ jobs:
       - name: Run cargo-llvm-cov
         run: |
           mkdir coverage
-          cargo llvm-cov --workspace --lcov --output-path ./coverage/lcov.info
+          cargo llvm-cov --workspace --all-features --lcov --output-path ./coverage/lcov.info
 
       - name: Upload to coveralls
         uses: coverallsapp/github-action@master

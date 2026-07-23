@@ -890,6 +890,43 @@ impl Connection {
         })))
     }
 
+    /// Create a connection from an already-connected reader/writer pair.
+    ///
+    /// Unlike [with_address](#method.with_address), this does not interpret a varlink URI or
+    /// open a socket itself. It lets the caller supply a transport that the URI scheme does not
+    /// cover — for example an `AF_VSOCK` socket, an anonymous pipe, or a pre-established
+    /// `socketpair` — and drive the varlink protocol over it. The caller owns connecting the
+    /// transport; varlink only reads from `reader` and writes to `writer`.
+    ///
+    /// The connection has no address and no owned `stream`, so the underlying transport is not
+    /// closed when the connection is dropped — that remains the caller's responsibility.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use std::net::TcpStream;
+    /// # use varlink::Connection;
+    /// // Any pair of connected `Read` + `Write` handles works; a TCP stream is shown here for
+    /// // brevity, but the typical use is a transport without a varlink URI, e.g. AF_VSOCK.
+    /// let stream = TcpStream::connect("127.0.0.1:12345").unwrap();
+    /// let reader = stream.try_clone().unwrap();
+    /// let connection = Connection::from_reader_writer(reader, stream);
+    /// ```
+    pub fn from_reader_writer<R, W>(reader: R, writer: W) -> Arc<RwLock<Self>>
+    where
+        R: Read + Send + Sync + 'static,
+        W: Write + Send + Sync + 'static,
+    {
+        Arc::new(RwLock::new(Connection {
+            reader: Some(BufReader::new(Box::new(reader))),
+            writer: Some(Box::new(writer)),
+            address: String::new(),
+            stream: None,
+            child: None,
+            tempdir: None,
+        }))
+    }
+
     /// Create a connection to a service, which is executed in the background.
     ///
     /// Create a connection to a service, which is started with `command` and passed a socket pair

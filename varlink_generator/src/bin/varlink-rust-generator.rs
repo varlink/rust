@@ -65,7 +65,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             } else {
                 Box::new(
                     File::open(Path::new(&matches.free[0]))
-                        .map_err(|e| format!("Failed to open '{}': {e}", &matches.free[0]))?,
+                        .map_err(|e| format!("Failed to open '{}': {e}", matches.free[0]))?,
                 )
             }
         }

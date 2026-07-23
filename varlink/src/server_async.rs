@@ -215,7 +215,7 @@ pub enum AsyncStream {
 
 impl AsyncStream {
     /// Read data from the stream
-    async fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+    pub async fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         match self {
             AsyncStream::TCP(stream) => stream.read(buf).await,
             #[cfg(unix)]
@@ -224,7 +224,7 @@ impl AsyncStream {
     }
 
     /// Write data to the stream
-    async fn write_all(&mut self, buf: &[u8]) -> std::io::Result<()> {
+    pub async fn write_all(&mut self, buf: &[u8]) -> std::io::Result<()> {
         match self {
             AsyncStream::TCP(stream) => stream.write_all(buf).await,
             #[cfg(unix)]
@@ -233,7 +233,7 @@ impl AsyncStream {
     }
 
     /// Flush the stream
-    async fn flush(&mut self) -> std::io::Result<()> {
+    pub async fn flush(&mut self) -> std::io::Result<()> {
         match self {
             AsyncStream::TCP(stream) => stream.flush().await,
             #[cfg(unix)]
@@ -421,7 +421,7 @@ pub async fn listen_async<S: AsRef<str>, H: AsyncConnectionHandler + 'static>(
 }
 
 /// Handle a single async connection
-async fn handle_connection<H: AsyncConnectionHandler>(
+pub async fn handle_connection<H: AsyncConnectionHandler>(
     mut stream: AsyncStream,
     handler: Arc<H>,
 ) -> Result<()> {

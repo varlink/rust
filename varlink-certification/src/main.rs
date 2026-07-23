@@ -715,14 +715,11 @@ impl ClientIds {
             let pop = match self.lifetimes.front() {
                 None => false,
 
-                Some((instant, client_id)) => {
-                    if instant.elapsed().as_secs() > self.max_lifetime {
-                        self.contexts.remove(client_id);
-                        true
-                    } else {
-                        false
-                    }
+                Some((instant, client_id)) if instant.elapsed().as_secs() > self.max_lifetime => {
+                    self.contexts.remove(client_id);
+                    true
                 }
+                Some(_) => false,
             };
 
             if !pop {

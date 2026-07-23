@@ -70,8 +70,8 @@ fn test_generate() {
     if !compare_files(path2.clone(), path.clone()) {
         panic!(
             "Generated files differ: '{}' versus '{}'",
-            &path.to_str().unwrap(),
-            &path2.to_str().unwrap()
+            path.to_str().unwrap(),
+            path2.to_str().unwrap()
         );
     }
     let _ = std::fs::remove_file(path);

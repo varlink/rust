@@ -342,7 +342,7 @@ fn print_call_ret(
                 red(error),
                 cf.to_colored_json(parameters, color_mode).unwrap()
             ),
-            _ => format!("Failed to call method '{}({})'", &method, &args),
+            _ => format!("Failed to call method '{}({})'", method, args),
         }
     })?;
 

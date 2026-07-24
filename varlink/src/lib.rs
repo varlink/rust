@@ -1137,16 +1137,37 @@ where
     /// SCM_RIGHTS ancillary data on the underlying socket. Returns the fd's index
     /// in push order — the value a method's parameters use to reference a passed fd.
     ///
+    /// File descriptor passing is not part of the core varlink protocol; it is an
+    /// extension introduced by systemd's `sd-varlink`, and this method mirrors
+    /// `sd_varlink_push_fd(3)`.
+    ///
     /// The fd is dup'd (F_DUPFD_CLOEXEC), so the caller keeps ownership of the
-    /// original. Only works on socket-backed connections (created via
-    /// [Connection::with_address]); a reader/writer-pair connection has no socket
-    /// to carry ancillary data and returns an error.
+    /// original. Only works on connections backed by an `AF_UNIX` socket (e.g.
+    /// created via [Connection::with_address] with a `unix:` address): SCM_RIGHTS
+    /// exists only there, so a TCP connection or a reader/writer-pair connection
+    /// (which has no socket at all) returns `ErrorKind::Unsupported`.
     #[cfg(unix)]
     pub fn push_fd(&mut self, fd: RawFd) -> std::io::Result<usize> {
-        if self.connection.read().unwrap().stream.is_none() {
+        let sock = match self.connection.read().unwrap().stream.as_ref() {
+            Some(s) => s.as_raw_fd(),
+            None => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::Unsupported,
+                    "fd passing requires a socket-backed varlink connection",
+                ));
+            }
+        };
+        let mut addr: libc::sockaddr_storage = unsafe { std::mem::zeroed() };
+        let mut len = std::mem::size_of::<libc::sockaddr_storage>() as libc::socklen_t;
+        if unsafe { libc::getsockname(sock, &mut addr as *mut _ as *mut libc::sockaddr, &mut len) }
+            < 0
+        {
+            return Err(std::io::Error::last_os_error());
+        }
+        if addr.ss_family != libc::AF_UNIX as libc::sa_family_t {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::Unsupported,
-                "fd passing requires a socket-backed varlink connection",
+                "fd passing (SCM_RIGHTS) requires an AF_UNIX socket",
             ));
         }
         let dup = unsafe { libc::fcntl(fd, libc::F_DUPFD_CLOEXEC, 3) };
@@ -1197,9 +1218,8 @@ where
             // SCM_RIGHTS on the underlying socket instead of the boxed writer.
             // Both share the same socket, so any tail past the single sendmsg is
             // written through the writer in order.
-            let mut sent = false;
             #[cfg(unix)]
-            if !self.fds.is_empty() {
+            let sent = if !self.fds.is_empty() {
                 let sock = conn
                     .stream
                     .as_ref()
@@ -1210,8 +1230,12 @@ where
                 if n < b.len() {
                     w.write_all(&b[n..]).map_err(map_context!())?;
                 }
-                sent = true;
-            }
+                true
+            } else {
+                false
+            };
+            #[cfg(not(unix))]
+            let sent = false;
             if !sent {
                 w.write_all(&b).map_err(map_context!())?;
             }

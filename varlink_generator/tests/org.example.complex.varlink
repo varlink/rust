@@ -8,6 +8,15 @@ type TypeEnum (type, b, c)
 
 type Interface (interface, b, c)
 
+type ReservedEnum (self, Self, crate, super)
+
+type Reserved (
+  self: ?string,
+  Self: ?int,
+  crate: string,
+  super: bool
+)
+
 type TypeFoo (
   bool: bool,
   int: int,
@@ -35,6 +44,13 @@ method Foo(
 )
 
 method Bar() -> ()
+
+method Baz(
+  self: ?Reserved,
+  type: ReservedEnum
+) -> (
+  self: ?Reserved
+)
 
 error ErrorFoo (
   enum: (

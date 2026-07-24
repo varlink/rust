@@ -103,7 +103,8 @@ impl From<&varlink::Reply> for ErrorKind {
     #[allow(unused_variables)]
     fn from(e: &varlink::Reply) -> Self {
         match e {
-            varlink::Reply { error: Some(t), .. } if t == "org.example.complex.ErrorBar" => match e {
+            varlink::Reply { error: Some(t), .. } if t == "org.example.complex.ErrorBar" => match e
+            {
                 varlink::Reply {
                     parameters: Some(p),
                     ..
@@ -113,7 +114,8 @@ impl From<&varlink::Reply> for ErrorKind {
                 },
                 _ => ErrorKind::ErrorBar(None),
             },
-            varlink::Reply { error: Some(t), ..  } if t == "org.example.complex.ErrorFoo" => match e {
+            varlink::Reply { error: Some(t), .. } if t == "org.example.complex.ErrorFoo" => match e
+            {
                 varlink::Reply {
                     parameters: Some(p),
                     ..
@@ -127,14 +129,15 @@ impl From<&varlink::Reply> for ErrorKind {
         }
     }
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct r#ErrorFoo_Args_enum {
     pub r#b: bool,
     pub r#c: i64,
     pub r#interface: Interface,
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub enum r#ErrorFoo_Args_bar {
+    #[default]
     r#type,
     r#enum,
     r#int,
@@ -170,69 +173,102 @@ pub trait VarlinkCallError: varlink::CallTrait {
     }
 }
 impl VarlinkCallError for varlink::Call<'_> {}
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub enum r#Enum {
+    #[default]
     r#enum,
     r#b,
     r#c,
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub enum r#Interface {
+    #[default]
     r#interface,
     r#b,
     r#c,
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
+pub struct r#Reserved {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "self")]
+    pub self_: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "Self")]
+    pub Self_: Option<i64>,
+    #[serde(rename = "crate")]
+    pub crate_: String,
+    #[serde(rename = "super")]
+    pub super_: bool,
+}
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
+pub enum r#ReservedEnum {
+    #[default]
+    #[serde(rename = "self")]
+    self_,
+    #[serde(rename = "Self")]
+    Self_,
+    #[serde(rename = "crate")]
+    crate_,
+    #[serde(rename = "super")]
+    super_,
+}
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub enum r#Type {
+    #[default]
     r#type,
     r#b,
     r#c,
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub enum r#TypeEnum {
+    #[default]
     r#type,
     r#b,
     r#c,
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub enum r#TypeFoo_enum {
+    #[default]
     r#foo,
     r#bar,
     r#baz,
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct r#TypeFoo_anon_baz {
     pub r#a: i64,
     pub r#b: i64,
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct r#TypeFoo_anon {
     pub r#foo: bool,
     pub r#bar: i64,
     pub r#baz: Vec<TypeFoo_anon_baz>,
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct r#TypeFoo {
     pub r#bool: bool,
     pub r#int: i64,
     pub r#float: f64,
     pub r#string: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub r#enum: Option<varlink::StringHashMap<Option<TypeFoo_enum>>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub r#type: Option<TypeEnum>,
     pub r#anon: TypeFoo_anon,
     pub r#object: serde_json::Value,
     pub r#stringset: varlink::StringHashSet,
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct ErrorBar_Args {}
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct r#ErrorFoo_Args_enum {
     pub r#b: bool,
     pub r#c: i64,
     pub r#interface: Interface,
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub enum r#ErrorFoo_Args_bar {
+    #[default]
     r#type,
     r#enum,
     r#int,
@@ -241,17 +277,17 @@ pub enum r#ErrorFoo_Args_bar {
     r#if,
     r#let,
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct ErrorFoo_Args {
     pub r#enum: ErrorFoo_Args_enum,
     pub r#foo: TypeFoo,
     pub r#bar: ErrorFoo_Args_bar,
     pub r#interface: Interface,
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct Bar_Reply {}
 impl varlink::VarlinkReply for Bar_Reply {}
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct Bar_Args {}
 #[allow(dead_code)]
 pub trait Call_Bar: VarlinkCallError {
@@ -260,24 +296,45 @@ pub trait Call_Bar: VarlinkCallError {
     }
 }
 impl Call_Bar for varlink::Call<'_> {}
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
+pub struct Baz_Reply {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "self")]
+    pub self_: Option<Reserved>,
+}
+impl varlink::VarlinkReply for Baz_Reply {}
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
+pub struct Baz_Args {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "self")]
+    pub self_: Option<Reserved>,
+    pub r#type: ReservedEnum,
+}
+#[allow(dead_code)]
+pub trait Call_Baz: VarlinkCallError {
+    fn reply(&mut self, self_: Option<Reserved>) -> varlink::Result<()> {
+        self.reply_struct(Baz_Reply { self_ }.into())
+    }
+}
+impl Call_Baz for varlink::Call<'_> {}
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct r#Foo_Args_enum {
     pub r#b: bool,
     pub r#c: i64,
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct r#Foo_Reply_a {
     pub r#b: bool,
     pub r#c: i64,
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct Foo_Reply {
     pub r#a: Vec<Foo_Reply_a>,
     pub r#foo: TypeFoo,
     pub r#interface: Interface,
 }
 impl varlink::VarlinkReply for Foo_Reply {}
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct Foo_Args {
     pub r#enum: Foo_Args_enum,
     pub r#foo: TypeFoo,
@@ -305,6 +362,12 @@ impl Call_Foo for varlink::Call<'_> {}
 #[allow(dead_code)]
 pub trait VarlinkInterface {
     fn bar(&self, call: &mut dyn Call_Bar) -> varlink::Result<()>;
+    fn baz(
+        &self,
+        call: &mut dyn Call_Baz,
+        self_: Option<Reserved>,
+        r#type: ReservedEnum,
+    ) -> varlink::Result<()>;
     fn foo(
         &self,
         call: &mut dyn Call_Foo,
@@ -323,6 +386,11 @@ pub trait VarlinkInterface {
 #[allow(dead_code)]
 pub trait VarlinkClientInterface {
     fn bar(&mut self) -> varlink::MethodCall<Bar_Args, Bar_Reply, Error>;
+    fn baz(
+        &mut self,
+        self_: Option<Reserved>,
+        r#type: ReservedEnum,
+    ) -> varlink::MethodCall<Baz_Args, Baz_Reply, Error>;
     fn foo(
         &mut self,
         r#enum: Foo_Args_enum,
@@ -346,6 +414,17 @@ impl VarlinkClientInterface for VarlinkClient {
             self.connection.clone(),
             "org.example.complex.Bar",
             Bar_Args {},
+        )
+    }
+    fn baz(
+        &mut self,
+        self_: Option<Reserved>,
+        r#type: ReservedEnum,
+    ) -> varlink::MethodCall<Baz_Args, Baz_Reply, Error> {
+        varlink::MethodCall::<Baz_Args, Baz_Reply, Error>::new(
+            self.connection.clone(),
+            "org.example.complex.Baz",
+            Baz_Args { self_, r#type },
         )
     }
     fn foo(
@@ -375,7 +454,7 @@ pub fn new(inner: Box<dyn VarlinkInterface + Send + Sync>) -> VarlinkInterfacePr
 }
 impl varlink::Interface for VarlinkInterfaceProxy {
     fn get_description(&self) -> &'static str {
-        "interface org.example.complex\n\ntype Enum (enum, b, c)\n\ntype Type (type, b, c)\n\ntype TypeEnum (type, b, c)\n\ntype Interface (interface, b, c)\n\ntype TypeFoo (\n  bool: bool,\n  int: int,\n  float: float,\n  string: string,\n  enum: ?[string]?(foo, bar, baz),\n  type: ?TypeEnum,\n  anon: (\n    foo: bool,\n    bar: int,\n    baz: [](a: int, b: int)\n  ),\n  object: object,\n  stringset: [string]()\n)\n\nmethod Foo(\n  enum: (b: bool, c: int),\n  foo: TypeFoo,\n  interface: Interface\n) -> (\n  a: [](b: bool, c: int),\n  foo: TypeFoo,\n  interface: Interface\n)\n\nmethod Bar() -> ()\n\nerror ErrorFoo (\n  enum: (\n    b: bool,\n    c: int,\n    interface: Interface\n  ),\n  foo: TypeFoo,\n  bar: (type, enum, int, bool, string, if, let),\n  interface: Interface\n)\n\nerror ErrorBar ()\n"
+        "interface org.example.complex\n\ntype Enum (enum, b, c)\n\ntype Type (type, b, c)\n\ntype TypeEnum (type, b, c)\n\ntype Interface (interface, b, c)\n\ntype ReservedEnum (self, Self, crate, super)\n\ntype Reserved (\n  self: ?string,\n  Self: ?int,\n  crate: string,\n  super: bool\n)\n\ntype TypeFoo (\n  bool: bool,\n  int: int,\n  float: float,\n  string: string,\n  enum: ?[string]?(foo, bar, baz),\n  type: ?TypeEnum,\n  anon: (\n    foo: bool,\n    bar: int,\n    baz: [](a: int, b: int)\n  ),\n  object: object,\n  stringset: [string]()\n)\n\nmethod Foo(\n  enum: (b: bool, c: int),\n  foo: TypeFoo,\n  interface: Interface\n) -> (\n  a: [](b: bool, c: int),\n  foo: TypeFoo,\n  interface: Interface\n)\n\nmethod Bar() -> ()\n\nmethod Baz(\n  self: ?Reserved,\n  type: ReservedEnum\n) -> (\n  self: ?Reserved\n)\n\nerror ErrorFoo (\n  enum: (\n    b: bool,\n    c: int,\n    interface: Interface\n  ),\n  foo: TypeFoo,\n  bar: (type, enum, int, bool, string, if, let),\n  interface: Interface\n)\n\nerror ErrorBar ()\n"
     }
     fn get_name(&self) -> &'static str {
         "org.example.complex"
@@ -391,6 +470,22 @@ impl varlink::Interface for VarlinkInterfaceProxy {
         let req = call.request.unwrap();
         match req.method.as_ref() {
             "org.example.complex.Bar" => self.inner.bar(call as &mut dyn Call_Bar),
+            "org.example.complex.Baz" => {
+                if let Some(args) = req.parameters.clone() {
+                    let args: Baz_Args = match serde_json::from_value(args) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            let es = format!("{}", e);
+                            let _ = call.reply_invalid_parameter(es.clone());
+                            return Err(varlink::context!(varlink::ErrorKind::SerdeJsonDe(es)));
+                        }
+                    };
+                    self.inner
+                        .baz(call as &mut dyn Call_Baz, args.self_, args.r#type)
+                } else {
+                    call.reply_invalid_parameter("parameters".into())
+                }
+            }
             "org.example.complex.Foo" => {
                 if let Some(args) = req.parameters.clone() {
                     let args: Foo_Args = match serde_json::from_value(args) {

@@ -247,6 +247,8 @@ use std::convert::From;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
+#[cfg(unix)]
+use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::process::Child;
 use std::sync::{Arc, RwLock};
 
@@ -1037,6 +1039,38 @@ impl Drop for Connection {
     }
 }
 
+/// Send `buf` on `sock` with `fds` attached as a single SCM_RIGHTS control
+/// message, returning the number of data bytes accepted (a short send is
+/// possible for large buffers; the caller writes any remainder normally).
+/// msghdr field widths differ across libcs (glibc/musl), hence the `as _` casts.
+#[cfg(unix)]
+fn sendmsg_with_fds(sock: RawFd, buf: &[u8], fds: &[OwnedFd]) -> std::io::Result<usize> {
+    let raw: Vec<RawFd> = fds.iter().map(|f| f.as_raw_fd()).collect();
+    let fd_bytes = std::mem::size_of_val(raw.as_slice());
+    let mut cmsg = vec![0u8; unsafe { libc::CMSG_SPACE(fd_bytes as u32) } as usize];
+    let iov = libc::iovec {
+        iov_base: buf.as_ptr() as *mut libc::c_void,
+        iov_len: buf.len(),
+    };
+    let mut msg: libc::msghdr = unsafe { std::mem::zeroed() };
+    msg.msg_iov = &iov as *const _ as *mut _;
+    msg.msg_iovlen = 1 as _;
+    msg.msg_control = cmsg.as_mut_ptr() as *mut libc::c_void;
+    msg.msg_controllen = cmsg.len() as _;
+    unsafe {
+        let c = libc::CMSG_FIRSTHDR(&msg);
+        (*c).cmsg_level = libc::SOL_SOCKET;
+        (*c).cmsg_type = libc::SCM_RIGHTS;
+        (*c).cmsg_len = libc::CMSG_LEN(fd_bytes as u32) as _;
+        std::ptr::copy_nonoverlapping(raw.as_ptr() as *const u8, libc::CMSG_DATA(c), fd_bytes);
+    }
+    let n = unsafe { libc::sendmsg(sock, &msg, libc::MSG_NOSIGNAL) };
+    if n < 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(n as usize)
+}
+
 pub struct MethodCall<MRequest, MReply, MError>
 where
     MRequest: Serialize,
@@ -1049,6 +1083,11 @@ where
     reader: Option<BufReader<Box<dyn Read + Send + Sync>>>,
     writer: Option<Box<dyn Write + Send + Sync>>,
     continues: bool,
+    /// File descriptors queued via [push_fd](#method.push_fd), attached to the
+    /// next send() as SCM_RIGHTS ancillary data. Kept as OwnedFd (dup'd copies)
+    /// so they stay valid until the message is on the wire, then dropped.
+    #[cfg(unix)]
+    fds: Vec<OwnedFd>,
     phantom_reply: PhantomData<MReply>,
     phantom_error: PhantomData<MError>,
 }
@@ -1087,9 +1126,56 @@ where
             continues: false,
             reader: None,
             writer: None,
+            #[cfg(unix)]
+            fds: Vec::new(),
             phantom_reply: PhantomData,
             phantom_error: PhantomData,
         }
+    }
+
+    /// Queue a file descriptor to be passed with the next send of this call, via
+    /// SCM_RIGHTS ancillary data on the underlying socket. Returns the fd's index
+    /// in push order — the value a method's parameters use to reference a passed fd.
+    ///
+    /// File descriptor passing is not part of the core varlink protocol; it is an
+    /// extension introduced by systemd's `sd-varlink`, and this method mirrors
+    /// `sd_varlink_push_fd(3)`.
+    ///
+    /// The fd is dup'd (F_DUPFD_CLOEXEC), so the caller keeps ownership of the
+    /// original. Only works on connections backed by an `AF_UNIX` socket (e.g.
+    /// created via [Connection::with_address] with a `unix:` address): SCM_RIGHTS
+    /// exists only there, so a TCP connection or a reader/writer-pair connection
+    /// (which has no socket at all) returns `ErrorKind::Unsupported`.
+    #[cfg(unix)]
+    pub fn push_fd(&mut self, fd: RawFd) -> std::io::Result<usize> {
+        let sock = match self.connection.read().unwrap().stream.as_ref() {
+            Some(s) => s.as_raw_fd(),
+            None => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::Unsupported,
+                    "fd passing requires a socket-backed varlink connection",
+                ));
+            }
+        };
+        let mut addr: libc::sockaddr_storage = unsafe { std::mem::zeroed() };
+        let mut len = std::mem::size_of::<libc::sockaddr_storage>() as libc::socklen_t;
+        if unsafe { libc::getsockname(sock, &mut addr as *mut _ as *mut libc::sockaddr, &mut len) }
+            < 0
+        {
+            return Err(std::io::Error::last_os_error());
+        }
+        if addr.ss_family != libc::AF_UNIX as libc::sa_family_t {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "fd passing (SCM_RIGHTS) requires an AF_UNIX socket",
+            ));
+        }
+        let dup = unsafe { libc::fcntl(fd, libc::F_DUPFD_CLOEXEC, 3) };
+        if dup < 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        self.fds.push(unsafe { OwnedFd::from_raw_fd(dup) });
+        Ok(self.fds.len() - 1)
     }
 
     fn send(&mut self, oneway: bool, more: bool, upgrade: bool) -> std::result::Result<(), MError> {
@@ -1128,7 +1214,31 @@ where
             // Use sans-io protocol serialization
             let b = crate::sansio::protocol::serialize_request(&req)?;
 
-            w.write_all(&b).map_err(map_context!())?;
+            // If fds were queued (push_fd), send the request via sendmsg with
+            // SCM_RIGHTS on the underlying socket instead of the boxed writer.
+            // Both share the same socket, so any tail past the single sendmsg is
+            // written through the writer in order.
+            #[cfg(unix)]
+            let sent = if !self.fds.is_empty() {
+                let sock = conn
+                    .stream
+                    .as_ref()
+                    .map(|s| s.as_raw_fd())
+                    .ok_or_else(|| MError::from(context!(ErrorKind::ConnectionBusy)))?;
+                let n = sendmsg_with_fds(sock, &b, &self.fds).map_err(map_context!())?;
+                self.fds.clear();
+                if n < b.len() {
+                    w.write_all(&b[n..]).map_err(map_context!())?;
+                }
+                true
+            } else {
+                false
+            };
+            #[cfg(not(unix))]
+            let sent = false;
+            if !sent {
+                w.write_all(&b).map_err(map_context!())?;
+            }
             w.flush().map_err(map_context!())?;
             if oneway {
                 conn.writer = Some(w);

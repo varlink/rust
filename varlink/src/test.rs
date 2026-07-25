@@ -209,3 +209,240 @@ fn test_handle() -> Result<()> {
     );
     Ok(())
 }
+
+// push_fd is only meaningful on a socket-backed connection: a reader/writer-pair
+// connection (Connection::default here) has no socket for ancillary data.
+#[cfg(unix)]
+#[test]
+fn test_push_fd_requires_socket() {
+    let conn = Arc::new(RwLock::new(Connection::default()));
+    let mut call = MethodCall::<serde_json::Value, serde_json::Value, Error>::new(
+        conn,
+        "org.example.Test.Method",
+        serde_json::json!({}),
+    );
+    let err = call.push_fd(0).unwrap_err();
+    assert_eq!(err.kind(), std::io::ErrorKind::Unsupported);
+}
+
+// SCM_RIGHTS is AF_UNIX-only, so a TCP-backed connection must be rejected at
+// push_fd() time rather than failing later in sendmsg().
+#[cfg(unix)]
+#[test]
+fn test_push_fd_requires_unix_socket() {
+    use std::net::{TcpListener, TcpStream};
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let stream = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+
+    let reader = Box::new(stream.try_clone().unwrap());
+    let writer = Box::new(stream.try_clone().unwrap());
+    let conn = Arc::new(RwLock::new(Connection {
+        reader: Some(BufReader::new(reader)),
+        writer: Some(writer),
+        address: String::new(),
+        stream: Some(Box::new(stream)),
+        child: None,
+        tempdir: None,
+    }));
+
+    let mut call = MethodCall::<serde_json::Value, serde_json::Value, Error>::new(
+        conn,
+        "org.example.Test.Method",
+        serde_json::json!({}),
+    );
+    let err = call.push_fd(0).unwrap_err();
+    assert_eq!(err.kind(), std::io::ErrorKind::Unsupported);
+}
+
+// push_fd attaches descriptors to the outgoing message via SCM_RIGHTS. Send over
+// one end of a socketpair and recvmsg() the other end to confirm the fd arrives,
+// referring to the same underlying object (a pipe we can then read through).
+#[cfg(unix)]
+#[test]
+fn test_push_fd_passes_descriptor() -> Result<()> {
+    use std::io::Read;
+    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+    use std::os::unix::net::UnixStream;
+
+    let (client, server) = UnixStream::pair().unwrap();
+
+    // Pipe whose write end we pass; reading its read end proves the fd traveled.
+    let mut pipe = [0i32; 2];
+    assert_eq!(unsafe { libc::pipe(pipe.as_mut_ptr()) }, 0);
+    let (pipe_r, pipe_w) =
+        unsafe { (OwnedFd::from_raw_fd(pipe[0]), OwnedFd::from_raw_fd(pipe[1])) };
+
+    let reader = Box::new(client.try_clone().unwrap());
+    let writer = Box::new(client.try_clone().unwrap());
+    // Connection implements Drop, so the fields must be listed explicitly (no
+    // ..Default::default() functional update).
+    let conn = Arc::new(RwLock::new(Connection {
+        reader: Some(BufReader::new(reader)),
+        writer: Some(writer),
+        address: String::new(),
+        stream: Some(Box::new(client)),
+        child: None,
+        tempdir: None,
+    }));
+
+    let mut call = MethodCall::<serde_json::Value, serde_json::Value, Error>::new(
+        conn,
+        "org.example.Test.Method",
+        serde_json::json!({}),
+    );
+    assert_eq!(call.push_fd(pipe_w.as_raw_fd()).unwrap(), 0);
+    call.oneway()?; // sends the request with the fd attached
+    drop(pipe_w); // leave the received dup as the pipe's only writer
+
+    // recvmsg() the request bytes plus the SCM_RIGHTS descriptor.
+    let mut buf = [0u8; 256];
+    let mut iov = libc::iovec {
+        iov_base: buf.as_mut_ptr() as *mut libc::c_void,
+        iov_len: buf.len(),
+    };
+    let mut cbuf =
+        vec![0u8; unsafe { libc::CMSG_SPACE(std::mem::size_of::<i32>() as u32) } as usize];
+    let mut msg: libc::msghdr = unsafe { std::mem::zeroed() };
+    msg.msg_iov = &mut iov;
+    msg.msg_iovlen = 1 as _;
+    msg.msg_control = cbuf.as_mut_ptr() as *mut libc::c_void;
+    msg.msg_controllen = cbuf.len() as _;
+
+    let n = unsafe { libc::recvmsg(server.as_raw_fd(), &mut msg, 0) };
+    assert!(n > 0, "recvmsg returned {}", n);
+    // A varlink message is NUL-terminated JSON.
+    assert!(buf[..n as usize].contains(&0));
+
+    let cmsg = unsafe { libc::CMSG_FIRSTHDR(&msg) };
+    assert!(!cmsg.is_null(), "no control message received");
+    assert_eq!(unsafe { (*cmsg).cmsg_level }, libc::SOL_SOCKET);
+    assert_eq!(unsafe { (*cmsg).cmsg_type }, libc::SCM_RIGHTS);
+    let received_fd = unsafe { std::ptr::read_unaligned(libc::CMSG_DATA(cmsg) as *const i32) };
+    let received = unsafe { OwnedFd::from_raw_fd(received_fd) };
+
+    // Writing through the received fd must surface on our pipe's read end.
+    let payload = b"hi";
+    let w = unsafe {
+        libc::write(
+            received.as_raw_fd(),
+            payload.as_ptr() as *const libc::c_void,
+            payload.len(),
+        )
+    };
+    assert_eq!(w, payload.len() as isize);
+    drop(received);
+
+    let mut got = [0u8; 2];
+    std::fs::File::from(pipe_r).read_exact(&mut got).unwrap();
+    assert_eq!(&got, payload);
+    Ok(())
+}
+
+// Multiple push_fd calls return consecutive indices and deliver all fds in one
+// SCM_RIGHTS control message, each mapping back to the right object; after a
+// send the queue is cleared, so a second send carries no ancillary data.
+#[cfg(unix)]
+#[test]
+fn test_push_fd_multiple_and_cleared_after_send() -> Result<()> {
+    use std::io::Read;
+    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+    use std::os::unix::net::UnixStream;
+
+    let (client, server) = UnixStream::pair().unwrap();
+
+    // Two pipes; we pass both write ends and tell the received fds apart by
+    // writing a distinct payload through each.
+    let mut p1 = [0i32; 2];
+    let mut p2 = [0i32; 2];
+    assert_eq!(unsafe { libc::pipe(p1.as_mut_ptr()) }, 0);
+    assert_eq!(unsafe { libc::pipe(p2.as_mut_ptr()) }, 0);
+    let (r1, w1) = unsafe { (OwnedFd::from_raw_fd(p1[0]), OwnedFd::from_raw_fd(p1[1])) };
+    let (r2, w2) = unsafe { (OwnedFd::from_raw_fd(p2[0]), OwnedFd::from_raw_fd(p2[1])) };
+
+    let reader = Box::new(client.try_clone().unwrap());
+    let writer = Box::new(client.try_clone().unwrap());
+    let conn = Arc::new(RwLock::new(Connection {
+        reader: Some(BufReader::new(reader)),
+        writer: Some(writer),
+        address: String::new(),
+        stream: Some(Box::new(client)),
+        child: None,
+        tempdir: None,
+    }));
+
+    let mut call = MethodCall::<serde_json::Value, serde_json::Value, Error>::new(
+        conn,
+        "org.example.Test.Method",
+        serde_json::json!({}),
+    );
+    assert_eq!(call.push_fd(w1.as_raw_fd()).unwrap(), 0);
+    assert_eq!(call.push_fd(w2.as_raw_fd()).unwrap(), 1);
+    call.oneway()?;
+    drop((w1, w2)); // leave the received dups as the pipes' only writers
+
+    let mut buf = [0u8; 256];
+    let mut iov = libc::iovec {
+        iov_base: buf.as_mut_ptr() as *mut libc::c_void,
+        iov_len: buf.len(),
+    };
+    let mut cbuf =
+        vec![0u8; unsafe { libc::CMSG_SPACE(2 * std::mem::size_of::<i32>() as u32) } as usize];
+    let mut msg: libc::msghdr = unsafe { std::mem::zeroed() };
+    msg.msg_iov = &mut iov;
+    msg.msg_iovlen = 1 as _;
+    msg.msg_control = cbuf.as_mut_ptr() as *mut libc::c_void;
+    msg.msg_controllen = cbuf.len() as _;
+
+    let n = unsafe { libc::recvmsg(server.as_raw_fd(), &mut msg, 0) };
+    assert!(n > 0, "recvmsg returned {}", n);
+
+    // Exactly one control message, sized for both fds.
+    let cmsg = unsafe { libc::CMSG_FIRSTHDR(&msg) };
+    assert!(!cmsg.is_null(), "no control message received");
+    assert_eq!(unsafe { (*cmsg).cmsg_level }, libc::SOL_SOCKET);
+    assert_eq!(unsafe { (*cmsg).cmsg_type }, libc::SCM_RIGHTS);
+    assert_eq!(unsafe { (*cmsg).cmsg_len } as usize, unsafe {
+        libc::CMSG_LEN(2 * std::mem::size_of::<i32>() as u32)
+    } as usize);
+    assert!(unsafe { libc::CMSG_NXTHDR(&msg, cmsg) }.is_null());
+
+    let data = unsafe { libc::CMSG_DATA(cmsg) };
+    let fd0 = unsafe { std::ptr::read_unaligned(data as *const i32) };
+    let fd1 =
+        unsafe { std::ptr::read_unaligned(data.add(std::mem::size_of::<i32>()) as *const i32) };
+    let (recv0, recv1) = unsafe { (OwnedFd::from_raw_fd(fd0), OwnedFd::from_raw_fd(fd1)) };
+
+    // Push order is preserved: index 0 writes into pipe 1, index 1 into pipe 2.
+    for (fd, pipe_r, payload) in [(recv0, r1, b"p1"), (recv1, r2, b"p2")] {
+        let w = unsafe {
+            libc::write(
+                fd.as_raw_fd(),
+                payload.as_ptr() as *const libc::c_void,
+                payload.len(),
+            )
+        };
+        assert_eq!(w, payload.len() as isize);
+        drop(fd);
+        let mut got = [0u8; 2];
+        std::fs::File::from(pipe_r).read_exact(&mut got).unwrap();
+        assert_eq!(&got, payload);
+    }
+
+    // The queue was cleared on send: a second send on the same connection must
+    // arrive without any ancillary data.
+    let mut call = MethodCall::<serde_json::Value, serde_json::Value, Error>::new(
+        call.connection.clone(),
+        "org.example.Test.Method",
+        serde_json::json!({}),
+    );
+    call.oneway()?;
+    msg.msg_controllen = cbuf.len() as _;
+    let n = unsafe { libc::recvmsg(server.as_raw_fd(), &mut msg, 0) };
+    assert!(n > 0, "recvmsg returned {}", n);
+    assert_eq!(
+        msg.msg_controllen, 0,
+        "unexpected ancillary data on second send"
+    );
+    Ok(())
+}

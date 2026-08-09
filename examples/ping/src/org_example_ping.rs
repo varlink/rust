@@ -131,16 +131,16 @@ pub trait VarlinkCallError: varlink::CallTrait {
     }
 }
 impl VarlinkCallError for varlink::Call<'_> {}
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct PingError_Args {
     pub r#parameter: i64,
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct Ping_Reply {
     pub r#pong: String,
 }
 impl varlink::VarlinkReply for Ping_Reply {}
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct Ping_Args {
     pub r#ping: String,
 }
@@ -151,10 +151,10 @@ pub trait Call_Ping: VarlinkCallError {
     }
 }
 impl Call_Ping for varlink::Call<'_> {}
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct Upgrade_Reply {}
 impl varlink::VarlinkReply for Upgrade_Reply {}
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct Upgrade_Args {}
 #[allow(dead_code)]
 pub trait Call_Upgrade: VarlinkCallError {

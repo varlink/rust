@@ -132,16 +132,16 @@ pub trait VarlinkCallError: varlink::CallTrait {
     }
 }
 impl VarlinkCallError for varlink::Call<'_> {}
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct PingError_Args {
     pub r#parameter: i64,
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct Ping_Reply {
     pub r#pong: String,
 }
 impl varlink::VarlinkReply for Ping_Reply {}
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct Ping_Args {
     pub r#ping: String,
 }

@@ -133,22 +133,25 @@ pub trait VarlinkCallError: varlink::CallTrait {
     }
 }
 impl VarlinkCallError for varlink::Call<'_> {}
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct r#State {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub r#start: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub r#progress: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub r#end: Option<bool>,
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct TestMoreError_Args {
     pub r#reason: String,
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct Ping_Reply {
     pub r#pong: String,
 }
 impl varlink::VarlinkReply for Ping_Reply {}
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct Ping_Args {
     pub r#ping: String,
 }
@@ -159,10 +162,10 @@ pub trait Call_Ping: VarlinkCallError {
     }
 }
 impl Call_Ping for varlink::Call<'_> {}
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct StopServing_Reply {}
 impl varlink::VarlinkReply for StopServing_Reply {}
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct StopServing_Args {}
 #[allow(dead_code)]
 pub trait Call_StopServing: VarlinkCallError {
@@ -171,12 +174,12 @@ pub trait Call_StopServing: VarlinkCallError {
     }
 }
 impl Call_StopServing for varlink::Call<'_> {}
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct TestMore_Reply {
     pub r#state: State,
 }
 impl varlink::VarlinkReply for TestMore_Reply {}
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
 pub struct TestMore_Args {
     pub r#n: i64,
 }

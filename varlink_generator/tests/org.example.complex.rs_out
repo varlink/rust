@@ -129,23 +129,6 @@ impl From<&varlink::Reply> for ErrorKind {
         }
     }
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
-pub struct r#ErrorFoo_Args_enum {
-    pub r#b: bool,
-    pub r#c: i64,
-    pub r#interface: Interface,
-}
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
-pub enum r#ErrorFoo_Args_bar {
-    #[default]
-    r#type,
-    r#enum,
-    r#int,
-    r#bool,
-    r#string,
-    r#if,
-    r#let,
-}
 #[allow(dead_code)]
 pub trait VarlinkCallError: varlink::CallTrait {
     fn reply_error_bar(&mut self) -> varlink::Result<()> {

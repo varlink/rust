@@ -917,7 +917,12 @@ fn generate_error_code(
 ) {
     // Errors traits
     {
-        let mut error_structs_and_enums = TokenStream::new();
+        // Scratch sink for the anonymous helper types produced as a side effect
+        // of `to_rust_string` below. We only need the type *names* here (for the
+        // reply_* signatures); the definitions themselves are emitted by
+        // `VError::to_tokenstream` alongside each error's `_Args` struct. Emitting
+        // them here too would duplicate every anonymous error helper type.
+        let mut discard = TokenStream::new();
         let mut funcs = TokenStream::new();
         {
             let mut errors = Vec::new();
@@ -1093,7 +1098,7 @@ fn generate_error_code(
                             e.vtype
                                 .to_rust_string(
                                     format!("{}_Args_{}", t.name, e.name).as_ref(),
-                                    &mut error_structs_and_enums,
+                                    &mut discard,
                                     options,
                                 )
                                 .as_ref(),
@@ -1122,7 +1127,6 @@ fn generate_error_code(
             ));
         }
         ts.extend(quote!(
-            #error_structs_and_enums
             #[allow(dead_code)]
             pub trait VarlinkCallError: varlink::CallTrait {
                 #funcs

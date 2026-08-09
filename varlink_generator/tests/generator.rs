@@ -77,3 +77,22 @@ fn test_generate() {
     let _ = std::fs::remove_file(path);
     let _ = std::fs::remove_file(path2);
 }
+
+// Regression: an `error` whose parameters contain anonymous nested types must
+// emit each generated helper type exactly once. The error definitions are
+// visited by two passes (the error-code/reply_* generation and the per-error
+// `_Args` struct generation); a bug had both passes emit the anonymous helper
+// types, producing duplicate `struct`/`enum` definitions that fail to compile.
+#[test]
+fn error_anonymous_types_emitted_once() {
+    let src = "interface org.example.test\n\
+               error Foo (bar: (a: int, b: string), baz: (x: bool))\n";
+    let code = varlink_generator::compile(src.to_string())
+        .unwrap()
+        .to_string();
+
+    for def in ["struct r#Foo_Args_bar", "struct r#Foo_Args_baz"] {
+        let count = code.matches(def).count();
+        assert_eq!(count, 1, "`{def}` was emitted {count} times, expected once");
+    }
+}

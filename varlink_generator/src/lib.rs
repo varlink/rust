@@ -41,7 +41,7 @@ use std::process::{exit, Command};
 use std::str::FromStr;
 
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{format_ident, quote};
+use quote::quote;
 
 use varlink_parser::{Typedef, VEnum, VError, VStruct, VStructOrEnum, VType, VTypeExt, IDL};
 
@@ -169,6 +169,31 @@ fn to_snake_case(mut str: &str) -> String {
     words.join("_")
 }
 
+// Build a valid Rust identifier for a varlink field/variant/type name. Names
+// that collide with Rust keywords are normally emitted as raw identifiers
+// (`r#type`); serde transparently strips the `r#`, so the on-the-wire name is
+// unchanged. The four keywords that cannot be raw identifiers
+// (`self`, `Self`, `crate`, `super`) are instead suffixed with `_`. Callers that
+// emit a *serializable* field/variant must pair this with keyword_serde_rename()
+// so the wire name is preserved despite the mangled Rust identifier.
+fn safe_ident(name: &str) -> Ident {
+    match name {
+        "self" | "Self" | "crate" | "super" => Ident::new(&format!("{name}_"), Span::call_site()),
+        _ => syn::parse_str(&(String::from("r#") + name)).unwrap(),
+    }
+}
+
+// Companion to safe_ident(): for the four keywords mangled with a trailing `_`,
+// return a `#[serde(rename = "...")]` attribute that restores the original wire
+// name. Returns an empty token stream for every other name (raw identifiers need
+// no rename, since serde already ignores the `r#` prefix).
+fn keyword_serde_rename(name: &str) -> TokenStream {
+    match name {
+        "self" | "Self" | "crate" | "super" => quote!(#[serde(rename = #name)]),
+        _ => quote!(),
+    }
+}
+
 impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VStruct<'long> {
     fn to_tokenstream(
         &'long self,
@@ -176,12 +201,24 @@ impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VStruct<'long> {
         tokenstream: &mut TokenStream,
         options: &'long GeneratorOptions,
     ) {
-        let tname: Ident = format_ident!("r#{}", name);
+        let tname: Ident = safe_ident(name);
 
         let mut enames = vec![];
         let mut etypes = vec![];
+        let mut anot = vec![];
         for e in &self.elts {
-            let ename_ident: Ident = syn::parse_str(&(String::from("r#") + e.name)).unwrap();
+            // Omit null optionals on the wire, matching how method argument and
+            // reply structs are emitted. Without this, a minimally-populated
+            // named type (e.g. systemd's UnitContext) serializes every absent
+            // field as `null`, which servers may reject as an unsettable property.
+            let skip = if let VTypeExt::Option(_) = e.vtype {
+                quote!(#[serde(skip_serializing_if = "Option::is_none")])
+            } else {
+                quote!()
+            };
+            let rename = keyword_serde_rename(e.name);
+            anot.push(quote!(#skip #rename));
+            let ename_ident: Ident = safe_ident(e.name);
             enames.push(ename_ident);
             etypes.push(
                 TokenStream::from_str(
@@ -197,9 +234,9 @@ impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VStruct<'long> {
             );
         }
         tokenstream.extend(quote!(
-            #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+            #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
             pub struct #tname {
-                #(pub #enames: #etypes,)*
+                #(#anot pub #enames: #etypes,)*
             }
         ));
     }
@@ -212,18 +249,26 @@ impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VEnum<'long> {
         tokenstream: &mut TokenStream,
         _options: &'long GeneratorOptions,
     ) {
-        let tname: Ident = syn::parse_str(&(String::from("r#") + name)).unwrap();
+        let tname: Ident = safe_ident(name);
 
         let mut enames = vec![];
+        let mut anot = vec![];
 
-        for elt in &self.elts {
-            let ename_ident: Ident = syn::parse_str(&(String::from("r#") + elt)).unwrap();
+        for (i, elt) in self.elts.iter().enumerate() {
+            // derive(Default) on an enum requires exactly one #[default] variant;
+            // pick the first. This only affects Enum::default() — used when a
+            // struct that holds this enum by value is default-constructed — and
+            // never the wire encoding.
+            let default_attr = if i == 0 { quote!(#[default]) } else { quote!() };
+            let rename = keyword_serde_rename(elt);
+            anot.push(quote!(#default_attr #rename));
+            let ename_ident: Ident = safe_ident(elt);
             enames.push(ename_ident);
         }
         tokenstream.extend(quote!(
-            #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+            #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
             pub enum #tname {
-                #(#enames, )*
+                #(#anot #enames, )*
             }
         ));
     }
@@ -256,12 +301,14 @@ impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VError<'long> {
         let mut args_anot = vec![];
 
         for e in &self.parm.elts {
-            args_anot.push(if let VTypeExt::Option(_) = e.vtype {
+            let skip = if let VTypeExt::Option(_) = e.vtype {
                 quote!(#[serde(skip_serializing_if = "Option::is_none")])
             } else {
                 quote!()
-            });
-            let ename_ident: Ident = syn::parse_str(&(String::from("r#") + e.name)).unwrap();
+            };
+            let rename = keyword_serde_rename(e.name);
+            args_anot.push(quote!(#skip #rename));
+            let ename_ident: Ident = safe_ident(e.name);
             args_enames.push(ename_ident);
             args_etypes.push(
                 TokenStream::from_str(
@@ -277,7 +324,7 @@ impl<'short, 'long: 'short> ToTokenStream<'short, 'long> for VError<'long> {
             );
         }
         tokenstream.extend(quote!(
-            #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+            #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
             pub struct #args_name {
                 #(#args_anot pub #args_enames: #args_etypes,)*
             }
@@ -379,14 +426,14 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
             let in_field_types = in_field_types.iter();
 
             ts.extend(quote!(
-                #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+                #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
                 pub struct #out_struct_name {
                                 #(#out_anot pub #out_field_names: #out_field_types,)*
                 }
 
                 impl varlink::VarlinkReply for #out_struct_name {}
 
-                #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+                #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Default)]
                 pub struct #in_struct_name {
                                 #(#in_anot pub #in_field_names: #in_field_types,)*
                 }
@@ -570,7 +617,7 @@ fn varlink_to_rust(idl: &IDL, options: &GeneratorOptions, tosource: bool) -> Res
 
             let mut in_field_names = Vec::new();
             for e in &t.input.elts {
-                let ename_ident: Ident = syn::parse_str(&(String::from("r#") + e.name)).unwrap();
+                let ename_ident: Ident = safe_ident(e.name);
                 in_field_names.push(ename_ident);
             }
 
@@ -843,12 +890,14 @@ fn generate_anon_struct(
     anot: &mut Vec<TokenStream>,
 ) {
     for e in &vstruct.elts {
-        anot.push(if let VTypeExt::Option(_) = e.vtype {
+        let skip = if let VTypeExt::Option(_) = e.vtype {
             quote!(#[serde(skip_serializing_if = "Option::is_none")])
         } else {
             quote!()
-        });
-        let ename_ident: Ident = syn::parse_str(&(String::from("r#") + e.name)).unwrap();
+        };
+        let rename = keyword_serde_rename(e.name);
+        anot.push(quote!(#skip #rename));
+        let ename_ident: Ident = safe_ident(e.name);
         field_names.push(ename_ident);
         field_types.push(
             TokenStream::from_str(
@@ -1037,8 +1086,7 @@ fn generate_error_code(
             let args_name = Ident::new(&format!("{}_Args", t.name), Span::call_site());
             if !t.parm.elts.is_empty() {
                 for e in &t.parm.elts {
-                    let ename_ident: Ident =
-                        syn::parse_str(&(String::from("r#") + e.name)).unwrap();
+                    let ename_ident: Ident = safe_ident(e.name);
                     inparms_name.push(ename_ident);
                     inparms_type.push(
                         TokenStream::from_str(
